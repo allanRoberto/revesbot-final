@@ -1,0 +1,37 @@
+{
+  "id": "estelar_equivalence_boost",
+  "name": "Estelar - Equivalencias",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 92,
+  "weight": 5.0,
+  "evaluator": "estelar_equivalence_boost",
+  "max_numbers": 15,
+  "params": {
+    "context_size": 30,
+    "mirror_weight": 10,
+    "neighbor_weight": 11,
+    "terminal_weight": 5,
+    "sum_weight": 5,
+    "return_weight": 8,
+    "min_returns": 2,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.65,
+    "enforce_presence": true,
+    "min_keep": 3,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 12,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 490,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

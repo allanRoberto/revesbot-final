@@ -1,0 +1,15 @@
+{
+  "id": "legacy_base_suggestion",
+  "name": "Legacy Base Suggestion",
+  "kind": "positive",
+  "version": "1.1.0",
+  "active": true,
+  "priority": 98,
+  "weight": 2.5,
+  "evaluator": "legacy_base_suggestion",
+  "max_numbers": 18,
+  "params": {
+    "enforce_presence": true,
+    "min_keep": 2
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "puxados_boost",
+  "name": "Puxados v3",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 92,
+  "weight": 5.0,
+  "evaluator": "puxados_boost",
+  "max_numbers": 15,
+  "params": {
+    "min_history": 400,
+    "window": 3,
+    "top_window": 11,
+    "top_plus1": 3,
+    "min_indice": 10,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.55,
+    "enforce_presence": true,
+    "min_keep": 3,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 5,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    }
+  }
+}

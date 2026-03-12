@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎰 Exportador Roletas Pragmatic</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .stats {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-around;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2a5298;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .download-all {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 15px;
+        }
+        
+        .download-all:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(40, 167, 69, 0.3);
+        }
+        
+        .filter-buttons {
+            display: inline-flex;
+            gap: 10px;
+        }
+        
+        .filter-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-btn.active {
+            background: #007bff;
+        }
+        
+        .roulettes-grid {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .roulette-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .roulette-card:hover {
+            border-color: #007bff;
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        
+        .roulette-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .roulette-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2a5298;
+            margin-bottom: 10px;
+            text-transform: capitalize;
+        }
+        
+        .roulette-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .download-btn {
+            background: linear-gradient(135deg, #007bff 0%, #6c5ce7 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 123, 255, 0.3);
+        }
+        
+        .download-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .country-flag {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎰 Exportador Roletas Pragmatic</h1>
+            <p>Baixe os resultados de cada roleta em arquivos TXT separados</p>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="totalNumbers">108,916</div>
+                <div class="stat-label">Total de Números</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">24</div>
+                <div class="stat-label">Roletas Diferentes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="totalDownloads">0</div>
+                <div class="stat-label">Downloads Realizados</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="download-all" onclick="downloadAll()">
+                📦 Baixar Todas as Roletas (ZIP)
+            </button>
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterRoulettes('all')">Todas</button>
+                <button class="filter-btn" onclick="filterRoulettes('speed')">Speed</button>
+                <button class="filter-btn" onclick="filterRoulettes('mega')">Mega</button>
+                <button class="filter-btn" onclick="filterRoulettes('auto')">Auto</button>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Carregando dados das roletas...</p>
+        </div>
+        
+        <div class="roulettes-grid" id="roulettesGrid">
+            <!-- Será preenchido dinamicamente -->
+        </div>
+    </div>
+
+    <script>
+        let roulettesData = [];
+        let totalDownloads = 0;
+        
+        // Dados das roletas (simulados - você substituirá pela consulta real)
+        const mockRoulettes = [
+            { name: 'pragmatic-brazilian-roulette', count: 7159, flag: '🇧🇷', displayName: 'Brazilian Roulette' },
+            { name: 'pragmatic-roulette-macao', count: 7159, flag: '🇲🇴', displayName: 'Roulette Macao' },
+            { name: 'pragmatic-auto-roulette', count: 7105, flag: '⚡', displayName: 'Auto Roulette' },
+            { name: 'pragmatic-speed-roulette-2', count: 6669, flag: '🚀', displayName: 'Speed Roulette 2' },
+            { name: 'pragmatic-mega-roulette', count: 6542, flag: '💎', displayName: 'Mega Roulette' },
+            { name: 'pragmatic-powerup-roulette', count: 6493, flag: '⚡', displayName: 'PowerUp Roulette' },
+            { name: 'pragmatic-auto-mega-roulette', count: 6473, flag: '💎', displayName: 'Auto Mega Roulette' },
+            { name: 'pragmatic-speed-auto-roulette', count: 6470, flag: '🚀', displayName: 'Speed Auto Roulette' },
+            { name: 'pragmatic-speed-roulette-1', count: 6389, flag: '🚀', displayName: 'Speed Roulette 1' },
+            { name: 'pragmatic-roulette-1', count: 5598, flag: '🎯', displayName: 'Roulette 1' },
+            { name: 'pragmatic-immersive-roulette-deluxe', count: 5420, flag: '💫', displayName: 'Immersive Roulette Deluxe' },
+            { name: 'pragmatic-vietnamese-roulette', count: 5418, flag: '🇻🇳', displayName: 'Vietnamese Roulette' },
+            { name: 'pragmatic-roulete-3', count: 5247, flag: '🎲', displayName: 'Roulete 3' },
+            { name: 'pragmatic-korean-roulette', count: 5232, flag: '🇰🇷', displayName: 'Korean Roulette' },
+            { name: 'pragmatic-russian-roulette', count: 5212, flag: '🇷🇺', displayName: 'Russian Roulette' },
+            { name: 'pragmatic-romanian-roulette', count: 5183, flag: '🇷🇴', displayName: 'Romanian Roulette' },
+            { name: 'pragmatic-vip-roulette', count: 5176, flag: '👑', displayName: 'VIP Roulette' },
+            { name: 'pragmatic-roulette-italian', count: 5141, flag: '🇮🇹', displayName: 'Roulette Italian' },
+            { name: 'pragmatic-turkish-roulette', count: 5044, flag: '🇹🇷', displayName: 'Turkish Roulette' },
+            { name: 'pragmatic-german-roulette', count: 5043, flag: '🇩🇪', displayName: 'German Roulette' },
+            { name: 'pragmatic-roulette-italia-tricolore', count: 5002, flag: '🇮🇹', displayName: 'Roulette Italia Tricolore' },
+            { name: 'pragmatic-mega-roulette-brazilian', count: 4985, flag: '🇧🇷', displayName: 'Mega Roulette Brazilian' },
+            { name: 'pragmatic-turkish-mega-roulette', count: 4789, flag: '🇹🇷', displayName: 'Turkish Mega Roulette' },
+            { name: 'pragmatic-roulette-2', count: 4641, flag: '🎯', displayName: 'Roulette 2' }
+        ];
+        
+        // Simular carregamento inicial
+        window.onload = function() {
+            document.getElementById('loading').style.display = 'block';
+            setTimeout(() => {
+                roulettesData = mockRoulettes;
+                renderRoulettes(roulettesData);
+                document.getElementById('loading').style.display = 'none';
+            }, 1500);
+        };
+        
+        function renderRoulettes(data) {
+            const grid = document.getElementById('roulettesGrid');
+            grid.innerHTML = '';
+            
+            data.forEach(roulette => {
+                const card = document.createElement('div');
+                card.className = 'roulette-card';
+                card.innerHTML = `
+                    <div class="roulette-name">
+                        <span class="country-flag">${roulette.flag}</span>
+                        ${roulette.displayName}
+                    </div>
+                    <div class="roulette-stats">
+                        <span><strong>${roulette.count.toLocaleString()}</strong> números</span>
+                        <span>ID: ${roulette.name}</span>
+                    </div>
+                    <button class="download-btn" onclick="downloadRoulette('${roulette.name}', '${roulette.displayName}', ${roulette.count})">
+                        📄 Baixar TXT
+                    </button>
+                    <div class="success-message" id="success-${roulette.name.replace(/[^a-zA-Z0-9]/g, '')}">
+                        ✅ Download concluído!
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+        
+        function filterRoulettes(type) {
+            // Atualizar botões ativos
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            let filtered = roulettesData;
+            
+            if (type === 'speed') {
+                filtered = roulettesData.filter(r => r.name.includes('speed'));
+            } else if (type === 'mega') {
+                filtered = roulettesData.filter(r => r.name.includes('mega'));
+            } else if (type === 'auto') {
+                filtered = roulettesData.filter(r => r.name.includes('auto'));
+            }
+            
+            renderRoulettes(filtered);
+        }
+        
+        async function downloadRoulette(rouletteName, displayName, count) {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            const successDiv = document.getElementById(`success-${rouletteName.replace(/[^a-zA-Z0-9]/g, '')}`);
+            
+            // Desabilitar botão e mostrar loading
+            button.disabled = true;
+            button.innerHTML = '⏳ Preparando...';
+            
+            try {
+                // Simular consulta ao banco (você substituirá pela consulta real)
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Simular dados (substitua pela consulta real ao MongoDB)
+                const mockData = generateMockResults(count);
+                
+                // Criar arquivo TXT
+                const content = createTxtContent(displayName, mockData);
+                
+                // Fazer download
+                downloadFile(`${rouletteName}_results.txt`, content);
+                
+                // Atualizar contadores
+                totalDownloads++;
+                document.getElementById('totalDownloads').textContent = totalDownloads;
+                
+                // Mostrar sucesso
+                button.innerHTML = '✅ Baixado!';
+                successDiv.style.display = 'block';
+                
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                    successDiv.style.display = 'none';
+                }, 3000);
+                
+            } catch (error) {
+                button.innerHTML = '❌ Erro';
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }, 3000);
+            }
+        }
+        
+        function generateMockResults(count) {
+            // Gerar resultados simulados (substitua pela consulta real)
+            const results = [];
+            const now = new Date();
+            
+            for (let i = 0; i < Math.min(count, 100); i++) { // Limitar a 100 para demo
+                const value = Math.floor(Math.random() * 37); // 0-36
+                const timestamp = new Date(now.getTime() - (i * 60000)); // 1 min entre cada
+                results.push({ value, timestamp });
+            }
+            
+            return results.reverse(); // Mais antigos primeiro
+        }
+        
+        function createTxtContent(rouletteName, results) {
+            let content = `# Resultados da ${rouletteName}\n`;
+            content += `# Total de números: ${results.length}\n`;
+            content += `# Formato: NUMERO | DATA_HORA\n`;
+            content += `# ==========================================\n\n`;
+            
+            results.forEach(result => {
+                const timestamp = result.timestamp.toISOString().slice(0, 19).replace('T', ' ');
+                content += `${result.value} | ${timestamp}\n`;
+            });
+            
+            return content;
+        }
+        
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+        
+        async function downloadAll() {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            
+            button.disabled = true;
+            button.innerHTML = '📦 Preparando ZIP...';
+            
+            try {
+                // Simular preparação do ZIP
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Aqui você implementaria a geração do ZIP com todos os arquivos
+                alert('📦 Funcionalidade de ZIP será implementada!\n\nPor enquanto, baixe cada roleta individualmente.');
+                
+                button.innerHTML = originalText;
+                button.disabled = false;
+                
+            } catch (error) {
+                button.innerHTML = '❌ Erro no ZIP';
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }, 3000);
+            }
+        }
+    </script>
+</body>
+</html>

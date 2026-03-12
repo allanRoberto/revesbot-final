@@ -1,0 +1,27 @@
+{
+  "id": "exact_alternation_delayed_entry",
+  "name": "Exact Alternation Delayed Entry",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 98,
+  "weight": 4.0,
+  "evaluator": "exact_alternation_delayed_entry",
+  "max_numbers": 16,
+  "params": {
+    "attempts_per_count": 6,
+    "cancel_lookback": 4,
+    "base_score": 1.0,
+    "near_neighbor_score": 0.9,
+    "far_neighbor_score": 0.75,
+    "zero_score": 0.7,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 6,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.35
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "terminal_repeat_sum_delayed_entry",
+  "name": "Terminal Repeat Sum Delayed Entry",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 100,
+  "weight": 4.1,
+  "evaluator": "terminal_repeat_sum_delayed_entry",
+  "max_numbers": 10,
+  "params": {
+    "wait_spins": 4,
+    "attempts_per_count": 5,
+    "cancel_lookback": 4,
+    "target_score": 1.0,
+    "near_neighbor_score": 0.9,
+    "far_neighbor_score": 0.75,
+    "terminal_score": 0.8,
+    "zero_score": 0.7,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 5,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.4
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "alinhamento_total_boost",
+  "name": "Alinhamento Total",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 85,
+  "weight": 4.5,
+  "evaluator": "alinhamento_total_boost",
+  "max_numbers": 18,
+  "params": {
+    "sequence_size": 4,
+    "include_neighbors": true,
+    "include_mirrors": true,
+    "neighbor_score_ratio": 0.55,
+    "max_bet_size": 20,
+    "enforce_presence": true,
+    "min_keep": 5,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    }
+  }
+}

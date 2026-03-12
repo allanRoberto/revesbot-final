@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Sessões do Agente</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/agent.css">
+</head>
+<body>
+    <div class="agent-shell">
+        <header class="agent-header">
+            <div class="brand">
+                <div class="brand-mark">R</div>
+                <div class="brand-text">
+                    <div class="brand-title">Sessões do Agente</div>
+                    <div class="brand-subtitle">Compartilhe, duplique e organize</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="ghost-btn" id="refresh-sessions">Atualizar</button>
+                <a class="primary-btn" href="/agent">Abrir agente</a>
+                <div class="nav-menu">
+                    <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menu">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <div class="nav-dropdown" id="nav-dropdown">
+                        <a href="/agent">Agente</a>
+                        <a href="/agent/templates">Templates</a>
+                        <a href="/agent/sessions">Sessoes</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="sessions-page">
+            <section class="panel-card">
+                <div class="panel-header">
+                    <h3>Lista de sessões</h3>
+                    <span class="badge" id="session-count">0</span>
+                </div>
+                <div class="sessions-list" id="sessions-list"></div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const el = (id) => document.getElementById(id);
+
+        const navToggle = el("nav-toggle");
+        const navDropdown = el("nav-dropdown");
+
+        if (navToggle && navDropdown) {
+            navToggle.addEventListener("click", (event) => {
+                event.stopPropagation();
+                navDropdown.classList.toggle("open");
+            });
+            document.addEventListener("click", (event) => {
+                if (!navDropdown.classList.contains("open")) return;
+                if (event.target.closest(".nav-menu")) return;
+                navDropdown.classList.remove("open");
+            });
+        }
+
+        const renderSessions = (sessions) => {
+            const list = el("sessions-list");
+            list.innerHTML = "";
+            el("session-count").textContent = sessions.length;
+
+            if (!sessions.length) {
+                list.innerHTML = "<div class=\"empty-live\">Nenhuma sessão encontrada.</div>";
+                return;
+            }
+
+            sessions.forEach((session) => {
+                const row = document.createElement("div");
+                row.className = "session-row";
+                const label = session.roulette_id || "Sessão sem roleta";
+                row.innerHTML = `
+                    <div class="session-info">
+                        <div class="session-title">${label}</div>
+                        <div class="session-meta">
+                            <span>${session.session_id}</span>
+                            <span>Mensagens: ${session.message_count || 0}</span>
+                            <span>Modelo: ${session.model || "-"}</span>
+                        </div>
+                    </div>
+                    <div class="session-actions">
+                        <a class="ghost-btn small" href="/agent?session_id=${session.session_id}">Abrir</a>
+                        <button class="ghost-btn small" data-clone="${session.session_id}">Duplicar</button>
+                        <button class="ghost-btn small danger" data-delete="${session.session_id}">Excluir</button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+        };
+
+        const loadSessions = async () => {
+            const res = await fetch("/api/agent/sessions?limit=200");
+            const data = await res.json();
+            renderSessions(data.sessions || []);
+        };
+
+        document.addEventListener("click", async (event) => {
+            const target = event.target;
+            if (target.dataset.clone) {
+                const res = await fetch("/api/agent/session/clone", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: target.dataset.clone }),
+                });
+                const data = await res.json();
+                if (data.session_id) {
+                    window.location.href = `/agent?session_id=${data.session_id}`;
+                } else {
+                    await loadSessions();
+                }
+            }
+            if (target.dataset.delete) {
+                if (!confirm("Excluir essa sessão?")) return;
+                await fetch(`/api/agent/session?session_id=${target.dataset.delete}`, { method: "DELETE" });
+                await loadSessions();
+            }
+        });
+
+        el("refresh-sessions").addEventListener("click", loadSessions);
+
+        loadSessions();
+    </script>
+</body>
+</html>

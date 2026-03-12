@@ -1,0 +1,89 @@
+{
+  "tables": [
+    {
+      "gameId": "450",
+      "name": "Brazilian Roulette",
+      "rouletteId": "pragmatic-brazilian-roulette",
+      "url": "https://lotogreen.bet.br/play/450",
+      "enabled": true
+    },
+    {
+      "gameId": "556",
+      "name": "Speed Roulette 1",
+      "rouletteId": "pragmatic-speed-roulette-1",
+      "url": "https://lotogreen.bet.br/play/556",
+      "enabled": true
+    },
+    {
+      "gameId": "557",
+      "name": "Speed Roulette 2",
+      "rouletteId": "pragmatic-speed-roulette-2",
+      "url": "https://lotogreen.bet.br/play/557",
+      "enabled": false
+    },
+    {
+      "gameId": "481",
+      "name": "Speed Auto Roulette",
+      "rouletteId": "pragmatic-speed-auto-roulette",
+      "url": "https://lotogreen.bet.br/play/481",
+      "enabled": true
+    },
+    {
+      "gameId": "457",
+      "name": "korean Roulette",
+      "rouletteId": "pragmatic-korean-roulette",
+      "url": "https://lotogreen.bet.br/play/457",
+      "enabled": true
+    },
+    {
+      "gameId": "373",
+      "name": "Auto Roulette",
+      "rouletteId": "pragmatic-auto-roulette",
+      "url": "https://lotogreen.bet.br/play/373",
+      "enabled": true
+    },
+    {
+      "gameId": "6478",
+      "name": "Mega Roulette Brazilian",
+      "rouletteId": "pragmatic-mega-roulette-brazilian",
+      "url": "https://lotogreen.bet.br/play/6478",
+      "enabled": true
+    },
+    {
+      "gameId": "550",
+      "name": "Mega Roulette",
+      "rouletteId": "pragmatic-mega-roulette",
+      "url": "https://lotogreen.bet.br/play/550",
+      "enabled": true
+    },
+    {
+      "gameId": "543",
+      "name": "Auto Mega Roulette",
+      "rouletteId": "pragmatic-auto-mega-roulette",
+      "url": "https://lotogreen.bet.br/play/543",
+      "enabled": true
+    },
+    {
+      "gameId": "8261",
+      "name": "Immersive Roulette Deluxe",
+      "rouletteId": "pragmatic-immersive-roulette-deluxe",
+      "url": "https://lotogreen.bet.br/play/8261",
+      "enabled": true
+    },
+    {
+      "gameId": "552",
+      "name": "Roulette Macao",
+      "rouletteId": "pragmatic-roulette-macao",
+      "url": "https://lotogreen.bet.br/play/552",
+      "enabled": true
+    },
+    {
+      "gameId": "473",
+      "name": "Roulette 1",
+      "rouletteId": "pragmatic-roulette-1",
+      "url": "https://lotogreen.bet.br/play/473",
+      "enabled": true
+    }
+  ]
+}
+

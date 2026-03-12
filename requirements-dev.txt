@@ -1,0 +1,39 @@
+# Consolidated local development requirements (single .venv for all apps)
+# Resolved cross-app version conflicts:
+# - fastapi: 0.115.12 (api) vs 0.116.1 (monitoring) -> 0.116.1
+# - redis: 6.1.0 (api) vs 6.2.0 (collector) -> 6.2.0
+# - python-dotenv: 1.1.0 (api/collector) vs 1.1.1 (monitoring) -> 1.1.1
+# - pymongo: 4.13.0 (collector) vs 4.14.1 (monitoring) -> 4.14.1
+
+aiohttp==3.11.16
+backoff==2.2.1
+bcrypt
+beautifulsoup4==4.13.4
+certifi
+colorama==0.4.6
+fastapi==0.116.1
+httpx==0.28.1
+jinja2
+joblib==1.5.1
+jose==1.0.0
+motor
+numpy==2.2.6
+openai
+prometheus_client==0.22.0
+pydantic==2.11.7
+pydantic[email]
+pydantic-settings==2.13.1
+pymongo==4.14.1
+pymysql
+python-dotenv==1.1.1
+python-multipart
+python_jose==3.4.0
+pytz==2025.2
+redis==6.2.0
+requests==2.32.3
+scikit_learn==1.7.1
+sqlalchemy
+stripe==12.1.0
+uvicorn[standard]==0.34.2
+websocket_client==1.8.0
+websockets==15.0.1

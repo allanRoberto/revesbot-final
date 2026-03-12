@@ -1,0 +1,28 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.venv/
+venv/
+env/
+
+# JavaScript / Node
+node_modules/
+dist/
+build/
+
+# Logs and temp files
+*.log
+logs/
+tmp/
+temp/
+*.tmp

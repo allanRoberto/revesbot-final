@@ -1,0 +1,28 @@
+{
+  "id": "sector_alternation_boost",
+  "name": "Impulso de alternancia setorial",
+  "kind": "positive",
+  "active": true,
+  "priority": 44,
+  "version": "1.0.0",
+  "weight": 5.0,
+  "evaluator": "sector_alternation_boost",
+  "max_numbers": 12,
+  "params": {
+    "window": 20,
+    "direct_weight": 1.0,
+    "neighbor1_weight": 0.65,
+    "neighbor2_weight": 0.35,
+    "min_center_distance": 6,
+    "min_switch_ratio": 0.45,
+    "target_radius": 2,
+    "center_score": 1.0,
+    "ring1_score": 0.7,
+    "ring2_score": 0.45,
+    "last_auto_tune": {
+      "signals": 353,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "anchor_return_target_neighbors_mirrors",
+  "name": "Retorno da Ancora -> Alvo + 2 Vizinhos + Espelhos",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 104,
+  "weight": 4.8,
+  "evaluator": "anchor_return_target_neighbors_mirrors",
+  "max_numbers": 12,
+  "params": {
+    "include_anchor_as_trigger": true,
+    "include_neighbor_trigger": true,
+    "include_mirrors": true,
+    "exclude_zero_anchor": true,
+    "exclude_zero_target": false,
+    "max_scan": 220,
+    "target_score": 10.0,
+    "neighbor1_score": 6.0,
+    "neighbor2_score": 4.0,
+    "mirror_score": 3.0,
+    "enforce_presence": true,
+    "min_keep": 4,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    }
+  }
+}
+

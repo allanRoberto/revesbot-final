@@ -1,0 +1,8 @@
+colorama==0.4.6
+pymongo==4.16.0
+python-dotenv==1.2.2
+pytz==2026.1.post1
+redis==7.3.0
+Requests==2.32.5
+websocket_client==1.9.0
+websockets==16.0

@@ -1,0 +1,26 @@
+{
+  "id": "trend_alternation_middle_projection_entry",
+  "name": "Trend Alternation Middle Projection Entry",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 95,
+  "weight": 4.0,
+  "evaluator": "trend_alternation_middle_projection_entry",
+  "max_numbers": 16,
+  "params": {
+    "wait_spins": 4,
+    "attempts_per_count": 5,
+    "target_score": 1.0,
+    "neighbor_score": 0.85,
+    "zero_score": 0.7,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 5,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.35
+    }
+  }
+}

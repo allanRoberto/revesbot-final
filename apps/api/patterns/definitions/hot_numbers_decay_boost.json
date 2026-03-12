@@ -1,0 +1,35 @@
+{
+  "id": "hot_numbers_decay_boost",
+  "name": "Numeros quentes com decay temporal",
+  "kind": "positive",
+  "version": "1.1.0",
+  "active": true,
+  "priority": 75,
+  "weight": 4.98,
+  "evaluator": "hot_numbers_decay_boost",
+  "max_numbers": 12,
+  "params": {
+    "hot_window": 25,
+    "cooldown_start": 2,
+    "cooldown_end": 6,
+    "min_occurrences": 2,
+    "base_score": 1.2,
+    "frequency_multiplier": 0.4,
+    "recency_decay": 0.9,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.55,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 300,
+      "min_signals": 12,
+      "min_multiplier": 0.8,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 490,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

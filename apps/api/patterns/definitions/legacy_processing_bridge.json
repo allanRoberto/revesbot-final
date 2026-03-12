@@ -1,0 +1,38 @@
+{
+  "id": "legacy_processing_bridge",
+  "name": "Bridge Legacy Processing",
+  "version": "1.0.0",
+  "kind": "positive",
+  "active": true,
+  "priority": 64,
+  "weight": 1.0,
+  "evaluator": "legacy_processing_bridge",
+  "max_numbers": 16,
+  "params": {
+    "status": "processing",
+    "max_from_index": 0,
+    "min_history": 10,
+    "max_patterns": 120,
+    "per_pattern_cap": 14,
+    "position_decay": 0.06,
+    "sub_pattern_weight": 1.0,
+    "excluded_patterns": [
+      "api_monitor",
+      "alinhamento",
+      "alinhamento_final",
+      "alinhamento_total",
+      "blackhorse",
+      "cavalos_faltantes",
+      "gemeos",
+      "numero_quente",
+      "numeros_puxando",
+      "patchoko_rep",
+      "patchoko_seq",
+      "puxados",
+      "puxou_cavalo",
+      "puxou_terminais_iguais",
+      "score_v5",
+      "sequencia_pulada_suprema"
+    ]
+  }
+}

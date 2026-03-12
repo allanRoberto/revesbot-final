@@ -1,0 +1,23 @@
+{
+  "id": "terminal_group_rotation_369_147_258",
+  "name": "Terminal Group Rotation 369/147/258",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 84,
+  "weight": 3.8,
+  "evaluator": "terminal_group_rotation_369_147_258",
+  "max_numbers": 11,
+  "params": {
+    "window_orientation": "history[0], history[1], history[2] (history[0] mais recente)",
+    "start_of_pattern_index": 2,
+    "bet_group_source": "grupo do numero mais antigo da janela (history[2])",
+    "zero_invalidates_pattern": true,
+    "require_three_distinct_groups": true,
+    "groups": {
+      "A_369": [3, 6, 9, 13, 16, 19, 23, 26, 29, 33, 36],
+      "B_147": [1, 4, 7, 11, 14, 17, 21, 24, 27, 31, 34],
+      "C_258": [2, 5, 8, 12, 15, 18, 22, 25, 28, 32, 35]
+    }
+  }
+}

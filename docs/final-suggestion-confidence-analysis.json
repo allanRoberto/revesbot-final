@@ -1,0 +1,2597 @@
+{
+  "meta": {
+    "dataset": "/Users/allanroberto/projetos/roleta-automatica/revesbot-final/apps/signals/helpers/results.json",
+    "histories_loaded": 630,
+    "all_cases_available": 52911,
+    "max_numbers": 11,
+    "attempts": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "thresholds": [
+      40,
+      50,
+      60,
+      70,
+      80
+    ],
+    "seed": 42,
+    "variants": [
+      "A_current",
+      "B_rank_preserved",
+      "C_experimental_engine_rank"
+    ],
+    "production_variant": "B_rank_preserved",
+    "variant_c_isolated_experimental": true,
+    "full_execution": {
+      "requested": true,
+      "ran": false,
+      "estimated_seconds": 7109.122,
+      "remaining_budget_seconds": 1498.438,
+      "reason": "not_viable_within_time_budget",
+      "cases_available": 52911
+    }
+  },
+  "samples": {
+    "200": {
+      "cases": 200,
+      "variant_reports": {
+        "A_current": {
+          "variant": "A_current",
+          "label": "A (current)",
+          "runtime_seconds": 13.913,
+          "metrics": {
+            "eligible_cases": 200,
+            "available_cases": 185,
+            "coverage": 0.925,
+            "average_list_size": 11,
+            "average_list_size_all_cases": 10.175,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "40-49": 1,
+              "50-59": 103,
+              "60-69": 78,
+              "70-79": 3
+            },
+            "confidence_mean": 58.924324,
+            "conditional_hits": {
+              "hit@1": 0.324324,
+              "hit@2": 0.518919,
+              "hit@3": 0.675676,
+              "hit@4": 0.778378
+            },
+            "effective_hits": {
+              "hit@1": 0.3,
+              "hit@2": 0.48,
+              "hit@3": 0.625,
+              "hit@4": 0.72
+            }
+          },
+          "confidence_buckets": {
+            "40-49": {
+              "available_cases": 1,
+              "coverage_total": 0.005,
+              "confidence_mean": 44.0,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 1,
+                "hit@4": 1
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.005,
+                "hit@4": 0.005
+              }
+            },
+            "50-59": {
+              "available_cases": 103,
+              "coverage_total": 0.515,
+              "confidence_mean": 55.592233,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 33,
+                "hit@2": 56,
+                "hit@3": 72,
+                "hit@4": 85
+              },
+              "conditional_hits": {
+                "hit@1": 0.320388,
+                "hit@2": 0.543689,
+                "hit@3": 0.699029,
+                "hit@4": 0.825243
+              },
+              "effective_hits": {
+                "hit@1": 0.165,
+                "hit@2": 0.28,
+                "hit@3": 0.36,
+                "hit@4": 0.425
+              }
+            },
+            "60-69": {
+              "available_cases": 78,
+              "coverage_total": 0.39,
+              "confidence_mean": 63.038462,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 26,
+                "hit@2": 39,
+                "hit@3": 50,
+                "hit@4": 56
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.5,
+                "hit@3": 0.641026,
+                "hit@4": 0.717949
+              },
+              "effective_hits": {
+                "hit@1": 0.13,
+                "hit@2": 0.195,
+                "hit@3": 0.25,
+                "hit@4": 0.28
+              }
+            },
+            "70-79": {
+              "available_cases": 3,
+              "coverage_total": 0.015,
+              "confidence_mean": 71.333333,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 1,
+                "hit@3": 2,
+                "hit@4": 2
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.333333,
+                "hit@3": 0.666667,
+                "hit@4": 0.666667
+              },
+              "effective_hits": {
+                "hit@1": 0.005,
+                "hit@2": 0.005,
+                "hit@3": 0.01,
+                "hit@4": 0.01
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 185,
+              "eligible_cases": 200,
+              "coverage": 0.925,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 60,
+                "hit@2": 96,
+                "hit@3": 125,
+                "hit@4": 144
+              },
+              "conditional_hits": {
+                "hit@1": 0.324324,
+                "hit@2": 0.518919,
+                "hit@3": 0.675676,
+                "hit@4": 0.778378
+              },
+              "effective_hits": {
+                "hit@1": 0.3,
+                "hit@2": 0.48,
+                "hit@3": 0.625,
+                "hit@4": 0.72
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 184,
+              "eligible_cases": 200,
+              "coverage": 0.92,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 60,
+                "hit@2": 96,
+                "hit@3": 124,
+                "hit@4": 143
+              },
+              "conditional_hits": {
+                "hit@1": 0.326087,
+                "hit@2": 0.521739,
+                "hit@3": 0.673913,
+                "hit@4": 0.777174
+              },
+              "effective_hits": {
+                "hit@1": 0.3,
+                "hit@2": 0.48,
+                "hit@3": 0.62,
+                "hit@4": 0.715
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 81,
+              "eligible_cases": 200,
+              "coverage": 0.405,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 27,
+                "hit@2": 40,
+                "hit@3": 52,
+                "hit@4": 58
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.493827,
+                "hit@3": 0.641975,
+                "hit@4": 0.716049
+              },
+              "effective_hits": {
+                "hit@1": 0.135,
+                "hit@2": 0.2,
+                "hit@3": 0.26,
+                "hit@4": 0.29
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 3,
+              "eligible_cases": 200,
+              "coverage": 0.015,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 1,
+                "hit@3": 2,
+                "hit@4": 2
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.333333,
+                "hit@3": 0.666667,
+                "hit@4": 0.666667
+              },
+              "effective_hits": {
+                "hit@1": 0.005,
+                "hit@2": 0.005,
+                "hit@3": 0.01,
+                "hit@4": 0.01
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 200,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.190649,
+            "ece_hit@1": 0.264919,
+            "available_cases": 185,
+            "monotonic_pairs": 3,
+            "monotonic_non_decrease_ratio_hit@4": 0.0
+          }
+        },
+        "B_rank_preserved": {
+          "variant": "B_rank_preserved",
+          "label": "B (rank_preserved)",
+          "runtime_seconds": 14.154,
+          "metrics": {
+            "eligible_cases": 200,
+            "available_cases": 193,
+            "coverage": 0.965,
+            "average_list_size": 10.958549,
+            "average_list_size_all_cases": 10.575,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "40-49": 1,
+              "50-59": 109,
+              "60-69": 81,
+              "70-79": 2
+            },
+            "confidence_mean": 58.84456,
+            "conditional_hits": {
+              "hit@1": 0.321244,
+              "hit@2": 0.533679,
+              "hit@3": 0.668394,
+              "hit@4": 0.772021
+            },
+            "effective_hits": {
+              "hit@1": 0.31,
+              "hit@2": 0.515,
+              "hit@3": 0.645,
+              "hit@4": 0.745
+            }
+          },
+          "confidence_buckets": {
+            "40-49": {
+              "available_cases": 1,
+              "coverage_total": 0.005,
+              "confidence_mean": 44.0,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 1,
+                "hit@4": 1
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.005,
+                "hit@4": 0.005
+              }
+            },
+            "50-59": {
+              "available_cases": 109,
+              "coverage_total": 0.545,
+              "confidence_mean": 55.623853,
+              "average_list_size": 10.981651,
+              "hits_abs": {
+                "hit@1": 34,
+                "hit@2": 60,
+                "hit@3": 76,
+                "hit@4": 90
+              },
+              "conditional_hits": {
+                "hit@1": 0.311927,
+                "hit@2": 0.550459,
+                "hit@3": 0.697248,
+                "hit@4": 0.825688
+              },
+              "effective_hits": {
+                "hit@1": 0.17,
+                "hit@2": 0.3,
+                "hit@3": 0.38,
+                "hit@4": 0.45
+              }
+            },
+            "60-69": {
+              "available_cases": 81,
+              "coverage_total": 0.405,
+              "confidence_mean": 63.037037,
+              "average_list_size": 10.925926,
+              "hits_abs": {
+                "hit@1": 27,
+                "hit@2": 42,
+                "hit@3": 50,
+                "hit@4": 56
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.518519,
+                "hit@3": 0.617284,
+                "hit@4": 0.691358
+              },
+              "effective_hits": {
+                "hit@1": 0.135,
+                "hit@2": 0.21,
+                "hit@3": 0.25,
+                "hit@4": 0.28
+              }
+            },
+            "70-79": {
+              "available_cases": 2,
+              "coverage_total": 0.01,
+              "confidence_mean": 72.0,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 1,
+                "hit@3": 2,
+                "hit@4": 2
+              },
+              "conditional_hits": {
+                "hit@1": 0.5,
+                "hit@2": 0.5,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.005,
+                "hit@2": 0.005,
+                "hit@3": 0.01,
+                "hit@4": 0.01
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 193,
+              "eligible_cases": 200,
+              "coverage": 0.965,
+              "average_list_size": 10.958549,
+              "hits_abs": {
+                "hit@1": 62,
+                "hit@2": 103,
+                "hit@3": 129,
+                "hit@4": 149
+              },
+              "conditional_hits": {
+                "hit@1": 0.321244,
+                "hit@2": 0.533679,
+                "hit@3": 0.668394,
+                "hit@4": 0.772021
+              },
+              "effective_hits": {
+                "hit@1": 0.31,
+                "hit@2": 0.515,
+                "hit@3": 0.645,
+                "hit@4": 0.745
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 192,
+              "eligible_cases": 200,
+              "coverage": 0.96,
+              "average_list_size": 10.958333,
+              "hits_abs": {
+                "hit@1": 62,
+                "hit@2": 103,
+                "hit@3": 128,
+                "hit@4": 148
+              },
+              "conditional_hits": {
+                "hit@1": 0.322917,
+                "hit@2": 0.536458,
+                "hit@3": 0.666667,
+                "hit@4": 0.770833
+              },
+              "effective_hits": {
+                "hit@1": 0.31,
+                "hit@2": 0.515,
+                "hit@3": 0.64,
+                "hit@4": 0.74
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 83,
+              "eligible_cases": 200,
+              "coverage": 0.415,
+              "average_list_size": 10.927711,
+              "hits_abs": {
+                "hit@1": 28,
+                "hit@2": 43,
+                "hit@3": 52,
+                "hit@4": 58
+              },
+              "conditional_hits": {
+                "hit@1": 0.337349,
+                "hit@2": 0.518072,
+                "hit@3": 0.626506,
+                "hit@4": 0.698795
+              },
+              "effective_hits": {
+                "hit@1": 0.14,
+                "hit@2": 0.215,
+                "hit@3": 0.26,
+                "hit@4": 0.29
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 2,
+              "eligible_cases": 200,
+              "coverage": 0.01,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 1,
+                "hit@3": 2,
+                "hit@4": 2
+              },
+              "conditional_hits": {
+                "hit@1": 0.5,
+                "hit@2": 0.5,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.005,
+                "hit@2": 0.005,
+                "hit@3": 0.01,
+                "hit@4": 0.01
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 200,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.183575,
+            "ece_hit@1": 0.267202,
+            "available_cases": 193,
+            "monotonic_pairs": 3,
+            "monotonic_non_decrease_ratio_hit@4": 0.333333
+          }
+        },
+        "C_experimental_engine_rank": {
+          "variant": "C_experimental_engine_rank",
+          "label": "C (experimental_engine_rank)",
+          "runtime_seconds": 12.241,
+          "metrics": {
+            "eligible_cases": 200,
+            "available_cases": 193,
+            "coverage": 0.965,
+            "average_list_size": 10.958549,
+            "average_list_size_all_cases": 10.575,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "40-49": 1,
+              "50-59": 109,
+              "60-69": 81,
+              "70-79": 2
+            },
+            "confidence_mean": 58.84456,
+            "conditional_hits": {
+              "hit@1": 0.321244,
+              "hit@2": 0.533679,
+              "hit@3": 0.668394,
+              "hit@4": 0.772021
+            },
+            "effective_hits": {
+              "hit@1": 0.31,
+              "hit@2": 0.515,
+              "hit@3": 0.645,
+              "hit@4": 0.745
+            }
+          },
+          "confidence_buckets": {
+            "40-49": {
+              "available_cases": 1,
+              "coverage_total": 0.005,
+              "confidence_mean": 44.0,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 1,
+                "hit@4": 1
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.005,
+                "hit@4": 0.005
+              }
+            },
+            "50-59": {
+              "available_cases": 109,
+              "coverage_total": 0.545,
+              "confidence_mean": 55.623853,
+              "average_list_size": 10.981651,
+              "hits_abs": {
+                "hit@1": 34,
+                "hit@2": 60,
+                "hit@3": 76,
+                "hit@4": 90
+              },
+              "conditional_hits": {
+                "hit@1": 0.311927,
+                "hit@2": 0.550459,
+                "hit@3": 0.697248,
+                "hit@4": 0.825688
+              },
+              "effective_hits": {
+                "hit@1": 0.17,
+                "hit@2": 0.3,
+                "hit@3": 0.38,
+                "hit@4": 0.45
+              }
+            },
+            "60-69": {
+              "available_cases": 81,
+              "coverage_total": 0.405,
+              "confidence_mean": 63.037037,
+              "average_list_size": 10.925926,
+              "hits_abs": {
+                "hit@1": 27,
+                "hit@2": 42,
+                "hit@3": 50,
+                "hit@4": 56
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.518519,
+                "hit@3": 0.617284,
+                "hit@4": 0.691358
+              },
+              "effective_hits": {
+                "hit@1": 0.135,
+                "hit@2": 0.21,
+                "hit@3": 0.25,
+                "hit@4": 0.28
+              }
+            },
+            "70-79": {
+              "available_cases": 2,
+              "coverage_total": 0.01,
+              "confidence_mean": 72.0,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 1,
+                "hit@3": 2,
+                "hit@4": 2
+              },
+              "conditional_hits": {
+                "hit@1": 0.5,
+                "hit@2": 0.5,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.005,
+                "hit@2": 0.005,
+                "hit@3": 0.01,
+                "hit@4": 0.01
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 193,
+              "eligible_cases": 200,
+              "coverage": 0.965,
+              "average_list_size": 10.958549,
+              "hits_abs": {
+                "hit@1": 62,
+                "hit@2": 103,
+                "hit@3": 129,
+                "hit@4": 149
+              },
+              "conditional_hits": {
+                "hit@1": 0.321244,
+                "hit@2": 0.533679,
+                "hit@3": 0.668394,
+                "hit@4": 0.772021
+              },
+              "effective_hits": {
+                "hit@1": 0.31,
+                "hit@2": 0.515,
+                "hit@3": 0.645,
+                "hit@4": 0.745
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 192,
+              "eligible_cases": 200,
+              "coverage": 0.96,
+              "average_list_size": 10.958333,
+              "hits_abs": {
+                "hit@1": 62,
+                "hit@2": 103,
+                "hit@3": 128,
+                "hit@4": 148
+              },
+              "conditional_hits": {
+                "hit@1": 0.322917,
+                "hit@2": 0.536458,
+                "hit@3": 0.666667,
+                "hit@4": 0.770833
+              },
+              "effective_hits": {
+                "hit@1": 0.31,
+                "hit@2": 0.515,
+                "hit@3": 0.64,
+                "hit@4": 0.74
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 83,
+              "eligible_cases": 200,
+              "coverage": 0.415,
+              "average_list_size": 10.927711,
+              "hits_abs": {
+                "hit@1": 28,
+                "hit@2": 43,
+                "hit@3": 52,
+                "hit@4": 58
+              },
+              "conditional_hits": {
+                "hit@1": 0.337349,
+                "hit@2": 0.518072,
+                "hit@3": 0.626506,
+                "hit@4": 0.698795
+              },
+              "effective_hits": {
+                "hit@1": 0.14,
+                "hit@2": 0.215,
+                "hit@3": 0.26,
+                "hit@4": 0.29
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 2,
+              "eligible_cases": 200,
+              "coverage": 0.01,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 1,
+                "hit@3": 2,
+                "hit@4": 2
+              },
+              "conditional_hits": {
+                "hit@1": 0.5,
+                "hit@2": 0.5,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.005,
+                "hit@2": 0.005,
+                "hit@3": 0.01,
+                "hit@4": 0.01
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 200,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.183575,
+            "ece_hit@1": 0.267202,
+            "available_cases": 193,
+            "monotonic_pairs": 3,
+            "monotonic_non_decrease_ratio_hit@4": 0.333333
+          }
+        }
+      },
+      "comparisons": {
+        "B_rank_preserved_minus_A_current": {
+          "coverage_delta": 0.04,
+          "average_list_size_delta": -0.041451,
+          "effective_hit@4_delta": 0.025,
+          "conditional_hit@4_delta": -0.006357
+        },
+        "C_experimental_engine_rank_minus_A_current": {
+          "coverage_delta": 0.04,
+          "average_list_size_delta": -0.041451,
+          "effective_hit@4_delta": 0.025,
+          "conditional_hit@4_delta": -0.006357
+        }
+      }
+    },
+    "500": {
+      "cases": 500,
+      "variant_reports": {
+        "A_current": {
+          "variant": "A_current",
+          "label": "A (current)",
+          "runtime_seconds": 31.692,
+          "metrics": {
+            "eligible_cases": 500,
+            "available_cases": 471,
+            "coverage": 0.942,
+            "average_list_size": 10.953291,
+            "average_list_size_all_cases": 10.318,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "50-59": 284,
+              "60-69": 175,
+              "70-79": 12
+            },
+            "confidence_mean": 58.617834,
+            "conditional_hits": {
+              "hit@1": 0.292994,
+              "hit@2": 0.503185,
+              "hit@3": 0.647558,
+              "hit@4": 0.751592
+            },
+            "effective_hits": {
+              "hit@1": 0.276,
+              "hit@2": 0.474,
+              "hit@3": 0.61,
+              "hit@4": 0.708
+            }
+          },
+          "confidence_buckets": {
+            "50-59": {
+              "available_cases": 284,
+              "coverage_total": 0.568,
+              "confidence_mean": 55.221831,
+              "average_list_size": 10.957746,
+              "hits_abs": {
+                "hit@1": 87,
+                "hit@2": 139,
+                "hit@3": 187,
+                "hit@4": 213
+              },
+              "conditional_hits": {
+                "hit@1": 0.306338,
+                "hit@2": 0.489437,
+                "hit@3": 0.658451,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.174,
+                "hit@2": 0.278,
+                "hit@3": 0.374,
+                "hit@4": 0.426
+              }
+            },
+            "60-69": {
+              "available_cases": 175,
+              "coverage_total": 0.35,
+              "confidence_mean": 63.274286,
+              "average_list_size": 10.942857,
+              "hits_abs": {
+                "hit@1": 47,
+                "hit@2": 92,
+                "hit@3": 112,
+                "hit@4": 132
+              },
+              "conditional_hits": {
+                "hit@1": 0.268571,
+                "hit@2": 0.525714,
+                "hit@3": 0.64,
+                "hit@4": 0.754286
+              },
+              "effective_hits": {
+                "hit@1": 0.094,
+                "hit@2": 0.184,
+                "hit@3": 0.224,
+                "hit@4": 0.264
+              }
+            },
+            "70-79": {
+              "available_cases": 12,
+              "coverage_total": 0.024,
+              "confidence_mean": 71.083333,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 4,
+                "hit@2": 6,
+                "hit@3": 6,
+                "hit@4": 9
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.5,
+                "hit@3": 0.5,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.008,
+                "hit@2": 0.012,
+                "hit@3": 0.012,
+                "hit@4": 0.018
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 471,
+              "eligible_cases": 500,
+              "coverage": 0.942,
+              "average_list_size": 10.953291,
+              "hits_abs": {
+                "hit@1": 138,
+                "hit@2": 237,
+                "hit@3": 305,
+                "hit@4": 354
+              },
+              "conditional_hits": {
+                "hit@1": 0.292994,
+                "hit@2": 0.503185,
+                "hit@3": 0.647558,
+                "hit@4": 0.751592
+              },
+              "effective_hits": {
+                "hit@1": 0.276,
+                "hit@2": 0.474,
+                "hit@3": 0.61,
+                "hit@4": 0.708
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 471,
+              "eligible_cases": 500,
+              "coverage": 0.942,
+              "average_list_size": 10.953291,
+              "hits_abs": {
+                "hit@1": 138,
+                "hit@2": 237,
+                "hit@3": 305,
+                "hit@4": 354
+              },
+              "conditional_hits": {
+                "hit@1": 0.292994,
+                "hit@2": 0.503185,
+                "hit@3": 0.647558,
+                "hit@4": 0.751592
+              },
+              "effective_hits": {
+                "hit@1": 0.276,
+                "hit@2": 0.474,
+                "hit@3": 0.61,
+                "hit@4": 0.708
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 187,
+              "eligible_cases": 500,
+              "coverage": 0.374,
+              "average_list_size": 10.946524,
+              "hits_abs": {
+                "hit@1": 51,
+                "hit@2": 98,
+                "hit@3": 118,
+                "hit@4": 141
+              },
+              "conditional_hits": {
+                "hit@1": 0.272727,
+                "hit@2": 0.524064,
+                "hit@3": 0.631016,
+                "hit@4": 0.754011
+              },
+              "effective_hits": {
+                "hit@1": 0.102,
+                "hit@2": 0.196,
+                "hit@3": 0.236,
+                "hit@4": 0.282
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 12,
+              "eligible_cases": 500,
+              "coverage": 0.024,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 4,
+                "hit@2": 6,
+                "hit@3": 6,
+                "hit@4": 9
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.5,
+                "hit@3": 0.5,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.008,
+                "hit@2": 0.012,
+                "hit@3": 0.012,
+                "hit@4": 0.018
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 500,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.165414,
+            "ece_hit@1": 0.293185,
+            "available_cases": 471,
+            "monotonic_pairs": 2,
+            "monotonic_non_decrease_ratio_hit@4": 0.5
+          }
+        },
+        "B_rank_preserved": {
+          "variant": "B_rank_preserved",
+          "label": "B (rank_preserved)",
+          "runtime_seconds": 31.362,
+          "metrics": {
+            "eligible_cases": 500,
+            "available_cases": 487,
+            "coverage": 0.974,
+            "average_list_size": 10.926078,
+            "average_list_size_all_cases": 10.642,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "30-39": 1,
+              "40-49": 1,
+              "50-59": 294,
+              "60-69": 179,
+              "70-79": 12
+            },
+            "confidence_mean": 58.517454,
+            "conditional_hits": {
+              "hit@1": 0.287474,
+              "hit@2": 0.494867,
+              "hit@3": 0.634497,
+              "hit@4": 0.743326
+            },
+            "effective_hits": {
+              "hit@1": 0.28,
+              "hit@2": 0.482,
+              "hit@3": 0.618,
+              "hit@4": 0.724
+            }
+          },
+          "confidence_buckets": {
+            "30-39": {
+              "available_cases": 1,
+              "coverage_total": 0.002,
+              "confidence_mean": 37.0,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 1,
+                "hit@3": 1,
+                "hit@4": 1
+              },
+              "conditional_hits": {
+                "hit@1": 1.0,
+                "hit@2": 1.0,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.002,
+                "hit@2": 0.002,
+                "hit@3": 0.002,
+                "hit@4": 0.002
+              }
+            },
+            "40-49": {
+              "available_cases": 1,
+              "coverage_total": 0.002,
+              "confidence_mean": 47.0,
+              "average_list_size": 5.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            },
+            "50-59": {
+              "available_cases": 294,
+              "coverage_total": 0.588,
+              "confidence_mean": 55.227891,
+              "average_list_size": 10.92517,
+              "hits_abs": {
+                "hit@1": 88,
+                "hit@2": 142,
+                "hit@3": 190,
+                "hit@4": 219
+              },
+              "conditional_hits": {
+                "hit@1": 0.29932,
+                "hit@2": 0.482993,
+                "hit@3": 0.646259,
+                "hit@4": 0.744898
+              },
+              "effective_hits": {
+                "hit@1": 0.176,
+                "hit@2": 0.284,
+                "hit@3": 0.38,
+                "hit@4": 0.438
+              }
+            },
+            "60-69": {
+              "available_cases": 179,
+              "coverage_total": 0.358,
+              "confidence_mean": 63.26257,
+              "average_list_size": 10.955307,
+              "hits_abs": {
+                "hit@1": 47,
+                "hit@2": 92,
+                "hit@3": 112,
+                "hit@4": 133
+              },
+              "conditional_hits": {
+                "hit@1": 0.26257,
+                "hit@2": 0.513966,
+                "hit@3": 0.625698,
+                "hit@4": 0.743017
+              },
+              "effective_hits": {
+                "hit@1": 0.094,
+                "hit@2": 0.184,
+                "hit@3": 0.224,
+                "hit@4": 0.266
+              }
+            },
+            "70-79": {
+              "available_cases": 12,
+              "coverage_total": 0.024,
+              "confidence_mean": 71.083333,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 4,
+                "hit@2": 6,
+                "hit@3": 6,
+                "hit@4": 9
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.5,
+                "hit@3": 0.5,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.008,
+                "hit@2": 0.012,
+                "hit@3": 0.012,
+                "hit@4": 0.018
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 486,
+              "eligible_cases": 500,
+              "coverage": 0.972,
+              "average_list_size": 10.925926,
+              "hits_abs": {
+                "hit@1": 139,
+                "hit@2": 240,
+                "hit@3": 308,
+                "hit@4": 361
+              },
+              "conditional_hits": {
+                "hit@1": 0.286008,
+                "hit@2": 0.493827,
+                "hit@3": 0.633745,
+                "hit@4": 0.742798
+              },
+              "effective_hits": {
+                "hit@1": 0.278,
+                "hit@2": 0.48,
+                "hit@3": 0.616,
+                "hit@4": 0.722
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 485,
+              "eligible_cases": 500,
+              "coverage": 0.97,
+              "average_list_size": 10.938144,
+              "hits_abs": {
+                "hit@1": 139,
+                "hit@2": 240,
+                "hit@3": 308,
+                "hit@4": 361
+              },
+              "conditional_hits": {
+                "hit@1": 0.286598,
+                "hit@2": 0.494845,
+                "hit@3": 0.635052,
+                "hit@4": 0.74433
+              },
+              "effective_hits": {
+                "hit@1": 0.278,
+                "hit@2": 0.48,
+                "hit@3": 0.616,
+                "hit@4": 0.722
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 191,
+              "eligible_cases": 500,
+              "coverage": 0.382,
+              "average_list_size": 10.958115,
+              "hits_abs": {
+                "hit@1": 51,
+                "hit@2": 98,
+                "hit@3": 118,
+                "hit@4": 142
+              },
+              "conditional_hits": {
+                "hit@1": 0.267016,
+                "hit@2": 0.513089,
+                "hit@3": 0.617801,
+                "hit@4": 0.743455
+              },
+              "effective_hits": {
+                "hit@1": 0.102,
+                "hit@2": 0.196,
+                "hit@3": 0.236,
+                "hit@4": 0.284
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 12,
+              "eligible_cases": 500,
+              "coverage": 0.024,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 4,
+                "hit@2": 6,
+                "hit@3": 6,
+                "hit@4": 9
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.5,
+                "hit@3": 0.5,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.008,
+                "hit@2": 0.012,
+                "hit@3": 0.012,
+                "hit@4": 0.018
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 500,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.160082,
+            "ece_hit@1": 0.300287,
+            "available_cases": 487,
+            "monotonic_pairs": 4,
+            "monotonic_non_decrease_ratio_hit@4": 0.5
+          }
+        },
+        "C_experimental_engine_rank": {
+          "variant": "C_experimental_engine_rank",
+          "label": "C (experimental_engine_rank)",
+          "runtime_seconds": 31.438,
+          "metrics": {
+            "eligible_cases": 500,
+            "available_cases": 487,
+            "coverage": 0.974,
+            "average_list_size": 10.926078,
+            "average_list_size_all_cases": 10.642,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "30-39": 1,
+              "40-49": 1,
+              "50-59": 294,
+              "60-69": 179,
+              "70-79": 12
+            },
+            "confidence_mean": 58.517454,
+            "conditional_hits": {
+              "hit@1": 0.287474,
+              "hit@2": 0.494867,
+              "hit@3": 0.634497,
+              "hit@4": 0.743326
+            },
+            "effective_hits": {
+              "hit@1": 0.28,
+              "hit@2": 0.482,
+              "hit@3": 0.618,
+              "hit@4": 0.724
+            }
+          },
+          "confidence_buckets": {
+            "30-39": {
+              "available_cases": 1,
+              "coverage_total": 0.002,
+              "confidence_mean": 37.0,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 1,
+                "hit@3": 1,
+                "hit@4": 1
+              },
+              "conditional_hits": {
+                "hit@1": 1.0,
+                "hit@2": 1.0,
+                "hit@3": 1.0,
+                "hit@4": 1.0
+              },
+              "effective_hits": {
+                "hit@1": 0.002,
+                "hit@2": 0.002,
+                "hit@3": 0.002,
+                "hit@4": 0.002
+              }
+            },
+            "40-49": {
+              "available_cases": 1,
+              "coverage_total": 0.002,
+              "confidence_mean": 47.0,
+              "average_list_size": 5.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            },
+            "50-59": {
+              "available_cases": 294,
+              "coverage_total": 0.588,
+              "confidence_mean": 55.227891,
+              "average_list_size": 10.92517,
+              "hits_abs": {
+                "hit@1": 88,
+                "hit@2": 142,
+                "hit@3": 190,
+                "hit@4": 219
+              },
+              "conditional_hits": {
+                "hit@1": 0.29932,
+                "hit@2": 0.482993,
+                "hit@3": 0.646259,
+                "hit@4": 0.744898
+              },
+              "effective_hits": {
+                "hit@1": 0.176,
+                "hit@2": 0.284,
+                "hit@3": 0.38,
+                "hit@4": 0.438
+              }
+            },
+            "60-69": {
+              "available_cases": 179,
+              "coverage_total": 0.358,
+              "confidence_mean": 63.26257,
+              "average_list_size": 10.955307,
+              "hits_abs": {
+                "hit@1": 47,
+                "hit@2": 92,
+                "hit@3": 112,
+                "hit@4": 133
+              },
+              "conditional_hits": {
+                "hit@1": 0.26257,
+                "hit@2": 0.513966,
+                "hit@3": 0.625698,
+                "hit@4": 0.743017
+              },
+              "effective_hits": {
+                "hit@1": 0.094,
+                "hit@2": 0.184,
+                "hit@3": 0.224,
+                "hit@4": 0.266
+              }
+            },
+            "70-79": {
+              "available_cases": 12,
+              "coverage_total": 0.024,
+              "confidence_mean": 71.083333,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 4,
+                "hit@2": 6,
+                "hit@3": 6,
+                "hit@4": 9
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.5,
+                "hit@3": 0.5,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.008,
+                "hit@2": 0.012,
+                "hit@3": 0.012,
+                "hit@4": 0.018
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 486,
+              "eligible_cases": 500,
+              "coverage": 0.972,
+              "average_list_size": 10.925926,
+              "hits_abs": {
+                "hit@1": 139,
+                "hit@2": 240,
+                "hit@3": 308,
+                "hit@4": 361
+              },
+              "conditional_hits": {
+                "hit@1": 0.286008,
+                "hit@2": 0.493827,
+                "hit@3": 0.633745,
+                "hit@4": 0.742798
+              },
+              "effective_hits": {
+                "hit@1": 0.278,
+                "hit@2": 0.48,
+                "hit@3": 0.616,
+                "hit@4": 0.722
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 485,
+              "eligible_cases": 500,
+              "coverage": 0.97,
+              "average_list_size": 10.938144,
+              "hits_abs": {
+                "hit@1": 139,
+                "hit@2": 240,
+                "hit@3": 308,
+                "hit@4": 361
+              },
+              "conditional_hits": {
+                "hit@1": 0.286598,
+                "hit@2": 0.494845,
+                "hit@3": 0.635052,
+                "hit@4": 0.74433
+              },
+              "effective_hits": {
+                "hit@1": 0.278,
+                "hit@2": 0.48,
+                "hit@3": 0.616,
+                "hit@4": 0.722
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 191,
+              "eligible_cases": 500,
+              "coverage": 0.382,
+              "average_list_size": 10.958115,
+              "hits_abs": {
+                "hit@1": 51,
+                "hit@2": 98,
+                "hit@3": 118,
+                "hit@4": 142
+              },
+              "conditional_hits": {
+                "hit@1": 0.267016,
+                "hit@2": 0.513089,
+                "hit@3": 0.617801,
+                "hit@4": 0.743455
+              },
+              "effective_hits": {
+                "hit@1": 0.102,
+                "hit@2": 0.196,
+                "hit@3": 0.236,
+                "hit@4": 0.284
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 12,
+              "eligible_cases": 500,
+              "coverage": 0.024,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 4,
+                "hit@2": 6,
+                "hit@3": 6,
+                "hit@4": 9
+              },
+              "conditional_hits": {
+                "hit@1": 0.333333,
+                "hit@2": 0.5,
+                "hit@3": 0.5,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.008,
+                "hit@2": 0.012,
+                "hit@3": 0.012,
+                "hit@4": 0.018
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 500,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.160082,
+            "ece_hit@1": 0.300287,
+            "available_cases": 487,
+            "monotonic_pairs": 4,
+            "monotonic_non_decrease_ratio_hit@4": 0.5
+          }
+        }
+      },
+      "comparisons": {
+        "B_rank_preserved_minus_A_current": {
+          "coverage_delta": 0.032,
+          "average_list_size_delta": -0.027213,
+          "effective_hit@4_delta": 0.016,
+          "conditional_hit@4_delta": -0.008266
+        },
+        "C_experimental_engine_rank_minus_A_current": {
+          "coverage_delta": 0.032,
+          "average_list_size_delta": -0.027213,
+          "effective_hit@4_delta": 0.016,
+          "conditional_hit@4_delta": -0.008266
+        }
+      }
+    },
+    "1000": {
+      "cases": 1000,
+      "variant_reports": {
+        "A_current": {
+          "variant": "A_current",
+          "label": "A (current)",
+          "runtime_seconds": 55.745,
+          "metrics": {
+            "eligible_cases": 1000,
+            "available_cases": 937,
+            "coverage": 0.937,
+            "average_list_size": 10.983991,
+            "average_list_size_all_cases": 10.292,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "40-49": 7,
+              "50-59": 527,
+              "60-69": 375,
+              "70-79": 28
+            },
+            "confidence_mean": 58.872999,
+            "conditional_hits": {
+              "hit@1": 0.308431,
+              "hit@2": 0.501601,
+              "hit@3": 0.651014,
+              "hit@4": 0.752401
+            },
+            "effective_hits": {
+              "hit@1": 0.289,
+              "hit@2": 0.47,
+              "hit@3": 0.61,
+              "hit@4": 0.705
+            }
+          },
+          "confidence_buckets": {
+            "40-49": {
+              "available_cases": 7,
+              "coverage_total": 0.007,
+              "confidence_mean": 47.571429,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 2,
+                "hit@3": 2,
+                "hit@4": 4
+              },
+              "conditional_hits": {
+                "hit@1": 0.142857,
+                "hit@2": 0.285714,
+                "hit@3": 0.285714,
+                "hit@4": 0.571429
+              },
+              "effective_hits": {
+                "hit@1": 0.001,
+                "hit@2": 0.002,
+                "hit@3": 0.002,
+                "hit@4": 0.004
+              }
+            },
+            "50-59": {
+              "available_cases": 527,
+              "coverage_total": 0.527,
+              "confidence_mean": 55.360531,
+              "average_list_size": 10.981025,
+              "hits_abs": {
+                "hit@1": 161,
+                "hit@2": 268,
+                "hit@3": 346,
+                "hit@4": 397
+              },
+              "conditional_hits": {
+                "hit@1": 0.305503,
+                "hit@2": 0.508539,
+                "hit@3": 0.656546,
+                "hit@4": 0.753321
+              },
+              "effective_hits": {
+                "hit@1": 0.161,
+                "hit@2": 0.268,
+                "hit@3": 0.346,
+                "hit@4": 0.397
+              }
+            },
+            "60-69": {
+              "available_cases": 375,
+              "coverage_total": 0.375,
+              "confidence_mean": 63.053333,
+              "average_list_size": 10.986667,
+              "hits_abs": {
+                "hit@1": 116,
+                "hit@2": 186,
+                "hit@3": 244,
+                "hit@4": 281
+              },
+              "conditional_hits": {
+                "hit@1": 0.309333,
+                "hit@2": 0.496,
+                "hit@3": 0.650667,
+                "hit@4": 0.749333
+              },
+              "effective_hits": {
+                "hit@1": 0.116,
+                "hit@2": 0.186,
+                "hit@3": 0.244,
+                "hit@4": 0.281
+              }
+            },
+            "70-79": {
+              "available_cases": 28,
+              "coverage_total": 0.028,
+              "confidence_mean": 71.821429,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 11,
+                "hit@2": 14,
+                "hit@3": 18,
+                "hit@4": 23
+              },
+              "conditional_hits": {
+                "hit@1": 0.392857,
+                "hit@2": 0.5,
+                "hit@3": 0.642857,
+                "hit@4": 0.821429
+              },
+              "effective_hits": {
+                "hit@1": 0.011,
+                "hit@2": 0.014,
+                "hit@3": 0.018,
+                "hit@4": 0.023
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 937,
+              "eligible_cases": 1000,
+              "coverage": 0.937,
+              "average_list_size": 10.983991,
+              "hits_abs": {
+                "hit@1": 289,
+                "hit@2": 470,
+                "hit@3": 610,
+                "hit@4": 705
+              },
+              "conditional_hits": {
+                "hit@1": 0.308431,
+                "hit@2": 0.501601,
+                "hit@3": 0.651014,
+                "hit@4": 0.752401
+              },
+              "effective_hits": {
+                "hit@1": 0.289,
+                "hit@2": 0.47,
+                "hit@3": 0.61,
+                "hit@4": 0.705
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 930,
+              "eligible_cases": 1000,
+              "coverage": 0.93,
+              "average_list_size": 10.983871,
+              "hits_abs": {
+                "hit@1": 288,
+                "hit@2": 468,
+                "hit@3": 608,
+                "hit@4": 701
+              },
+              "conditional_hits": {
+                "hit@1": 0.309677,
+                "hit@2": 0.503226,
+                "hit@3": 0.653763,
+                "hit@4": 0.753763
+              },
+              "effective_hits": {
+                "hit@1": 0.288,
+                "hit@2": 0.468,
+                "hit@3": 0.608,
+                "hit@4": 0.701
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 403,
+              "eligible_cases": 1000,
+              "coverage": 0.403,
+              "average_list_size": 10.987593,
+              "hits_abs": {
+                "hit@1": 127,
+                "hit@2": 200,
+                "hit@3": 262,
+                "hit@4": 304
+              },
+              "conditional_hits": {
+                "hit@1": 0.315136,
+                "hit@2": 0.496278,
+                "hit@3": 0.650124,
+                "hit@4": 0.754342
+              },
+              "effective_hits": {
+                "hit@1": 0.127,
+                "hit@2": 0.2,
+                "hit@3": 0.262,
+                "hit@4": 0.304
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 28,
+              "eligible_cases": 1000,
+              "coverage": 0.028,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 11,
+                "hit@2": 14,
+                "hit@3": 18,
+                "hit@4": 23
+              },
+              "conditional_hits": {
+                "hit@1": 0.392857,
+                "hit@2": 0.5,
+                "hit@3": 0.642857,
+                "hit@4": 0.821429
+              },
+              "effective_hits": {
+                "hit@1": 0.011,
+                "hit@2": 0.014,
+                "hit@3": 0.018,
+                "hit@4": 0.023
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 1000,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.163671,
+            "ece_hit@1": 0.280299,
+            "available_cases": 937,
+            "monotonic_pairs": 3,
+            "monotonic_non_decrease_ratio_hit@4": 0.666667
+          }
+        },
+        "B_rank_preserved": {
+          "variant": "B_rank_preserved",
+          "label": "B (rank_preserved)",
+          "runtime_seconds": 55.538,
+          "metrics": {
+            "eligible_cases": 1000,
+            "available_cases": 968,
+            "coverage": 0.968,
+            "average_list_size": 10.922521,
+            "average_list_size_all_cases": 10.573,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "20-29": 1,
+              "30-39": 1,
+              "40-49": 9,
+              "50-59": 551,
+              "60-69": 374,
+              "70-79": 32
+            },
+            "confidence_mean": 58.705579,
+            "conditional_hits": {
+              "hit@1": 0.301653,
+              "hit@2": 0.501033,
+              "hit@3": 0.650826,
+              "hit@4": 0.747934
+            },
+            "effective_hits": {
+              "hit@1": 0.292,
+              "hit@2": 0.485,
+              "hit@3": 0.63,
+              "hit@4": 0.724
+            }
+          },
+          "confidence_buckets": {
+            "20-29": {
+              "available_cases": 1,
+              "coverage_total": 0.001,
+              "confidence_mean": 26.0,
+              "average_list_size": 3.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            },
+            "30-39": {
+              "available_cases": 1,
+              "coverage_total": 0.001,
+              "confidence_mean": 34.0,
+              "average_list_size": 4.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            },
+            "40-49": {
+              "available_cases": 9,
+              "coverage_total": 0.009,
+              "confidence_mean": 47.111111,
+              "average_list_size": 10.444444,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 3,
+                "hit@3": 3,
+                "hit@4": 5
+              },
+              "conditional_hits": {
+                "hit@1": 0.111111,
+                "hit@2": 0.333333,
+                "hit@3": 0.333333,
+                "hit@4": 0.555556
+              },
+              "effective_hits": {
+                "hit@1": 0.001,
+                "hit@2": 0.003,
+                "hit@3": 0.003,
+                "hit@4": 0.005
+              }
+            },
+            "50-59": {
+              "available_cases": 551,
+              "coverage_total": 0.551,
+              "confidence_mean": 55.348457,
+              "average_list_size": 10.923775,
+              "hits_abs": {
+                "hit@1": 166,
+                "hit@2": 281,
+                "hit@3": 362,
+                "hit@4": 414
+              },
+              "conditional_hits": {
+                "hit@1": 0.30127,
+                "hit@2": 0.509982,
+                "hit@3": 0.656987,
+                "hit@4": 0.751361
+              },
+              "effective_hits": {
+                "hit@1": 0.166,
+                "hit@2": 0.281,
+                "hit@3": 0.362,
+                "hit@4": 0.414
+              }
+            },
+            "60-69": {
+              "available_cases": 374,
+              "coverage_total": 0.374,
+              "confidence_mean": 62.983957,
+              "average_list_size": 10.965241,
+              "hits_abs": {
+                "hit@1": 116,
+                "hit@2": 188,
+                "hit@3": 247,
+                "hit@4": 281
+              },
+              "conditional_hits": {
+                "hit@1": 0.31016,
+                "hit@2": 0.502674,
+                "hit@3": 0.660428,
+                "hit@4": 0.751337
+              },
+              "effective_hits": {
+                "hit@1": 0.116,
+                "hit@2": 0.188,
+                "hit@3": 0.247,
+                "hit@4": 0.281
+              }
+            },
+            "70-79": {
+              "available_cases": 32,
+              "coverage_total": 0.032,
+              "confidence_mean": 71.5625,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 9,
+                "hit@2": 13,
+                "hit@3": 18,
+                "hit@4": 24
+              },
+              "conditional_hits": {
+                "hit@1": 0.28125,
+                "hit@2": 0.40625,
+                "hit@3": 0.5625,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.009,
+                "hit@2": 0.013,
+                "hit@3": 0.018,
+                "hit@4": 0.024
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 966,
+              "eligible_cases": 1000,
+              "coverage": 0.966,
+              "average_list_size": 10.937888,
+              "hits_abs": {
+                "hit@1": 292,
+                "hit@2": 485,
+                "hit@3": 630,
+                "hit@4": 724
+              },
+              "conditional_hits": {
+                "hit@1": 0.302277,
+                "hit@2": 0.50207,
+                "hit@3": 0.652174,
+                "hit@4": 0.749482
+              },
+              "effective_hits": {
+                "hit@1": 0.292,
+                "hit@2": 0.485,
+                "hit@3": 0.63,
+                "hit@4": 0.724
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 957,
+              "eligible_cases": 1000,
+              "coverage": 0.957,
+              "average_list_size": 10.942529,
+              "hits_abs": {
+                "hit@1": 291,
+                "hit@2": 482,
+                "hit@3": 627,
+                "hit@4": 719
+              },
+              "conditional_hits": {
+                "hit@1": 0.304075,
+                "hit@2": 0.503657,
+                "hit@3": 0.655172,
+                "hit@4": 0.751306
+              },
+              "effective_hits": {
+                "hit@1": 0.291,
+                "hit@2": 0.482,
+                "hit@3": 0.627,
+                "hit@4": 0.719
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 406,
+              "eligible_cases": 1000,
+              "coverage": 0.406,
+              "average_list_size": 10.96798,
+              "hits_abs": {
+                "hit@1": 125,
+                "hit@2": 201,
+                "hit@3": 265,
+                "hit@4": 305
+              },
+              "conditional_hits": {
+                "hit@1": 0.307882,
+                "hit@2": 0.495074,
+                "hit@3": 0.652709,
+                "hit@4": 0.751232
+              },
+              "effective_hits": {
+                "hit@1": 0.125,
+                "hit@2": 0.201,
+                "hit@3": 0.265,
+                "hit@4": 0.305
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 32,
+              "eligible_cases": 1000,
+              "coverage": 0.032,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 9,
+                "hit@2": 13,
+                "hit@3": 18,
+                "hit@4": 24
+              },
+              "conditional_hits": {
+                "hit@1": 0.28125,
+                "hit@2": 0.40625,
+                "hit@3": 0.5625,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.009,
+                "hit@2": 0.013,
+                "hit@3": 0.018,
+                "hit@4": 0.024
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 1000,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.162118,
+            "ece_hit@1": 0.285403,
+            "available_cases": 968,
+            "monotonic_pairs": 5,
+            "monotonic_non_decrease_ratio_hit@4": 0.6
+          }
+        },
+        "C_experimental_engine_rank": {
+          "variant": "C_experimental_engine_rank",
+          "label": "C (experimental_engine_rank)",
+          "runtime_seconds": 55.438,
+          "metrics": {
+            "eligible_cases": 1000,
+            "available_cases": 968,
+            "coverage": 0.968,
+            "average_list_size": 10.922521,
+            "average_list_size_all_cases": 10.573,
+            "oversize_lists": 0,
+            "confidence_distribution": {
+              "20-29": 1,
+              "30-39": 1,
+              "40-49": 9,
+              "50-59": 551,
+              "60-69": 374,
+              "70-79": 32
+            },
+            "confidence_mean": 58.705579,
+            "conditional_hits": {
+              "hit@1": 0.301653,
+              "hit@2": 0.501033,
+              "hit@3": 0.650826,
+              "hit@4": 0.747934
+            },
+            "effective_hits": {
+              "hit@1": 0.292,
+              "hit@2": 0.485,
+              "hit@3": 0.63,
+              "hit@4": 0.724
+            }
+          },
+          "confidence_buckets": {
+            "20-29": {
+              "available_cases": 1,
+              "coverage_total": 0.001,
+              "confidence_mean": 26.0,
+              "average_list_size": 3.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            },
+            "30-39": {
+              "available_cases": 1,
+              "coverage_total": 0.001,
+              "confidence_mean": 34.0,
+              "average_list_size": 4.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            },
+            "40-49": {
+              "available_cases": 9,
+              "coverage_total": 0.009,
+              "confidence_mean": 47.111111,
+              "average_list_size": 10.444444,
+              "hits_abs": {
+                "hit@1": 1,
+                "hit@2": 3,
+                "hit@3": 3,
+                "hit@4": 5
+              },
+              "conditional_hits": {
+                "hit@1": 0.111111,
+                "hit@2": 0.333333,
+                "hit@3": 0.333333,
+                "hit@4": 0.555556
+              },
+              "effective_hits": {
+                "hit@1": 0.001,
+                "hit@2": 0.003,
+                "hit@3": 0.003,
+                "hit@4": 0.005
+              }
+            },
+            "50-59": {
+              "available_cases": 551,
+              "coverage_total": 0.551,
+              "confidence_mean": 55.348457,
+              "average_list_size": 10.923775,
+              "hits_abs": {
+                "hit@1": 166,
+                "hit@2": 281,
+                "hit@3": 362,
+                "hit@4": 414
+              },
+              "conditional_hits": {
+                "hit@1": 0.30127,
+                "hit@2": 0.509982,
+                "hit@3": 0.656987,
+                "hit@4": 0.751361
+              },
+              "effective_hits": {
+                "hit@1": 0.166,
+                "hit@2": 0.281,
+                "hit@3": 0.362,
+                "hit@4": 0.414
+              }
+            },
+            "60-69": {
+              "available_cases": 374,
+              "coverage_total": 0.374,
+              "confidence_mean": 62.983957,
+              "average_list_size": 10.965241,
+              "hits_abs": {
+                "hit@1": 116,
+                "hit@2": 188,
+                "hit@3": 247,
+                "hit@4": 281
+              },
+              "conditional_hits": {
+                "hit@1": 0.31016,
+                "hit@2": 0.502674,
+                "hit@3": 0.660428,
+                "hit@4": 0.751337
+              },
+              "effective_hits": {
+                "hit@1": 0.116,
+                "hit@2": 0.188,
+                "hit@3": 0.247,
+                "hit@4": 0.281
+              }
+            },
+            "70-79": {
+              "available_cases": 32,
+              "coverage_total": 0.032,
+              "confidence_mean": 71.5625,
+              "average_list_size": 11.0,
+              "hits_abs": {
+                "hit@1": 9,
+                "hit@2": 13,
+                "hit@3": 18,
+                "hit@4": 24
+              },
+              "conditional_hits": {
+                "hit@1": 0.28125,
+                "hit@2": 0.40625,
+                "hit@3": 0.5625,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.009,
+                "hit@2": 0.013,
+                "hit@3": 0.018,
+                "hit@4": 0.024
+              }
+            }
+          },
+          "confidence_thresholds": {
+            ">=40": {
+              "threshold": 40,
+              "selected_cases": 966,
+              "eligible_cases": 1000,
+              "coverage": 0.966,
+              "average_list_size": 10.937888,
+              "hits_abs": {
+                "hit@1": 292,
+                "hit@2": 485,
+                "hit@3": 630,
+                "hit@4": 724
+              },
+              "conditional_hits": {
+                "hit@1": 0.302277,
+                "hit@2": 0.50207,
+                "hit@3": 0.652174,
+                "hit@4": 0.749482
+              },
+              "effective_hits": {
+                "hit@1": 0.292,
+                "hit@2": 0.485,
+                "hit@3": 0.63,
+                "hit@4": 0.724
+              }
+            },
+            ">=50": {
+              "threshold": 50,
+              "selected_cases": 957,
+              "eligible_cases": 1000,
+              "coverage": 0.957,
+              "average_list_size": 10.942529,
+              "hits_abs": {
+                "hit@1": 291,
+                "hit@2": 482,
+                "hit@3": 627,
+                "hit@4": 719
+              },
+              "conditional_hits": {
+                "hit@1": 0.304075,
+                "hit@2": 0.503657,
+                "hit@3": 0.655172,
+                "hit@4": 0.751306
+              },
+              "effective_hits": {
+                "hit@1": 0.291,
+                "hit@2": 0.482,
+                "hit@3": 0.627,
+                "hit@4": 0.719
+              }
+            },
+            ">=60": {
+              "threshold": 60,
+              "selected_cases": 406,
+              "eligible_cases": 1000,
+              "coverage": 0.406,
+              "average_list_size": 10.96798,
+              "hits_abs": {
+                "hit@1": 125,
+                "hit@2": 201,
+                "hit@3": 265,
+                "hit@4": 305
+              },
+              "conditional_hits": {
+                "hit@1": 0.307882,
+                "hit@2": 0.495074,
+                "hit@3": 0.652709,
+                "hit@4": 0.751232
+              },
+              "effective_hits": {
+                "hit@1": 0.125,
+                "hit@2": 0.201,
+                "hit@3": 0.265,
+                "hit@4": 0.305
+              }
+            },
+            ">=70": {
+              "threshold": 70,
+              "selected_cases": 32,
+              "eligible_cases": 1000,
+              "coverage": 0.032,
+              "average_list_size": 11,
+              "hits_abs": {
+                "hit@1": 9,
+                "hit@2": 13,
+                "hit@3": 18,
+                "hit@4": 24
+              },
+              "conditional_hits": {
+                "hit@1": 0.28125,
+                "hit@2": 0.40625,
+                "hit@3": 0.5625,
+                "hit@4": 0.75
+              },
+              "effective_hits": {
+                "hit@1": 0.009,
+                "hit@2": 0.013,
+                "hit@3": 0.018,
+                "hit@4": 0.024
+              }
+            },
+            ">=80": {
+              "threshold": 80,
+              "selected_cases": 0,
+              "eligible_cases": 1000,
+              "coverage": 0.0,
+              "average_list_size": 0.0,
+              "hits_abs": {
+                "hit@1": 0,
+                "hit@2": 0,
+                "hit@3": 0,
+                "hit@4": 0
+              },
+              "conditional_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              },
+              "effective_hits": {
+                "hit@1": 0.0,
+                "hit@2": 0.0,
+                "hit@3": 0.0,
+                "hit@4": 0.0
+              }
+            }
+          },
+          "calibration": {
+            "ece_hit@4": 0.162118,
+            "ece_hit@1": 0.285403,
+            "available_cases": 968,
+            "monotonic_pairs": 5,
+            "monotonic_non_decrease_ratio_hit@4": 0.6
+          }
+        }
+      },
+      "comparisons": {
+        "B_rank_preserved_minus_A_current": {
+          "coverage_delta": 0.031,
+          "average_list_size_delta": -0.06147,
+          "effective_hit@4_delta": 0.019,
+          "conditional_hit@4_delta": -0.004467
+        },
+        "C_experimental_engine_rank_minus_A_current": {
+          "coverage_delta": 0.031,
+          "average_list_size_delta": -0.06147,
+          "effective_hit@4_delta": 0.019,
+          "conditional_hit@4_delta": -0.004467
+        }
+      }
+    }
+  }
+}

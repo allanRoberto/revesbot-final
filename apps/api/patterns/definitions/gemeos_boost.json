@@ -1,0 +1,47 @@
+{
+  "id": "gemeos_boost",
+  "name": "Gemeos (11, 22, 33)",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 95,
+  "weight": 5.0,
+  "evaluator": "gemeos_boost",
+  "max_numbers": 12,
+  "params": {
+    "gemeos_numbers": [
+      11,
+      22,
+      33
+    ],
+    "bet_numbers": [
+      0,
+      18,
+      22,
+      9,
+      1,
+      33,
+      16,
+      11,
+      30,
+      36
+    ],
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.55,
+    "enforce_presence": true,
+    "min_keep": 2,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 35,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

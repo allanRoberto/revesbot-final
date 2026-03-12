@@ -1,0 +1,28 @@
+{
+  "id": "numeros_puxando_boost",
+  "name": "Numeros Puxando",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 88,
+  "weight": 4.5,
+  "evaluator": "numeros_puxando_boost",
+  "max_numbers": 18,
+  "params": {
+    "min_history": 100,
+    "analysis_window": 100,
+    "min_frequency": 3,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.5,
+    "enforce_presence": true,
+    "min_keep": 5,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    }
+  }
+}

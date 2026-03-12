@@ -1,0 +1,1477 @@
+{% extends "base.html" %}
+
+{% block title %}Monitor de Apostas{% endblock %}
+
+{% block content %}
+<style>
+  :root {
+    --bg-light: #f5f5f5;
+    --bg-dark: #1a1a2e;
+    --card-light: #ffffff;
+    --card-dark: #16213e;
+    --text-light: #333;
+    --text-dark: #e0e0e0;
+    --accent: #6c5ce7;
+    --success: #00b894;
+    --danger: #d63031;
+    --warning: #fdcb6e;
+    --roulette-red: #d60700;
+    --roulette-black: #2e3136;
+    --roulette-green: #00a13a;
+  }
+
+  body {
+    background: var(--bg-light);
+    color: var(--text-light);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  body.dark-mode {
+    background: var(--bg-dark);
+    color: var(--text-dark);
+  }
+
+  .monitor-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .monitor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  .monitor-header h1 {
+    font-size: 1.5rem;
+    margin: 0;
+  }
+
+  .config-panel {
+    background: var(--card-light);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+
+  body.dark-mode .config-panel {
+    background: var(--card-dark);
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+
+  .config-subpanel {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+  }
+
+  .config-subpanel h3 {
+    margin: 0 0 12px 0;
+    font-size: 0.95rem;
+    opacity: 0.85;
+  }
+
+  .attempt-stake-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .attempt-stake-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .attempt-stake-item label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    opacity: 0.82;
+  }
+
+  .attempt-stake-item input {
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: #fff;
+  }
+
+  body.dark-mode .attempt-stake-item input {
+    background: #0f0f23;
+    border-color: #333;
+    color: #fff;
+  }
+
+  .attempt-stake-help {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    opacity: 0.7;
+  }
+
+  .config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .config-item label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
+  .config-item input, .config-item select {
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #fff;
+  }
+
+  body.dark-mode .config-item input,
+  body.dark-mode .config-item select {
+    background: #0f0f23;
+    border-color: #333;
+    color: #fff;
+  }
+
+  .btn-start {
+    background: linear-gradient(135deg, var(--accent), #a29bfe);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .btn-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
+  }
+
+  .btn-start:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-stop {
+    background: linear-gradient(135deg, var(--danger), #e17055);
+  }
+
+  .status-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .status-card {
+    background: var(--card-light);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+
+  body.dark-mode .status-card {
+    background: var(--card-dark);
+  }
+
+  .status-card .value {
+    font-size: 1.8rem;
+    font-weight: 700;
+  }
+
+  .status-card .label {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    margin-top: 5px;
+  }
+
+  .status-card.profit .value { color: var(--success); }
+  .status-card.loss .value { color: var(--danger); }
+  .status-card.wins .value { color: var(--success); }
+  .status-card.losses .value { color: var(--danger); }
+
+  .main-display {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 768px) {
+    .main-display {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .display-card {
+    background: var(--card-light);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+
+  body.dark-mode .display-card {
+    background: var(--card-dark);
+  }
+
+  .display-card h3 {
+    margin: 0 0 15px 0;
+    font-size: 1rem;
+    opacity: 0.8;
+  }
+
+  .current-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .number-display {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: white;
+  }
+
+  .number-display.red { background: var(--roulette-red); }
+  .number-display.black { background: var(--roulette-black); }
+  .number-display.green { background: var(--roulette-green); }
+  .number-display.waiting {
+    background: #666;
+    font-size: 1rem;
+  }
+
+  .suggestion-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .suggestion-cell {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: white;
+    font-size: 0.9rem;
+  }
+
+  .suggestion-cell.red { background: var(--roulette-red); }
+  .suggestion-cell.black { background: var(--roulette-black); }
+  .suggestion-cell.green { background: var(--roulette-green); }
+
+  .suggestion-info {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+
+  .bet-status {
+    text-align: center;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    font-weight: 600;
+  }
+
+  .bet-status.waiting {
+    background: rgba(108, 92, 231, 0.2);
+    color: var(--accent);
+  }
+
+  .bet-status.win {
+    background: rgba(0, 184, 148, 0.2);
+    color: var(--success);
+  }
+
+  .bet-status.loss {
+    background: rgba(214, 48, 49, 0.2);
+    color: var(--danger);
+  }
+
+  .bet-status.pending {
+    background: rgba(253, 203, 110, 0.2);
+    color: #e17055;
+  }
+
+  .history-panel {
+    background: var(--card-light);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  body.dark-mode .history-panel {
+    background: var(--card-dark);
+  }
+
+  .debug-panel {
+    background: var(--card-light);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+
+  body.dark-mode .debug-panel {
+    background: var(--card-dark);
+  }
+
+  .debug-panel h3 {
+    margin: 0 0 15px 0;
+    font-size: 1rem;
+    opacity: 0.8;
+  }
+
+  .debug-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .debug-card {
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    padding: 12px;
+    background: rgba(148, 163, 184, 0.06);
+  }
+
+  .debug-card h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.9rem;
+    opacity: 0.85;
+  }
+
+  .debug-card pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    max-height: 240px;
+    overflow: auto;
+  }
+
+  .history-panel h3 {
+    margin: 0 0 15px 0;
+    font-size: 1rem;
+    opacity: 0.8;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: rgba(0,0,0,0.03);
+  }
+
+  body.dark-mode .history-item {
+    background: rgba(255,255,255,0.05);
+  }
+
+  .history-item.win {
+    border-left: 4px solid var(--success);
+  }
+
+  .history-item.loss {
+    border-left: 4px solid var(--danger);
+  }
+
+  .history-number {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: white;
+    font-size: 0.85rem;
+  }
+
+  .history-details {
+    flex: 1;
+    font-size: 0.85rem;
+  }
+
+  .history-meta {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    opacity: 0.78;
+    line-height: 1.45;
+  }
+
+  .history-result {
+    font-weight: 600;
+  }
+
+  .history-result.win { color: var(--success); }
+  .history-result.loss { color: var(--danger); }
+
+  .attempts-indicator {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+    justify-content: center;
+  }
+
+  .attempt-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ddd;
+  }
+
+  .attempt-dot.used {
+    background: var(--danger);
+  }
+
+  .attempt-dot.current {
+    background: var(--warning);
+    animation: pulse-dot 1s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+  }
+
+  .ws-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+
+  .ws-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #666;
+  }
+
+  .ws-dot.connected { background: var(--success); }
+  .ws-dot.disconnected { background: var(--danger); }
+
+  .confidence-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .confidence-badge.muito-alta { background: rgba(0, 184, 148, 0.3); color: var(--success); font-weight: 700; }
+  .confidence-badge.alta { background: rgba(0, 184, 148, 0.2); color: var(--success); }
+  .confidence-badge.media, .confidence-badge.média { background: rgba(253, 203, 110, 0.2); color: #e17055; }
+  .confidence-badge.baixa { background: rgba(214, 48, 49, 0.2); color: var(--danger); }
+  .confidence-badge.muito-baixa { background: rgba(214, 48, 49, 0.3); color: var(--danger); }
+</style>
+
+<div class="monitor-container">
+  <div class="monitor-header">
+    <h1>Monitor de Apostas</h1>
+    <div class="ws-status">
+      <div class="ws-dot" id="ws-indicator"></div>
+      <span id="ws-status-text">Desconectado</span>
+    </div>
+  </div>
+
+  <div class="config-panel">
+    <div class="config-grid">
+      <div class="config-item">
+        <label>Roleta</label>
+        <select id="roulette-select">
+          <option value="">Carregando...</option>
+        </select>
+      </div>
+      <div class="config-item">
+        <label>Valor Base da Ficha (R$)</label>
+        <input type="number" id="chip-value" value="1" min="0.1" step="0.1">
+      </div>
+      <div class="config-item">
+        <label>Banca Inicial (R$)</label>
+        <input type="number" id="initial-bankroll" value="1000" min="0" step="0.01">
+      </div>
+      <div class="config-item">
+        <label>Tentativas (Gales)</label>
+        <input type="number" id="max-attempts" value="3" min="1" max="10">
+      </div>
+      <div class="config-item">
+        <label>Qtd. Fichas / Números</label>
+        <input type="number" id="bet-size" value="8" min="1" max="18">
+      </div>
+      <div class="config-item">
+        <label>Confiança Mínima (%)</label>
+        <input type="number" id="min-confidence" value="60" min="0" max="100" step="1">
+      </div>
+      <div class="config-item" style="justify-content: flex-end;">
+        <button class="btn-start" id="btn-toggle">Iniciar Monitoramento</button>
+      </div>
+    </div>
+    <div class="config-subpanel">
+      <h3>Valor da Ficha por Tentativa</h3>
+      <div class="attempt-stake-grid" id="attempt-stake-grid"></div>
+      <div class="attempt-stake-help">
+        Cada tentativa usa o valor configurado aqui. O lucro/prejuízo passa a considerar o investimento acumulado real por tentativa.
+      </div>
+    </div>
+  </div>
+
+  <div class="status-panel">
+    <div class="status-card">
+      <div class="value" id="total-rounds">0</div>
+      <div class="label">Rodadas</div>
+    </div>
+    <div class="status-card wins">
+      <div class="value" id="total-wins">0</div>
+      <div class="label">Vitórias</div>
+    </div>
+    <div class="status-card losses">
+      <div class="value" id="total-losses">0</div>
+      <div class="label">Derrotas</div>
+    </div>
+    <div class="status-card profit">
+      <div class="value" id="total-profit">R$ 0,00</div>
+      <div class="label">Lucro/Prejuízo</div>
+    </div>
+    <div class="status-card">
+      <div class="value" id="current-bankroll">R$ 1000,00</div>
+      <div class="label">Banca Atual</div>
+    </div>
+    <div class="status-card">
+      <div class="value" id="win-rate">0%</div>
+      <div class="label">Taxa de Acerto</div>
+    </div>
+    <div class="status-card">
+      <div class="value" id="skipped-signals">0</div>
+      <div class="label">Sinais Ignorados</div>
+    </div>
+  </div>
+
+  <div class="main-display">
+    <div class="display-card">
+      <h3>Último Número</h3>
+      <div class="current-number">
+        <div class="number-display waiting" id="current-number">—</div>
+      </div>
+      <div class="bet-status waiting" id="bet-status">Aguardando início...</div>
+      <div class="attempts-indicator" id="attempts-indicator"></div>
+    </div>
+
+    <div class="display-card">
+      <h3>Sugestão de Aposta</h3>
+      <div class="suggestion-grid" id="suggestion-grid">
+        <div style="opacity: 0.5;">Aguardando...</div>
+      </div>
+      <div class="suggestion-info" id="suggestion-info"></div>
+    </div>
+  </div>
+
+  <div class="debug-panel">
+    <h3>Debug da Sugestão</h3>
+    <div class="debug-grid">
+      <div class="debug-card">
+        <h4>Payload enviado</h4>
+        <pre id="debug-payload">Aguardando primeira chamada...</pre>
+      </div>
+      <div class="debug-card">
+        <h4>Resposta da API</h4>
+        <pre id="debug-response">Aguardando primeira resposta...</pre>
+      </div>
+      <div class="debug-card">
+        <h4>Sugestão aplicada no monitor</h4>
+        <pre id="debug-monitor">Aguardando primeira sugestão...</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="history-panel">
+    <h3>Histórico de Apostas</h3>
+    <div id="history-list">
+      <div style="text-align: center; opacity: 0.5; padding: 20px;">
+        Nenhuma aposta registrada ainda.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Roulette colors
+  const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  const BLACK_NUMBERS = new Set([2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]);
+
+  function getColor(n) {
+    if (n === 0) return 'green';
+    return RED_NUMBERS.has(n) ? 'red' : 'black';
+  }
+
+  function formatMoney(value) {
+    return `R$ ${Number(value || 0).toFixed(2)}`;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return '—';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }
+
+  function getConfidenceLabel(score) {
+    const safeScore = Number.isFinite(score) ? score : 0;
+    if (safeScore >= 75) return 'Alta';
+    if (safeScore >= 50) return 'Media';
+    return 'Baixa';
+  }
+
+  function setDebugContent(element, value) {
+    if (!element) return;
+    if (typeof value === 'string') {
+      element.textContent = value;
+      return;
+    }
+    try {
+      element.textContent = JSON.stringify(value, null, 2);
+    } catch (error) {
+      element.textContent = String(value);
+    }
+  }
+
+  function loadStoredConfig(key, defaultValue) {
+    try {
+      const value = window.localStorage.getItem(key);
+      return value !== null ? value : defaultValue;
+    } catch (error) {
+      return defaultValue;
+    }
+  }
+
+  function toFiniteNumber(value, fallback) {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function toBoundedInteger(value, fallback, min, max) {
+    const parsed = parseInt(value, 10);
+    if (!Number.isInteger(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+  }
+
+  function normalizeBlendWeights(baseWeight, optimizedWeight) {
+    const safeBase = Math.max(0, toFiniteNumber(baseWeight, 0.5));
+    const safeOptimized = Math.max(0, toFiniteNumber(optimizedWeight, 0.5));
+    const total = safeBase + safeOptimized;
+
+    if (total > 0) {
+      return {
+        baseWeight: safeBase / total,
+        optimizedWeight: safeOptimized / total,
+      };
+    }
+
+    return { baseWeight: 0.5, optimizedWeight: 0.5 };
+  }
+
+  function getRuntimeOverridesPayload(siegeWindow, siegeMinOccurrences, siegeMinStreak) {
+    return {
+      siege_number_boost: {
+        window: siegeWindow,
+        min_occurrences: siegeMinOccurrences,
+        min_streak: siegeMinStreak,
+      },
+    };
+  }
+
+  function getFinalSuggestionPayload(sourceArr, focusNumber, maxNumbers) {
+    const weightConfig = normalizeBlendWeights(
+      loadStoredConfig('finalBaseWeight', '0.5'),
+      loadStoredConfig('finalOptimizedWeight', '0.5')
+    );
+    const siegeWindow = toBoundedInteger(loadStoredConfig('siegeWindow', '6'), 6, 2, 20);
+    const siegeMinOccurrences = toBoundedInteger(loadStoredConfig('siegeMinOccurrences', '3'), 3, 1, 10);
+    const siegeMinStreak = toBoundedInteger(loadStoredConfig('siegeMinStreak', '2'), 2, 1, 10);
+    const siegeVetoRelief = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('siegeVetoRelief', '0.4'), 0.4)));
+    const inversionEnabled = String(loadStoredConfig('inversionEnabled', 'false')) === 'true';
+    const inversionContextWindow = toBoundedInteger(loadStoredConfig('inversionContextWindow', '5'), 5, 1, 50);
+    const inversionPenaltyFactor = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('inversionPenaltyFactor', '0.3'), 0.3)));
+
+    return {
+      history: sourceArr || [],
+      focus_number: Number.isInteger(focusNumber) ? focusNumber : null,
+      from_index: 0,
+      max_numbers: maxNumbers,
+      optimized_max_numbers: 37,
+      base_weight: weightConfig.baseWeight,
+      optimized_weight: weightConfig.optimizedWeight,
+      runtime_overrides: getRuntimeOverridesPayload(siegeWindow, siegeMinOccurrences, siegeMinStreak),
+      siege_window: siegeWindow,
+      siege_min_occurrences: siegeMinOccurrences,
+      siege_min_streak: siegeMinStreak,
+      siege_veto_relief: siegeVetoRelief,
+      inversion_enabled: inversionEnabled,
+      inversion_context_window: inversionContextWindow,
+      inversion_penalty_factor: inversionPenaltyFactor,
+    };
+  }
+
+  // State
+  let isMonitoring = false;
+  let ws = null;
+  let currentBet = null;
+  let history = [];
+  let rouletteHistory = [];
+
+  // Stats
+  let stats = {
+    rounds: 0,
+    wins: 0,
+    losses: 0,
+    profit: 0,
+    initialBankroll: 1000,
+    skippedSignals: 0
+  };
+
+  // Current bet state
+  let betState = {
+    active: false,
+    suggestion: [],
+    confidence: { score: 0, label: 'Baixa' },
+    confidenceV2: { score: 0, label: 'Baixa' },
+    attempts: 0,
+    maxAttempts: 3,
+    chipValue: 1,
+    chipSchedule: [1, 1, 1],
+    betSize: 8,
+    totalInvested: 0,
+    minConfidence: 60,
+    openedAt: null,
+    openedAtLabel: ''
+  };
+
+  // DOM elements
+  const rouletteSelect = document.getElementById('roulette-select');
+  const chipValueInput = document.getElementById('chip-value');
+  const initialBankrollInput = document.getElementById('initial-bankroll');
+  const maxAttemptsInput = document.getElementById('max-attempts');
+  const betSizeInput = document.getElementById('bet-size');
+  const minConfidenceInput = document.getElementById('min-confidence');
+  const attemptStakeGrid = document.getElementById('attempt-stake-grid');
+  const btnToggle = document.getElementById('btn-toggle');
+  const wsIndicator = document.getElementById('ws-indicator');
+  const wsStatusText = document.getElementById('ws-status-text');
+  const currentNumberEl = document.getElementById('current-number');
+  const betStatusEl = document.getElementById('bet-status');
+  const suggestionGrid = document.getElementById('suggestion-grid');
+  const suggestionInfo = document.getElementById('suggestion-info');
+  const attemptsIndicator = document.getElementById('attempts-indicator');
+  const historyList = document.getElementById('history-list');
+  const debugPayloadEl = document.getElementById('debug-payload');
+  const debugResponseEl = document.getElementById('debug-response');
+  const debugMonitorEl = document.getElementById('debug-monitor');
+
+  // Lista de roletas com slugs (para combinar com WebSocket)
+  const ROULETTES = [
+    { slug: "pragmatic-mega-roulette", name: "Mega Roulette" },
+    { slug: "pragmatic-brazilian-roulette", name: "Brazilian Roulette" },
+    { slug: "pragmatic-auto-roulette", name: "Auto Roulette" },
+    { slug: "pragmatic-auto-mega-roulette", name: "Auto Mega Roulette" },
+    { slug: "pragmatic-speed-roulette-1", name: "Speed Roulette 1" },
+    { slug: "pragmatic-mega-roulette-brazilian", name: "Mega Roulette Brazilian" },
+    { slug: "pragmatic-speed-auto-roulette", name: "Speed Auto Roulette" },
+    { slug: "pragmatic-immersive-roulette-deluxe", name: "Immersive Roulette Deluxe" },
+    { slug: "pragmatic-korean-roulette", name: "Korean Roulette" },
+    { slug: "pragmatic-lucky-6-roulette", name: "Lucky Roulette" },
+    { slug: "pragmatic-roulette-macao", name: "Roulette Macao" },
+    { slug: "pragmatic-roulette-1", name: "Roulette 1" },
+    { slug: "pragmatic-roulette-2", name: "Roulette 2" },
+    { slug: "pragmatic-roulete-3", name: "Roulette 3" },
+    { slug: "pragmatic-vip-auto-roulette", name: "VIP Auto Roulette" },
+    { slug: "pragmatic-vip-roulette", name: "VIP Roulette" },
+    { slug: "pragmatic-turkish-mega-roulette", name: "Turkish Mega Roulette" },
+    { slug: "pragmatic-italian-mega-roulette", name: "Italian Mega Roulette" },
+    { slug: "pragmatic-turkish-roulette", name: "Turkish Roulette" },
+    { slug: "pragmatic-speed-roulette-2", name: "Speed Roulette 2" },
+    { slug: "pragmatic-romanian-roulette", name: "Romanian Roulette" },
+    { slug: "pragmatic-roulette-italian", name: "Roulette Italian" },
+    { slug: "pragmatic-german-roulette", name: "German Roulette" },
+    { slug: "pragmatic-russian-roulette", name: "Russian Roulette" },
+    { slug: "pragmatic-roulette-italia-tricolore", name: "Roulette Italia Tricolore" },
+    { slug: "pragmatic-vietnamese-roulette", name: "Vietnamese Roulette" },
+  ];
+
+  // Load roulettes
+  function loadRoulettes() {
+    rouletteSelect.innerHTML = '<option value="">Selecione uma roleta</option>';
+    ROULETTES.forEach(r => {
+      const option = document.createElement('option');
+      option.value = r.slug; // Usa o slug que combina com o WebSocket
+      option.textContent = r.name;
+      rouletteSelect.appendChild(option);
+    });
+  }
+
+  function getAttemptStakeInputs() {
+    return Array.from(document.querySelectorAll('[data-attempt-stake]'));
+  }
+
+  function renderAttemptStakeInputs() {
+    const maxAttempts = parseInt(maxAttemptsInput.value, 10) || 1;
+    const fallbackValue = parseFloat(chipValueInput.value) || 1;
+    const currentValues = getAttemptStakeInputs().map((input) => parseFloat(input.value) || fallbackValue);
+
+    attemptStakeGrid.innerHTML = '';
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const item = document.createElement('div');
+      item.className = 'attempt-stake-item';
+
+      const label = document.createElement('label');
+      label.setAttribute('for', `attempt-stake-${attempt}`);
+      label.textContent = `Tentativa ${attempt}`;
+
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = `attempt-stake-${attempt}`;
+      input.min = '0.01';
+      input.step = '0.01';
+      input.value = String(currentValues[attempt - 1] ?? fallbackValue);
+      input.setAttribute('data-attempt-stake', String(attempt));
+
+      item.appendChild(label);
+      item.appendChild(input);
+      attemptStakeGrid.appendChild(item);
+    }
+  }
+
+  function syncAttemptStakeBaseValue() {
+    const fallbackValue = parseFloat(chipValueInput.value) || 1;
+    getAttemptStakeInputs().forEach((input) => {
+      if (!input.value || Number(input.value) <= 0) {
+        input.value = String(fallbackValue);
+      }
+    });
+  }
+
+  function getChipSchedule() {
+    const maxAttempts = parseInt(maxAttemptsInput.value, 10) || 1;
+    const fallbackValue = parseFloat(chipValueInput.value) || 1;
+    const rawValues = getAttemptStakeInputs().map((input) => parseFloat(input.value) || fallbackValue);
+    const schedule = [];
+
+    for (let index = 0; index < maxAttempts; index++) {
+      schedule.push(rawValues[index] ?? fallbackValue);
+    }
+
+    return schedule;
+  }
+
+  function getChipValueForAttempt(attemptNumber) {
+    const index = Math.max(0, attemptNumber - 1);
+    return betState.chipSchedule[index] ?? betState.chipSchedule[betState.chipSchedule.length - 1] ?? betState.chipValue;
+  }
+
+  // Connect WebSocket
+  function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+    ws.onopen = () => {
+      wsIndicator.classList.add('connected');
+      wsIndicator.classList.remove('disconnected');
+      wsStatusText.textContent = 'Conectado';
+    };
+
+    ws.onclose = () => {
+      wsIndicator.classList.remove('connected');
+      wsIndicator.classList.add('disconnected');
+      wsStatusText.textContent = 'Desconectado';
+      if (isMonitoring) {
+        setTimeout(connectWebSocket, 3000);
+      }
+    };
+
+    ws.onerror = () => {
+      wsIndicator.classList.remove('connected');
+      wsIndicator.classList.add('disconnected');
+      wsStatusText.textContent = 'Erro';
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleNewNumber(data);
+      } catch (e) {
+        console.error('Erro ao processar mensagem:', e);
+      }
+    };
+  }
+
+  // Handle new number from WebSocket
+  async function handleNewNumber(data) {
+    const selectedRoulette = rouletteSelect.value;
+    if (!selectedRoulette || !isMonitoring) return;
+
+    // Check if this message is for our selected roulette
+    // WebSocket envia: { slug: "pragmatic-mega-roulette", result: 15, ... }
+    const rouletteSlug = data.slug || data.roulette_slug || data.roulette_id;
+    if (rouletteSlug !== selectedRoulette) return;
+
+    const number = parseInt(data.result ?? data.number ?? data.resultado, 10);
+    if (isNaN(number)) return;
+
+    console.log(`[Monitor] Novo número: ${number} na roleta ${rouletteSlug}`);
+
+    // Update history (mantém 500 números)
+    rouletteHistory.unshift(number);
+    if (rouletteHistory.length > 500) {
+      rouletteHistory = rouletteHistory.slice(0, 500);
+    }
+
+    // Update display
+    updateCurrentNumber(number);
+
+    // Process bet
+    await processBet(number);
+  }
+
+  // Update current number display
+  function updateCurrentNumber(n) {
+    currentNumberEl.textContent = n;
+    currentNumberEl.className = `number-display ${getColor(n)}`;
+  }
+
+  // Fetch suggestion from API
+  // Usa o endpoint final-suggestion que já faz a fusão com a sugestão base
+  async function fetchSuggestion() {
+    const betSize = parseInt(betSizeInput.value, 10) || 8;
+    const minConfidence = parseInt(minConfidenceInput.value, 10) || 0;
+
+    if (rouletteHistory.length < 50) {
+      console.log('[Monitor] Histórico insuficiente para sugestão:', rouletteHistory.length);
+      return {
+        list: [],
+        confidence: { score: 0, label: 'Baixa' },
+        confidenceV2: { score: 0, label: 'Baixa' },
+        reason: `Histórico insuficiente (${rouletteHistory.length}/50).`,
+      };
+    }
+
+    const focusNumber = rouletteHistory[0];
+    const payload = getFinalSuggestionPayload(rouletteHistory.slice(0, 500), focusNumber, betSize);
+
+    console.log('[Monitor] Enviando para API final-suggestion:', {
+      historyLength: payload.history.length,
+      focus_number: focusNumber,
+      max_numbers: betSize,
+      from_index: payload.from_index,
+      optimized_max_numbers: payload.optimized_max_numbers,
+      base_weight: payload.base_weight,
+      optimized_weight: payload.optimized_weight,
+      inversion_enabled: payload.inversion_enabled,
+      primeiros5: payload.history.slice(0, 5)
+    });
+    setDebugContent(debugPayloadEl, {
+      endpoint: '/api/patterns/final-suggestion',
+      roulette: rouletteSelect.value,
+      payload,
+    });
+
+    try {
+      const response = await fetch('/api/patterns/final-suggestion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        console.error('[Monitor] API retornou erro:', response.status);
+        throw new Error('API error');
+      }
+
+      const data = await response.json();
+      setDebugContent(debugResponseEl, data);
+      console.log('[Monitor] Resposta da API:', {
+        available: data.available,
+        suggestion: data.suggestion,
+        confidence: data.confidence,
+        optimized_suggestion: data.optimized_suggestion,
+        base_suggestion: data.base_suggestion,
+        base_analysis: data.base_analysis
+      });
+
+      if (!data.available) {
+        console.log('[Monitor] Sugestão não disponível:', data.explanation);
+        return {
+          list: [],
+          confidence: data.confidence || { score: 0, label: 'Baixa' },
+          confidenceV2: {
+            score: parseInt(
+              data.optimized_payload?.confidence_breakdown?.calibrated_confidence_v2
+                ?? data.optimized_breakdown?.calibrated_confidence_v2
+                ?? 0,
+              10
+            ) || 0,
+            label: getConfidenceLabel(
+              parseInt(
+                data.optimized_payload?.confidence_breakdown?.calibrated_confidence_v2
+                  ?? data.optimized_breakdown?.calibrated_confidence_v2
+                  ?? 0,
+                10
+              ) || 0
+            ),
+          },
+          reason: data.explanation || 'Sugestão indisponível.',
+        };
+      }
+
+      // Usa a sugestão final já rankeada corretamente
+      const suggestionList = Array.isArray(data.suggestion) ? data.suggestion : [];
+
+      // Validar que os números são válidos (0-36)
+      const validSuggestion = suggestionList.filter(n =>
+        Number.isInteger(n) && n >= 0 && n <= 36
+      );
+
+      if (validSuggestion.length !== suggestionList.length) {
+        console.warn('[Monitor] Alguns números inválidos foram filtrados:', suggestionList);
+      }
+
+      const confidence = data.confidence || { score: 0, label: 'Baixa' };
+      const confidenceV2Score = parseInt(
+        data.optimized_payload?.confidence_breakdown?.calibrated_confidence_v2
+          ?? data.optimized_breakdown?.calibrated_confidence_v2
+          ?? 0,
+        10
+      ) || 0;
+      const confidenceV2 = {
+        score: confidenceV2Score,
+        label: getConfidenceLabel(confidenceV2Score),
+      };
+
+      if ((confidence.score || 0) < minConfidence) {
+        return {
+          list: [],
+          confidence,
+          confidenceV2,
+          reason: `Confiança ${confidence.score || 0}% abaixo do mínimo configurado (${minConfidence}%).`,
+        };
+      }
+
+      return {
+        list: validSuggestion,
+        confidence,
+        confidenceV2,
+        reason: '',
+      };
+    } catch (error) {
+      console.error('Erro ao buscar sugestão:', error);
+      setDebugContent(debugResponseEl, {
+        error: 'Falha ao consultar a sugestão da API.',
+        detail: String(error),
+      });
+      return {
+        list: [],
+        confidence: { score: 0, label: 'Baixa' },
+        confidenceV2: { score: 0, label: 'Baixa' },
+        reason: 'Falha ao consultar a sugestão da API.',
+      };
+    }
+  }
+
+  // Update suggestion display
+  function updateSuggestionDisplay(suggestion, confidence, confidenceV2, reason = '') {
+    if (!suggestion || !suggestion.length) {
+      suggestionGrid.innerHTML = '<div style="opacity: 0.5;">⏳ Calculando sugestão...</div>';
+      suggestionInfo.innerHTML = reason
+        ? `<div style="margin-top: 5px; color: #fdcb6e; font-size: 0.85rem;">${reason}</div>`
+        : '';
+      return;
+    }
+
+    // Ordenar numericamente para exibição (a ordem de relevância já foi aplicada no servidor)
+    const displayList = [...suggestion].sort((a, b) => a - b);
+
+    suggestionGrid.innerHTML = displayList
+      .map(n => `<div class="suggestion-cell ${getColor(n)}">${n}</div>`)
+      .join('');
+
+    const labelClass = (confidence.label || 'baixa').toLowerCase().replace(/\s+/g, '-');
+    const confScore = confidence.score || 0;
+    const confV2Score = confidenceV2?.score || 0;
+    const confV2Label = confidenceV2?.label || 'Baixa';
+
+    // Alerta visual se confiança muito baixa
+    const warningHtml = confScore < 50
+      ? '<div style="color: #fdcb6e; font-size: 0.75rem; margin-top: 5px;">⚠️ Aguarde melhor momento</div>'
+      : '';
+
+    suggestionInfo.innerHTML = `
+      <span class="confidence-badge ${labelClass}">${confidence.label} (${confScore}%)</span>
+      <div style="margin-top: 5px;">${suggestion.length} números</div>
+      <div style="margin-top: 5px; font-size: 0.8rem; opacity: 0.8;">Confiança v2: ${confV2Label} (${confV2Score}%)</div>
+      ${warningHtml}
+    `;
+  }
+
+  // Update attempts indicator
+  function updateAttemptsIndicator() {
+    const max = betState.maxAttempts;
+    const used = betState.attempts;
+
+    let html = '';
+    for (let i = 0; i < max; i++) {
+      if (i < used) {
+        html += '<div class="attempt-dot used"></div>';
+      } else if (i === used && betState.active) {
+        html += '<div class="attempt-dot current"></div>';
+      } else {
+        html += '<div class="attempt-dot"></div>';
+      }
+    }
+    attemptsIndicator.innerHTML = html;
+  }
+
+  // Process bet
+  async function tryStartBetCycle() {
+    const suggestion = await fetchSuggestion();
+    if (!suggestion.list.length) {
+      stats.skippedSignals++;
+      updateStats();
+      setDebugContent(debugMonitorEl, {
+        roulette: rouletteSelect.value,
+        applied: false,
+        reason: suggestion.reason || 'Sem sugestão válida.',
+        confidence: suggestion.confidence,
+        confidence_v2: suggestion.confidenceV2,
+        history_head: rouletteHistory.slice(0, 10),
+      });
+      updateSuggestionDisplay([], suggestion.confidence, suggestion.confidenceV2, suggestion.reason || 'Aguardando sugestão válida...');
+      betStatusEl.className = 'bet-status waiting';
+      betStatusEl.textContent = suggestion.reason || 'Aguardando sugestão válida...';
+      updateAttemptsIndicator();
+      return false;
+    }
+
+    betState.active = true;
+    betState.suggestion = suggestion.list;
+    betState.confidence = suggestion.confidence;
+    betState.confidenceV2 = suggestion.confidenceV2;
+    betState.attempts = 0;
+    betState.totalInvested = 0;
+    betState.chipValue = parseFloat(chipValueInput.value) || 1;
+    betState.maxAttempts = parseInt(maxAttemptsInput.value, 10) || 3;
+    betState.chipSchedule = getChipSchedule();
+    betState.betSize = suggestion.list.length;
+    betState.minConfidence = parseInt(minConfidenceInput.value, 10) || 0;
+    betState.openedAt = new Date();
+    betState.openedAtLabel = formatDateTime(betState.openedAt);
+
+    setDebugContent(debugMonitorEl, {
+      roulette: rouletteSelect.value,
+      suggestion: suggestion.list,
+      confidence: suggestion.confidence,
+      confidence_v2: suggestion.confidenceV2,
+      attempts: betState.maxAttempts,
+      chip_value: betState.chipValue,
+      chip_schedule: betState.chipSchedule,
+      bet_size: betState.betSize,
+      min_confidence: betState.minConfidence,
+      opened_at: betState.openedAtLabel,
+      history_head: rouletteHistory.slice(0, 10),
+    });
+
+    updateSuggestionDisplay(suggestion.list, suggestion.confidence, suggestion.confidenceV2);
+    betStatusEl.className = 'bet-status pending';
+    betStatusEl.textContent = `Aposta armada em ${betState.betSize} números | Confiança ${suggestion.confidence.score}% | Próximo giro decide a tentativa 1/${betState.maxAttempts}.`;
+    updateAttemptsIndicator();
+    return true;
+  }
+
+  async function processBet(number) {
+    if (!betState.active) {
+      await tryStartBetCycle();
+      return;
+    }
+
+    // Check if we won
+    const won = betState.suggestion.includes(number);
+    betState.attempts++;
+    const attemptChipValue = getChipValueForAttempt(betState.attempts);
+    const settledSuggestionSize = Array.isArray(betState.suggestion) ? betState.suggestion.length : 0;
+
+    // Cada tentativa usa o valor de ficha configurado para aquela rodada.
+    const attemptCost = attemptChipValue * settledSuggestionSize;
+    betState.totalInvested += attemptCost;
+
+    if (won) {
+      const payout = 36 * attemptChipValue;
+      const profit = payout - betState.totalInvested;
+      const settledAt = new Date();
+
+      stats.rounds++;
+      stats.wins++;
+      stats.profit += profit;
+
+      addHistoryItem({
+        number,
+        suggestion: betState.suggestion,
+        won: true,
+        attempts: betState.attempts,
+        profit,
+        confidence: betState.confidence,
+        confidenceV2: betState.confidenceV2,
+        openedAt: betState.openedAt,
+        openedAtLabel: betState.openedAtLabel,
+        settledAt,
+        settledAtLabel: formatDateTime(settledAt),
+        chipSchedule: [...betState.chipSchedule],
+        attemptChipValue,
+        betSize: settledSuggestionSize,
+        totalInvested: betState.totalInvested,
+      });
+
+      betStatusEl.className = 'bet-status win';
+      betStatusEl.textContent = `VITÓRIA! Número ${number} na tentativa ${betState.attempts}. Ficha ${formatMoney(attemptChipValue)}. Lucro: ${formatMoney(profit)}`;
+
+      // Reset bet state
+      betState.active = false;
+      betState.suggestion = [];
+      betState.confidence = { score: 0, label: 'Baixa' };
+      betState.confidenceV2 = { score: 0, label: 'Baixa' };
+      betState.attempts = 0;
+      betState.totalInvested = 0;
+      betState.openedAt = null;
+      betState.openedAtLabel = '';
+
+      updateStats();
+      updateAttemptsIndicator();
+
+      if (isMonitoring) {
+        await tryStartBetCycle();
+      }
+
+    } else if (betState.attempts >= betState.maxAttempts) {
+      const loss = -betState.totalInvested;
+      const settledAt = new Date();
+
+      stats.rounds++;
+      stats.losses++;
+      stats.profit += loss;
+
+      addHistoryItem({
+        number,
+        suggestion: betState.suggestion,
+        won: false,
+        attempts: betState.attempts,
+        profit: loss,
+        confidence: betState.confidence,
+        confidenceV2: betState.confidenceV2,
+        openedAt: betState.openedAt,
+        openedAtLabel: betState.openedAtLabel,
+        settledAt,
+        settledAtLabel: formatDateTime(settledAt),
+        chipSchedule: [...betState.chipSchedule],
+        attemptChipValue,
+        betSize: settledSuggestionSize,
+        totalInvested: betState.totalInvested,
+      });
+
+      betStatusEl.className = 'bet-status loss';
+      betStatusEl.textContent = `DERROTA! Esgotou ${betState.maxAttempts} tentativas. Última ficha ${formatMoney(attemptChipValue)}. Prejuízo: ${formatMoney(Math.abs(loss))}`;
+
+      // Reset bet state
+      betState.active = false;
+      betState.suggestion = [];
+      betState.confidence = { score: 0, label: 'Baixa' };
+      betState.confidenceV2 = { score: 0, label: 'Baixa' };
+      betState.attempts = 0;
+      betState.totalInvested = 0;
+      betState.openedAt = null;
+      betState.openedAtLabel = '';
+
+      updateStats();
+      updateAttemptsIndicator();
+
+      if (isMonitoring) {
+        await tryStartBetCycle();
+      }
+
+    } else {
+      // Still have attempts - mantém a mesma sugestão até o fim do ciclo
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      betStatusEl.className = 'bet-status pending';
+      betStatusEl.textContent = `Tentativa ${betState.attempts}/${betState.maxAttempts}. Número ${number} não bateu. Ficha usada: ${formatMoney(attemptChipValue)}. Mantendo a mesma sugestão para a próxima rodada.`;
+      updateAttemptsIndicator();
+    }
+  }
+
+  // Add history item
+  function addHistoryItem(item) {
+    history.unshift(item);
+    if (history.length > 50) history.pop();
+    renderHistory();
+  }
+
+  // Render history
+  function renderHistory() {
+    if (!history.length) {
+      historyList.innerHTML = '<div style="text-align: center; opacity: 0.5; padding: 20px;">Nenhuma aposta registrada ainda.</div>';
+      return;
+    }
+
+    historyList.innerHTML = history.map(item => `
+      <div class="history-item ${item.won ? 'win' : 'loss'}">
+        <div class="history-number ${getColor(item.number)}">${item.number}</div>
+        <div class="history-details">
+          <div>Aposta: ${item.suggestion.slice(0, 5).join(', ')}${item.suggestion.length > 5 ? '...' : ''}</div>
+          <div>Tentativas: ${item.attempts}</div>
+          <div class="history-meta">
+            <div>Confianca: ${item.confidence?.label || 'Baixa'} (${item.confidence?.score || 0}%) | v2: ${item.confidenceV2?.label || 'Baixa'} (${item.confidenceV2?.score || 0}%)</div>
+            <div>Aberta: ${item.openedAtLabel || formatDateTime(item.openedAt)} | Fechada: ${item.settledAtLabel || formatDateTime(item.settledAt)}</div>
+            <div>Numeros apostados: ${item.betSize || item.suggestion.length}</div>
+            <div>Fichas: ${(item.chipSchedule || []).map((value) => formatMoney(value)).join(' | ')}</div>
+            <div>Investido: ${formatMoney(item.totalInvested)}${item.won ? ` | Ficha vencedora: ${formatMoney(item.attemptChipValue)}` : ''}</div>
+          </div>
+        </div>
+        <div class="history-result ${item.won ? 'win' : 'loss'}">
+          ${item.won ? '+' : ''}R$ ${item.profit.toFixed(2)}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Update stats display
+  function updateStats() {
+    document.getElementById('total-rounds').textContent = stats.rounds;
+    document.getElementById('total-wins').textContent = stats.wins;
+    document.getElementById('total-losses').textContent = stats.losses;
+
+    const profitEl = document.getElementById('total-profit');
+    profitEl.textContent = formatMoney(stats.profit);
+    profitEl.parentElement.className = `status-card ${stats.profit >= 0 ? 'profit' : 'loss'}`;
+    document.getElementById('current-bankroll').textContent = formatMoney(stats.initialBankroll + stats.profit);
+    document.getElementById('skipped-signals').textContent = stats.skippedSignals;
+
+    const winRate = stats.rounds > 0 ? Math.round((stats.wins / stats.rounds) * 100) : 0;
+    document.getElementById('win-rate').textContent = `${winRate}%`;
+  }
+
+  // Load initial history from API (500 números)
+  async function loadInitialHistory(slug) {
+    try {
+      const response = await fetch(`/history/${slug}?limit=500`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Failed to load history');
+      const data = await response.json();
+      rouletteHistory = Array.isArray(data.results) ? data.results : [];
+      console.log(`[Monitor] Histórico carregado: ${rouletteHistory.length} números`);
+      if (rouletteHistory.length) {
+        updateCurrentNumber(rouletteHistory[0]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+      rouletteHistory = [];
+    }
+  }
+
+  // Toggle monitoring
+  async function toggleMonitoring() {
+    if (isMonitoring) {
+      // Stop
+      isMonitoring = false;
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      btnToggle.textContent = 'Iniciar Monitoramento';
+      btnToggle.classList.remove('btn-stop');
+      betStatusEl.className = 'bet-status waiting';
+      betStatusEl.textContent = 'Monitoramento pausado';
+      betState.active = false;
+    } else {
+      // Start
+      if (!rouletteSelect.value) {
+        alert('Selecione uma roleta primeiro!');
+        return;
+      }
+
+      btnToggle.disabled = true;
+      btnToggle.textContent = 'Carregando...';
+      stats.initialBankroll = parseFloat(initialBankrollInput.value) || 0;
+      stats.profit = 0;
+      stats.rounds = 0;
+      stats.wins = 0;
+      stats.losses = 0;
+      stats.skippedSignals = 0;
+      history = [];
+      renderHistory();
+      updateStats();
+
+      // Load initial history
+      await loadInitialHistory(rouletteSelect.value);
+
+      isMonitoring = true;
+      await tryStartBetCycle();
+      connectWebSocket();
+      btnToggle.disabled = false;
+      btnToggle.textContent = 'Parar Monitoramento';
+      btnToggle.classList.add('btn-stop');
+      if (!betState.active) {
+        betStatusEl.className = 'bet-status waiting';
+      }
+    }
+  }
+
+  // Initialize
+  document.addEventListener('DOMContentLoaded', () => {
+    loadRoulettes();
+    renderAttemptStakeInputs();
+    btnToggle.addEventListener('click', toggleMonitoring);
+    maxAttemptsInput.addEventListener('input', renderAttemptStakeInputs);
+    chipValueInput.addEventListener('input', syncAttemptStakeBaseValue);
+    updateAttemptsIndicator();
+    updateStats();
+  });
+</script>
+{% endblock %}

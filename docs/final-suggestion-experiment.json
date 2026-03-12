@@ -1,0 +1,207 @@
+{
+  "scenarios": [
+    {
+      "scenario": "fusion_default",
+      "base_weight": 0.4,
+      "optimized_weight": 0.6,
+      "variant_a_current": {
+        "eligible_cases": 200,
+        "available_cases": 189,
+        "coverage": 0.945,
+        "average_list_size": 11,
+        "average_list_size_all_cases": 10.395,
+        "oversize_lists": 0,
+        "confidence_distribution": {
+          "50-59": 112,
+          "60-69": 75,
+          "70-79": 2
+        },
+        "confidence_mean": 58.835979,
+        "conditional_hits": {
+          "hit@1": 0.301587,
+          "hit@2": 0.492063,
+          "hit@3": 0.656085,
+          "hit@4": 0.746032
+        },
+        "effective_hits": {
+          "hit@1": 0.285,
+          "hit@2": 0.465,
+          "hit@3": 0.62,
+          "hit@4": 0.705
+        }
+      },
+      "variant_b_rank_preserved": {
+        "eligible_cases": 200,
+        "available_cases": 195,
+        "coverage": 0.975,
+        "average_list_size": 11,
+        "average_list_size_all_cases": 10.725,
+        "oversize_lists": 0,
+        "confidence_distribution": {
+          "40-49": 1,
+          "50-59": 116,
+          "60-69": 76,
+          "70-79": 2
+        },
+        "confidence_mean": 58.707692,
+        "conditional_hits": {
+          "hit@1": 0.302564,
+          "hit@2": 0.492308,
+          "hit@3": 0.646154,
+          "hit@4": 0.733333
+        },
+        "effective_hits": {
+          "hit@1": 0.295,
+          "hit@2": 0.48,
+          "hit@3": 0.63,
+          "hit@4": 0.715
+        }
+      },
+      "delta_b_minus_a": {
+        "coverage_delta": 0.03,
+        "average_list_size_delta": 0.0,
+        "effective_hit@4_delta": 0.01,
+        "conditional_hit@4_delta": -0.012699
+      }
+    },
+    {
+      "scenario": "base_only",
+      "base_weight": 1.0,
+      "optimized_weight": 0.0,
+      "variant_a_current": {
+        "eligible_cases": 200,
+        "available_cases": 189,
+        "coverage": 0.945,
+        "average_list_size": 11,
+        "average_list_size_all_cases": 10.395,
+        "oversize_lists": 0,
+        "confidence_distribution": {
+          "00-09": 113,
+          "10-19": 66,
+          "20-29": 10
+        },
+        "confidence_mean": 8.407407,
+        "conditional_hits": {
+          "hit@1": 0.301587,
+          "hit@2": 0.481481,
+          "hit@3": 0.645503,
+          "hit@4": 0.730159
+        },
+        "effective_hits": {
+          "hit@1": 0.285,
+          "hit@2": 0.455,
+          "hit@3": 0.61,
+          "hit@4": 0.69
+        }
+      },
+      "variant_b_rank_preserved": {
+        "eligible_cases": 200,
+        "available_cases": 195,
+        "coverage": 0.975,
+        "average_list_size": 11,
+        "average_list_size_all_cases": 10.725,
+        "oversize_lists": 0,
+        "confidence_distribution": {
+          "00-09": 119,
+          "10-19": 66,
+          "20-29": 10
+        },
+        "confidence_mean": 8.153846,
+        "conditional_hits": {
+          "hit@1": 0.312821,
+          "hit@2": 0.492308,
+          "hit@3": 0.646154,
+          "hit@4": 0.733333
+        },
+        "effective_hits": {
+          "hit@1": 0.305,
+          "hit@2": 0.48,
+          "hit@3": 0.63,
+          "hit@4": 0.715
+        }
+      },
+      "delta_b_minus_a": {
+        "coverage_delta": 0.03,
+        "average_list_size_delta": 0.0,
+        "effective_hit@4_delta": 0.025,
+        "conditional_hit@4_delta": 0.003174
+      }
+    },
+    {
+      "scenario": "optimized_only",
+      "base_weight": 0.0,
+      "optimized_weight": 1.0,
+      "variant_a_current": {
+        "eligible_cases": 200,
+        "available_cases": 189,
+        "coverage": 0.945,
+        "average_list_size": 11,
+        "average_list_size_all_cases": 10.395,
+        "oversize_lists": 0,
+        "confidence_distribution": {
+          "100-100": 16,
+          "80-89": 55,
+          "90-99": 118
+        },
+        "confidence_mean": 92.428571,
+        "conditional_hits": {
+          "hit@1": 0.280423,
+          "hit@2": 0.47619,
+          "hit@3": 0.634921,
+          "hit@4": 0.746032
+        },
+        "effective_hits": {
+          "hit@1": 0.265,
+          "hit@2": 0.45,
+          "hit@3": 0.6,
+          "hit@4": 0.705
+        }
+      },
+      "variant_b_rank_preserved": {
+        "eligible_cases": 200,
+        "available_cases": 195,
+        "coverage": 0.975,
+        "average_list_size": 11,
+        "average_list_size_all_cases": 10.725,
+        "oversize_lists": 0,
+        "confidence_distribution": {
+          "100-100": 17,
+          "70-79": 1,
+          "80-89": 56,
+          "90-99": 121
+        },
+        "confidence_mean": 92.353846,
+        "conditional_hits": {
+          "hit@1": 0.297436,
+          "hit@2": 0.487179,
+          "hit@3": 0.635897,
+          "hit@4": 0.728205
+        },
+        "effective_hits": {
+          "hit@1": 0.29,
+          "hit@2": 0.475,
+          "hit@3": 0.62,
+          "hit@4": 0.71
+        }
+      },
+      "delta_b_minus_a": {
+        "coverage_delta": 0.03,
+        "average_list_size_delta": 0.0,
+        "effective_hit@4_delta": 0.005,
+        "conditional_hit@4_delta": -0.017827
+      }
+    }
+  ],
+  "meta": {
+    "dataset": "/Users/allanroberto/projetos/roleta-automatica/revesbot-final/apps/signals/helpers/results.json",
+    "histories_loaded": 630,
+    "cases_used": 200,
+    "max_numbers": 11,
+    "attempts": [
+      1,
+      2,
+      3,
+      4
+    ]
+  }
+}

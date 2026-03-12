@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Modelos do Agente</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/agent.css">
+</head>
+<body>
+    <div class="agent-shell">
+        <header class="agent-header">
+            <div class="brand">
+                <div class="brand-mark">R</div>
+                <div class="brand-text">
+                    <div class="brand-title">Modelos do Agente</div>
+                    <div class="brand-subtitle">Prompts base para novas conversas</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a class="ghost-btn" href="/agent">Abrir agente</a>
+                <a class="ghost-btn" href="/agent/sessions">Sessões</a>
+                <div class="nav-menu">
+                    <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menu">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <div class="nav-dropdown" id="nav-dropdown">
+                        <a href="/agent">Agente</a>
+                        <a href="/agent/templates">Templates</a>
+                        <a href="/agent/sessions">Sessoes</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="sessions-page">
+            <section class="panel-card">
+                <div class="panel-header">
+                    <h3>Criar modelo</h3>
+                </div>
+                <div class="template-form">
+                    <input id="template-name" class="text-input" placeholder="Nome do modelo">
+                    <select id="template-output-mode" class="select">
+                        <option value="text">Saída: texto simples</option>
+                        <option value="json">Saída: JSON</option>
+                    </select>
+                    <textarea id="template-prompt" class="rules-text" rows="12" placeholder="Prompt inicial do modelo..."></textarea>
+                    <textarea id="template-rules" class="rules-text" rows="6" placeholder="Regras do modelo (uma por linha)"></textarea>
+                    <div class="panel-actions">
+                        <button class="primary-btn" id="create-template">Salvar modelo</button>
+                        <button class="ghost-btn" id="clear-template">Limpar</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel-card">
+                <div class="panel-header">
+                    <h3>Modelos salvos</h3>
+                    <span class="badge" id="template-count">0</span>
+                </div>
+                <div class="sessions-list" id="templates-list"></div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="template-edit-modal" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-title">Editar modelo</div>
+            <div class="template-form">
+                <input id="edit-template-name" class="text-input" placeholder="Nome do modelo">
+                <select id="edit-template-output-mode" class="select">
+                    <option value="text">Saída: texto simples</option>
+                    <option value="json">Saída: JSON</option>
+                </select>
+                <textarea id="edit-template-prompt" class="rules-text" rows="10" placeholder="Prompt inicial do modelo..."></textarea>
+                <textarea id="edit-template-rules" class="rules-text" rows="6" placeholder="Regras do modelo (uma por linha)"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="ghost-btn" id="edit-template-cancel">Cancelar</button>
+                <button class="primary-btn" id="edit-template-save">Salvar alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="template-toast"></div>
+
+    <script>
+        const el = (id) => document.getElementById(id);
+
+        const navToggle = el("nav-toggle");
+        const navDropdown = el("nav-dropdown");
+
+        if (navToggle && navDropdown) {
+            navToggle.addEventListener("click", (event) => {
+                event.stopPropagation();
+                navDropdown.classList.toggle("open");
+            });
+            document.addEventListener("click", (event) => {
+                if (!navDropdown.classList.contains("open")) return;
+                if (event.target.closest(".nav-menu")) return;
+                navDropdown.classList.remove("open");
+            });
+        }
+
+        const renderTemplates = (templates) => {
+            const list = el("templates-list");
+            list.innerHTML = "";
+            el("template-count").textContent = templates.length;
+
+            if (!templates.length) {
+                list.innerHTML = "<div class=\"empty-live\">Nenhum modelo encontrado.</div>";
+                return;
+            }
+
+            templates.forEach((tpl) => {
+                const row = document.createElement("div");
+                row.className = "session-row";
+                row.innerHTML = `
+                    <div class="session-info">
+                        <div class="session-title">${tpl.name}</div>
+                        <div class="session-meta">
+                            <span>${tpl.id}</span>
+                            <span>${tpl.created_at || "-"}</span>
+                            <span>Saída: ${tpl.output_mode || "text"}</span>
+                        </div>
+                        <div class="template-preview">${tpl.prompt}</div>
+                        ${tpl.rules && tpl.rules.length ? `<div class="template-preview">Regras: ${tpl.rules.map(r => r.text).join(" | ")}</div>` : ""}
+                    </div>
+                    <div class="session-actions">
+                        <button class="ghost-btn small" data-edit="${tpl.id}">Editar</button>
+                        <button class="ghost-btn small" data-use="${tpl.id}">Aplicar no agente</button>
+                        <button class="ghost-btn small danger" data-delete="${tpl.id}">Excluir</button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+        };
+
+        const loadTemplates = async () => {
+            const res = await fetch("/api/agent/templates");
+            const data = await res.json();
+            templatesCache = data.templates || [];
+            renderTemplates(templatesCache);
+        };
+
+        let templatesCache = [];
+        let editId = "";
+        const editModal = el("template-edit-modal");
+        const editName = el("edit-template-name");
+        const editOutputMode = el("edit-template-output-mode");
+        const editPrompt = el("edit-template-prompt");
+        const editRules = el("edit-template-rules");
+        const toastEl = el("template-toast");
+        let toastTimer;
+
+        const showToast = (message) => {
+            if (!toastEl) return;
+            toastEl.textContent = message;
+            toastEl.classList.add("open");
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toastEl.classList.remove("open");
+            }, 2200);
+        };
+
+        const showEditModal = (tpl) => {
+            editId = tpl.id;
+            editName.value = tpl.name || "";
+            editOutputMode.value = tpl.output_mode || "text";
+            editPrompt.value = tpl.prompt || "";
+            editRules.value = (tpl.rules || []).map((r) => r.text).join("\n");
+            editModal.style.display = "flex";
+            editModal.classList.add("open");
+        };
+
+        const hideEditModal = () => {
+            editModal.classList.remove("open");
+            editModal.style.display = "none";
+            editId = "";
+        };
+
+        editModal.addEventListener("click", (event) => {
+            if (event.target === editModal) {
+                hideEditModal();
+            }
+        });
+
+        el("create-template").addEventListener("click", async () => {
+            const name = el("template-name").value.trim();
+            const outputMode = el("template-output-mode").value || "text";
+            const prompt = el("template-prompt").value.trim();
+            const rulesRaw = el("template-rules").value.trim();
+            const rules = rulesRaw
+                ? rulesRaw.split(/\r?\n/).map((line, index) => ({
+                    id: `rule-${Date.now()}-${index}`,
+                    text: line.trim(),
+                    active: true,
+                })).filter((r) => r.text)
+                : [];
+            if (!name || !prompt) {
+                alert("Preencha nome e prompt do modelo.");
+                return;
+            }
+            await fetch("/api/agent/templates", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, prompt, rules, output_mode: outputMode }),
+            });
+            el("template-name").value = "";
+            el("template-output-mode").value = "text";
+            el("template-prompt").value = "";
+            el("template-rules").value = "";
+            showToast("Modelo salvo com sucesso.");
+            await loadTemplates();
+        });
+
+        el("clear-template").addEventListener("click", () => {
+            el("template-name").value = "";
+            el("template-output-mode").value = "text";
+            el("template-prompt").value = "";
+            el("template-rules").value = "";
+        });
+
+        el("edit-template-cancel").addEventListener("click", hideEditModal);
+
+        el("edit-template-save").addEventListener("click", async () => {
+            if (!editId) return;
+            const name = editName.value.trim();
+            const outputMode = editOutputMode.value || "text";
+            const prompt = editPrompt.value.trim();
+            const rulesRaw = editRules.value.trim();
+            const rules = rulesRaw
+                ? rulesRaw.split(/\r?\n/).map((line, index) => ({
+                    id: `rule-${Date.now()}-${index}`,
+                    text: line.trim(),
+                    active: true,
+                })).filter((r) => r.text)
+                : [];
+            if (!name || !prompt) {
+                alert("Preencha nome e prompt do modelo.");
+                return;
+            }
+            await fetch(`/api/agent/templates?template_id=${editId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, prompt, rules, output_mode: outputMode }),
+            });
+            hideEditModal();
+            showToast("Modelo atualizado com sucesso.");
+            await loadTemplates();
+        });
+
+        document.addEventListener("click", async (event) => {
+            const target = event.target;
+            if (target.dataset.edit) {
+                const tpl = templatesCache.find((t) => t.id === target.dataset.edit);
+                if (!tpl) return;
+                showEditModal(tpl);
+                return;
+            }
+            if (target.dataset.delete) {
+                if (!confirm("Excluir este modelo?")) return;
+                await fetch(`/api/agent/templates?template_id=${target.dataset.delete}`, { method: "DELETE" });
+                showToast("Modelo excluido com sucesso.");
+                await loadTemplates();
+            }
+            if (target.dataset.use) {
+                window.location.href = `/agent?template_id=${target.dataset.use}`;
+            }
+        });
+
+        loadTemplates();
+    </script>
+</body>
+</html>

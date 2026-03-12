@@ -1,0 +1,3899 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisador de Sinais - Roletas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js" defer></script>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.header {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+h1 {
+    color: #2d3748;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+    color: #718096;
+    font-size: 1.2em;
+}
+
+.control-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.control-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.endpoint-info {
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    font-family: 'Courier New', monospace;
+}
+
+.endpoint-label {
+    color: #718096;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.endpoint-url {
+    color: #2d3748;
+    font-weight: bold;
+}
+
+.btn {
+    padding: 15px 30px;
+    border-radius: 10px;
+    font-size: 1em;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #48bb78;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #38a169;
+}
+
+.btn-danger {
+    background: #f56565;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #e53e3e;
+}
+
+.btn-small.btn-reset {
+    background: #9b59b6;
+    color: white;
+}
+
+.btn-small.btn-reset:hover {
+    background: #8e44ad;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.auto-refresh {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.auto-refresh input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.auto-refresh label {
+    cursor: pointer;
+    user-select: none;
+}
+
+.refresh-interval {
+    margin-left: 10px;
+    padding: 5px;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+}
+
+.last-update {
+    color: #718096;
+    font-size: 0.9em;
+    margin-top: 10px;
+}
+
+.loading {
+    display: none;
+    text-align: center;
+    padding: 20px;
+    color: #667eea;
+    font-size: 1.2em;
+}
+
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-message {
+    background: #fed7d7;
+    border: 1px solid #fc8181;
+    color: #742a2a;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+    display: none;
+}
+
+.success-message {
+    background: #c6f6d5;
+    border: 1px solid #48bb78;
+    color: #22543d;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+    display: none;
+}
+
+.results-section {
+    display: none;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+    animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-value {
+    font-size: 2.5em;
+    font-weight: bold;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+    color: #718096;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.chart-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.chart-title {
+    font-size: 1.5em;
+    color: #2d3748;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.table-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+}
+
+td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #4a5568;
+}
+
+tr:hover {
+    background: #f7fafc;
+}
+
+.win-rate {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.high-rate {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.medium-rate {
+    background: #fed7aa;
+    color: #7c2d12;
+}
+
+.low-rate {
+    background: #fed7d7;
+    color: #742a2a;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.status-win {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.status-lost {
+    background: #fed7d7;
+    color: #742a2a;
+}
+
+.status-waiting {
+    background: #feebc8;
+    color: #7c2d12;
+}
+
+.status-cancelled {
+    background: #e2e8f0;
+    color: #4a5568;
+}
+
+/* Estilos para dados pós-status */
+.after-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 0.85em;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.after-win {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.after-lost {
+    background: #e2e8f0;
+    color: #718096;
+}
+
+.after-lost-hit {
+    background: #feebc8;
+    color: #c05621;
+}
+
+.after-cancel {
+    background: #e2e8f0;
+    color: #718096;
+}
+
+.after-cancel-hit {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.btn-view-details {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+}
+
+.btn-view-details:hover {
+    background: #5a67d8;
+    transform: scale(1.05);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow-y: auto;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.modal-title {
+    font-size: 1.5em;
+    color: #2d3748;
+}
+
+.close {
+    color: #a0aec0;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: #2d3748;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.detail-item {
+    background: #f7fafc;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.detail-label {
+    color: #718096;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.detail-value {
+    color: #2d3748;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.number-history {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 15px;
+    background: #f7fafc;
+    border-radius: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.number-box {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    font-weight: bold;
+    color: white;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: transform 0.2s ease;
+}
+
+.number-box:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.number-red {
+    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+}
+
+.number-black {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+}
+
+.number-green {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+}
+
+.filters-container {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 20px;
+    background: #f7fafc;
+    border-radius: 10px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-label {
+    font-size: 0.9em;
+    color: #718096;
+    font-weight: 600;
+}
+
+.filter-select {
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    min-width: 150px;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+.filter-select:hover {
+    border-color: #667eea;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.clear-filters-btn {
+    background: #718096;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+    align-self: flex-end;
+}
+
+.clear-filters-btn:hover {
+    background: #4a5568;
+}
+
+/* Estilos para filtro de roletas */
+.roulette-filter-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.roulette-filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.roulette-filter-title {
+    font-size: 1.3em;
+    color: #2d3748;
+    font-weight: 600;
+}
+
+.roulette-control-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.roulette-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 12px;
+    background: #f7fafc;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.roulette-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+}
+
+.roulette-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
+}
+
+.roulette-checkbox {
+    margin-right: 8px;
+}
+
+.roulette-info {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.roulette-name {
+    font-size: 0.85em;
+    color: #2d3748;
+    font-weight: 500;
+}
+
+.roulette-stats {
+    display: flex;
+    gap: 5px;
+    font-size: 0.75em;
+}
+
+.roulette-assert {
+    background: #667eea;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.roulette-count {
+    background: #e2e8f0;
+    color: #4a5568;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.roulette-impact-summary {
+    display: flex;
+    justify-content: space-around;
+    padding: 15px;
+    background: #edf2f7;
+    border-radius: 10px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.impact-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.impact-label {
+    font-size: 0.9em;
+    color: #718096;
+    margin-bottom: 5px;
+}
+
+.impact-value {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #667eea;
+}
+
+/* Estilos para análise de correlação */
+.correlation-analysis-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.correlation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.correlation-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.correlation-title {
+    font-size: 1.3em;
+    color: #2d3748;
+    font-weight: 600;
+}
+
+.correlation-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.correlation-card {
+    background: #f7fafc;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.correlation-card-title {
+    font-size: 0.9em;
+    color: #718096;
+    margin-bottom: 8px;
+}
+
+.correlation-card-value {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.correlation-card-detail {
+    font-size: 0.85em;
+    color: #718096;
+    margin-top: 5px;
+}
+
+.correlation-table-container {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    overflow-x: auto;
+}
+
+.correlation-table-container h3 {
+    margin-bottom: 15px;
+    color: #2d3748;
+}
+
+#correlationTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#correlationTable th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+}
+
+#correlationTable td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #4a5568;
+}
+
+#correlationTable tr:hover {
+    background: #f7fafc;
+}
+
+.impact-positive {
+    color: #48bb78;
+    font-weight: bold;
+}
+
+.impact-negative {
+    color: #f56565;
+    font-weight: bold;
+}
+
+.impact-neutral {
+    color: #ed8936;
+    font-weight: bold;
+}
+
+.combination-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.combination-tag {
+    background: #edf2f7;
+    color: #4a5568;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.75em;
+    font-weight: 500;
+}
+
+/* Estilos para filtros de tags */
+.tags-filter-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.tags-filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.tags-filter-title {
+    font-size: 1.3em;
+    color: #2d3748;
+    font-weight: 600;
+}
+
+.tags-control-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-small {
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.btn-select-all {
+    background: #48bb78;
+    color: white;
+}
+
+.btn-select-all:hover {
+    background: #38a169;
+}
+
+.btn-deselect-all {
+    background: #f56565;
+    color: white;
+}
+
+.btn-deselect-all:hover {
+    background: #e53e3e;
+}
+
+.tags-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 8px;
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 12px;
+    background: #f7fafc;
+    border-radius: 10px;
+}
+
+/* Scrollbar personalizada para o grid de tags */
+.tags-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tags-grid::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 4px;
+}
+
+.tags-grid::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 4px;
+}
+
+.tags-grid::-webkit-scrollbar-thumb:hover {
+    background: #5a67d8;
+}
+
+.tag-item {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    gap: 6px;
+}
+
+.tag-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.tag-checkbox {
+    margin-right: 6px;
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tag-header {
+    display: flex;
+    align-items: center;
+    min-height: 20px;
+}
+
+.tag-info {
+    width: 100%;
+}
+
+.tag-name {
+    font-size: 0.82em;
+    color: #2d3748;
+    font-weight: 500;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    max-width: calc(100% - 22px);
+}
+
+.tag-stats {
+    display: flex;
+    gap: 4px;
+    font-size: 0.75em;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.tag-assertiveness {
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1em;
+    line-height: 1.3;
+}
+
+.tag-wins {
+    background: #c6f6d5;
+    color: #22543d;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.tag-losses {
+    background: #fed7d7;
+    color: #742a2a;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.tag-total {
+    background: #e2e8f0;
+    color: #4a5568;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.tags-summary {
+    margin-top: 15px;
+    padding: 15px;
+    background: #edf2f7;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.tags-summary-item {
+    text-align: center;
+}
+
+.tags-summary-value {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.tags-summary-label {
+    color: #718096;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.filter-stats {
+    background: #edf2f7;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.filter-stat-item {
+    text-align: center;
+}
+
+.filter-stat-value {
+    font-size: 1.8em;
+    font-weight: bold;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.filter-stat-label {
+    color: #718096;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.log-section {
+    background: #2d3748;
+    color: #e2e8f0;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.log-entry {
+    margin-bottom: 5px;
+    padding: 5px;
+    border-left: 2px solid #667eea;
+    padding-left: 10px;
+}
+
+.signal-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.signal-tag-badge {
+    background: #edf2f7;
+    color: #4a5568;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75em;
+    font-weight: 500;
+}
+
+.footer {
+    text-align: center;
+    color: white;
+    padding: 20px;
+    font-size: 0.9em;
+}
+
+canvas {
+    max-height: 400px;
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.tab {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    color: #718096;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tab.active {
+    color: #667eea;
+}
+
+.tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #667eea;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    h1 {
+        font-size: 1.8em;
+    }
+    
+    .table-container {
+        padding: 15px;
+    }
+    
+    th, td {
+        padding: 8px;
+        font-size: 0.9em;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 20px;
+    }
+    
+    .tags-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        max-height: 400px;
+        gap: 6px;
+        padding: 10px;
+    }
+    
+    .tags-control-buttons {
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .btn-small {
+        padding: 6px 12px;
+        font-size: 0.85em;
+    }
+}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+    <h1>🎰 Analisador de Sinais de Roleta</h1>
+    <p class="subtitle">Dashboard de Análise em Tempo Real</p>
+</div>
+
+<div class="control-section">
+    <div class="control-header">
+        <h3 style="color: #2d3748;">📡 Controle de Dados</h3>
+        <div class="auto-refresh">
+            <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+            <label for="autoRefresh">Atualização automática</label>
+            <select id="refreshInterval" class="refresh-interval" onchange="updateRefreshInterval()">
+                <option value="5000">5 segundos</option>
+                <option value="10000" selected>10 segundos</option>
+                <option value="30000">30 segundos</option>
+                <option value="60000">1 minuto</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="endpoint-info">
+        <div class="endpoint-label">Endpoint da API:</div>
+        <div class="endpoint-url" id="apiEndpoint">/api/signals</div>
+    </div>
+    
+    <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" onclick="fetchData()">
+            🔄 Atualizar Dados
+        </button>
+        <button class="btn btn-secondary" onclick="exportData()">
+            📥 Exportar CSV
+        </button>
+    </div>
+    
+    <div class="last-update" id="lastUpdate">
+        Aguardando primeira atualização...
+    </div>
+    
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        Carregando dados...
+    </div>
+    
+    <div id="errorMessage" class="error-message"></div>
+    <div id="successMessage" class="success-message"></div>
+</div>
+
+<div id="resultsSection" class="results-section">
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('overview')">📊 Visão Geral</button>
+        <button class="tab" onclick="switchTab('signals')">📋 Sinais Detalhados</button>
+        <button class="tab" onclick="switchTab('tags')">🏷️ Análise de Tags</button>
+        <button class="tab" onclick="switchTab('charts')">📈 Gráficos</button>
+        <button class="tab" onclick="switchTab('timeline')">⏱️ Timeline</button>
+    </div>
+    
+    <div id="overviewTab" class="tab-content active">
+        <div class="stats-grid" id="statsGrid">
+            <!-- Stats cards serão inseridos aqui -->
+        </div>
+        
+        <div class="table-container">
+            <h2 class="chart-title">🏆 Ranking de Performance por Roleta</h2>
+            <table id="rankingTable">
+                <thead>
+                    <tr>
+                        <th>Posição</th>
+                        <th>Roleta</th>
+                        <th>Assertividade</th>
+                        <th>Vitórias</th>
+                        <th>Derrotas</th>
+                        <th>Aguardando</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="rankingBody">
+                    <!-- Dados serão inseridos aqui -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div id="signalsTab" class="tab-content">
+        <div class="table-container">
+            <h2 class="chart-title">🔍 Lista de Sinais</h2>
+            
+            <div class="filters-container">
+                <div class="filter-group">
+                    <label class="filter-label">Status:</label>
+                    <select id="statusFilter" class="filter-select" onchange="applyFilters()">
+                        <option value="">Todos</option>
+                        <option value="win">Vitórias</option>
+                        <option value="lost">Derrotas</option>
+                        <option value="waiting">Aguardando</option>
+                        <option value="cancelled">Cancelados</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">Roleta:</label>
+                    <select id="rouletteFilter" class="filter-select" onchange="applyFilters()">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">Padrão:</label>
+                    <select id="patternFilter" class="filter-select" onchange="applyFilters()">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                
+                <button class="clear-filters-btn" onclick="clearFilters()">
+                    🔄 Limpar Filtros
+                </button>
+            </div>
+            
+            <div id="filterStats" class="filter-stats" style="display: none;">
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="filteredAssertiveness">0%</div>
+                    <div class="filter-stat-label">Assertividade</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="filteredWins">0</div>
+                    <div class="filter-stat-label">Vitórias</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="filteredLosses">0</div>
+                    <div class="filter-stat-label">Derrotas</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="filteredWaiting">0</div>
+                    <div class="filter-stat-label">Aguardando</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="filteredTotal">0</div>
+                    <div class="filter-stat-label">Total</div>
+                </div>
+            </div>
+            
+            <table id="signalsTable">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Roleta</th>
+                        <th>Padrão</th>
+                        <th>Status</th>
+                        <th>Gales</th>
+                        <th>Spins passados</th>
+                        <th>Score</th>
+                        <th>Spins Após</th>
+                        <th>Greens Após</th>
+                        <th>Bateu nos Spins</th>
+                        <th>Gatilhos</th>
+                        <th>Alvos</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="signalsBody">
+                    <!-- Sinais serão inseridos aqui -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div id="tagsTab" class="tab-content">
+        <!-- Filtro de Roletas -->
+        <div class="roulette-filter-section">
+            <div class="roulette-filter-header">
+                <h2 class="roulette-filter-title">🎰 Filtro Global de Roletas</h2>
+                <div class="roulette-control-buttons">
+                    <button class="btn-small btn-select-all" onclick="selectAllRoulettes()">
+                        ✅ Incluir Todas
+                    </button>
+                    <button class="btn-small btn-deselect-all" onclick="deselectAllRoulettes()">
+                        ❌ Excluir Todas
+                    </button>
+                </div>
+            </div>
+            
+            <div class="roulette-grid" id="rouletteGrid">
+                <!-- Roletas serão inseridas aqui -->
+            </div>
+            
+            <div class="roulette-impact-summary" id="rouletteImpactSummary">
+                <div class="impact-item">
+                    <span class="impact-label">Assertividade com filtros:</span>
+                    <span class="impact-value" id="filteredRouletteAssertiveness">0%</span>
+                </div>
+                <div class="impact-item">
+                    <span class="impact-label">Sinais incluídos:</span>
+                    <span class="impact-value" id="includedSignalsCount">0</span>
+                </div>
+                <div class="impact-item">
+                    <span class="impact-label">Ganho líquido:</span>
+                    <span class="impact-value" id="netGain">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Análise de Correlação -->
+        <div class="correlation-analysis-section">
+            <div class="correlation-header">
+                <h2 class="correlation-title">📊 Análise de Correlação Win/Loss</h2>
+                <div class="correlation-buttons">
+                    <button class="btn-small btn-primary" onclick="analyzeCorrelations()">
+                        🔍 Analisar Correlações
+                    </button>
+                    <button class="btn-small btn-secondary" onclick="findOptimalFilters()">
+                        🎯 Encontrar Filtros Ótimos
+                    </button>
+                </div>
+            </div>
+            
+            <div id="correlationResults" style="display: none;">
+                <div class="correlation-summary" id="correlationSummary">
+                    <!-- Resultados da análise serão inseridos aqui -->
+                </div>
+                
+                <div class="correlation-table-container">
+                    <h3>🎯 Melhores Combinações de Tags</h3>
+                    <table id="correlationTable">
+                        <thead>
+                            <tr>
+                                <th>Combinação de Tags</th>
+                                <th>Wins</th>
+                                <th>Losses</th>
+                                <th>Assertividade</th>
+                                <th>Ganho Líquido</th>
+                                <th>Impacto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="correlationTableBody">
+                            <!-- Dados serão inseridos aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filtros de Tags existente -->
+        <div class="tags-filter-section">
+            <div class="tags-filter-header">
+                <h2 class="tags-filter-title">🏷️ Filtros de Tags</h2>
+                <div class="tags-control-buttons">
+                    <button class="btn-small btn-select-all" onclick="selectAllTags()">
+                        ✅ Selecionar Todas
+                    </button>
+                    <button class="btn-small btn-deselect-all" onclick="deselectAllTags()">
+                        ❌ Desmarcar Todas
+                    </button>
+                    <button class="btn-small btn-reset" onclick="resetTagFilters()">
+                        🔄 Resetar Análise
+                    </button>
+                    <button class="btn-small btn-primary" onclick="applyTagFilters()">
+                        🔍 Aplicar Filtros
+                    </button>
+                </div>
+            </div>
+            
+            <div class="tags-summary" id="tagsSummary">
+                <div class="tags-summary-item">
+                    <div class="tags-summary-value" id="totalTagsCount">0</div>
+                    <div class="tags-summary-label">Total de Tags</div>
+                </div>
+                <div class="tags-summary-item">
+                    <div class="tags-summary-value" id="selectedTagsCount">0</div>
+                    <div class="tags-summary-label">Tags Selecionadas</div>
+                </div>
+                <div class="tags-summary-item">
+                    <div class="tags-summary-value" id="filteredSignalsCount">0</div>
+                    <div class="tags-summary-label">Sinais Filtrados</div>
+                </div>
+            </div>
+            
+            <div id="tagFilterNote" style="display: none; background: #fef5e7; border: 1px solid #f39c12; padding: 10px; border-radius: 8px; margin-bottom: 15px; color: #7c4a00;">
+                <strong>📊 Modo de Análise Ativo:</strong> As estatísticas das tags estão sendo recalculadas baseadas apenas nos sinais que contêm as tags selecionadas. Isso permite ver a correlação entre diferentes tags.
+                <div style="margin-top: 10px;">
+                    <label style="margin-right: 15px;">
+                        <input type="radio" name="tagFilterMode" value="or" checked onchange="updateSelectedTagsWithRecalc()">
+                        <strong>OU</strong> (sinais com qualquer tag selecionada)
+                    </label>
+                    <label>
+                        <input type="radio" name="tagFilterMode" value="and" onchange="updateSelectedTagsWithRecalc()">
+                        <strong>E</strong> (sinais com todas as tags selecionadas)
+                    </label>
+                </div>
+            </div>
+            
+            <div id="rouletteFilterNote" style="display: none; background: #e8f5e9; border: 1px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 15px; color: #1b5e20;">
+                <strong>🎰 Filtro de Roletas Ativo:</strong> <span id="rouletteFilterCount"></span> roletas excluídas da análise.
+            </div>
+            
+            <div class="tags-grid" id="tagsGrid">
+                <!-- Tags serão inseridas aqui -->
+            </div>
+        </div>
+        
+        <div class="table-container" style="margin-top: 20px;">
+            <h2 class="chart-title">📊 Sinais com Tags Selecionadas</h2>
+            <div id="tagFilterStats" class="filter-stats">
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="tagFilteredAssertiveness">0%</div>
+                    <div class="filter-stat-label">Assertividade</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="tagFilteredWins">0</div>
+                    <div class="filter-stat-label">Vitórias</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="tagFilteredLosses">0</div>
+                    <div class="filter-stat-label">Derrotas</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="tagFilteredWaiting">0</div>
+                    <div class="filter-stat-label">Aguardando</div>
+                </div>
+            </div>
+            
+            <table id="tagFilteredSignalsTable">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Roleta</th>
+                        <th>Status</th>
+                        <th>Tags Correspondentes</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tagFilteredSignalsBody">
+                    <!-- Sinais filtrados por tags serão inseridos aqui -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div id="chartsTab" class="tab-content">
+        <div class="chart-container">
+            <h2 class="chart-title">📊 Assertividade por Roleta (%)</h2>
+            <canvas id="assertivenessChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <h2 class="chart-title">📈 Distribuição de Resultados</h2>
+            <canvas id="resultsChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <h2 class="chart-title">🎯 Taxa de Sucesso Geral</h2>
+            <canvas id="winsLossesChart"></canvas>
+        </div>
+    </div>
+
+    <div id="timelineTab" class="tab-content">
+        <div class="table-container">
+            <h2 class="chart-title">⏱️ Timeline de Assertividade</h2>
+
+            <div class="filters-container">
+                <div class="filter-group">
+                    <label class="filter-label">Modo:</label>
+                    <select id="timelineMode" class="filter-select" onchange="updateTimelineTab()">
+                        <option value="time" selected>Por tempo</option>
+                        <option value="signals">Por sinais</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Janela:</label>
+                    <select id="timelineWindow" class="filter-select" onchange="updateTimelineTab()">
+                        <option value="all">Todo o periodo</option>
+                        <option value="5">Últimos 5 min</option>
+                        <option value="10">Últimos 10 min</option>
+                        <option value="15">Últimos 15 min</option>
+                        <option value="20" selected>Últimos 20 min</option>
+                        <option value="30">Últimos 30 min</option>
+                        <option value="40">Últimos 40 min</option>
+                        <option value="50">Últimos 50 min</option>
+                        <option value="60">Últimos 60 min</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Janela (sinais):</label>
+                    <select id="timelineSignalWindow" class="filter-select" onchange="updateTimelineTab()">
+                        <option value="5">Últimos 5 sinais</option>
+                        <option value="10" selected>Últimos 10 sinais</option>
+                        <option value="15">Últimos 15 sinais</option>
+                        <option value="20">Últimos 20 sinais</option>
+                        <option value="30">Últimos 30 sinais</option>
+                        <option value="40">Últimos 40 sinais</option>
+                        <option value="50">Últimos 50 sinais</option>
+                        <option value="60">Últimos 60 sinais</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Limiar:</label>
+                    <select id="timelineThreshold" class="filter-select" onchange="updateTimelineTab()">
+                        <option value="40">40%</option>
+                        <option value="50">50%</option>
+                        <option value="60" selected>60%</option>
+                        <option value="70">70%</option>
+                        <option value="80">80%</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Roleta:</label>
+                    <select id="timelineRoulette" class="filter-select" multiple size="6" onchange="updateTimelineTab()">
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-stats">
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="timelineAssertiveness">0%</div>
+                    <div class="filter-stat-label">Assertividade na janela</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="timelineWins">0</div>
+                    <div class="filter-stat-label">Vitórias</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="timelineLosses">0</div>
+                    <div class="filter-stat-label">Derrotas</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="timelineMin">-</div>
+                    <div class="filter-stat-label">Menor ponto</div>
+                </div>
+                <div class="filter-stat-item">
+                    <div class="filter-stat-value" id="timelineMax">-</div>
+                    <div class="filter-stat-label">Maior ponto</div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="chart-container">
+            <h2 class="chart-title">📉 Oscilação de Assertividade</h2>
+            <canvas id="timelineChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+    <p id="footerInfo">💡 Sistema pronto para análise</p>
+</div>
+</div>
+
+<!-- Modal de Detalhes -->
+<div id="detailModal" class="modal">
+<div class="modal-content">
+    <div class="modal-header">
+        <h2 class="modal-title">📊 Detalhes do Sinal</h2>
+        <span class="close" onclick="closeModal()">&times;</span>
+    </div>
+    <div id="modalBody">
+        <!-- Conteúdo será inserido aqui -->
+    </div>
+</div>
+</div>
+
+
+<script>
+    let dtInstances = {}; // mapa id -> DataTable instance
+
+    function initOrReinitDataTable(tableSelector, options = {}) {
+        // Espera jQuery e DataTables estarem carregados (por segurança, no onload do DOM já estamos ok)
+        if (!window.jQuery || !$.fn.DataTable) return;
+
+        if ($.fn.dataTable.isDataTable(tableSelector)) {
+            // Destroy para reinit confiável após re-render do tbody
+            $(tableSelector).DataTable().destroy();
+        }
+        // Recria
+        dtInstances[tableSelector] = $(tableSelector).DataTable({
+            pageLength: 100,
+            order: [], // sem ordenação inicial (você pode ajustar)
+            language: {
+                url: "https://cdn.datatables.net/plug-ins/1.13.8/i18n/pt-BR.json"
+            },
+            columnDefs: [
+                // Colunas numéricas: Gales (4), Spins passados (5), Score (6)
+                { 
+                    targets: [4, 5, 6],
+                    type: 'num'
+                }
+            ],
+            ...options
+        });
+    }
+</script>
+
+<script>
+let currentData = null;
+let charts = {};
+let allSignals = [];
+let filteredSignals = [];
+let refreshTimer = null;
+let tagStats = {};
+let selectedTags = new Set();
+let tagFilteredSignals = [];
+let selectedRoulettes = new Set();
+let rouletteStats = {};
+let correlationAnalysis = {};
+let timelineLastWindowMinutes = 20;
+let timelineLastSignalWindow = 10;
+
+// Números vermelhos e pretos da roleta
+const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+const blackNumbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35];
+
+// Função para determinar a cor do número
+function getNumberColor(number) {
+    if (number === 0) return 'green';
+    if (redNumbers.includes(number)) return 'red';
+    if (blackNumbers.includes(number)) return 'black';
+    return 'green'; // Para qualquer outro caso
+}
+
+// Configuração do endpoint da API - AJUSTE AQUI CONFORME SUA API
+const API_BASE_URL = ''; // Deixe vazio para usar o mesmo domínio
+const API_ENDPOINT = '/signals'; // Ajuste para o endpoint correto da sua API
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('apiEndpoint').textContent = API_ENDPOINT;
+    fetchData(); // Buscar dados na inicialização
+});
+
+// Buscar dados da API
+async function fetchData() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('errorMessage').style.display = 'none';
+    document.getElementById('successMessage').style.display = 'none';
+    
+    try {
+        // Construir URL da API
+        const url = API_BASE_URL + API_ENDPOINT;
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                // Adicione headers de autenticação se necessário
+                // 'Authorization': 'Bearer ' + token
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erro HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+            throw new Error('Formato de dados inválido. Esperado um array JSON.');
+        }
+        
+        currentData = data;
+        processData(data);
+        
+        // Atualizar última atualização
+        const now = new Date().toLocaleString('pt-BR');
+        document.getElementById('lastUpdate').textContent = `Última atualização: ${now}`;
+        
+        showSuccess(`${data.length} sinais carregados com sucesso!`);
+        
+    } catch (error) {
+        showError(`Erro ao buscar dados: ${error.message}`);
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+// Toggle auto refresh
+function toggleAutoRefresh() {
+    const checkbox = document.getElementById('autoRefresh');
+    
+    if (checkbox.checked) {
+        startAutoRefresh();
+    } else {
+        stopAutoRefresh();
+    }
+}
+
+// Iniciar auto refresh
+function startAutoRefresh() {
+    const interval = parseInt(document.getElementById('refreshInterval').value);
+    
+    stopAutoRefresh(); // Limpar timer existente
+    
+    refreshTimer = setInterval(() => {
+        fetchData();
+    }, interval);
+}
+
+// Parar auto refresh
+function stopAutoRefresh() {
+    if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+    }
+}
+
+// Atualizar intervalo de refresh
+function updateRefreshInterval() {
+    if (document.getElementById('autoRefresh').checked) {
+        startAutoRefresh();
+    }
+}
+
+// Processar dados
+function processData(data) {
+    allSignals = data;
+    
+    // Análise estatística
+    const stats = analyzeData(data);
+    
+    // Processar tags
+    processTagsData(data);
+    
+    // Processar roletas
+    processRoulettesData(data);
+    
+    // Atualizar UI
+    updateOverview(stats);
+    updateSignalsTable(data);
+    updateCharts(stats);
+    populateFilters(data);
+    updateTagsGrid();
+    updateRoulettesGrid();
+    updateTimelineFilters(data);
+    updateTimelineTab();
+    
+    // Mostrar resultados
+    document.getElementById('resultsSection').style.display = 'block';
+    
+    // Atualizar footer
+    document.getElementById('footerInfo').textContent = 
+        `📅 Análise de ${data.length} sinais | Última atualização: ${new Date().toLocaleString('pt-BR')}`;
+}
+
+function parseCreatedAt(signal) {
+    const raw = signal.created_at ?? signal.timestamp ?? null;
+    if (raw === null || raw === undefined) return null;
+
+    if (typeof raw === 'number') {
+        return raw > 1e12 ? raw : raw * 1000;
+    }
+
+    if (typeof raw === 'string') {
+        const asNumber = Number(raw);
+        if (!Number.isNaN(asNumber)) {
+            return asNumber > 1e12 ? asNumber : asNumber * 1000;
+        }
+        const parsed = Date.parse(raw);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
+}
+
+function updateTimelineFilters(signals) {
+    const rouletteSelect = document.getElementById('timelineRoulette');
+    if (!rouletteSelect) return;
+
+    const roulettes = [...new Set(signals.map(s => s.roulette_name).filter(Boolean))].sort();
+    const current = new Set(Array.from(rouletteSelect.selectedOptions).map(option => option.value));
+    rouletteSelect.innerHTML = '';
+    roulettes.forEach(roulette => {
+        const selected = current.has(roulette) ? 'selected' : '';
+        rouletteSelect.innerHTML += `<option value="${roulette}" ${selected}>${roulette}</option>`;
+    });
+}
+
+function buildTimelineSeriesByTime(signals, windowMinutes) {
+    const windowMs = windowMinutes * 60 * 1000;
+    const events = signals
+        .map(signal => ({
+            time: parseCreatedAt(signal),
+            status: signal.status
+        }))
+        .filter(item => item.time && (item.status === 'win' || item.status === 'lost'))
+        .sort((a, b) => a.time - b.time);
+
+    let startIdx = 0;
+    let wins = 0;
+    let losses = 0;
+    const points = [];
+    const labels = [];
+    const values = [];
+
+    for (let i = 0; i < events.length; i++) {
+        const current = events[i];
+        if (current.status === 'win') {
+            wins += 1;
+        } else if (current.status === 'lost') {
+            losses += 1;
+        }
+
+        while (current.time - events[startIdx].time > windowMs) {
+            const outgoing = events[startIdx];
+            if (outgoing.status === 'win') {
+                wins -= 1;
+            } else if (outgoing.status === 'lost') {
+                losses -= 1;
+            }
+            startIdx += 1;
+        }
+
+        const total = wins + losses;
+        const assertiveness = total > 0 ? (wins / total) * 100 : 0;
+        const value = Number(assertiveness.toFixed(2));
+        points.push({ x: current.time, y: value });
+        labels.push(new Date(current.time).toLocaleTimeString('pt-BR'));
+        values.push(value);
+    }
+
+    return { points, labels, values };
+}
+
+function buildTimelineSeriesBySignals(signals, windowSize) {
+    const events = signals
+        .map(signal => ({
+            time: parseCreatedAt(signal),
+            status: signal.status
+        }))
+        .filter(item => item.time && (item.status === 'win' || item.status === 'lost'))
+        .sort((a, b) => a.time - b.time);
+
+    const points = [];
+    const labels = [];
+    const values = [];
+
+    let wins = 0;
+    let losses = 0;
+    const window = [];
+
+    events.forEach(eventItem => {
+        window.push(eventItem);
+        if (eventItem.status === 'win') {
+            wins += 1;
+        } else {
+            losses += 1;
+        }
+
+        if (window.length > windowSize) {
+            const outgoing = window.shift();
+            if (outgoing.status === 'win') {
+                wins -= 1;
+            } else {
+                losses -= 1;
+            }
+        }
+
+        const total = wins + losses;
+        const assertiveness = total > 0 ? (wins / total) * 100 : 0;
+        const value = Number(assertiveness.toFixed(2));
+        points.push({ x: eventItem.time, y: value });
+        labels.push(new Date(eventItem.time).toLocaleTimeString('pt-BR'));
+        values.push(value);
+    });
+
+    return { points, labels, values };
+}
+
+function filterSeriesByTime(series, windowStart) {
+    const filtered = {
+        points: [],
+        labels: [],
+        values: []
+    };
+
+    series.points.forEach((point, idx) => {
+        if (point.x >= windowStart) {
+            filtered.points.push(point);
+            filtered.labels.push(series.labels[idx]);
+            filtered.values.push(series.values[idx]);
+        }
+    });
+
+    return filtered;
+}
+
+function updateTimelineTab() {
+    const timelineWindow = document.getElementById('timelineWindow');
+    const timelineRoulette = document.getElementById('timelineRoulette');
+    const timelineMode = document.getElementById('timelineMode');
+    const timelineSignalWindow = document.getElementById('timelineSignalWindow');
+    const timelineThreshold = document.getElementById('timelineThreshold');
+    if (!timelineWindow || !timelineRoulette || !timelineMode || !timelineSignalWindow || !timelineThreshold) return;
+
+    const windowValue = timelineWindow.value;
+    const modeValue = timelineMode.value;
+    const windowMinutes = windowValue === 'all' ? timelineLastWindowMinutes : parseInt(windowValue, 10);
+    const windowSignals = parseInt(timelineSignalWindow.value, 10);
+    const thresholdValue = parseFloat(timelineThreshold.value);
+    const selectedRoulettesList = Array.from(timelineRoulette.selectedOptions).map(option => option.value);
+
+    const scopedSignals = allSignals.filter(signal => {
+        if (!selectedRoulettesList.length) return true;
+        return selectedRoulettesList.includes(signal.roulette_name);
+    });
+
+    const now = Date.now();
+    if (windowValue !== 'all' && Number.isFinite(windowMinutes)) {
+        timelineLastWindowMinutes = windowMinutes;
+    }
+
+    if (Number.isFinite(windowSignals)) {
+        timelineLastSignalWindow = windowSignals;
+    }
+
+    const windowMs = windowMinutes * 60 * 1000;
+    const windowStart = windowValue === 'all' ? 0 : now - windowMs;
+
+    const eventsInPeriod = scopedSignals
+        .map(signal => ({
+            time: parseCreatedAt(signal),
+            status: signal.status
+        }))
+        .filter(item => item.time && item.time >= windowStart && (item.status === 'win' || item.status === 'lost'))
+        .sort((a, b) => a.time - b.time);
+
+    const statsWindow = modeValue === 'signals'
+        ? eventsInPeriod.slice(-timelineLastSignalWindow)
+        : eventsInPeriod;
+
+    const wins = statsWindow.filter(s => s.status === 'win').length;
+    const losses = statsWindow.filter(s => s.status === 'lost').length;
+    const total = wins + losses;
+    const assertiveness = total > 0 ? (wins / total) * 100 : 0;
+
+    document.getElementById('timelineAssertiveness').textContent = assertiveness.toFixed(2) + '%';
+    document.getElementById('timelineWins').textContent = wins;
+    document.getElementById('timelineLosses').textContent = losses;
+
+    const series = modeValue === 'signals'
+        ? buildTimelineSeriesBySignals(scopedSignals, timelineLastSignalWindow)
+        : buildTimelineSeriesByTime(scopedSignals, windowMinutes);
+    const displaySeries = windowValue === 'all' ? series : filterSeriesByTime(series, windowStart);
+    const recentSeries = displaySeries.points;
+    let minPoint = null;
+    let maxPoint = null;
+
+    recentSeries.forEach(point => {
+        if (!minPoint || point.y < minPoint.y) minPoint = point;
+        if (!maxPoint || point.y > maxPoint.y) maxPoint = point;
+    });
+
+    const minLabel = minPoint
+        ? `${minPoint.y.toFixed(1)}% @ ${new Date(minPoint.x).toLocaleTimeString('pt-BR')}`
+        : '-';
+    const maxLabel = maxPoint
+        ? `${maxPoint.y.toFixed(1)}% @ ${new Date(maxPoint.x).toLocaleTimeString('pt-BR')}`
+        : '-';
+
+    document.getElementById('timelineMin').textContent = minLabel;
+    document.getElementById('timelineMax').textContent = maxLabel;
+
+    const ctx = document.getElementById('timelineChart');
+    if (!ctx) return;
+
+    const existingTimeline = Chart.getChart(ctx);
+    if (existingTimeline && existingTimeline !== charts.timeline) {
+        existingTimeline.destroy();
+    }
+
+    const minIndex = displaySeries.points.findIndex(point => minPoint && point.x === minPoint.x && point.y === minPoint.y);
+    const maxIndex = displaySeries.points.findIndex(point => maxPoint && point.x === maxPoint.x && point.y === maxPoint.y);
+    const minValues = displaySeries.values.map((value, idx) => (idx === minIndex ? value : null));
+    const maxValues = displaySeries.values.map((value, idx) => (idx === maxIndex ? value : null));
+    const thresholdValues = displaySeries.values.map(() => thresholdValue);
+
+    if (!charts.timeline) {
+        charts.timeline = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: displaySeries.labels,
+                datasets: [{
+                    label: 'Assertividade (janela móvel)',
+                    data: displaySeries.values,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                    fill: true,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    tension: 0.2,
+                    segment: {
+                        borderColor: (ctx) => {
+                            const from = ctx.p0 && ctx.p0.parsed ? ctx.p0.parsed.y : null;
+                            const to = ctx.p1 && ctx.p1.parsed ? ctx.p1.parsed.y : null;
+                            if (from === null || to === null) {
+                                return '#718096';
+                            }
+                            if (from >= thresholdValue && to >= thresholdValue) {
+                                return '#48bb78';
+                            }
+                            return '#f56565';
+                        }
+                    },
+                    pointBackgroundColor: (context) => {
+                        const value = context && context.parsed ? context.parsed.y : null;
+                        if (value === null || value === undefined) {
+                            return '#718096';
+                        }
+                        return value >= thresholdValue ? '#48bb78' : '#f56565';
+                    }
+                }, {
+                    label: 'Limiar',
+                    data: thresholdValues,
+                    borderColor: '#718096',
+                    borderDash: [6, 6],
+                    pointRadius: 0,
+                    fill: false
+                }, {
+                    label: 'Mínimo',
+                    data: minValues,
+                    borderColor: '#f56565',
+                    backgroundColor: '#f56565',
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    showLine: false
+                }, {
+                    label: 'Máximo',
+                    data: maxValues,
+                    borderColor: '#48bb78',
+                    backgroundColor: '#48bb78',
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    showLine: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Horário'
+                        }
+                    },
+                    y: {
+                        min: 0,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Assertividade (%)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${context.parsed.y.toFixed(2)}%`
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        charts.timeline.data.labels = displaySeries.labels;
+        charts.timeline.data.datasets[0].data = displaySeries.values;
+        charts.timeline.data.datasets[1].data = thresholdValues;
+        charts.timeline.data.datasets[2].data = minValues;
+        charts.timeline.data.datasets[3].data = maxValues;
+        charts.timeline.data.datasets[0].segment.borderColor = (ctx) => {
+            const from = ctx.p0 && ctx.p0.parsed ? ctx.p0.parsed.y : null;
+            const to = ctx.p1 && ctx.p1.parsed ? ctx.p1.parsed.y : null;
+            if (from === null || to === null) {
+                return '#718096';
+            }
+            if (from >= thresholdValue && to >= thresholdValue) {
+                return '#48bb78';
+            }
+            return '#f56565';
+        };
+        charts.timeline.data.datasets[0].pointBackgroundColor = (context) => {
+            const value = context && context.parsed ? context.parsed.y : null;
+            if (value === null || value === undefined) {
+                return '#718096';
+            }
+            return value >= thresholdValue ? '#48bb78' : '#f56565';
+        };
+        charts.timeline.update();
+    }
+}
+
+// Processar dados de roletas
+function processRoulettesData(data) {
+    rouletteStats = {};
+    
+    data.forEach(signal => {
+        const rouletteName = signal.roulette_name || 'Desconhecida';
+        
+        if (!rouletteStats[rouletteName]) {
+            rouletteStats[rouletteName] = {
+                wins: 0,
+                losses: 0,
+                waiting: 0,
+                total: 0,
+                assertiveness: 0
+            };
+        }
+        
+        rouletteStats[rouletteName].total++;
+        
+        switch(signal.status) {
+            case 'win':
+                rouletteStats[rouletteName].wins++;
+                break;
+            case 'lost':
+                rouletteStats[rouletteName].losses++;
+                break;
+            case 'waiting':
+                rouletteStats[rouletteName].waiting++;
+                break;
+        }
+    });
+    
+    // Calcular assertividade
+    Object.keys(rouletteStats).forEach(name => {
+        const stats = rouletteStats[name];
+        const finalized = stats.wins + stats.losses;
+        stats.assertiveness = finalized > 0 ? (stats.wins / finalized * 100) : 0;
+    });
+    
+    // Inicializar todas as roletas como selecionadas
+    if (selectedRoulettes.size === 0) {
+        Object.keys(rouletteStats).forEach(name => selectedRoulettes.add(name));
+    }
+}
+
+// Atualizar grid de roletas
+function updateRoulettesGrid() {
+    const rouletteGrid = document.getElementById('rouletteGrid');
+    if (!rouletteGrid) return;
+    
+    rouletteGrid.innerHTML = '';
+    
+    // Ordenar roletas por assertividade
+    const sortedRoulettes = Object.entries(rouletteStats)
+        .sort((a, b) => b[1].assertiveness - a[1].assertiveness);
+    
+    sortedRoulettes.forEach(([name, stats]) => {
+        const rouletteItem = document.createElement('div');
+        rouletteItem.className = 'roulette-item';
+        
+        const isChecked = selectedRoulettes.has(name) ? 'checked' : '';
+        const assertColor = stats.assertiveness >= 70 ? '#48bb78' : 
+                          stats.assertiveness >= 50 ? '#ed8936' : '#f56565';
+        
+        rouletteItem.innerHTML = `
+            <input type="checkbox" class="roulette-checkbox" 
+                   id="roulette-${name}" value="${name}" ${isChecked} 
+                   onchange="updateSelectedRoulettes()">
+            <div class="roulette-info">
+                <label for="roulette-${name}" class="roulette-name">${name}</label>
+                <div class="roulette-stats">
+                    <span class="roulette-assert" style="background: ${assertColor};">
+                        ${stats.assertiveness.toFixed(1)}%
+                    </span>
+                    <span class="roulette-count">
+                        ${stats.total}
+                    </span>
+                </div>
+            </div>
+        `;
+        
+        rouletteGrid.appendChild(rouletteItem);
+    });
+    
+    updateRouletteImpact();
+}
+
+// Atualizar roletas selecionadas
+function updateSelectedRoulettes() {
+    selectedRoulettes.clear();
+    
+    document.querySelectorAll('.roulette-checkbox:checked').forEach(checkbox => {
+        selectedRoulettes.add(checkbox.value);
+    });
+    
+    // Mostrar/esconder nota de filtro de roletas
+    const totalRoulettes = Object.keys(rouletteStats).length;
+    const excludedCount = totalRoulettes - selectedRoulettes.size;
+    const rouletteFilterNote = document.getElementById('rouletteFilterNote');
+    
+    if (excludedCount > 0) {
+        if (rouletteFilterNote) {
+            rouletteFilterNote.style.display = 'block';
+            document.getElementById('rouletteFilterCount').textContent = 
+                `${excludedCount} de ${totalRoulettes}`;
+        }
+    } else {
+        if (rouletteFilterNote) {
+            rouletteFilterNote.style.display = 'none';
+        }
+    }
+    
+    updateRouletteImpact();
+    
+    // Recalcular tags com base nas roletas selecionadas
+    const filteredByRoulette = allSignals.filter(signal => 
+        selectedRoulettes.has(signal.roulette_name)
+    );
+    
+    processTagsData(filteredByRoulette);
+    updateTagsGrid(selectedTags.size > 0);
+    
+    // Se houver tags selecionadas, precisa recalcular com os novos filtros
+    if (selectedTags.size > 0) {
+        updateSelectedTagsWithRecalc();
+    }
+}
+
+// Calcular impacto do filtro de roletas
+function updateRouletteImpact() {
+    const filteredSignals = allSignals.filter(signal => 
+        selectedRoulettes.has(signal.roulette_name)
+    );
+    
+    const wins = filteredSignals.filter(s => s.status === 'win').length;
+    const losses = filteredSignals.filter(s => s.status === 'lost').length;
+    const finalized = wins + losses;
+    const assertiveness = finalized > 0 ? (wins / finalized * 100) : 0;
+    const netGain = wins - losses;
+    
+    document.getElementById('filteredRouletteAssertiveness').textContent = 
+        assertiveness.toFixed(2) + '%';
+    document.getElementById('includedSignalsCount').textContent = 
+        filteredSignals.length;
+    document.getElementById('netGain').textContent = netGain;
+    
+    // Colorir ganho líquido
+    const netGainElement = document.getElementById('netGain');
+    netGainElement.style.color = netGain > 0 ? '#48bb78' : 
+                                netGain < 0 ? '#f56565' : '#718096';
+}
+
+// Selecionar todas as roletas
+function selectAllRoulettes() {
+    document.querySelectorAll('.roulette-checkbox').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    updateSelectedRoulettes();
+}
+
+// Desmarcar todas as roletas
+function deselectAllRoulettes() {
+    document.querySelectorAll('.roulette-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    updateSelectedRoulettes();
+}
+
+// Analisar correlações entre tags
+function analyzeCorrelations() {
+    const correlationResults = document.getElementById('correlationResults');
+    correlationResults.style.display = 'block';
+    
+    // Filtrar sinais por roletas selecionadas
+    const workingSignals = allSignals.filter(signal => 
+        selectedRoulettes.has(signal.roulette_name)
+    );
+    
+    // Analisar combinações de tags
+    const combinations = analyzeCombinations(workingSignals);
+    
+    // Mostrar resultados
+    displayCorrelationSummary(combinations);
+    displayCorrelationTable(combinations);
+}
+
+// Analisar combinações de tags
+function analyzeCombinations(signals) {
+    const combinations = {};
+    
+    // Analisar tags individuais
+    Object.keys(tagStats).forEach(tag => {
+        const signalsWithTag = signals.filter(s => 
+            s.tags && s.tags.includes(tag)
+        );
+        
+        const wins = signalsWithTag.filter(s => s.status === 'win').length;
+        const losses = signalsWithTag.filter(s => s.status === 'lost').length;
+        const total = wins + losses;
+        
+        if (total > 0) {
+            combinations[tag] = {
+                tags: [tag],
+                wins: wins,
+                losses: losses,
+                total: total,
+                assertiveness: (wins / total * 100),
+                netGain: wins - losses,
+                type: 'single'
+            };
+        }
+    });
+    
+    // Analisar pares de tags mais comuns
+    const tagPairs = {};
+    signals.forEach(signal => {
+        if (signal.tags && signal.tags.length >= 2) {
+            for (let i = 0; i < signal.tags.length - 1; i++) {
+                for (let j = i + 1; j < signal.tags.length; j++) {
+                    const pair = [signal.tags[i], signal.tags[j]].sort().join('|');
+                    if (!tagPairs[pair]) {
+                        tagPairs[pair] = { wins: 0, losses: 0, total: 0 };
+                    }
+                    tagPairs[pair].total++;
+                    if (signal.status === 'win') tagPairs[pair].wins++;
+                    if (signal.status === 'lost') tagPairs[pair].losses++;
+                }
+            }
+        }
+    });
+    
+    // Adicionar pares significativos
+    Object.entries(tagPairs).forEach(([pair, stats]) => {
+        if (stats.total >= 5) { // Mínimo de 5 ocorrências
+            const tags = pair.split('|');
+            combinations[pair] = {
+                tags: tags,
+                wins: stats.wins,
+                losses: stats.losses,
+                total: stats.total,
+                assertiveness: (stats.wins / stats.total * 100),
+                netGain: stats.wins - stats.losses,
+                type: 'pair'
+            };
+        }
+    });
+    
+    return combinations;
+}
+
+// Exibir resumo da correlação
+function displayCorrelationSummary(combinations) {
+    const summary = document.getElementById('correlationSummary');
+    
+    // Encontrar melhores combinações
+    const sorted = Object.values(combinations)
+        .sort((a, b) => b.assertiveness - a.assertiveness);
+    
+    const bestSingle = sorted.find(c => c.type === 'single');
+    const bestPair = sorted.find(c => c.type === 'pair');
+    const bestNetGain = sorted.sort((a, b) => b.netGain - a.netGain)[0];
+    
+    summary.innerHTML = `
+        <div class="correlation-card">
+            <div class="correlation-card-title">Melhor Tag Individual</div>
+            <div class="correlation-card-value">
+                ${bestSingle ? bestSingle.tags[0] : 'N/A'}
+            </div>
+            <div class="correlation-card-detail">
+                ${bestSingle ? `${bestSingle.assertiveness.toFixed(1)}% (W:${bestSingle.wins} L:${bestSingle.losses})` : ''}
+            </div>
+        </div>
+        
+        <div class="correlation-card">
+            <div class="correlation-card-title">Melhor Combinação</div>
+            <div class="correlation-card-value">
+                ${bestPair ? bestPair.tags.join(' + ') : 'N/A'}
+            </div>
+            <div class="correlation-card-detail">
+                ${bestPair ? `${bestPair.assertiveness.toFixed(1)}% (W:${bestPair.wins} L:${bestPair.losses})` : ''}
+            </div>
+        </div>
+        
+        <div class="correlation-card">
+            <div class="correlation-card-title">Maior Ganho Líquido</div>
+            <div class="correlation-card-value">
+                +${bestNetGain ? bestNetGain.netGain : 0}
+            </div>
+            <div class="correlation-card-detail">
+                ${bestNetGain ? bestNetGain.tags.join(' + ') : ''}
+            </div>
+        </div>
+        
+        <div class="correlation-card">
+            <div class="correlation-card-title">Trade-off Análise</div>
+            <div class="correlation-card-value">
+                ${calculateTradeOff(combinations)}
+            </div>
+            <div class="correlation-card-detail">
+                Relação Win/Loss otimizada
+            </div>
+        </div>
+    `;
+}
+
+// Calcular trade-off
+function calculateTradeOff(combinations) {
+    const values = Object.values(combinations);
+    if (values.length === 0) return '0%';
+    
+    // Encontrar combinação com melhor relação win/loss mantendo volume
+    const withVolume = values.filter(c => c.total >= 10);
+    if (withVolume.length === 0) return '0%';
+    
+    const best = withVolume.sort((a, b) => {
+        const ratioA = a.wins / (a.losses || 1);
+        const ratioB = b.wins / (b.losses || 1);
+        return ratioB - ratioA;
+    })[0];
+    
+    return `${(best.wins / (best.losses || 1)).toFixed(2)}:1`;
+}
+
+// Encontrar filtros ótimos
+function findOptimalFilters() {
+    const correlationResults = document.getElementById('correlationResults');
+    correlationResults.style.display = 'block';
+    
+    // Filtrar sinais por roletas selecionadas
+    const workingSignals = allSignals.filter(signal => 
+        selectedRoulettes.has(signal.roulette_name)
+    );
+    
+    // Análise de otimização
+    const optimization = optimizeFilters(workingSignals);
+    
+    // Mostrar resultados otimizados
+    displayOptimizationResults(optimization);
+}
+
+// Otimizar filtros para maximizar wins e minimizar losses
+function optimizeFilters(signals) {
+    const results = {
+        baseline: { wins: 0, losses: 0, total: 0 },
+        optimized: { wins: 0, losses: 0, total: 0 },
+        bestTags: [],
+        worstTags: [],
+        recommendations: []
+    };
+    
+    // Calcular baseline
+    signals.forEach(signal => {
+        if (signal.status === 'win') results.baseline.wins++;
+        if (signal.status === 'lost') results.baseline.losses++;
+    });
+    results.baseline.total = results.baseline.wins + results.baseline.losses;
+    
+    // Analisar cada tag individualmente
+    const tagAnalysis = {};
+    Object.keys(tagStats).forEach(tag => {
+        const withTag = signals.filter(s => s.tags && s.tags.includes(tag));
+        const withoutTag = signals.filter(s => !s.tags || !s.tags.includes(tag));
+        
+        const withWins = withTag.filter(s => s.status === 'win').length;
+        const withLosses = withTag.filter(s => s.status === 'lost').length;
+        const withoutWins = withoutTag.filter(s => s.status === 'win').length;
+        const withoutLosses = withoutTag.filter(s => s.status === 'lost').length;
+        
+        tagAnalysis[tag] = {
+            withTag: { wins: withWins, losses: withLosses },
+            withoutTag: { wins: withoutWins, losses: withoutLosses },
+            winRetention: withWins / (results.baseline.wins || 1),
+            lossReduction: 1 - (withLosses / (results.baseline.losses || 1)),
+            score: 0
+        };
+        
+        // Calcular score: prioriza redução de losses mantendo wins
+        const winWeight = 0.6; // 60% peso para manter wins
+        const lossWeight = 0.4; // 40% peso para reduzir losses
+        tagAnalysis[tag].score = 
+            (tagAnalysis[tag].winRetention * winWeight) + 
+            (tagAnalysis[tag].lossReduction * lossWeight);
+    });
+    
+    // Ordenar tags por score
+    const sortedTags = Object.entries(tagAnalysis)
+        .sort((a, b) => b[1].score - a[1].score);
+    
+    // Identificar melhores e piores tags
+    results.bestTags = sortedTags.slice(0, 5).map(([tag, analysis]) => ({
+        tag: tag,
+        winRetention: (analysis.winRetention * 100).toFixed(1),
+        lossReduction: (analysis.lossReduction * 100).toFixed(1),
+        score: analysis.score.toFixed(3)
+    }));
+    
+    results.worstTags = sortedTags.slice(-5).map(([tag, analysis]) => ({
+        tag: tag,
+        winRetention: (analysis.winRetention * 100).toFixed(1),
+        lossReduction: (analysis.lossReduction * 100).toFixed(1),
+        score: analysis.score.toFixed(3)
+    }));
+    
+    // Simular aplicação dos melhores filtros
+    const optimalTags = results.bestTags.map(t => t.tag);
+    const optimizedSignals = signals.filter(signal => {
+        if (!signal.tags) return false;
+        return optimalTags.some(tag => signal.tags.includes(tag));
+    });
+    
+    optimizedSignals.forEach(signal => {
+        if (signal.status === 'win') results.optimized.wins++;
+        if (signal.status === 'lost') results.optimized.losses++;
+    });
+    results.optimized.total = results.optimized.wins + results.optimized.losses;
+    
+    // Gerar recomendações
+    if (results.optimized.losses < results.baseline.losses * 0.7) {
+        results.recommendations.push({
+            type: 'success',
+            text: `✅ Filtros reduzem losses em ${Math.round((1 - results.optimized.losses/results.baseline.losses) * 100)}%`
+        });
+    }
+    
+    if (results.optimized.wins > results.baseline.wins * 0.8) {
+        results.recommendations.push({
+            type: 'success',
+            text: `✅ Mantém ${Math.round((results.optimized.wins/results.baseline.wins) * 100)}% dos wins`
+        });
+    }
+    
+    const netGainImprovement = (results.optimized.wins - results.optimized.losses) - 
+                              (results.baseline.wins - results.baseline.losses);
+    if (netGainImprovement > 0) {
+        results.recommendations.push({
+            type: 'success',
+            text: `✅ Melhora ganho líquido em +${netGainImprovement}`
+        });
+    }
+    
+    return results;
+}
+
+// Exibir resultados da otimização
+function displayOptimizationResults(optimization) {
+    const summary = document.getElementById('correlationSummary');
+    
+    const baselineAssert = optimization.baseline.total > 0 ? 
+        (optimization.baseline.wins / optimization.baseline.total * 100).toFixed(1) : 0;
+    const optimizedAssert = optimization.optimized.total > 0 ? 
+        (optimization.optimized.wins / optimization.optimized.total * 100).toFixed(1) : 0;
+    
+    summary.innerHTML = `
+        <div class="correlation-card">
+            <div class="correlation-card-title">Assertividade Original</div>
+            <div class="correlation-card-value">${baselineAssert}%</div>
+            <div class="correlation-card-detail">
+                W: ${optimization.baseline.wins} L: ${optimization.baseline.losses}
+            </div>
+        </div>
+        
+        <div class="correlation-card">
+            <div class="correlation-card-title">Assertividade Otimizada</div>
+            <div class="correlation-card-value" style="color: ${optimizedAssert > baselineAssert ? '#48bb78' : '#f56565'}">
+                ${optimizedAssert}%
+            </div>
+            <div class="correlation-card-detail">
+                W: ${optimization.optimized.wins} L: ${optimization.optimized.losses}
+            </div>
+        </div>
+        
+        <div class="correlation-card">
+            <div class="correlation-card-title">Redução de Losses</div>
+            <div class="correlation-card-value" style="color: #48bb78">
+                -${optimization.baseline.losses - optimization.optimized.losses}
+            </div>
+            <div class="correlation-card-detail">
+                ${((1 - optimization.optimized.losses/optimization.baseline.losses) * 100).toFixed(1)}% menos perdas
+            </div>
+        </div>
+        
+        <div class="correlation-card">
+            <div class="correlation-card-title">Retenção de Wins</div>
+            <div class="correlation-card-value">
+                ${((optimization.optimized.wins/optimization.baseline.wins) * 100).toFixed(1)}%
+            </div>
+            <div class="correlation-card-detail">
+                ${optimization.optimized.wins} de ${optimization.baseline.wins} wins mantidos
+            </div>
+        </div>
+    `;
+    
+    // Exibir tabela com tags ótimas
+    const tbody = document.getElementById('correlationTableBody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" style="background: #e8f5e9; font-weight: bold; color: #1b5e20;">
+                🎯 Tags Recomendadas (Maximizam Wins e Minimizam Losses)
+            </td>
+        </tr>
+    `;
+    
+    optimization.bestTags.forEach(tag => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <div class="combination-tags">
+                    <span class="combination-tag" style="background: #c8e6c9;">${tag.tag}</span>
+                </div>
+            </td>
+            <td>${tag.winRetention}%</td>
+            <td>${tag.lossReduction}%</td>
+            <td>-</td>
+            <td>Score: ${tag.score}</td>
+            <td class="impact-positive">⬆️ Recomendado</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Adicionar tags a evitar
+    tbody.innerHTML += `
+        <tr>
+            <td colspan="6" style="background: #ffebee; font-weight: bold; color: #b71c1c;">
+                ⚠️ Tags a Evitar (Aumentam Losses)
+            </td>
+        </tr>
+    `;
+    
+    optimization.worstTags.forEach(tag => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <div class="combination-tags">
+                    <span class="combination-tag" style="background: #ffcdd2;">${tag.tag}</span>
+                </div>
+            </td>
+            <td>${tag.winRetention}%</td>
+            <td>${tag.lossReduction}%</td>
+            <td>-</td>
+            <td>Score: ${tag.score}</td>
+            <td class="impact-negative">⬇️ Evitar</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Adicionar recomendações
+    if (optimization.recommendations.length > 0) {
+        tbody.innerHTML += `
+            <tr>
+                <td colspan="6" style="background: #f3e5f5; font-weight: bold; color: #4a148c;">
+                    💡 Recomendações
+                </td>
+            </tr>
+        `;
+        
+        optimization.recommendations.forEach(rec => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td colspan="6" style="padding-left: 20px;">
+                    ${rec.text}
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+}
+
+// Processar dados de tags
+function processTagsData(data) {
+    tagStats = {};
+    
+    data.forEach(signal => {
+        if (signal.tags && Array.isArray(signal.tags)) {
+            signal.tags.forEach(tag => {
+                if (!tagStats[tag]) {
+                    tagStats[tag] = {
+                        wins: 0,
+                        losses: 0,
+                        waiting: 0,
+                        total: 0,
+                        originalStats: { wins: 0, losses: 0, waiting: 0, total: 0 }
+                    };
+                }
+                
+                tagStats[tag].total++;
+                tagStats[tag].originalStats.total++;
+                
+                switch(signal.status) {
+                    case 'win':
+                        tagStats[tag].wins++;
+                        tagStats[tag].originalStats.wins++;
+                        break;
+                    case 'lost':
+                        tagStats[tag].losses++;
+                        tagStats[tag].originalStats.losses++;
+                        break;
+                    case 'waiting':
+                        tagStats[tag].waiting++;
+                        tagStats[tag].originalStats.waiting++;
+                        break;
+                }
+            });
+        }
+    });
+}
+
+// Recalcular estatísticas das tags baseado nos sinais filtrados
+function recalculateTagStats(filteredSignals) {
+    // Resetar estatísticas
+    Object.keys(tagStats).forEach(tag => {
+        tagStats[tag].wins = 0;
+        tagStats[tag].losses = 0;
+        tagStats[tag].waiting = 0;
+        tagStats[tag].total = 0;
+    });
+    
+    // Recalcular baseado nos sinais filtrados
+    filteredSignals.forEach(signal => {
+        if (signal.tags && Array.isArray(signal.tags)) {
+            signal.tags.forEach(tag => {
+                if (tagStats[tag]) {
+                    tagStats[tag].total++;
+                    
+                    switch(signal.status) {
+                        case 'win':
+                            tagStats[tag].wins++;
+                            break;
+                        case 'lost':
+                            tagStats[tag].losses++;
+                            break;
+                        case 'waiting':
+                            tagStats[tag].waiting++;
+                            break;
+                    }
+                }
+            });
+        }
+    });
+}
+
+// Atualizar grid de tags
+function updateTagsGrid(useFilteredStats = false) {
+    const tagsGrid = document.getElementById('tagsGrid');
+    tagsGrid.innerHTML = '';
+    
+    // Ordenar tags por total de ocorrências
+    const sortedTags = Object.entries(tagStats).sort((a, b) => {
+        // Se estiver usando stats filtradas, ordenar por total filtrado
+        if (useFilteredStats) {
+            return b[1].total - a[1].total;
+        }
+        // Senão, ordenar por total original
+        return b[1].originalStats.total - a[1].originalStats.total;
+    });
+    
+    sortedTags.forEach(([tagName, stats]) => {
+        const tagItem = document.createElement('div');
+        tagItem.className = 'tag-item';
+        
+        const isChecked = selectedTags.has(tagName) ? 'checked' : '';
+        
+        // Usar estatísticas filtradas ou originais
+        const displayStats = useFilteredStats ? stats : stats.originalStats;
+        
+        // Calcular assertividade
+        const finalized = displayStats.wins + displayStats.losses;
+        const assertiveness = finalized > 0 ? (displayStats.wins / finalized * 100).toFixed(1) : '0.0';
+        
+        // Adicionar classe de destaque se a tag não tiver ocorrências após filtro
+        const dimStyle = useFilteredStats && stats.total === 0 ? 'opacity: 0.4;' : '';
+        const disabledAttr = useFilteredStats && stats.total === 0 && !isChecked ? 'disabled' : '';
+        
+        // Cor da assertividade
+        const assertColor = parseFloat(assertiveness) >= 70 ? '#48bb78' : 
+                           parseFloat(assertiveness) >= 50 ? '#ed8936' : '#f56565';
+        
+        tagItem.innerHTML = `
+            <div class="tag-header">
+                <input type="checkbox" class="tag-checkbox" id="tag-${tagName}" 
+                       value="${tagName}" ${isChecked} ${disabledAttr} onchange="updateSelectedTagsWithRecalc()">
+                <label for="tag-${tagName}" class="tag-name" style="${dimStyle}" title="${tagName}">${tagName}</label>
+            </div>
+            <div class="tag-info" style="${dimStyle}">
+                <div class="tag-stats">
+                    <span class="tag-assertiveness" style="background: ${assertColor}; color: white;">
+                        ${assertiveness}%
+                    </span>
+                    <span class="tag-wins">W: ${displayStats.wins}</span>
+                    <span class="tag-losses">L: ${displayStats.losses}</span>
+                    <span class="tag-total">T: ${displayStats.total}</span>
+                </div>
+            </div>
+        `;
+        
+        tagsGrid.appendChild(tagItem);
+    });
+    
+    // Atualizar contadores
+    document.getElementById('totalTagsCount').textContent = sortedTags.length;
+    
+    // Se estiver usando filtros, mostrar apenas tags com ocorrências
+    if (useFilteredStats) {
+        const activeTags = sortedTags.filter(([_, stats]) => stats.total > 0).length;
+        document.getElementById('totalTagsCount').textContent = `${activeTags} ativas de ${sortedTags.length}`;
+    }
+}
+
+// Selecionar todas as tags
+function selectAllTags() {
+    document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    updateSelectedTagsWithRecalc();
+}
+
+// Desmarcar todas as tags
+function deselectAllTags() {
+    document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    updateSelectedTagsWithRecalc();
+}
+
+// Atualizar tags selecionadas com recálculo
+function updateSelectedTagsWithRecalc() {
+    selectedTags.clear();
+    
+    document.querySelectorAll('.tag-checkbox:checked').forEach(checkbox => {
+        selectedTags.add(checkbox.value);
+    });
+    
+    document.getElementById('selectedTagsCount').textContent = selectedTags.size;
+    
+    // Filtrar primeiro por roletas selecionadas
+    let workingSignals = allSignals.filter(signal => 
+        selectedRoulettes.has(signal.roulette_name)
+    );
+    
+    // Se houver tags selecionadas, recalcular estatísticas
+    if (selectedTags.size > 0) {
+        // Mostrar nota de filtro
+        const filterNote = document.getElementById('tagFilterNote');
+        if (filterNote) filterNote.style.display = 'block';
+        
+        // Obter modo de filtro (OR ou AND)
+        const filterMode = document.querySelector('input[name="tagFilterMode"]:checked')?.value || 'or';
+        
+        // Filtrar sinais baseado no modo
+        const filteredForStats = workingSignals.filter(signal => {
+            if (!signal.tags || !Array.isArray(signal.tags)) return false;
+            
+            if (filterMode === 'and') {
+                // Modo AND: sinal deve ter TODAS as tags selecionadas
+                return Array.from(selectedTags).every(tag => signal.tags.includes(tag));
+            } else {
+                // Modo OR: sinal deve ter PELO MENOS UMA das tags selecionadas
+                return signal.tags.some(tag => selectedTags.has(tag));
+            }
+        });
+        
+        // Recalcular estatísticas das tags baseado nos sinais filtrados
+        recalculateTagStats(filteredForStats);
+        
+        // Atualizar o grid com as novas estatísticas
+        updateTagsGrid(true);
+        
+        // Restaurar seleção das checkboxes após recriar o grid
+        selectedTags.forEach(tagName => {
+            const checkbox = document.getElementById(`tag-${tagName}`);
+            if (checkbox) checkbox.checked = true;
+        });
+        
+        // Mostrar informação sobre o filtro com indicação do modo
+        const modeText = filterMode === 'and' ? ' (modo E)' : ' (modo OU)';
+        document.getElementById('filteredSignalsCount').textContent = 
+            `${filteredForStats.length} de ${workingSignals.length}${modeText}`;
+    } else {
+        // Esconder nota de filtro
+        const filterNote = document.getElementById('tagFilterNote');
+        if (filterNote) filterNote.style.display = 'none';
+        
+        // Se não houver tags selecionadas, mostrar estatísticas originais (mas ainda filtradas por roleta)
+        processTagsData(workingSignals);
+        updateTagsGrid(false);
+        document.getElementById('filteredSignalsCount').textContent = workingSignals.length;
+    }
+}
+
+// Atualizar tags selecionadas (função antiga mantida para compatibilidade)
+function updateSelectedTags() {
+    updateSelectedTagsWithRecalc();
+}
+
+// Resetar filtros de tags
+function resetTagFilters() {
+    // Limpar seleção
+    selectedTags.clear();
+    
+    // Desmarcar todas as checkboxes
+    document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    
+    // Esconder nota de filtro
+    const filterNote = document.getElementById('tagFilterNote');
+    if (filterNote) filterNote.style.display = 'none';
+    
+    // Restaurar estatísticas originais
+    processTagsData(allSignals);
+    updateTagsGrid(false);
+    
+    // Atualizar contadores
+    document.getElementById('selectedTagsCount').textContent = '0';
+    document.getElementById('filteredSignalsCount').textContent = allSignals.length;
+    
+    // Limpar tabela de sinais filtrados
+    tagFilteredSignals = [];
+    updateTagFilteredSignalsTable([]);
+    updateTagFilterStats([]);
+}
+
+// Aplicar filtros de tags
+function applyTagFilters() {
+    // Primeiro filtrar por roletas selecionadas
+    let workingSignals = allSignals.filter(signal => 
+        selectedRoulettes.has(signal.roulette_name)
+    );
+    
+    if (selectedTags.size === 0) {
+        tagFilteredSignals = workingSignals;
+    } else {
+        // Obter modo de filtro (OR ou AND)
+        const filterMode = document.querySelector('input[name="tagFilterMode"]:checked')?.value || 'or';
+        
+        tagFilteredSignals = workingSignals.filter(signal => {
+            if (!signal.tags || !Array.isArray(signal.tags)) return false;
+            
+            if (filterMode === 'and') {
+                // Modo AND: sinal deve ter TODAS as tags selecionadas
+                return Array.from(selectedTags).every(tag => signal.tags.includes(tag));
+            } else {
+                // Modo OR: sinal deve ter PELO MENOS UMA das tags selecionadas
+                return signal.tags.some(tag => selectedTags.has(tag));
+            }
+        });
+    }
+    
+    // Atualizar tabela de sinais filtrados por tags
+    updateTagFilteredSignalsTable(tagFilteredSignals);
+    
+    // Atualizar estatísticas
+    updateTagFilterStats(tagFilteredSignals);
+    
+    const modeText = selectedTags.size > 0 ? 
+        (document.querySelector('input[name="tagFilterMode"]:checked')?.value === 'and' ? ' (modo E)' : ' (modo OU)') : '';
+    document.getElementById('filteredSignalsCount').textContent = 
+        `${tagFilteredSignals.length}${modeText}`;
+}
+
+// Atualizar tabela de sinais filtrados por tags
+function updateTagFilteredSignalsTable(signals) {
+    const tbody = document.getElementById('tagFilteredSignalsBody');
+    tbody.innerHTML = '';
+    
+    if (signals.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td colspan="5" style="text-align: center; padding: 30px; color: #718096;">
+                <div style="font-size: 1.2em; margin-bottom: 10px;">
+                    📭 Nenhum sinal encontrado com os filtros selecionados
+                </div>
+                <div style="font-size: 0.9em;">
+                    Tente ajustar os filtros ou mudar o modo de busca (OU/E)
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+        return;
+    }
+    
+    signals.forEach(signal => {
+        const row = document.createElement('tr');
+        const statusClass = `status-${signal.status}`;
+        const date = new Date(signal.timestamp * 1000).toLocaleString('pt-BR');
+        
+        // Filtrar apenas as tags que estão selecionadas
+        const matchingTags = signal.tags ? 
+            signal.tags.filter(tag => selectedTags.has(tag)) : [];
+        
+        row.innerHTML = `
+            <td>${date}</td>
+            <td>${signal.roulette_name}</td>
+            <td><span class="status-badge ${statusClass}">${translateStatus(signal.status)}</span></td>
+            <td>
+                <div class="signal-tags">
+                    ${matchingTags.map(tag => 
+                        `<span class="signal-tag-badge">${tag}</span>`
+                    ).join('')}
+                </div>
+            </td>
+            <td><button class="btn-view-details" onclick="showDetails('${signal.id}')">Ver Detalhes</button></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Atualizar estatísticas do filtro de tags
+function updateTagFilterStats(signals) {
+    const wins = signals.filter(s => s.status === 'win').length;
+    const losses = signals.filter(s => s.status === 'lost').length;
+    const waiting = signals.filter(s => s.status === 'waiting').length;
+    const finalized = wins + losses;
+    const assertiveness = finalized > 0 ? (wins / finalized * 100) : 0;
+    
+    document.getElementById('tagFilteredAssertiveness').textContent = assertiveness.toFixed(2) + '%';
+    document.getElementById('tagFilteredWins').textContent = wins;
+    document.getElementById('tagFilteredLosses').textContent = losses;
+    document.getElementById('tagFilteredWaiting').textContent = waiting;
+}
+
+// Analisar dados
+function analyzeData(data) {
+    const rouletteStats = {};
+    const patternStats = {};
+    
+    data.forEach(signal => {
+        const rouletteName = signal.roulette_name || 'Desconhecida';
+        const pattern = signal.pattern || 'Sem padrão';
+        const status = signal.status || 'unknown';
+        
+        // Stats por roleta
+        if (!rouletteStats[rouletteName]) {
+            rouletteStats[rouletteName] = {
+                wins: 0,
+                losses: 0,
+                waiting: 0,
+                cancelled: 0,
+                total: 0
+            };
+        }
+        
+        rouletteStats[rouletteName].total++;
+        
+        switch(status) {
+            case 'win':
+                rouletteStats[rouletteName].wins++;
+                break;
+            case 'lost':
+                rouletteStats[rouletteName].losses++;
+                break;
+            case 'waiting':
+                rouletteStats[rouletteName].waiting++;
+                break;
+            case 'cancelled':
+                rouletteStats[rouletteName].cancelled++;
+                break;
+        }
+        
+        // Stats por padrão
+        if (status === 'win' || status === 'lost') {
+            if (!patternStats[pattern]) {
+                patternStats[pattern] = { wins: 0, losses: 0 };
+            }
+            
+            if (status === 'win') {
+                patternStats[pattern].wins++;
+            } else {
+                patternStats[pattern].losses++;
+            }
+        }
+    });
+    
+    // Calcular assertividade e preparar array
+    const rouletteArray = [];
+    for (const [name, stats] of Object.entries(rouletteStats)) {
+        const finalized = stats.wins + stats.losses;
+        const assertiveness = finalized > 0 ? (stats.wins / finalized * 100) : 0;
+        
+        rouletteArray.push({
+            name: name,
+            assertiveness: assertiveness,
+            wins: stats.wins,
+            losses: stats.losses,
+            waiting: stats.waiting,
+            cancelled: stats.cancelled,
+            finalized: finalized,
+            total: stats.total
+        });
+    }
+    
+    // Ordenar por assertividade
+    rouletteArray.sort((a, b) => {
+        if (b.assertiveness !== a.assertiveness) {
+            return b.assertiveness - a.assertiveness;
+        }
+        return b.finalized - a.finalized;
+    });
+    
+    // Calcular totais
+    const totalWins = rouletteArray.reduce((sum, r) => sum + r.wins, 0);
+    const totalLosses = rouletteArray.reduce((sum, r) => sum + r.losses, 0);
+    const totalWaiting = rouletteArray.reduce((sum, r) => sum + r.waiting, 0);
+    const totalFinalized = totalWins + totalLosses;
+    const overallAssertiveness = totalFinalized > 0 ? (totalWins / totalFinalized * 100) : 0;
+    
+    return {
+        roulettes: rouletteArray,
+        patterns: patternStats,
+        totals: {
+            wins: totalWins,
+            losses: totalLosses,
+            waiting: totalWaiting,
+            finalized: totalFinalized,
+            total: data.length,
+            assertiveness: overallAssertiveness
+        }
+    };
+}
+
+// Atualizar visão geral
+function updateOverview(stats) {
+    // Cards de estatísticas
+    const statsGrid = document.getElementById('statsGrid');
+    statsGrid.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value">${stats.totals.assertiveness.toFixed(2)}%</div>
+            <div class="stat-label">Assertividade Geral</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.totals.wins}</div>
+            <div class="stat-label">Total de Vitórias</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.totals.losses}</div>
+            <div class="stat-label">Total de Derrotas</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.totals.waiting}</div>
+            <div class="stat-label">Aguardando</div>
+        </div>
+    `;
+    
+    // Tabela de ranking
+    const rankingBody = document.getElementById('rankingBody');
+    rankingBody.innerHTML = '';
+    
+    stats.roulettes.forEach((roulette, index) => {
+        const row = document.createElement('tr');
+        const rateClass = roulette.assertiveness >= 75 ? 'high-rate' : 
+                         roulette.assertiveness >= 70 ? 'medium-rate' : 'low-rate';
+        
+        row.innerHTML = `
+            <td><strong>${index + 1}º</strong></td>
+            <td><strong>${roulette.name}</strong></td>
+            <td><span class="win-rate ${rateClass}">${roulette.assertiveness.toFixed(2)}%</span></td>
+            <td>${roulette.wins}</td>
+            <td>${roulette.losses}</td>
+            <td>${roulette.waiting}</td>
+            <td>${roulette.total}</td>
+        `;
+        rankingBody.appendChild(row);
+    });
+}
+
+// Atualizar tabela de sinais
+function updateSignalsTable(signals) {
+    const tbody = document.getElementById('signalsBody');
+    tbody.innerHTML = '';
+    
+    signals.forEach(signal => {
+        const row = document.createElement('tr');
+        const statusClass = `status-${signal.status}`;
+        const date = new Date(signal.timestamp * 1000).toLocaleString('pt-BR');
+        
+        // Pega os dados pós-status baseado no status atual
+        let spinsAfter = 0;
+        let greensAfter = 0;
+        let greensAt = [];
+        let statusIcon = '';
+        let greensClass = '';
+        
+        if (signal.status === 'win') {
+            spinsAfter = signal.spins_after_win || 0;
+            greensAfter = signal.greens_after_win || 0;
+            greensAt = signal.greens_after_win_at || [];
+            statusIcon = '🔥';
+            greensClass = greensAfter > 0 ? 'after-win' : '';
+        } else if (signal.status === 'lost') {
+            spinsAfter = signal.spins_after_lost || 0;
+            greensAfter = signal.greens_after_lost || 0;
+            greensAt = signal.greens_after_lost_at || [];
+            statusIcon = '⚠️';
+            greensClass = greensAfter > 0 ? 'after-lost-hit' : '';
+        } else if (signal.status === 'cancelled') {
+            spinsAfter = signal.spins_after_cancelled || 0;
+            greensAfter = signal.greens_after_cancelled || 0;
+            greensAt = signal.greens_after_cancelled_at || [];
+            statusIcon = '❄️';
+            greensClass = greensAfter > 0 ? 'after-cancel-hit' : '';
+        }
+        
+        // Formata as colunas
+        const spinsAfterHtml = spinsAfter > 0 ? `${statusIcon} ${spinsAfter}` : '-';
+        const greensAfterHtml = spinsAfter > 0 ? `<span class="${greensClass}">${greensAfter}</span>` : '-';
+        const greensAtHtml = greensAt.length > 0 ? greensAt.join(', ') : '-';
+        
+        row.innerHTML = `
+            <td>${date}</td>
+            <td>${signal.roulette_name}</td>
+            <td>${signal.pattern}</td>
+            <td><span class="status-badge ${statusClass}">${translateStatus(signal.status)}</span></td>
+            <td>${signal.attempts}</td>
+            <td>${signal.passed_spins}</td>
+            <td data-order="${signal.score || 0}">${(signal.score || 0).toFixed(2)}</td>
+            <td>${spinsAfterHtml}</td>
+            <td>${greensAfterHtml}</td>
+            <td>${greensAtHtml}</td>
+            <td>${Array.isArray(signal.triggers) ? signal.triggers.join(', ') : signal.triggers}</td>
+            <td>${Array.isArray(signal.targets) ? signal.targets.join(', ') : signal.targets}</td>
+            <td><button class="btn-view-details" onclick="showDetails('${signal.id}')">Ver Detalhes</button></td>
+        `;
+        tbody.appendChild(row);
+    });
+
+        // Ao final de updateSignalsTable(data):
+    initOrReinitDataTable('#signalsTable', {
+    // Ex.: ordena por Data/Hora desc (coluna 0); ajuste se sua data estiver como string PT-BR
+    order: [[0, 'desc']]
+    });
+}
+
+// Criar gráficos (mantém a função original)
+function updateCharts(stats) {
+    // Destruir gráficos existentes
+    Object.values(charts).forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') {
+            chart.destroy();
+        }
+    });
+    charts = {};
+    
+    // Preparar dados
+    const labels = stats.roulettes.map(r => r.name);
+    const assertivenessData = stats.roulettes.map(r => r.assertiveness);
+    const winsData = stats.roulettes.map(r => r.wins);
+    const lossesData = stats.roulettes.map(r => r.losses);
+    const waitingData = stats.roulettes.map(r => r.waiting);
+    
+    // Gráfico de Assertividade
+    const ctx1 = document.getElementById('assertivenessChart').getContext('2d');
+    charts.assertiveness = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Assertividade (%)',
+                data: assertivenessData,
+                backgroundColor: assertivenessData.map(value => 
+                    value >= 75 ? 'rgba(72, 187, 120, 0.8)' : 
+                    value >= 70 ? 'rgba(237, 137, 54, 0.8)' : 
+                    'rgba(245, 101, 101, 0.8)'
+                ),
+                borderColor: assertivenessData.map(value => 
+                    value >= 75 ? 'rgba(72, 187, 120, 1)' : 
+                    value >= 70 ? 'rgba(237, 137, 54, 1)' : 
+                    'rgba(245, 101, 101, 1)'
+                ),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Assertividade: ' + context.parsed.y.toFixed(2) + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Gráfico de Distribuição
+    const ctx2 = document.getElementById('resultsChart').getContext('2d');
+    charts.results = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Vitórias',
+                    data: winsData,
+                    backgroundColor: 'rgba(72, 187, 120, 0.8)',
+                    borderColor: 'rgba(72, 187, 120, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Derrotas',
+                    data: lossesData,
+                    backgroundColor: 'rgba(245, 101, 101, 0.8)',
+                    borderColor: 'rgba(245, 101, 101, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Aguardando',
+                    data: waitingData,
+                    backgroundColor: 'rgba(203, 213, 224, 0.8)',
+                    borderColor: 'rgba(203, 213, 224, 1)',
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true }
+            }
+        }
+    });
+    
+    // Gráfico de Pizza
+    const ctx3 = document.getElementById('winsLossesChart').getContext('2d');
+    charts.winsLosses = new Chart(ctx3, {
+        type: 'doughnut',
+        data: {
+            labels: ['Vitórias', 'Derrotas', 'Aguardando'],
+            datasets: [{
+                data: [stats.totals.wins, stats.totals.losses, stats.totals.waiting],
+                backgroundColor: [
+                    'rgba(72, 187, 120, 0.8)',
+                    'rgba(245, 101, 101, 0.8)',
+                    'rgba(203, 213, 224, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(72, 187, 120, 1)',
+                    'rgba(245, 101, 101, 1)',
+                    'rgba(203, 213, 224, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(2);
+                            return label + ': ' + value + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Mostrar detalhes do sinal
+function showDetails(signalId) {
+    const signal = allSignals.find(s => s.id === signalId);
+    if (!signal) return;
+    
+    const modal = document.getElementById('detailModal');
+    const modalBody = document.getElementById('modalBody');
+    
+    const date = new Date(signal.timestamp * 1000).toLocaleString('pt-BR');
+    const statusClass = `status-${signal.status}`;
+    
+    // Criar boxes coloridos para o histórico
+    let historyHtml = '';
+    if (signal.history && signal.history.length > 0) {
+        historyHtml = signal.history.map(num => {
+            const color = getNumberColor(num);
+            return `<div class="number-box number-${color}">${num}</div>`;
+        }).join('');
+    }
+    
+    // Criar boxes coloridos para o snapshot/formação
+    let snapshotHtml = '';
+    if (signal.snapshot && signal.snapshot.length > 0) {
+        snapshotHtml = signal.snapshot.map(num => {
+            const color = getNumberColor(num);
+            return `<div class="number-box number-${color}">${num}</div>`;
+        }).join('');
+    }
+    
+    // Criar lista de tags
+    let tagsHtml = '';
+    if (signal.tags && signal.tags.length > 0) {
+        tagsHtml = `
+        <div style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">🏷️ Tags (${signal.tags.length})</h3>
+            <div class="signal-tags" style="background: #f7fafc; padding: 15px; border-radius: 10px;">
+                ${signal.tags.map(tag => `<span class="signal-tag-badge" style="margin: 2px;">${tag}</span>`).join('')}
+            </div>
+        </div>
+        `;
+    }
+    
+    // Criar seção de dados pós-status
+    let afterStatusHtml = '';
+    if (signal.status === 'win' && signal.spins_after_win > 0) {
+        const at = signal.greens_after_win_at || [];
+        const atStr = at.length > 0 ? `nos spins: <strong>${at.join(', ')}</strong>` : '';
+        afterStatusHtml = `
+        <div style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">🔥 Após Vitória</h3>
+            <div style="background: #c6f6d5; padding: 15px; border-radius: 10px; color: #22543d;">
+                <strong>Bateu ${signal.greens_after_win || 0}x</strong> em ${signal.spins_after_win} spins monitorados após o WIN
+                ${atStr ? `<br>${atStr}` : ''}
+            </div>
+        </div>
+        `;
+    } else if (signal.status === 'lost' && signal.spins_after_lost > 0) {
+        const bgColor = (signal.greens_after_lost > 0) ? '#feebc8' : '#e2e8f0';
+        const textColor = (signal.greens_after_lost > 0) ? '#c05621' : '#718096';
+        const at = signal.greens_after_lost_at || [];
+        const atStr = at.length > 0 ? `nos spins: <strong>${at.join(', ')}</strong>` : '';
+        afterStatusHtml = `
+        <div style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">⚠️ Após Derrota</h3>
+            <div style="background: ${bgColor}; padding: 15px; border-radius: 10px; color: ${textColor};">
+                <strong>Bateu ${signal.greens_after_lost || 0}x</strong> em ${signal.spins_after_lost} spins monitorados após o LOSS
+                ${atStr ? `<br>${atStr}` : ''}
+                ${signal.greens_after_lost > 0 ? '<br><em>💡 Se tivesse aguardado, teria pego!</em>' : ''}
+            </div>
+        </div>
+        `;
+    } else if (signal.status === 'cancelled' && signal.spins_after_cancelled > 0) {
+        const bgColor = (signal.greens_after_cancelled > 0) ? '#fed7d7' : '#e2e8f0';
+        const textColor = (signal.greens_after_cancelled > 0) ? '#c53030' : '#718096';
+        const at = signal.greens_after_cancelled_at || [];
+        const atStr = at.length > 0 ? `nos spins: <strong>${at.join(', ')}</strong>` : '';
+        afterStatusHtml = `
+        <div style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">❄️ Após Cancelamento</h3>
+            <div style="background: ${bgColor}; padding: 15px; border-radius: 10px; color: ${textColor};">
+                <strong>Bateu ${signal.greens_after_cancelled || 0}x</strong> em ${signal.spins_after_cancelled} spins monitorados após CANCEL
+                ${atStr ? `<br>${atStr}` : ''}
+                ${signal.greens_after_cancelled > 0 ? '<br><em>⚠️ Cancelou mas teria batido!</em>' : '<br><em>✅ Cancelamento correto!</em>'}
+            </div>
+        </div>
+        `;
+    }
+    
+    modalBody.innerHTML = `
+        <div class="detail-grid">
+            <div class="detail-item">
+                <div class="detail-label">ID do Sinal</div>
+                <div class="detail-value">${signal.id.substring(0, 8)}...</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Roleta</div>
+                <div class="detail-value">${signal.roulette_name}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Status</div>
+                <div class="detail-value">
+                    <span class="status-badge ${statusClass}">${translateStatus(signal.status)}</span>
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Data/Hora</div>
+                <div class="detail-value">${date}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Padrão</div>
+                <div class="detail-value">${signal.pattern}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Gatilhos</div>
+                <div class="detail-value">${Array.isArray(signal.triggers) ? signal.triggers.join(', ') : signal.triggers}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Alvos</div>
+                <div class="detail-value">${Array.isArray(signal.targets) ? signal.targets.join(', ') : signal.targets}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Apostas</div>
+                <div class="detail-value">${Array.isArray(signal.bets) ? signal.bets.join(', ') : signal.bets}</div>
+            </div>
+        </div>
+        
+        ${tagsHtml}
+        
+        ${afterStatusHtml}
+        
+        ${signal.message ? `
+        <div style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">📝 Mensagem</h3>
+            <div style="background: #f7fafc; padding: 15px; border-radius: 10px; color: #2d3748;">
+                ${signal.message}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${snapshotHtml ? `
+        <div style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">🎯 Formação (${signal.snapshot.length} números)</h3>
+            <div class="number-history">
+                ${snapshotHtml}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${signal.log && signal.log.length > 0 ? `
+        <div style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">📋 Log de Execução</h3>
+            <div class="log-section">
+                ${signal.log.map(entry => `<div class="log-entry">${entry}</div>`).join('')}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${historyHtml ? `
+        <div style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">🎲 Histórico Completo (${signal.history.length} números)</h3>
+            <div class="number-history">
+                ${historyHtml}
+            </div>
+        </div>
+        ` : ''}
+    `;
+    
+    modal.style.display = 'block';
+}
+
+// Fechar modal
+function closeModal() {
+    document.getElementById('detailModal').style.display = 'none';
+}
+
+// Fechar modal ao clicar fora
+window.onclick = function(event) {
+    const modal = document.getElementById('detailModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Alternar abas
+function switchTab(tabName) {
+    // Remover active de todas as abas
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Adicionar active na aba selecionada
+    event.target.classList.add('active');
+    document.getElementById(tabName + 'Tab').classList.add('active');
+
+    if (tabName === 'timeline') {
+        updateTimelineTab();
+    }
+}
+
+// Aplicar filtros
+function applyFilters() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const rouletteFilter = document.getElementById('rouletteFilter').value;
+    const patternFilter = document.getElementById('patternFilter').value;
+    
+    filteredSignals = allSignals;
+    
+    if (statusFilter) {
+        filteredSignals = filteredSignals.filter(s => s.status === statusFilter);
+    }
+    
+    if (rouletteFilter) {
+        filteredSignals = filteredSignals.filter(s => s.roulette_name === rouletteFilter);
+    }
+    
+    if (patternFilter) {
+        filteredSignals = filteredSignals.filter(s => s.pattern === patternFilter);
+    }
+    
+    updateSignalsTable(filteredSignals);
+    updateFilterStats(filteredSignals);
+}
+
+// Limpar filtros
+function clearFilters() {
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('rouletteFilter').value = '';
+    document.getElementById('patternFilter').value = '';
+    filteredSignals = allSignals;
+    updateSignalsTable(allSignals);
+    document.getElementById('filterStats').style.display = 'none';
+}
+
+// Atualizar estatísticas dos filtros
+function updateFilterStats(signals) {
+    if (signals.length === 0) {
+        document.getElementById('filterStats').style.display = 'none';
+        return;
+    }
+    
+    const wins = signals.filter(s => s.status === 'win').length;
+    const losses = signals.filter(s => s.status === 'lost').length;
+    const waiting = signals.filter(s => s.status === 'waiting').length;
+    const finalized = wins + losses;
+    const assertiveness = finalized > 0 ? (wins / finalized * 100) : 0;
+    
+    document.getElementById('filteredAssertiveness').textContent = assertiveness.toFixed(2) + '%';
+    document.getElementById('filteredWins').textContent = wins;
+    document.getElementById('filteredLosses').textContent = losses;
+    document.getElementById('filteredWaiting').textContent = waiting;
+    document.getElementById('filteredTotal').textContent = signals.length;
+    
+    document.getElementById('filterStats').style.display = 'flex';
+}
+
+// Popular filtros
+function populateFilters(signals) {
+    // Roletas únicas
+    const roulettes = [...new Set(signals.map(s => s.roulette_name))].sort();
+    const rouletteFilter = document.getElementById('rouletteFilter');
+    rouletteFilter.innerHTML = '<option value="">Todas</option>';
+    roulettes.forEach(roulette => {
+        rouletteFilter.innerHTML += `<option value="${roulette}">${roulette}</option>`;
+    });
+    
+    // Padrões únicos
+    const patterns = [...new Set(signals.map(s => s.pattern))].sort();
+    const patternFilter = document.getElementById('patternFilter');
+    patternFilter.innerHTML = '<option value="">Todos</option>';
+    patterns.forEach(pattern => {
+        patternFilter.innerHTML += `<option value="${pattern}">${pattern}</option>`;
+    });
+}
+
+// Traduzir status
+function translateStatus(status) {
+    const translations = {
+        'win': 'win',
+        'lost': 'lost',
+        'waiting': 'waiting',
+        'cancelled': 'cancelled',
+        'processing': 'processing'
+    };
+    return translations[status] || status;
+}
+
+// Exportar dados para CSV
+function exportData() {
+    if (!currentData || currentData.length === 0) {
+        showError('Nenhum dado para exportar');
+        return;
+    }
+    
+    // Preparar dados para CSV
+    const csvHeaders = [
+        'Nome da Roleta', 
+        'Padrão', 
+        'Aposta', 
+        'Gatilhos', 
+        'Status', 
+        'Score', 
+        'Gales', 
+        'Spins Após', 
+        'Greens Após',
+        'Bateu nos Spins',
+        'Data e Hora'
+    ];
+    const csvRows = currentData.map(signal => {
+        const date = new Date(signal.timestamp * 1000).toLocaleString('pt-BR');
+        
+        // Pega os dados pós-status baseado no status atual
+        let spinsAfter = 0;
+        let greensAfter = 0;
+        let greensAt = [];
+        
+        if (signal.status === 'win') {
+            spinsAfter = signal.spins_after_win || 0;
+            greensAfter = signal.greens_after_win || 0;
+            greensAt = signal.greens_after_win_at || [];
+        } else if (signal.status === 'lost') {
+            spinsAfter = signal.spins_after_lost || 0;
+            greensAfter = signal.greens_after_lost || 0;
+            greensAt = signal.greens_after_lost_at || [];
+        } else if (signal.status === 'cancelled') {
+            spinsAfter = signal.spins_after_cancelled || 0;
+            greensAfter = signal.greens_after_cancelled || 0;
+            greensAt = signal.greens_after_cancelled_at || [];
+        }
+        
+        return [
+            signal.roulette_name,
+            signal.pattern,
+            Array.isArray(signal.bets) ? signal.bets.join(';') : signal.bets,
+            Array.isArray(signal.triggers) ? signal.triggers.join(';') : signal.triggers,
+            translateStatus(signal.status),
+            (signal.score || 0).toFixed(2),
+            signal.attempts || 0,
+            spinsAfter,
+            greensAfter,
+            greensAt.join(';'),
+            date
+        ];
+    });
+    
+    // Criar CSV
+    let csvContent = csvHeaders.join(',') + '\n';
+    csvRows.forEach(row => {
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+    });
+    
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `sinais_roleta_${new Date().getTime()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showSuccess('Dados exportados com sucesso!');
+}
+
+// Mostrar erro
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+// Mostrar sucesso
+function showSuccess(message) {
+    const successDiv = document.getElementById('successMessage');
+    successDiv.textContent = message;
+    successDiv.style.display = 'block';
+    setTimeout(() => {
+        successDiv.style.display = 'none';
+    }, 3000);
+}
+</script>
+
+<script>
+    $(document).ready(function() {
+        $('#signalsTable').DataTable({
+            pageLength: 100,
+            order: [[0, "desc"]], // Ordenar inicialmente pela primeira coluna (Data/Hora)
+            language: {
+                url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json"
+            },
+            columnDefs: [
+                // Colunas numéricas: Gales (4), Spins passados (5), Score (6)
+                { 
+                    targets: [4, 5, 6],
+                    type: 'num'
+                }
+            ]
+        });
+    });
+    </script>
+</body>
+</html>

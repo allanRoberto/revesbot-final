@@ -1,0 +1,46 @@
+{
+  "id": "patchoko_seq_boost",
+  "name": "Patchoko Sequ\u00eancia",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 91,
+  "weight": 5.0,
+  "evaluator": "patchoko_seq_boost",
+  "max_numbers": 15,
+  "params": {
+    "cavalo_0369": [
+      0,
+      3,
+      6,
+      9,
+      10,
+      13,
+      16,
+      19,
+      20,
+      23,
+      26,
+      29,
+      30,
+      33,
+      36
+    ],
+    "include_neighbors": false,
+    "enforce_presence": true,
+    "min_keep": 5,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 31,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

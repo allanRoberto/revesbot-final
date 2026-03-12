@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "mode": "shadow",
+  "description": "Calibracao bucketizada da confidence_v2 baseada em replay hit@4.",
+  "bucket_signal_target": 150,
+  "source": {
+    "type": "snapshot_cache",
+    "details": {
+      "snapshot_dir": "apps/api/data/confidence_history_snapshots",
+      "derived_from": "/history/{slug}"
+    }
+  },
+  "buckets": {
+    "80-89": {
+      "signals": 519,
+      "hit_rate": 0.726397,
+      "reliability": 1.0
+    },
+    "90-99": {
+      "signals": 78,
+      "hit_rate": 0.666667,
+      "reliability": 0.52
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "siege_number_boost",
+  "name": "Cerco de numeros fortes",
+  "kind": "positive",
+  "active": true,
+  "priority": 47,
+  "version": "1.1.0",
+  "weight": 4.8051,
+  "evaluator": "siege_number_boost",
+  "max_numbers": 12,
+  "params": {
+    "window": 18,
+    "min_occurrences": 3,
+    "min_streak": 2,
+    "freq_weight": 0.7,
+    "streak_weight": 0.45,
+    "recency_weight": 0.25,
+    "last_auto_tune": {
+      "signals": 25,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

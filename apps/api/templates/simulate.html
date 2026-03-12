@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Simulação em Tempo Real{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="card">
+    <div class="card-header">
+      <h4>Simulação de Padrão – Tempo Real</h4>
+    </div>
+    <div class="card-body">
+      <!-- Seleção de Roleta -->
+      <div class="mb-3">
+        <label for="roulette-select" class="form-label">Escolha a Roleta</label>
+        <select id="roulette-select" class="form-select">
+          {% for r in all_roulettes %}
+            <option value="{{ r.slug }}">{{ r.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Botão para carregar histórico -->
+      <button id="fetch-btn" class="btn btn-primary mb-3">Carregar Números</button>
+
+      <!-- Container que exibe os números restantes -->
+      <div id="numbers-container" class="mb-3 p-2 border" style="max-height: 150px; overflow-y: auto;">
+        <!-- Números aparecerão como badges aqui -->
+      </div>
+
+      <!-- Botão para iniciar simulação -->
+      <button id="start-btn" class="btn btn-success" disabled>Iniciar Simulação</button>
+
+      <!-- Log de cada passo da simulação -->
+      <div id="simulation-log" class="mt-3" style="white-space: pre-wrap; background: #f8f9fa; padding: 10px; height: 200px; overflow-y: auto;">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let numbers = [];
+  const fetchBtn = document.getElementById('fetch-btn');
+  const startBtn = document.getElementById('start-btn');
+  const numbersContainer = document.getElementById('numbers-container');
+  const logEl = document.getElementById('simulation-log');
+
+  // Função para renderizar badges de números
+  function renderNumbers() {
+    numbersContainer.innerHTML = '';
+    numbers.forEach(n => {
+      const badge = document.createElement('span');
+      badge.className = 'badge bg-secondary me-1 mb-1';
+      badge.textContent = n;
+      numbersContainer.appendChild(badge);
+    });
+    startBtn.disabled = numbers.length === 0;
+  }
+
+  // Carrega histórico via API
+  fetchBtn.addEventListener('click', async () => {
+    const slug = document.getElementById('roulette-select').value;
+    const res = await fetch(`/history/${slug}`);
+    const data = await res.json();
+    numbers = data.numbers || data.results || [];
+    renderNumbers();
+    logEl.textContent = 'Histórico carregado: ' + numbers.length + ' números.\n';
+  });
+
+  // Simula envio de um por um
+  startBtn.addEventListener('click', async () => {
+    const slug = document.getElementById('roulette-select').value;
+    logEl.textContent += 'Iniciando simulação...\n';
+
+    while (numbers.length) {
+      const num = numbers.shift();
+      renderNumbers();
+      logEl.textContent += `Enviando número: ${num}\n`;
+
+      // Envia para o back-end (supondo endpoint /simulate-step)
+      const resp = await fetch('/simulate-step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, number: num })
+      });
+      const result = await resp.json();
+      logEl.textContent += `Resposta: ${JSON.stringify(result)}\n\n`;
+
+      // Delay para simular tempo real
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    logEl.textContent += 'Simulação concluída.';
+  });
+</script>
+{% endblock %}

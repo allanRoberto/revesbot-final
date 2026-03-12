@@ -1,0 +1,19 @@
+{
+  "id": "recent_numbers_penalty",
+  "name": "Recent Numbers Penalty",
+  "kind": "negative",
+  "version": "1.2.0",
+  "active": false,
+  "priority": 200,
+  "weight": 0.3,
+  "evaluator": "recent_numbers_penalty",
+  "max_numbers": 37,
+  "params": {
+    "suggestion_cap": 18,
+    "recent_window": 2,
+    "include_neighbors": false,
+    "direct_penalty": 0.3,
+    "neighbor_penalty": 0.1,
+    "frequency_boost": 0.5
+  }
+}

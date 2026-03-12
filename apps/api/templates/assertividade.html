@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Análise de Distribuição de Gales</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.header {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+h1 {
+    color: #2d3748;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.control-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.btn {
+    padding: 15px 30px;
+    border-radius: 10px;
+    font-size: 1em;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+}
+
+.gale-distribution-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.section-title {
+    font-size: 1.5em;
+    color: #2d3748;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.total-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.gale-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.gale-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    border: 2px solid #e2e8f0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.gale-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    border-color: #667eea;
+}
+
+.gale-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.gale-card.lost::before {
+    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+}
+
+.gale-number {
+    font-size: 0.9em;
+    color: #718096;
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.gale-count {
+    font-size: 3em;
+    font-weight: bold;
+    color: #2d3748;
+    line-height: 1;
+    margin-bottom: 10px;
+}
+
+.gale-percentage {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 5px;
+}
+
+.gale-label {
+    font-size: 0.85em;
+    color: #a0aec0;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    transition: width 1s ease;
+}
+
+.gale-card.lost .progress-fill {
+    background: linear-gradient(90deg, #f56565 0%, #e53e3e 100%);
+}
+
+.summary-section {
+    background: #f7fafc;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 25px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.summary-item {
+    text-align: center;
+    padding: 15px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.summary-value {
+    font-size: 2em;
+    font-weight: bold;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.summary-label {
+    color: #718096;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.chart-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 25px;
+}
+
+.filters-container {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 20px;
+    background: #f7fafc;
+    border-radius: 10px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-label {
+    font-size: 0.9em;
+    color: #718096;
+    font-weight: 600;
+}
+
+.filter-select {
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    min-width: 150px;
+    cursor: pointer;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #718096;
+}
+
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.no-data {
+    text-align: center;
+    padding: 60px;
+    color: #718096;
+    background: #f7fafc;
+    border-radius: 12px;
+    margin: 20px 0;
+}
+
+.no-data-icon {
+    font-size: 3em;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+    .gale-cards-container {
+        grid-template-columns: 1fr;
+    }
+    
+    h1 {
+        font-size: 1.8em;
+    }
+    
+    .gale-count {
+        font-size: 2.5em;
+    }
+    
+    .gale-percentage {
+        font-size: 1.5em;
+    }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 Análise de Distribuição de Gales</h1>
+        <p style="color: #718096; margin-top: 10px;">Visualize quantas apostas bateram em cada tentativa</p>
+    </div>
+
+    <div class="control-section">
+        <div class="filters-container">
+            <div class="filter-group">
+                <label class="filter-label">Status:</label>
+                <select id="statusFilter" class="filter-select" onchange="updateAnalysis()">
+                    <option value="win">Apenas Vitórias</option>
+                    <option value="all">Todas</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label class="filter-label">Roleta:</label>
+                <select id="rouletteFilter" class="filter-select" onchange="updateAnalysis()">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label class="filter-label">Padrão:</label>
+                <select id="patternFilter" class="filter-select" onchange="updateAnalysis()">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            
+            <button class="btn" onclick="fetchData()">
+                🔄 Carregar Dados
+            </button>
+        </div>
+    </div>
+
+    <div class="gale-distribution-section">
+        <div class="section-title">
+            <span>🎯 Distribuição por Tentativa</span>
+            <span class="total-badge" id="totalSignals">0 sinais analisados</span>
+        </div>
+        
+        <div id="loadingContainer" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+        
+        <div id="noDataContainer" class="no-data" style="display: none;">
+            <div class="no-data-icon">📭</div>
+            <h3>Nenhum dado disponível</h3>
+            <p>Clique em "Carregar Dados" para começar a análise</p>
+        </div>
+        
+        <div id="galeCardsContainer" class="gale-cards-container">
+            <!-- Cards serão inseridos aqui dinamicamente -->
+        </div>
+        
+        <div class="summary-section">
+            <h3 style="margin-bottom: 20px; color: #2d3748;">📈 Resumo Estatístico</h3>
+            <div class="summary-grid" id="summaryGrid">
+                <!-- Resumo será inserido aqui -->
+            </div>
+        </div>
+        
+        
+    </div>
+</div>
+
+<script>
+let allSignals = [];
+let chart = null;
+
+// Configuração do endpoint - AJUSTE CONFORME NECESSÁRIO
+const API_ENDPOINT = '/signals';
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicialmente mostrar "no data"
+    document.getElementById('noDataContainer').style.display = 'block';
+    document.getElementById('galeCardsContainer').style.display = 'none';
+});
+
+// Buscar dados da API
+async function fetchData() {
+    const loadingContainer = document.getElementById('loadingContainer');
+    const noDataContainer = document.getElementById('noDataContainer');
+    const cardsContainer = document.getElementById('galeCardsContainer');
+    
+    loadingContainer.style.display = 'block';
+    noDataContainer.style.display = 'none';
+    cardsContainer.style.display = 'none';
+    
+    try {
+        const response = await fetch(API_ENDPOINT);
+        
+        if (!response.ok) {
+            throw new Error(`Erro HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+            throw new Error('Formato de dados inválido');
+        }
+        
+        allSignals = data;
+        populateFilters(data);
+        updateAnalysis();
+        
+        cardsContainer.style.display = 'grid';
+        
+    } catch (error) {
+        console.error('Erro ao buscar dados:', error);
+        noDataContainer.style.display = 'block';
+        alert('Erro ao carregar dados: ' + error.message);
+    } finally {
+        loadingContainer.style.display = 'none';
+    }
+}
+
+// Popular filtros
+function populateFilters(signals) {
+    // Roletas únicas
+    const roulettes = [...new Set(signals.map(s => s.roulette_name))].sort();
+    const rouletteFilter = document.getElementById('rouletteFilter');
+    rouletteFilter.innerHTML = '<option value="">Todas</option>';
+    roulettes.forEach(roulette => {
+        rouletteFilter.innerHTML += `<option value="${roulette}">${roulette}</option>`;
+    });
+    
+    // Padrões únicos
+    const patterns = [...new Set(signals.map(s => s.pattern))].sort();
+    const patternFilter = document.getElementById('patternFilter');
+    patternFilter.innerHTML = '<option value="">Todos</option>';
+    patterns.forEach(pattern => {
+        patternFilter.innerHTML += `<option value="${pattern}">${pattern}</option>`;
+    });
+}
+
+// Atualizar análise
+function updateAnalysis() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const rouletteFilter = document.getElementById('rouletteFilter').value;
+    const patternFilter = document.getElementById('patternFilter').value;
+    
+    // Filtrar sinais
+    let filteredSignals = allSignals;
+    
+    if (statusFilter === 'win') {
+        filteredSignals = filteredSignals.filter(s => s.status === 'win');
+    }
+    
+    if (rouletteFilter) {
+        filteredSignals = filteredSignals.filter(s => s.roulette_name === rouletteFilter);
+    }
+    
+    if (patternFilter) {
+        filteredSignals = filteredSignals.filter(s => s.pattern === patternFilter);
+    }
+    
+    // Calcular distribuição
+    calculateGaleDistribution(filteredSignals);
+}
+
+// Calcular distribuição de gales
+function calculateGaleDistribution(signals) {
+    const distribution = {};
+    let totalWins = 0;
+    let totalLosses = 0;
+    
+    // Inicializar contadores para gales 0-9 e losses
+    for (let i = 0; i <= 100; i++) {
+        distribution[`gale_${i}`] = 0;
+    }
+    distribution['lost'] = 0;
+    
+    // Contar distribuição
+    signals.forEach(signal => {
+        if (signal.status === 'win') {
+            const attempts = signal.attempts || 1;
+            const galeNumber = attempts - 1; // Tentativa 1 = Gale 0
+            
+            if (galeNumber >= 0 && galeNumber <= 100) {
+                distribution[`gale_${galeNumber}`]++;
+                totalWins++;
+            }
+        } else if (signal.status === 'lost') {
+            distribution['lost']++;
+            totalLosses++;
+        }
+    });
+    
+    // Atualizar total
+    document.getElementById('totalSignals').textContent = 
+        `${signals.length} sinais analisados`;
+    
+    // Renderizar cards
+    renderGaleCards(distribution, totalWins, totalLosses);
+    
+    // Renderizar resumo
+    renderSummary(distribution, totalWins, totalLosses);
+    
+    // Renderizar gráfico
+}
+
+// Renderizar cards de gales
+function renderGaleCards(distribution, totalWins, totalLosses) {
+    const container = document.getElementById('galeCardsContainer');
+    container.innerHTML = '';
+    
+    const total = totalWins + totalLosses;
+    
+    // Cards para cada gale (0-9)
+    for (let i = 0; i <= 100; i++) {
+        const count = distribution[`gale_${i}`];
+        
+        // Só mostrar cards com dados
+        if (count > 0) {
+            const percentage = totalWins > 0 ? ((count / totalWins) * 100).toFixed(1) : '0.0';
+            const percentageOfTotal = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
+            
+            const card = document.createElement('div');
+            card.className = 'gale-card';
+            card.innerHTML = `
+                <div class="gale-number">Tentativa ${i + 1}</div>
+                <div class="gale-count">${count}</div>
+                <div class="gale-percentage">${percentage}%</div>
+                <div class="gale-label">dos wins</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${percentage}%"></div>
+                </div>
+                <div style="margin-top: 10px; font-size: 0.85em; color: #a0aec0;">
+                    ${percentageOfTotal}% do total
+                </div>
+            `;
+            container.appendChild(card);
+        }
+    }
+    
+    // Card para losses (se houver)
+    if (totalLosses > 0) {
+        const lossPercentage = total > 0 ? ((totalLosses / total) * 100).toFixed(1) : '0.0';
+        
+        const lossCard = document.createElement('div');
+        lossCard.className = 'gale-card lost';
+        lossCard.innerHTML = `
+            <div class="gale-number">Perdas</div>
+            <div class="gale-count">${totalLosses}</div>
+            <div class="gale-percentage" style="color: #f56565;">${lossPercentage}%</div>
+            <div class="gale-label">do total</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${lossPercentage}%"></div>
+            </div>
+        `;
+        container.appendChild(lossCard);
+    }
+}
+
+// Renderizar resumo
+function renderSummary(distribution, totalWins, totalLosses) {
+    const summaryGrid = document.getElementById('summaryGrid');
+    
+    // Calcular estatísticas
+    const total = totalWins + totalLosses;
+    const winRate = total > 0 ? ((totalWins / total) * 100).toFixed(1) : '0.0';
+    
+    // Encontrar gale mais comum
+    let maxGale = 0;
+    let maxCount = 0;
+    for (let i = 0; i <= 9; i++) {
+        if (distribution[`gale_${i}`] > maxCount) {
+            maxCount = distribution[`gale_${i}`];
+            maxGale = i;
+        }
+    }
+    
+    // Calcular média de tentativas (apenas wins)
+    let totalAttempts = 0;
+    for (let i = 0; i <= 100; i++) {
+        totalAttempts += distribution[`gale_${i}`] * (i + 1);
+    }
+    const avgAttempts = totalWins > 0 ? (totalAttempts / totalWins).toFixed(2) : '0.00';
+    
+    summaryGrid.innerHTML = `
+        <div class="summary-item">
+            <div class="summary-value">${winRate}%</div>
+            <div class="summary-label">Taxa de Vitória</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-value">${totalWins}</div>
+            <div class="summary-label">Total de Wins</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-value">${maxGale + 1}</div>
+            <div class="summary-label">Tentativa Mais Comum</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-value">${avgAttempts}</div>
+            <div class="summary-label">Média de Tentativas</div>
+        </div>
+    `;
+}
+
+// Renderizar gráfico
+function renderChart(distribution) {
+    const ctx = document.getElementById('distributionChart').getContext('2d');
+    
+    // Destruir gráfico anterior se existir
+    if (chart) {
+        chart.destroy();
+    }
+    
+    // Preparar dados
+    const labels = [];
+    const data = [];
+    const colors = [];
+    
+    // Adicionar dados dos gales
+    for (let i = 0; i <= 100; i++) {
+        if (distribution[`gale_${i}`] > 0) {
+            labels.push(`Tentativa ${i + 1}`);
+            data.push(distribution[`gale_${i}`]);
+            colors.push(`rgba(102, 126, 234, ${0.8 - (i * 0.07)})`);
+        }
+    }
+    
+    // Adicionar losses se houver
+    if (distribution['lost'] > 0) {
+        labels.push('Perdas');
+        data.push(distribution['lost']);
+        colors.push('rgba(245, 101, 101, 0.8)');
+    }
+    
+    // Criar gráfico
+    chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Quantidade',
+                data: data,
+                backgroundColor: colors,
+                borderColor: colors.map(c => c.replace('0.8', '1')),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const total = data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.raw / total) * 100).toFixed(1);
+                            return `${percentage}% do total`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+</body>
+</html>

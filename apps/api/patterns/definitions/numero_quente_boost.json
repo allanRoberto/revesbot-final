@@ -1,0 +1,35 @@
+{
+  "id": "numero_quente_boost",
+  "name": "Número Quente",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 90,
+  "weight": 5.0,
+  "evaluator": "numero_quente_boost",
+  "max_numbers": 12,
+  "params": {
+    "peso_principal": 3.5,
+    "peso_vizinhos": 2.2,
+    "peso_vizinhos1": 1.4,
+    "peso_duzia": 0.5,
+    "peso_cor": 0,
+    "peso_puxada": 2,
+    "qtd_puxada": 10,
+    "decaimento": 0.5,
+    "window_size": 40,
+    "top_ranking": 12,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.55,
+    "enforce_presence": true,
+    "min_keep": 5,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    }
+  }
+}

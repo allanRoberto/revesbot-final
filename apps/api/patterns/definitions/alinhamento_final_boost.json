@@ -1,0 +1,28 @@
+{
+  "id": "alinhamento_final_boost",
+  "name": "Alinhamento Final",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 86,
+  "weight": 4.5,
+  "evaluator": "alinhamento_final_boost",
+  "max_numbers": 12,
+  "params": {
+    "trigger_position": 8,
+    "max_indice2": 200,
+    "include_neighbors": true,
+    "include_mirrors": true,
+    "neighbor_score_ratio": 0.55,
+    "enforce_presence": true,
+    "min_keep": 4,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    }
+  }
+}

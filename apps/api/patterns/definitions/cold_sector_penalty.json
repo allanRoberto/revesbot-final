@@ -1,0 +1,22 @@
+{
+  "id": "cold_sector_penalty",
+  "name": "Penalizacao de zona fria (20 giros)",
+  "kind": "negative",
+  "active": true,
+  "priority": 36,
+  "version": "1.1.0",
+  "weight": 2.2,
+  "evaluator": "cold_sector_penalty",
+  "max_numbers": 37,
+  "params": {
+    "window": 20,
+    "direct_weight": 1.0,
+    "neighbor1_weight": 0.65,
+    "neighbor2_weight": 0.35,
+    "cold_quantile": 0.3,
+    "zscore_threshold": -0.65,
+    "min_score_spread": 1.8,
+    "depth_multiplier": 1.2,
+    "max_cold_numbers": 12
+  }
+}

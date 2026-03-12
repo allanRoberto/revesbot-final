@@ -1,0 +1,33 @@
+{
+  "id": "puxou_cavalo_boost",
+  "name": "Puxou Cavalo (0-9)",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 87,
+  "weight": 5.0,
+  "evaluator": "puxou_cavalo_boost",
+  "max_numbers": 15,
+  "params": {
+    "min_distance": 5,
+    "check_window": 3,
+    "include_mirror": true,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.55,
+    "enforce_presence": true,
+    "min_keep": 3,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 24,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

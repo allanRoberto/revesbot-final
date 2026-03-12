@@ -1,0 +1,34 @@
+{
+  "id": "sleeping_numbers_boost",
+  "name": "Impulso por numeros dormentes",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 78,
+  "weight": 4.3575,
+  "evaluator": "sleeping_numbers_boost",
+  "max_numbers": 10,
+  "params": {
+    "analysis_window": 80,
+    "min_absence": 40,
+    "max_absence": 120,
+    "base_score": 1.0,
+    "absence_multiplier": 0.02,
+    "cap_score": 2.5,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.6,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 5,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 460,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

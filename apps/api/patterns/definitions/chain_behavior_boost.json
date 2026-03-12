@@ -1,0 +1,36 @@
+{
+  "id": "chain_behavior_boost",
+  "name": "Chain - Cadeias Comportamentais",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 91,
+  "weight": 5.0,
+  "evaluator": "chain_behavior_boost",
+  "max_numbers": 12,
+  "params": {
+    "chain_search_depth": 150,
+    "min_chain_occurrences": 2,
+    "recent_context": 5,
+    "chain_weight": 4,
+    "missing_neighbor_weight": 14,
+    "missing_mirror_weight": 8,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.6,
+    "enforce_presence": true,
+    "min_keep": 2,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 389,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

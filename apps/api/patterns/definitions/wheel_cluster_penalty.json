@@ -1,0 +1,19 @@
+{
+  "id": "wheel_cluster_penalty",
+  "name": "Penalizacao por cluster no wheel",
+  "kind": "negative",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 175,
+  "weight": 1.8,
+  "evaluator": "wheel_cluster_penalty",
+  "max_numbers": 37,
+  "params": {
+    "lookback": 5,
+    "cluster_radius": 4,
+    "min_cluster_count": 3,
+    "direct_penalty": 1.2,
+    "neighbor_penalty": 0.6,
+    "decay_factor": 0.85
+  }
+}

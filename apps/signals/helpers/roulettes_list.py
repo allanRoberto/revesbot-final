@@ -1,0 +1,63 @@
+roulettes = [
+  #{"slug": "pragmatic-korean-roulette", "name": "Korean Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-speed-roulette-1", "name": "Speed Roulette 1", "url" : "https://lotogreen.bet.br/play/556"},
+  #{"slug": "pragmatic-auto-roulette", "name": "Auto Roulette", "url": "https://lotogreen.bet.br/play/373"},
+  #{"slug": "pragmatic-mega-roulette-brazilian", "name": "Mega Roulette Brazilian", "url" : "https://lotogreen.bet.br/play/6478"},
+  #{"slug": "pragmatic-mega-roulette", "name": "Mega Roulette", "url": "https://lotogreen.bet.br/play/550"},
+  {"slug": "pragmatic-brazilian-roulette", "name": "Brazilian Roulette", "url": "https://lotogreen.bet.br/play/450"},
+  #{"slug": "pragmatic-auto-mega-roulette", "name": "Auto Mega Roulette", "url": "https://lotogreen.bet.br/play/543"},
+  #{"slug": "pragmatic-immersive-roulette-deluxe", "name": "Immersive Roulette Deluxe", "url": "https://lotogreen.bet.br/play/8261"},
+  #{"slug": "pragmatic-roulette-macao", "name": "Roulette Macao", "url": "https://lotogreen.bet.br/play/552"},
+  #{"slug": "pragmatic-speed-auto-roulette", "name": "Speed Auto Roulette", "url" : "https://lotogreen.bet.br/play/481"},
+  
+  #{"slug": "pragmatic-speed-roulette-2", "name": "Speed Roulette 2", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-roulette-1", "name": "Roulette 1", "url" : "https://lotogreen.bet.br/play/473"},
+  #{"slug": "pragmatic-roulette-2", "name": "Roulette 2", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-roulete-3", "name": "Roulette 3", "url" : "https://lotogreen.bet.br/play/476"},
+  
+  #{"slug": "pragmatic-vip-auto-roulette", "name": "VIP Auto Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-vip-roulette", "name": "VIP Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-turkish-mega-roulette", "name": "Turkish Mega Roulette", "url" : "https://lotogreen.bet.br/play/457"},  
+  #{"slug": "pragmatic-italian-mega-roulette", "name": "Mega Italian Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-turkish-roulette", "name": "Turkish Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  
+  
+  #{"slug": "pragmatic-romanian-roulette", "name": "Romanian Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-roulette-italian", "name": "Roulette Italian", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-german-roulette", "name": "German Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-russian-roulette", "name": "Russian Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-roulette-italia-tricolore", "name": "Italia Tricolore Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+  #{"slug": "pragmatic-vietnamese-roulette", "name": "Vietnamese Roulette", "url" : "https://lotogreen.bet.br/play/457"},
+
+  
+   #{"slug": "evolution-immersive-roulette", "name": "Evolution Immersive Roulette", "url": "https://lotogreen.bet.br/play/6253"},
+   #{"slug": "evolution-auto-roulette", "name": "Evolution Auto Roulette", "url": "https://lotogreen.bet.br/play/6254"},
+   #{"slug": "evolution-auto-roulette-vip", "name": "Evolution Auto Roulette VIP", "url": "https://lotogreen.bet.br/play/6256"},
+   #{"slug": "evolution-ruleta-relampago-en-vivo", "name": "Evolution Roleta Relâmpago ao Vivo", "url": "https://lotogreen.bet.br/play/6287"},
+   #{"slug": "evolution-lightning-roulette", "name": "Evolution Lightning Roulette", "url": "https://lotogreen.bet.br/play/6237"},
+   #{"slug": "evolution-roleta-ao-vivo", "name": "Evolution Roleta ao Vivo", "url": "https://lotogreen.bet.br/play/6305"},
+   #{"slug": "evolution-roleta-relampago", "name": "Evolution Roleta Relâmpago", "url": "https://lotogreen.bet.br/play/6313"},
+   #{"slug": "evolution-xxxtreme-lightning-roulette", "name": "Evolution XXXtreme Lightning Roulette", "url": "https://lotogreen.bet.br/play/6301"},
+   #{"slug": "evolution-ruleta-bola-rapida-en-vivo", "name": "Evolution Bola Rápida ao Vivo", "url": "https://lotogreen.bet.br/play/6298"},
+   #{"slug": "evolution-roulette", "name": "Evolution Roulette", "url": "https://lotogreen.bet.br/play/6239"},
+   #{"slug": "evolution-ruleta-en-espanol", "name": "Evolution Roulette En Espanhol", "url": "https://lotogreen.bet.br/play/6296"},
+   #{"slug": "evolution-ruleta-en-vivo", "name": "Evolution Roulette En Vivo", "url": "https://lotogreen.bet.br/play/6240"},
+
+   #{"slug": "ezugi-ez-dealer-roleta-brazil", "name": "EZ Dealer Roleta Brazileira", "url": "https://lotogreen.bet.br/play/6166"},
+   #{"slug": "ezugi-roleta-da-sorte", "name": "Roleta da sorte", "url": "https://lotogreen.bet.br/play/6150"},
+   #{"slug": "ezugi-ultimate-roulette", "name": "Ultimate Roulette", "url": "https://lotogreen.bet.br/play/6167"},
+   #{"slug": "ezugi-roleta-automatica", "name": "Auto Roulette", "url": "https://lotogreen.bet.br/play/6152"},
+   #{"slug": "ezugi-roleta-italiana", "name": "Italian Roulette", "url": "https://lotogreen.bet.br/play/6143"},
+   #{"slug": "ezugi-roleta-turca", "name": "Turkish Roulette", "url": "https://lotogreen.bet.br/play/6148"},
+   #{"slug": "ezugi-roleta-diamante", "name": "Diamond Roulette", "url": "https://lotogreen.bet.br/play/6145"},
+   #{"slug": "ezugi-roleta-automatica-prestige", "name": "Prestige Auto Roulette", "url": "https://lotogreen.bet.br/play/6155"},
+   #{"slug": "ezugi-roleta-namaste", "name": "Namaste Roulette", "url": "https://lotogreen.bet.br/play/6146"},
+   #{"slug": "ezugi-speed-auto-roulette", "name": "Speed Auto Roulette", "url": "https://lotogreen.bet.br/play/6153"},
+   #{"slug": "ezugi-roleta-russa", "name": "Russian Roulette", "url": "https://lotogreen.bet.br/play/6149"},
+   #{"slug": "ezugi-criquete-roleta-automatica", "name": "Cricket Auto Roulette", "url": "https://lotogreen.bet.br/play/6154"},
+   #{"slug": "ezugi-speed-roulette", "name": "Speed Roulette", "url": "https://lotogreen.bet.br/play/6144"},
+   #{"slug": "ezugi-ez-dealer-roleta-japones", "name": "EZ Dealer Roulette Japanese", "url": "https://lotogreen.bet.br/play/6164"},
+   #{"slug": "ezugi-ez-dealer-roleta-tailandes", "name": "EZ Dealer Roulette Thai", "url": "https://lotogreen.bet.br/play/6163"},
+   #{"slug": "ezugi-ez-dealer-roulette-mandarin", "name": "EZ Dealer Roulette Mandarin", "url": "https://lotogreen.bet.br/play/6165"}
+]
+

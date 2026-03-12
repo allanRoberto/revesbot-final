@@ -1,0 +1,30 @@
+{
+  "id": "cavalos_faltantes_boost",
+  "name": "Cavalos Faltantes",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 88,
+  "weight": 5.0,
+  "evaluator": "cavalos_faltantes_boost",
+  "max_numbers": 15,
+  "params": {
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.6,
+    "enforce_presence": true,
+    "min_keep": 3,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 68,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

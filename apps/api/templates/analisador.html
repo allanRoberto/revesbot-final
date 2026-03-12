@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizer Master + Estelar + Puxadas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4">
+    <div id="app" class="max-w-7xl mx-auto space-y-6">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-6 shadow-2xl">
+            <h1 class="text-3xl font-bold text-center">🎰 Analizer Master + Estelar + Puxadas</h1>
+            <p class="text-center text-gray-200 mt-2">Sistema com 3 Filtros Integrados</p>
+        </div>
+
+        <!-- Configuração -->
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <h2 class="text-xl font-bold mb-4">⚙️ Configuração</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- URL da API -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">URL da API</label>
+                    <input 
+                        type="text" 
+                        id="apiUrl" 
+                        value="http://localhost:3000"
+                        class="w-full bg-gray-700 rounded px-3 py-2 text-white"
+                    />
+                </div>
+
+                <!-- Profundidade de Puxadas -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Profundidade de Puxadas</label>
+                    <select id="profundidade" class="w-full bg-gray-700 rounded px-3 py-2 text-white">
+                        <option value="3">3 números após</option>
+                        <option value="5" selected>5 números após</option>
+                        <option value="10">10 números após</option>
+                        <option value="15">15 números após</option>
+                    </select>
+                </div>
+
+                <!-- Peso dos Filtros -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Modo de Análise</label>
+                    <select id="modoAnalise" class="w-full bg-gray-700 rounded px-3 py-2 text-white">
+                        <option value="equilibrado">⚖️ Equilibrado</option>
+                        <option value="master_estelar">🎯 Foco Master+Estelar</option>
+                        <option value="puxadas">📊 Foco Puxadas Históricas</option>
+                        <option value="todos">🔥 Máxima Precisão (Todos)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-4 flex gap-2">
+                <button onclick="carregarHistorico()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded font-bold">
+                    🔄 Atualizar Histórico
+                </button>
+                <button onclick="analisar()" class="bg-green-600 hover:bg-green-700 px-6 py-2 rounded font-bold">
+                    ⚡ Analisar Agora
+                </button>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div id="status" class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <p class="text-gray-400 text-center">Aguardando ação...</p>
+        </div>
+
+        <!-- Histórico Recente -->
+        <div id="historicoContainer" class="bg-gray-800 rounded-xl p-6 border border-gray-700 hidden">
+            <h2 class="text-xl font-bold mb-4">📜 Histórico Recente</h2>
+            <div id="historicoNumeros" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Análise de Puxadas -->
+        <div id="puxadasContainer" class="bg-gray-800 rounded-xl p-6 border border-gray-700 hidden">
+            <h2 class="text-xl font-bold mb-4">📊 Análise de Puxadas do Último Número</h2>
+            <div id="puxadasContent"></div>
+        </div>
+
+        <!-- Sugestões Finais -->
+        <div id="sugestoesContainer" class="bg-gray-800 rounded-xl p-6 border border-gray-700 hidden">
+            <h2 class="text-xl font-bold mb-4">🎯 Sugestões Finais (Ensemble)</h2>
+            <div id="sugestoesContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURAÇÃO GLOBAL
+        // ============================================
+        let historico = [];
+        let puxadasData = null;
+        
+        const ESPELHOS = {
+            1:10, 10:1, 2:20, 20:2, 3:30, 30:3,
+            6:9, 9:6, 16:19, 19:16, 26:29, 29:26,
+            13:31, 31:13, 12:21, 21:12, 32:23, 23:32
+        };
+
+        const RODA = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+
+        // ============================================
+        // FUNÇÃO: CARREGAR HISTÓRICO
+        // ============================================
+        async function carregarHistorico() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const status = document.getElementById('status');
+            
+            status.innerHTML = '<p class="text-yellow-400 text-center">🔄 Carregando histórico...</p>';
+            
+            try {
+                const response = await fetch(`${apiUrl}/history/pragmatic-brazilian-roulette`);
+                const data = await response.json();
+                
+                historico = Array.isArray(data) ? data : (data.numeros || []);
+                
+                if (historico.length === 0) {
+                    status.innerHTML = '<p class="text-red-400 text-center">❌ Nenhum histórico encontrado</p>';
+                    return;
+                }
+                
+                // Mostrar histórico
+                const container = document.getElementById('historicoContainer');
+                const numerosDiv = document.getElementById('historicoNumeros');
+                
+                container.classList.remove('hidden');
+                
+                numerosDiv.innerHTML = historico.slice(0, 20).map((num, i) => `
+                    <div class="bg-${i === 0 ? 'green' : 'gray'}-600 px-4 py-2 rounded font-bold ${i === 0 ? 'ring-2 ring-yellow-400' : ''}">
+                        ${num} ${i === 0 ? '⭐' : ''}
+                    </div>
+                `).join('');
+                
+                status.innerHTML = `<p class="text-green-400 text-center">✅ ${historico.length} números carregados. Último: <strong>${historico[0]}</strong></p>`;
+                
+            } catch (erro) {
+                console.error(erro);
+                status.innerHTML = `<p class="text-red-400 text-center">❌ Erro: ${erro.message}</p>`;
+            }
+        }
+
+        // ============================================
+        // FUNÇÃO: ANALISAR (ENSEMBLE COMPLETO)
+        // ============================================
+        async function analisar() {
+            if (historico.length === 0) {
+                alert('Carregue o histórico primeiro!');
+                return;
+            }
+            
+            const status = document.getElementById('status');
+            status.innerHTML = '<p class="text-yellow-400 text-center">⚡ Analisando com 3 filtros...</p>';
+            
+            const ultimoNumero = historico[0];
+            const apiUrl = document.getElementById('apiUrl').value;
+            const profundidade = document.getElementById('profundidade').value;
+            const modo = document.getElementById('modoAnalise').value;
+            
+            try {
+                // 1. BUSCAR PUXADAS HISTÓRICAS
+                const puxadasResponse = await fetch(
+                    `${apiUrl}/analise/numeros-puxados?numero=${ultimoNumero}&profundidade=${profundidade}`
+                );
+                puxadasData = await puxadasResponse.json();
+                
+                // 2. ANÁLISE MASTER + ESTELAR
+                const masterEstelarData = analisarMasterEstelar(historico);
+                
+                // 3. COMBINAR FILTROS (ENSEMBLE)
+                const sugestoesFinais = combinarFiltros(
+                    puxadasData, 
+                    masterEstelarData,
+                    modo
+                );
+                
+                // 4. EXIBIR RESULTADOS
+                exibirPuxadas(puxadasData, ultimoNumero);
+                exibirSugestoes(sugestoesFinais, ultimoNumero);
+                
+                status.innerHTML = `<p class="text-green-400 text-center">✅ Análise completa! Último número: <strong>${ultimoNumero}</strong></p>`;
+                
+            } catch (erro) {
+                console.error(erro);
+                status.innerHTML = `<p class="text-red-400 text-center">❌ Erro na análise: ${erro.message}</p>`;
+            }
+        }
+
+        // ============================================
+        // FUNÇÃO: ANÁLISE MASTER + ESTELAR
+        // ============================================
+        function analisarMasterEstelar(hist) {
+            const candidatos = {};
+            const ultimo = hist[0];
+            
+            // Espelhos
+            if (ESPELHOS[ultimo]) {
+                candidatos[ESPELHOS[ultimo]] = (candidatos[ESPELHOS[ultimo]] || 0) + 3;
+            }
+            
+            // Vizinhos
+            const vizinhos = getVizinhos(ultimo);
+            vizinhos.forEach(v => {
+                candidatos[v] = (candidatos[v] || 0) + 2;
+            });
+            
+            // Terminal
+            const terminal = ultimo % 10;
+            for (let i = 0; i <= 36; i++) {
+                if (i % 10 === terminal && i !== ultimo) {
+                    candidatos[i] = (candidatos[i] || 0) + 1;
+                }
+            }
+            
+            // Repetições recentes
+            const contagem = {};
+            hist.slice(1, 50).forEach(n => {
+                contagem[n] = (contagem[n] || 0) + 1;
+            });
+            
+            Object.entries(contagem).forEach(([num, freq]) => {
+                if (freq >= 2) {
+                    candidatos[num] = (candidatos[num] || 0) + freq;
+                }
+            });
+            
+            return {
+                candidatos,
+                espelho: ESPELHOS[ultimo],
+                vizinhos,
+                terminal
+            };
+        }
+
+        // ============================================
+        // FUNÇÃO: COMBINAR FILTROS (ENSEMBLE)
+        // ============================================
+        function combinarFiltros(puxadas, masterEstelar, modo) {
+            const scores = {};
+            
+            // Pesos por modo
+            const pesos = {
+                equilibrado: { puxadas: 1.0, masterEstelar: 1.0 },
+                master_estelar: { puxadas: 0.5, masterEstelar: 2.0 },
+                puxadas: { puxadas: 2.0, masterEstelar: 0.5 },
+                todos: { puxadas: 1.5, masterEstelar: 1.5 }
+            };
+            
+            const p = pesos[modo];
+            
+            // 1. PONTUAÇÃO DAS PUXADAS
+            if (puxadas.ranking) {
+                puxadas.ranking.slice(0, 10).forEach((item, i) => {
+                    const pontos = (10 - i) * p.puxadas * item.forca;
+                    scores[item.numero] = (scores[item.numero] || 0) + pontos;
+                });
+            }
+            
+            // 2. PONTUAÇÃO MASTER + ESTELAR
+            Object.entries(masterEstelar.candidatos).forEach(([num, peso]) => {
+                scores[num] = (scores[num] || 0) + (peso * p.masterEstelar);
+            });
+            
+            // 3. ORDENAR E RETORNAR TOP 12
+            return Object.entries(scores)
+                .map(([num, score]) => ({
+                    numero: parseInt(num),
+                    score: parseFloat(score.toFixed(2))
+                }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 12);
+        }
+
+        // ============================================
+        // FUNÇÃO: EXIBIR PUXADAS
+        // ============================================
+        function exibirPuxadas(data, ultimo) {
+            const container = document.getElementById('puxadasContainer');
+            const content = document.getElementById('puxadasContent');
+            
+            container.classList.remove('hidden');
+            
+            const top5 = data.top5 || [];
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Estatísticas -->
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <h3 class="font-bold text-lg mb-3">📈 Estatísticas</h3>
+                        <div class="space-y-2 text-sm">
+                            <p>Número analisado: <strong class="text-yellow-400">${ultimo}</strong></p>
+                            <p>Total de ocorrências: <strong>${data.estatisticas.totalOcorrencias}</strong></p>
+                            <p>Total analisado: <strong>${data.estatisticas.totalAnalisado}</strong> números</p>
+                            <p>Confiança: <strong class="${data.estatisticas.confianca === 'alta' ? 'text-green-400' : 'text-yellow-400'}">${data.estatisticas.confianca.toUpperCase()}</strong></p>
+                            <p>Concentração Top 5: <strong>${data.estatisticas.concentracaoTop5}%</strong></p>
+                        </div>
+                    </div>
+                    
+                    <!-- Top 5 -->
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <h3 class="font-bold text-lg mb-3">🏆 Top 5 Puxados</h3>
+                        <div class="space-y-2">
+                            ${top5.map((item, i) => `
+                                <div class="flex justify-between items-center bg-gray-800 rounded px-3 py-2">
+                                    <span class="font-bold">${i + 1}º ${item.numero}</span>
+                                    <span class="text-sm">
+                                        ${item.frequencia}x (${item.percentual}%) 
+                                        <span class="text-yellow-400">⚡${item.forca}x</span>
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Insights -->
+                <div class="mt-4 bg-blue-900 rounded-lg p-4">
+                    <h3 class="font-bold mb-2">💡 Insights</h3>
+                    <ul class="space-y-1 text-sm">
+                        ${(data.insights || []).map(insight => `<li>• ${insight}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        // ============================================
+        // FUNÇÃO: EXIBIR SUGESTÕES FINAIS
+        // ============================================
+        function exibirSugestoes(sugestoes, ultimo) {
+            const container = document.getElementById('sugestoesContainer');
+            const content = document.getElementById('sugestoesContent');
+            
+            container.classList.remove('hidden');
+            
+            content.innerHTML = `
+                <div class="mb-4">
+                    <p class="text-gray-400 mb-3">Baseado no último número: <strong class="text-yellow-400 text-xl">${ultimo}</strong></p>
+                    <div class="flex flex-wrap gap-3">
+                        ${sugestoes.map((item, i) => `
+                            <div class="bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg px-5 py-3 text-center min-w-[80px]">
+                                <div class="text-2xl font-bold">${item.numero}</div>
+                                <div class="text-xs text-gray-200">Score: ${item.score}</div>
+                                ${i < 3 ? '<div class="text-xs text-yellow-300">⭐ Top 3</div>' : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="bg-gray-700 rounded-lg p-4 mt-4">
+                    <p class="text-sm text-gray-300">
+                        💡 <strong>Dica:</strong> Os números são ranqueados combinando:
+                    </p>
+                    <ul class="text-xs text-gray-400 mt-2 space-y-1">
+                        <li>📊 Puxadas históricas (quantas vezes apareceram após o último número)</li>
+                        <li>🎯 Padrões Master + Estelar (espelhos, vizinhos, terminais, repetições)</li>
+                        <li>⚖️ Modo de análise selecionado (equilibrado, foco, ou máxima precisão)</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        // ============================================
+        // FUNÇÃO AUXILIAR: GET VIZINHOS
+        // ============================================
+        function getVizinhos(n) {
+            const idx = RODA.indexOf(n);
+            if (idx === -1) return [];
+            return [
+                RODA[(idx - 1 + 37) % 37],
+                RODA[(idx + 1) % 37]
+            ];
+        }
+
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+        window.onload = () => {
+            console.log('✅ Analizer Master + Estelar + Puxadas iniciado!');
+        };
+    </script>
+</body>
+</html>

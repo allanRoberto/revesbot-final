@@ -1,0 +1,8 @@
+aiohttp==3.11.16
+colorama==0.4.6
+pymongo==4.13.0
+python-dotenv==1.1.0
+redis==6.2.0
+Requests==2.32.3
+websocket_client==1.8.0
+websockets==15.0.1

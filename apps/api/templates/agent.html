@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Agente de Padrões</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/agent.css">
+</head>
+<body>
+    <div class="agent-shell">
+        <header class="agent-header">
+            <div class="brand">
+                <div class="brand-mark">R</div>
+                <div class="brand-text">
+                    <div class="brand-title">Agente de Padrões</div>
+                    <div class="brand-subtitle">Roletas · Estratégias · Contexto vivo</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="session-group">
+                    <label for="session-select">Sessão</label>
+                    <select id="session-select"></select>
+                </div>
+                <div class="session-group">
+                    <label for="model-select">Modelo</label>
+                    <select id="model-select"></select>
+                </div>
+                <div class="pull-group">
+                    <label for="pull-limit">Qtd.</label>
+                    <input type="number" id="pull-limit" min="1" max="5000" value="50">
+                </div>
+                <button class="ghost-btn" id="new-session">Nova sessão</button>
+                <button class="primary-btn" id="pull-numbers">Puxar números</button>
+                <div class="nav-menu">
+                    <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menu">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <div class="nav-dropdown" id="nav-dropdown">
+                        <a href="/agent">Agente</a>
+                        <a href="/agent/templates">Templates</a>
+                        <a href="/agent/sessions">Sessoes</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="agent-main">
+            <aside class="agent-panel">
+                <section class="panel-card">
+                    <h3>Roleta alvo</h3>
+                    <select id="roulette-select" class="select">
+                        <option value="">Carregando...</option>
+                    </select>
+                    <div class="helper-text">Use o menu para escolher a roleta que será analisada.</div>
+                </section>
+
+                <section class="panel-card">
+                    <div class="panel-header">
+                        <h3>Regras fixas</h3>
+                    </div>
+                    <button class="primary-btn" id="open-fixed-rules">Criar regra fixa</button>
+                    <div class="helper-text">Abra o modal para editar as regras fixas da sessao.</div>
+                </section>
+
+                <section class="panel-card">
+                    <div class="panel-header">
+                        <h3>Regras da sessão</h3>
+                        <button class="ghost-btn small" id="save-session-rules">Salvar regras</button>
+                    </div>
+                    <div id="session-rules-list" class="rules-list"></div>
+                </section>
+
+                <section class="panel-card">
+                    <div class="panel-header">
+                        <h3>Últimos números</h3>
+                        <span class="badge" id="numbers-count">0</span>
+                    </div>
+                    <div class="numbers-grid" id="numbers-grid"></div>
+                    <div class="numbers-actions">
+                        <button class="ghost-btn small" id="toggle-history">Usar histórico</button>
+                        <button class="ghost-btn small" id="toggle-live">Analisar próximos resultados</button>
+                        <span class="helper-text" id="numbers-status">Sem histórico carregado.</span>
+                    </div>
+                </section>
+
+                <section class="panel-card">
+                    <div class="panel-header">
+                        <h3>Monitorar sinal</h3>
+                        <button class="ghost-btn small" id="clear-signal">Limpar</button>
+                    </div>
+                    <div class="signal-form">
+                        <input id="signal-triggers" class="text-input" placeholder="Gatilhos (ex: 7, 12, 27)">
+                        <input id="signal-targets" class="text-input" placeholder="Alvos (ex: 3, 9, 18, 21)">
+                        <input id="signal-gales" class="text-input" type="number" min="0" max="20" value="2" placeholder="Gales">
+                        <div class="panel-actions">
+                            <button class="primary-btn" id="start-signal">Criar sinal</button>
+                            <button class="ghost-btn" id="stop-signal">Parar</button>
+                            <button class="ghost-btn" id="send-signal-log">Enviar log</button>
+                        </div>
+                    </div>
+                    <div class="helper-text" id="signal-status">Sem sinal ativo.</div>
+                </section>
+            </aside>
+
+            <section class="agent-chat">
+                <div class="chat-stream" id="chat-stream">
+                    <div class="chat-empty">
+                        <h2>Converse com o agente</h2>
+                        <p>Descreva um padrão, peça testes ou refine as regras. O contexto fica salvo na sessão.</p>
+                    </div>
+                </div>
+
+                <form class="chat-input" id="chat-form">
+                    <textarea id="chat-text" rows="1" placeholder="Digite um comando para o agente..." required></textarea>
+                    <button type="submit" class="primary-btn send-btn">
+                        Enviar <span class="enter-icon">⏎</span>
+                    </button>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="session-modal" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-title">Configurar sessão</div>
+            <div class="modal-grid">
+                <div class="modal-field">
+                    <label for="modal-roulette">Roleta</label>
+                    <select id="modal-roulette" class="select"></select>
+                </div>
+                <div class="modal-field">
+                    <label for="modal-model">Modelo LLM</label>
+                    <select id="modal-model" class="select"></select>
+                </div>
+                <div class="modal-field">
+                    <label for="modal-template">Template</label>
+                    <select id="modal-template" class="select"></select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="ghost-btn" id="session-modal-cancel">Cancelar</button>
+                <button class="primary-btn" id="session-modal-confirm">Entrar no chat</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="fixed-rules-modal" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-title">Regras fixas da sessao</div>
+            <textarea id="fixed-rules" class="rules-text" rows="10" placeholder="Ex: Priorizar terminais 7 e 9 quando houver repeticao dupla..."></textarea>
+            <div class="modal-actions">
+                <button class="ghost-btn" id="fixed-rules-cancel">Fechar</button>
+                <button class="primary-btn" id="fixed-rules-save">Salvar regras</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="usage-modal" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-title">Detalhes da mensagem</div>
+            <div class="usage-grid" id="usage-grid"></div>
+            <div class="modal-actions">
+                <button class="ghost-btn" id="usage-close">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+        const state = {
+            sessionId: "",
+            rouletteId: "",
+            fixedRules: "",
+            model: "",
+            useHistory: false,
+            historyLimit: 50,
+            templateId: "",
+            templatePrompt: "",
+            templateOutputMode: "text",
+            templateRules: [],
+            sessionRules: [],
+            messages: [],
+            numbers: [],
+            wsConnected: false,
+        };
+
+        const el = (id) => document.getElementById(id);
+
+        const navToggle = el("nav-toggle");
+        const navDropdown = el("nav-dropdown");
+
+        if (navToggle && navDropdown) {
+            navToggle.addEventListener("click", (event) => {
+                event.stopPropagation();
+                navDropdown.classList.toggle("open");
+            });
+            document.addEventListener("click", (event) => {
+                if (!navDropdown.classList.contains("open")) return;
+                if (event.target.closest(".nav-menu")) return;
+                navDropdown.classList.remove("open");
+            });
+        }
+        const chatStream = el("chat-stream");
+        const numbersGrid = el("numbers-grid");
+        const numbersCount = el("numbers-count");
+        const numbersStatus = el("numbers-status");
+        const signalStatus = el("signal-status");
+        const sessionRulesList = el("session-rules-list");
+        const sessionModal = el("session-modal");
+        const modalRoulette = el("modal-roulette");
+        const modalModel = el("modal-model");
+        const modalTemplate = el("modal-template");
+        const fixedRulesModal = el("fixed-rules-modal");
+        const fixedRulesField = el("fixed-rules");
+        const usageModal = el("usage-modal");
+        const usageGrid = el("usage-grid");
+        const usageClose = el("usage-close");
+        let ws = null;
+        let saveTimer = null;
+        let activeSignal = null;
+        const SIGNAL_KEY = "agentSignalState";
+        let autoMonitor = true;
+        let liveAnalyze = false;
+        let liveQueue = [];
+        let liveTimer = null;
+        let pendingNewSession = false;
+        let modelsData = [];
+        let templatesData = [];
+        let roulettesData = [];
+        let lastTemplatePromptSent = "";
+        let lastFixedRulesSent = "";
+        let lastSessionRulesSent = "";
+
+        const createMessage = (role, content, meta = null, pending = false, id = null) => ({
+            role,
+            content,
+            meta,
+            pending,
+            id: id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        });
+
+        const escapeHtml = (text) => {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        };
+
+        const renderMarkdown = (text) => {
+            const lines = escapeHtml(text || "").split(/\r?\n/);
+            let html = "";
+            let inUl = false;
+            let inOl = false;
+            let inCode = false;
+            let codeLang = "";
+            let codeBuffer = [];
+
+            const closeLists = () => {
+                if (inUl) {
+                    html += "</ul>";
+                    inUl = false;
+                }
+                if (inOl) {
+                    html += "</ol>";
+                    inOl = false;
+                }
+            };
+
+            const inlineFormat = (line) => {
+                return line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+            };
+
+            lines.forEach((rawLine) => {
+                const line = rawLine.trimEnd();
+                if (line.startsWith("```")) {
+                    if (inCode) {
+                        const codeContent = codeBuffer.join("\n");
+                        if (codeLang === "json") {
+                            html += `<details class="json-toggle"><summary>Consulta finalizada · ver detalhes</summary><pre><code>${codeContent}</code></pre></details>`;
+                        } else {
+                            html += `<pre><code>${codeContent}</code></pre>`;
+                        }
+                        codeBuffer = [];
+                        codeLang = "";
+                        inCode = false;
+                    } else {
+                        closeLists();
+                        codeLang = line.slice(3).trim().toLowerCase();
+                        inCode = true;
+                    }
+                    return;
+                }
+
+                if (inCode) {
+                    codeBuffer.push(rawLine);
+                    return;
+                }
+
+                if (!line.trim()) {
+                    closeLists();
+                    html += "<br>";
+                    return;
+                }
+
+                if (line.startsWith("### ")) {
+                    closeLists();
+                    html += `<h3>${inlineFormat(line.slice(4))}</h3>`;
+                    return;
+                }
+                if (line.startsWith("## ")) {
+                    closeLists();
+                    html += `<h2>${inlineFormat(line.slice(3))}</h2>`;
+                    return;
+                }
+                if (line.startsWith("# ")) {
+                    closeLists();
+                    html += `<h1>${inlineFormat(line.slice(2))}</h1>`;
+                    return;
+                }
+
+                const olMatch = line.match(/^(\d+)\.\s+(.*)/);
+                if (olMatch) {
+                    if (!inOl) {
+                        closeLists();
+                        html += "<ol>";
+                        inOl = true;
+                    }
+                    html += `<li>${inlineFormat(olMatch[2])}</li>`;
+                    return;
+                }
+
+                if (line.startsWith("- ")) {
+                    if (!inUl) {
+                        closeLists();
+                        html += "<ul>";
+                        inUl = true;
+                    }
+                    html += `<li>${inlineFormat(line.slice(2))}</li>`;
+                    return;
+                }
+
+                closeLists();
+                html += `<p>${inlineFormat(line)}</p>`;
+            });
+
+            closeLists();
+            if (inCode) {
+                const codeContent = codeBuffer.join("\n");
+                if (codeLang === "json") {
+                    html += `<details class="json-toggle"><summary>Consulta finalizada · ver detalhes</summary><pre><code>${codeContent}</code></pre></details>`;
+                } else {
+                    html += `<pre><code>${codeContent}</code></pre>`;
+                }
+            }
+            return html;
+        };
+
+        const renderMessages = () => {
+            chatStream.innerHTML = "";
+            if (!state.messages.length) {
+                chatStream.innerHTML = `
+                    <div class="chat-empty">
+                        <h2>Converse com o agente</h2>
+                        <p>Descreva um padrão, peça testes ou refine as regras. O contexto fica salvo na sessão.</p>
+                    </div>
+                `;
+                return;
+            }
+            state.messages.forEach((msg, index) => {
+                if (!msg.id) {
+                    msg.id = `${msg.role}-${index}`;
+                }
+                const wrapper = document.createElement("div");
+                wrapper.className = `chat-message ${msg.role}`;
+                const baseNumbers = msg.meta && msg.meta.context_numbers ? msg.meta.context_numbers : [];
+                const usage = msg.meta && msg.meta.usage ? msg.meta.usage : null;
+                const formatted = renderMarkdown(msg.content || "");
+                const metaRow = baseNumbers.length || usage
+                    ? `
+                        <div class="meta-row">
+                            <div class="meta">${baseNumbers.length ? `Base: ${baseNumbers.join(", ")}` : ""}</div>
+                            ${usage ? `<button class="info-btn" data-usage-id="${msg.id}" title="Detalhes">i</button>` : ""}
+                        </div>
+                    `
+                    : "";
+                wrapper.innerHTML = `
+                    <div class="bubble">
+                        <span class="role">${msg.role === "user" ? "Você" : "Agente"}</span>
+                        <div class="content">${formatted}</div>
+                        ${metaRow}
+                    </div>
+                `;
+                chatStream.appendChild(wrapper);
+            });
+            chatStream.scrollTop = chatStream.scrollHeight;
+        };
+
+        const colorClass = (num) => {
+            if (num === 0) return "green";
+            return RED_NUMBERS.has(num) ? "red" : "black";
+        };
+
+        const renderNumbers = () => {
+            numbersGrid.innerHTML = "";
+            numbersCount.textContent = state.numbers.length;
+            if (!state.numbers.length) {
+                numbersStatus.textContent = "Sem histórico carregado.";
+                state.useHistory = false;
+                el("toggle-history").disabled = true;
+                el("toggle-history").classList.remove("active");
+                return;
+            }
+            numbersStatus.textContent = `Últimos ${state.numbers.length} resultados`;
+            el("toggle-history").disabled = false;
+            el("pull-limit").value = state.historyLimit;
+            state.numbers.forEach((num) => {
+                const chip = document.createElement("div");
+                chip.className = `num-chip ${colorClass(num)}`;
+                chip.textContent = num;
+                numbersGrid.appendChild(chip);
+            });
+        };
+
+        const renderSessionRules = () => {
+            sessionRulesList.innerHTML = "";
+            if (!state.sessionRules.length) {
+                sessionRulesList.innerHTML = "<div class=\"helper-text\">Nenhuma regra aplicada.</div>";
+                return;
+            }
+            state.sessionRules.forEach((rule) => {
+                const row = document.createElement("div");
+                row.className = "rule-row";
+                row.innerHTML = `
+                    <label class="rule-toggle">
+                        <input type="checkbox" data-session-rule="${rule.id}" ${rule.active ? "checked" : ""}>
+                        <span>${rule.text}</span>
+                    </label>
+                `;
+                sessionRulesList.appendChild(row);
+            });
+        };
+
+
+        const getQuerySession = () => {
+            const params = new URLSearchParams(window.location.search);
+            return params.get("session_id");
+        };
+
+        const getQueryTemplate = () => {
+            const params = new URLSearchParams(window.location.search);
+            return params.get("template_id");
+        };
+
+        const showSessionModal = (forceNew = false) => {
+            pendingNewSession = forceNew;
+            populateSessionModal();
+            sessionModal.style.display = "flex";
+            sessionModal.classList.add("open");
+        };
+
+        const hideSessionModal = () => {
+            sessionModal.classList.remove("open");
+            sessionModal.style.display = "none";
+        };
+
+        const showFixedRulesModal = () => {
+            fixedRulesField.value = state.fixedRules || "";
+            fixedRulesModal.style.display = "flex";
+            fixedRulesModal.classList.add("open");
+        };
+
+        const hideFixedRulesModal = () => {
+            fixedRulesModal.classList.remove("open");
+            fixedRulesModal.style.display = "none";
+        };
+
+        const showUsageModal = (usage) => {
+            if (!usageModal || !usageGrid) return;
+            const rows = [
+                ["Provedor", usage.provider || "-"],
+                ["Modelo", usage.model || "-"],
+                ["Tokens de entrada", usage.input_tokens ?? "-"],
+                ["Tokens de saida", usage.output_tokens ?? "-"],
+                ["Tokens totais", usage.total_tokens ?? "-"],
+                ["Custo (USD)", usage.cost_usd != null ? `$${usage.cost_usd}` : "Nao configurado"],
+            ];
+            usageGrid.innerHTML = rows.map(([label, value]) => (
+                `<div><span class="label">${label}:</span> ${value}</div>`
+            )).join("");
+            usageModal.style.display = "flex";
+            usageModal.classList.add("open");
+        };
+
+        const hideUsageModal = () => {
+            if (!usageModal) return;
+            usageModal.classList.remove("open");
+            usageModal.style.display = "none";
+        };
+
+        if (usageClose) {
+            usageClose.addEventListener("click", hideUsageModal);
+        }
+
+        if (usageModal) {
+            usageModal.addEventListener("click", (event) => {
+                if (event.target === usageModal) {
+                    hideUsageModal();
+                }
+            });
+        }
+
+        const populateSessionModal = () => {
+            modalRoulette.innerHTML = `<option value="">Selecione...</option>`;
+            roulettesData.forEach((r) => {
+                const opt = document.createElement("option");
+                opt.value = r.id;
+                opt.textContent = r.name;
+                modalRoulette.appendChild(opt);
+            });
+            modalRoulette.value = state.rouletteId || "";
+
+            modalModel.innerHTML = "";
+            modelsData.forEach((model) => {
+                const opt = document.createElement("option");
+                opt.value = model;
+                opt.textContent = model;
+                modalModel.appendChild(opt);
+            });
+            if (state.model) {
+                modalModel.value = state.model;
+            }
+
+            modalTemplate.innerHTML = `<option value="">Sem template</option>`;
+            templatesData.forEach((tpl) => {
+                const opt = document.createElement("option");
+                opt.value = tpl.id;
+                opt.textContent = tpl.name;
+                modalTemplate.appendChild(opt);
+            });
+            modalTemplate.value = state.templateId || "";
+        };
+
+        const getTemplateById = (id) => templatesData.find((tpl) => tpl.id === id);
+
+        const loadSessions = async () => {
+            const res = await fetch("/api/agent/sessions");
+            const data = await res.json();
+            const select = el("session-select");
+            select.innerHTML = "";
+            const querySession = getQuerySession();
+            data.sessions.forEach((session, index) => {
+                const opt = document.createElement("option");
+                const label = session.roulette_id ? `${session.roulette_id}` : "Sessão sem roleta";
+                opt.value = session.session_id;
+                opt.textContent = `${label} · ${session.session_id.slice(0, 8)}`;
+                select.appendChild(opt);
+                if (querySession && session.session_id === querySession) {
+                    state.sessionId = querySession;
+                } else if (index === 0 && !state.sessionId) {
+                    state.sessionId = session.session_id;
+                }
+            });
+            if (!data.sessions.length) {
+                const created = await createSession(state.model);
+                state.sessionId = created.session_id;
+                await loadSessions();
+            } else {
+                select.value = state.sessionId;
+            }
+        };
+
+        const createSession = async (model) => {
+            const res = await fetch("/api/agent/session", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ model: model || null }),
+            });
+            return res.json();
+        };
+
+        const loadModels = async () => {
+            const res = await fetch("/api/agent/models");
+            const data = await res.json();
+            modelsData = data.models || [];
+            const select = el("model-select");
+            select.innerHTML = "";
+            modelsData.forEach((model, index) => {
+                const opt = document.createElement("option");
+                opt.value = model;
+                opt.textContent = model;
+                select.appendChild(opt);
+                if (index === 0 && !state.model) {
+                    state.model = model;
+                }
+            });
+            if (state.model) {
+                select.value = state.model;
+            }
+        };
+
+        const loadTemplates = async () => {
+            const res = await fetch("/api/agent/templates");
+            const data = await res.json();
+            templatesData = data.templates || [];
+            const queryTemplate = getQueryTemplate();
+            templatesData.forEach((tpl) => {
+                if (queryTemplate && tpl.id === queryTemplate) {
+                    state.templateId = queryTemplate;
+                    state.templatePrompt = tpl.prompt;
+                    state.templateRules = tpl.rules || [];
+                }
+            });
+        };
+
+        const loadState = async () => {
+            if (!state.sessionId) return;
+            const res = await fetch(`/api/agent/state?session_id=${state.sessionId}`);
+            const data = await res.json();
+            state.rouletteId = data.roulette_id || "";
+            state.fixedRules = data.fixed_rules || "";
+            state.model = data.model || state.model;
+            state.useHistory = data.use_history || false;
+            state.historyLimit = data.history_limit || 50;
+            state.numbers = data.recent_numbers || [];
+            state.templateId = data.template_id || "";
+            state.templatePrompt = data.template_prompt || "";
+            state.templateOutputMode = data.template_output_mode || "text";
+            state.sessionRules = data.session_rules || [];
+            state.messages = data.messages || [];
+            if (state.templateId) {
+                const tpl = getTemplateById(state.templateId);
+                state.templateRules = tpl && tpl.rules ? tpl.rules : [];
+            } else {
+                state.templateRules = [];
+            }
+
+            el("roulette-select").value = state.rouletteId;
+            el("fixed-rules").value = state.fixedRules;
+            if (state.model) {
+                el("model-select").value = state.model;
+            }
+            updateHistoryToggle();
+            renderSessionRules();
+            renderMessages();
+        };
+
+        const saveState = async () => {
+            if (!state.sessionId) return;
+            await fetch("/api/agent/state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    session_id: state.sessionId,
+                    roulette_id: state.rouletteId,
+                    fixed_rules: state.fixedRules,
+                    instructions: "",
+                    model: state.model,
+                    use_history: state.useHistory,
+                    history_limit: state.historyLimit,
+                    recent_numbers: state.numbers,
+                    template_id: state.templateId || null,
+                    template_prompt: state.templatePrompt || "",
+                    template_output_mode: state.templateOutputMode || "text",
+                    session_rules: state.sessionRules,
+                    messages: state.messages,
+                }),
+            });
+        };
+
+        const loadRoulettes = async () => {
+            const res = await fetch("/api/agent/roulettes");
+            const data = await res.json();
+            roulettesData = data.roulettes || [];
+            const select = el("roulette-select");
+            select.innerHTML = `<option value="">Selecione...</option>`;
+            roulettesData.forEach((r) => {
+                const opt = document.createElement("option");
+                opt.value = r.id;
+                opt.textContent = r.name;
+                select.appendChild(opt);
+            });
+            if (state.rouletteId) {
+                select.value = state.rouletteId;
+            }
+        };
+
+        const pullNumbers = async () => {
+            if (!state.rouletteId) {
+                alert("Selecione uma roleta.");
+                return;
+            }
+            const limit = Math.min(Math.max(parseInt(el("pull-limit").value || "50", 10), 1), 5000);
+            state.historyLimit = limit;
+            numbersStatus.textContent = "Buscando...";
+            const res = await fetch(`/api/agent/last-numbers?roulette_id=${state.rouletteId}&limit=${limit}`);
+            const data = await res.json();
+            state.numbers = data.results || [];
+            renderNumbers();
+            state.messages.push(createMessage("assistant", `Histórico atualizado com ${state.numbers.length} números.`));
+            renderMessages();
+            await saveState();
+        };
+
+        const sendMessage = async (text) => {
+            if (!text.trim()) return;
+            const lower = text.trim().toLowerCase();
+            if (lower === "acompanhar roleta" || lower === "iniciar monitoramento") {
+                autoMonitor = true;
+                connectWs();
+            }
+            if (lower === "parar monitoramento") {
+                autoMonitor = false;
+                stopWs();
+            }
+            const userMsg = createMessage("user", text.trim());
+            const pendingId = `${userMsg.id}-pending`;
+            const pendingMsg = createMessage("assistant", "∙∙∙", null, true, pendingId);
+            state.messages.push(userMsg, pendingMsg);
+            renderMessages();
+
+            try {
+                const rulesSignature = JSON.stringify(state.sessionRules || []);
+                const payload = {
+                    session_id: state.sessionId,
+                    text,
+                    roulette_id: state.rouletteId,
+                    model: state.model,
+                    use_history: state.useHistory,
+                    history_limit: state.historyLimit,
+                    template_id: state.templateId || null,
+                    template_output_mode: state.templateOutputMode || "text",
+                };
+                if (state.templatePrompt && state.templatePrompt !== lastTemplatePromptSent) {
+                    payload.template_prompt = state.templatePrompt;
+                }
+                if (state.fixedRules !== lastFixedRulesSent) {
+                    payload.fixed_rules = state.fixedRules;
+                }
+                if (rulesSignature !== lastSessionRulesSent) {
+                    payload.session_rules = state.sessionRules;
+                }
+                const res = await fetch("/api/agent/message", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (data && data.state && Array.isArray(data.state.messages)) {
+                    state.messages = data.state.messages;
+                } else {
+                    state.messages = state.messages.filter((msg) => msg.id !== pendingId);
+                    state.messages.push(createMessage("assistant", data.reply || "Sem resposta."));
+                }
+                state.numbers = data.state?.recent_numbers || state.numbers;
+                if (typeof data.state.use_history !== "undefined") {
+                    state.useHistory = data.state.use_history;
+                }
+                if (typeof data.state.history_limit !== "undefined") {
+                    state.historyLimit = data.state.history_limit;
+                }
+                if (typeof data.state.session_rules !== "undefined") {
+                    state.sessionRules = data.state.session_rules;
+                    renderSessionRules();
+                }
+                lastTemplatePromptSent = state.templatePrompt || "";
+                lastFixedRulesSent = state.fixedRules || "";
+                lastSessionRulesSent = JSON.stringify(state.sessionRules || []);
+            } catch (err) {
+                state.messages = state.messages.filter((msg) => msg.id !== pendingId);
+                state.messages.push(createMessage("assistant", "Erro ao enviar mensagem."));
+            }
+            updateHistoryToggle();
+            renderMessages();
+            renderNumbers();
+        };
+
+        const updateHistoryToggle = () => {
+            const btn = el("toggle-history");
+            btn.classList.toggle("active", state.useHistory);
+            btn.textContent = state.useHistory ? "Histórico ativo" : "Usar histórico";
+        };
+
+        const updateLiveToggle = () => {
+            const btn = el("toggle-live");
+            btn.classList.toggle("active", liveAnalyze);
+            btn.textContent = liveAnalyze ? "Analisando próximos resultados" : "Analisar próximos resultados";
+        };
+
+        const scheduleSave = () => {
+            if (saveTimer) {
+                clearTimeout(saveTimer);
+            }
+            saveTimer = setTimeout(() => {
+                saveState();
+                saveTimer = null;
+            }, 800);
+        };
+
+        const parseNumberList = (raw) => {
+            return (raw || "")
+                .split(/[,;\\s]+/)
+                .map((n) => parseInt(n, 10))
+                .filter((n) => !Number.isNaN(n));
+        };
+
+        const saveSignalLocal = () => {
+            if (!activeSignal) {
+                localStorage.removeItem(SIGNAL_KEY);
+                return;
+            }
+            localStorage.setItem(SIGNAL_KEY, JSON.stringify(activeSignal));
+        };
+
+        const loadSignalLocal = () => {
+            const raw = localStorage.getItem(SIGNAL_KEY);
+            if (!raw) return null;
+            try {
+                return JSON.parse(raw);
+            } catch {
+                return null;
+            }
+        };
+
+        const updateSignalStatus = () => {
+            if (!activeSignal) {
+                signalStatus.textContent = "Sem sinal ativo.";
+                return;
+            }
+            const status = activeSignal.status || "monitorando";
+            signalStatus.textContent = `Sinal ativo: ${status} | gatilhos=${activeSignal.triggers.join(", ")} | alvos=${activeSignal.targets.join(", ")} | gales=${activeSignal.gales}`;
+        };
+
+        const startSignal = () => {
+            if (!state.rouletteId) {
+                alert("Selecione uma roleta.");
+                return;
+            }
+            const triggers = parseNumberList(el("signal-triggers").value);
+            const targets = parseNumberList(el("signal-targets").value);
+            const gales = Math.max(0, Math.min(parseInt(el("signal-gales").value || "0", 10), 20));
+            if (!triggers.length || !targets.length) {
+                alert("Informe gatilhos e alvos.");
+                return;
+            }
+            activeSignal = {
+                id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                roulette_id: state.rouletteId,
+                created_at: new Date().toISOString(),
+                triggers,
+                targets,
+                gales,
+                status: "monitorando",
+                trigger_hit: null,
+                target_hit: null,
+                spins_since_trigger: 0,
+                attempts: 0,
+                log: [],
+            };
+            saveSignalLocal();
+            updateSignalStatus();
+        };
+
+        const stopSignal = () => {
+            if (activeSignal) {
+                activeSignal.status = "parado";
+                saveSignalLocal();
+            }
+            activeSignal = null;
+            updateSignalStatus();
+        };
+
+        const appendSignalLog = (entry) => {
+            if (!activeSignal) return;
+            activeSignal.log.push(entry);
+        };
+
+        const handleSignalSpin = (num) => {
+            if (!activeSignal || activeSignal.status !== "monitorando") return;
+            const entry = {
+                number: num,
+                timestamp: new Date().toISOString(),
+                trigger: false,
+                target: false,
+                status: "observando",
+                attempt: activeSignal.attempts,
+            };
+
+            if (!activeSignal.trigger_hit && activeSignal.triggers.includes(num)) {
+                activeSignal.trigger_hit = num;
+                activeSignal.spins_since_trigger = 0;
+                entry.trigger = true;
+                entry.status = "gatilho_disparou";
+            } else if (activeSignal.trigger_hit) {
+                activeSignal.spins_since_trigger += 1;
+                if (activeSignal.targets.includes(num)) {
+                    activeSignal.target_hit = num;
+                    activeSignal.status = "pagou";
+                    entry.target = true;
+                    entry.status = "pagou";
+                } else if (activeSignal.spins_since_trigger >= 1) {
+                    activeSignal.attempts += 1;
+                    entry.attempt = activeSignal.attempts;
+                    if (activeSignal.attempts > activeSignal.gales) {
+                        activeSignal.status = "perdeu";
+                        entry.status = "perdeu";
+                    }
+                }
+            }
+
+            appendSignalLog(entry);
+            updateSignalStatus();
+            saveSignalLocal();
+        };
+
+        const sendSignalLog = async () => {
+            if (!activeSignal) {
+                alert("Nenhum sinal ativo.");
+                return;
+            }
+            const payload = {
+                type: "signal_log",
+                signal: activeSignal,
+            };
+            const text = JSON.stringify(payload, null, 2);
+            await sendMessage(text);
+        };
+
+        const connectWs = () => {
+            if (!autoMonitor) return;
+            const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+            ws = new WebSocket(`${protocol}://${window.location.host}/ws`);
+            ws.addEventListener("message", (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (!data || typeof data.result !== "number") return;
+                    if (!state.rouletteId || data.slug !== state.rouletteId) return;
+                    state.numbers = [data.result, ...state.numbers].slice(0, state.historyLimit);
+                    renderNumbers();
+                    scheduleSave();
+                    handleSignalSpin(data.result);
+                    if (liveAnalyze) {
+                        liveQueue.unshift(data.result);
+                        if (!liveTimer) {
+                            liveTimer = setTimeout(async () => {
+                                const payload = liveQueue.slice(0, 10);
+                                liveQueue = [];
+                                liveTimer = null;
+                                await sendMessage(`Resultados em tempo real: ${payload.join(", ")}`);
+                            }, 1200);
+                        }
+                    }
+                } catch (err) {
+                    console.warn("Mensagem WS inválida", err);
+                }
+            });
+            ws.addEventListener("close", () => {
+                if (autoMonitor) {
+                    setTimeout(connectWs, 2500);
+                }
+            });
+        };
+
+        const stopWs = () => {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        };
+
+
+        el("roulette-select").addEventListener("change", async (e) => {
+            state.rouletteId = e.target.value;
+            state.numbers = [];
+            renderNumbers();
+            if (activeSignal && activeSignal.roulette_id !== state.rouletteId) {
+                stopSignal();
+            }
+            await saveState();
+        });
+
+        el("fixed-rules").addEventListener("input", () => {
+            state.fixedRules = el("fixed-rules").value.trim();
+            scheduleSave();
+        });
+
+        el("open-fixed-rules").addEventListener("click", showFixedRulesModal);
+        el("fixed-rules-cancel").addEventListener("click", hideFixedRulesModal);
+        el("fixed-rules-save").addEventListener("click", async () => {
+            state.fixedRules = fixedRulesField.value.trim();
+            await saveState();
+            hideFixedRulesModal();
+        });
+
+        chatStream.addEventListener("click", (event) => {
+            const btn = event.target.closest(".info-btn");
+            if (!btn) return;
+            const msgId = btn.dataset.usageId;
+            const msg = state.messages.find((item) => item.id === msgId);
+            if (!msg || !msg.meta || !msg.meta.usage) return;
+            showUsageModal(msg.meta.usage);
+        });
+
+        el("toggle-history").addEventListener("click", async () => {
+            state.useHistory = !state.useHistory;
+            updateHistoryToggle();
+            await saveState();
+        });
+
+        el("toggle-live").addEventListener("click", () => {
+            liveAnalyze = !liveAnalyze;
+            updateLiveToggle();
+        });
+
+        sessionRulesList.addEventListener("change", (event) => {
+            const target = event.target;
+            const id = target.dataset.sessionRule;
+            if (!id) return;
+            state.sessionRules = state.sessionRules.map((r) => (
+                r.id === id ? { ...r, active: target.checked } : r
+            ));
+        });
+
+        el("save-session-rules").addEventListener("click", async () => {
+            await saveState();
+        });
+
+        el("start-signal").addEventListener("click", startSignal);
+        el("stop-signal").addEventListener("click", stopSignal);
+        el("send-signal-log").addEventListener("click", sendSignalLog);
+        el("clear-signal").addEventListener("click", () => {
+            activeSignal = null;
+            saveSignalLocal();
+            updateSignalStatus();
+        });
+
+        el("pull-numbers").addEventListener("click", pullNumbers);
+
+        el("new-session").addEventListener("click", async () => {
+            showSessionModal(true);
+        });
+
+        el("session-select").addEventListener("change", async (e) => {
+            state.sessionId = e.target.value;
+            state.messages = [];
+            state.numbers = [];
+            await loadState();
+            renderNumbers();
+        });
+
+        el("model-select").addEventListener("change", async (e) => {
+            state.model = e.target.value;
+            await saveState();
+        });
+
+        el("chat-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const textArea = el("chat-text");
+            const text = textArea.value;
+            textArea.value = "";
+            await sendMessage(text);
+        });
+
+        el("chat-text").addEventListener("keydown", async (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                const text = e.target.value;
+                e.target.value = "";
+                await sendMessage(text);
+            }
+        });
+
+        el("session-modal-cancel").addEventListener("click", () => {
+            hideSessionModal();
+        });
+
+        el("session-modal-confirm").addEventListener("click", async () => {
+            const rouletteId = modalRoulette.value;
+            const model = modalModel.value || state.model;
+            const templateId = modalTemplate.value;
+            if (!rouletteId) {
+                alert("Selecione uma roleta para continuar.");
+                return;
+            }
+
+            if (pendingNewSession || !state.sessionId) {
+                const created = await createSession(model);
+                state.sessionId = created.session_id;
+                state.messages = [];
+                state.numbers = [];
+                state.fixedRules = "";
+            }
+
+            state.model = model;
+            state.rouletteId = rouletteId;
+
+            if (templateId) {
+                const tpl = getTemplateById(templateId);
+                state.templateId = templateId;
+                state.templatePrompt = tpl ? tpl.prompt : "";
+                state.templateOutputMode = tpl && tpl.output_mode ? tpl.output_mode : "text";
+                state.templateRules = tpl && tpl.rules ? tpl.rules : [];
+                state.sessionRules = state.templateRules.map((rule) => ({
+                    id: rule.id,
+                    text: rule.text,
+                    active: true,
+                }));
+            } else {
+                state.templateId = "";
+                state.templatePrompt = "";
+                state.templateOutputMode = "text";
+                state.templateRules = [];
+                state.sessionRules = [];
+            }
+
+            hideSessionModal();
+            await saveState();
+            await loadSessions();
+            await loadState();
+            renderNumbers();
+        });
+
+        const init = async () => {
+            await loadModels();
+            await loadTemplates();
+            await loadSessions();
+            await loadRoulettes();
+            await loadState();
+            renderNumbers();
+            activeSignal = loadSignalLocal();
+            updateSignalStatus();
+            updateLiveToggle();
+            if (!state.rouletteId) {
+                showSessionModal(false);
+            }
+            connectWs();
+        };
+
+        init();
+    </script>
+</body>
+</html>

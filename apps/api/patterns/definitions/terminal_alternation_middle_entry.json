@@ -1,0 +1,29 @@
+{
+  "id": "terminal_alternation_middle_entry",
+  "name": "Terminal Alternation Middle Entry",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 96,
+  "weight": 3.9,
+  "evaluator": "terminal_alternation_middle_entry",
+  "max_numbers": 8,
+  "params": {
+    "wait_spins": 4,
+    "attempts_per_count": 4,
+    "neighbor_span": 3,
+    "target_score": 1.0,
+    "near_neighbor_score": 0.9,
+    "mid_neighbor_score": 0.8,
+    "far_neighbor_score": 0.7,
+    "zero_score": 0.7,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.3
+    }
+  }
+}

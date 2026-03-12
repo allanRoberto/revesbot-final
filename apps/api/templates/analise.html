@@ -1,0 +1,3762 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎰 Análise Completa de Números - Roletas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .filters {
+            background: #f8f9fa;
+            padding: 30px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .results-section {
+            padding: 30px;
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .numbers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .number-box {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .number-box:hover {
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+        
+        .number-box.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #764ba2;
+        }
+        
+        .number-box.green {
+            background: #28a745;
+            color: white;
+        }
+        
+        .number-box.red {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .number-box.black {
+            background: #343a40;
+            color: white;
+        }
+        
+        .number-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .number-count {
+            font-size: 0.8rem;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+        
+        .number-percent {
+            font-size: 0.7rem;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.2);
+            padding: 2px 5px;
+            border-radius: 5px;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .occurrences-list {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .occurrence-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+            transition: background 0.2s ease;
+        }
+        
+        .occurrence-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .occurrence-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .occurrence-date {
+            flex: 1;
+            margin: 0 20px;
+            color: #495057;
+        }
+        
+        .occurrence-time {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tab-navigation {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .tab-btn {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #6c757d;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .hour-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 5px;
+            height: 200px;
+            padding: 20px 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .hour-bar {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 5px 5px 0 0;
+            position: relative;
+            min-height: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .hour-bar:hover {
+            opacity: 0.8;
+        }
+        
+        .hour-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: #6c757d;
+        }
+        
+        .hour-value {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .daily-stats {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .day-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .day-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .day-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .day-date {
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .day-count {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .numbers-grid {
+                grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            }
+            
+            .stats-overview {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎰 Análise Completa de Números</h1>
+            <p>Sistema de análise detalhada para roletas</p>
+        </div>
+        
+        <div class="filters">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label>Roleta</label>
+                    <select id="rouletteSelect">
+                        <option value="">Carregando...</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Número Específico</label>
+                    <select id="numberSelect">
+                        <option value="">Todos</option>
+                        <option value="0">0 (Verde)</option>
+                        <optgroup label="Vermelhos">
+                            <option value="1">1</option>
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                            <option value="7">7</option>
+                            <option value="9">9</option>
+                            <option value="12">12</option>
+                            <option value="14">14</option>
+                            <option value="16">16</option>
+                            <option value="18">18</option>
+                            <option value="19">19</option>
+                            <option value="21">21</option>
+                            <option value="23">23</option>
+                            <option value="25">25</option>
+                            <option value="27">27</option>
+                            <option value="30">30</option>
+                            <option value="32">32</option>
+                            <option value="34">34</option>
+                            <option value="36">36</option>
+                        </optgroup>
+                        <optgroup label="Pretos">
+                            <option value="2">2</option>
+                            <option value="4">4</option>
+                            <option value="6">6</option>
+                            <option value="8">8</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="13">13</option>
+                            <option value="15">15</option>
+                            <option value="17">17</option>
+                            <option value="20">20</option>
+                            <option value="22">22</option>
+                            <option value="24">24</option>
+                            <option value="26">26</option>
+                            <option value="28">28</option>
+                            <option value="29">29</option>
+                            <option value="31">31</option>
+                            <option value="33">33</option>
+                            <option value="35">35</option>
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Data Inicial</label>
+                    <input type="date" id="startDate">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Data Final</label>
+                    <input type="date" id="endDate">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Hora Inicial</label>
+                    <select id="hourStart">
+                        <option value="">Todas</option>
+                        <option value="0">00:00</option>
+                        <option value="1">01:00</option>
+                        <option value="2">02:00</option>
+                        <option value="3">03:00</option>
+                        <option value="4">04:00</option>
+                        <option value="5">05:00</option>
+                        <option value="6">06:00</option>
+                        <option value="7">07:00</option>
+                        <option value="8">08:00</option>
+                        <option value="9">09:00</option>
+                        <option value="10">10:00</option>
+                        <option value="11">11:00</option>
+                        <option value="12">12:00</option>
+                        <option value="13">13:00</option>
+                        <option value="14">14:00</option>
+                        <option value="15">15:00</option>
+                        <option value="16">16:00</option>
+                        <option value="17">17:00</option>
+                        <option value="18">18:00</option>
+                        <option value="19">19:00</option>
+                        <option value="20">20:00</option>
+                        <option value="21">21:00</option>
+                        <option value="22">22:00</option>
+                        <option value="23">23:00</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Hora Final</label>
+                    <select id="hourEnd">
+                        <option value="">Todas</option>
+                        <option value="0">00:59</option>
+                        <option value="1">01:59</option>
+                        <option value="2">02:59</option>
+                        <option value="3">03:59</option>
+                        <option value="4">04:59</option>
+                        <option value="5">05:59</option>
+                        <option value="6">06:59</option>
+                        <option value="7">07:59</option>
+                        <option value="8">08:59</option>
+                        <option value="9">09:59</option>
+                        <option value="10">10:59</option>
+                        <option value="11">11:59</option>
+                        <option value="12">12:59</option>
+                        <option value="13">13:59</option>
+                        <option value="14">14:59</option>
+                        <option value="15">15:59</option>
+                        <option value="16">16:59</option>
+                        <option value="17">17:59</option>
+                        <option value="18">18:59</option>
+                        <option value="19">19:59</option>
+                        <option value="20">20:59</option>
+                        <option value="21">21:59</option>
+                        <option value="22">22:59</option>
+                        <option value="23">23:59</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="filter-actions">
+                <button class="btn btn-primary" onclick="applyFilters()">
+                    🔍 Aplicar Filtros
+                </button>
+                <button class="btn btn-secondary" onclick="resetFilters()">
+                    ↺ Limpar Filtros
+                </button>
+                <button class="btn btn-primary" onclick="exportData()">
+                    📥 Exportar Dados
+                </button>
+            </div>
+        </div>
+        
+        <div class="stats-overview" id="statsOverview">
+            <div class="stat-card">
+                <div class="stat-number" id="totalCount">-</div>
+                <div class="stat-label">Total de Registros</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="uniqueNumbers">-</div>
+                <div class="stat-label">Números Diferentes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="mostFrequent">-</div>
+                <div class="stat-label">Número Mais Frequente</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="dateRange">-</div>
+                <div class="stat-label">Período Analisado</div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+        
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div class="tab-navigation">
+                <button class="tab-btn active" onclick="showTab('numbers')">
+                    🎯 Números
+                </button>
+                <button class="tab-btn" onclick="showTab('hourly')">
+                    ⏰ Distribuição Horária
+                </button>
+                <button class="tab-btn" onclick="showTab('daily')">
+                    📅 Estatísticas Diárias
+                </button>
+                <button class="tab-btn" onclick="showTab('occurrences')">
+                    📋 Ocorrências
+                </button>
+                <button class="tab-btn" onclick="showTab('patterns')">
+                    🔮 Padrões Temporais
+                </button>
+
+                <!-- Substitua o botão da aba por este -->
+                <button class="tab-btn" onclick="showTab('prediction')">
+                    🎯 Previsão por Horário
+                </button>
+                <button class="tab-btn" onclick="showTab('normalized')">🧭 Análise Normalizada</button>
+                
+                <button class="tab-btn" onclick="showTab('seqPrediction')">
+                    🧬 Previsão de Sequência por Horário
+                </button>
+
+                <button class="tab-btn" onclick="showTab('region')">🗺️ Região por horário</button>
+
+                                <!-- Adicione este botão na tab-navigation -->
+                <button class="tab-btn" onclick="showTab('trends')">
+                    📈 Detecção de Tendências
+                </button>
+
+                <!-- Botão da aba -->
+                <!-- Botão da aba -->
+                <button class="tab-btn" onclick="showTab('repetitions')">
+                    🔄 Padrões de Repetição
+                </button>
+
+                            <!-- Adicione este botão na tab-navigation -->
+                <button class="tab-btn" onclick="showTab('sequences')">
+                    🔗 Sequências
+                </button>
+
+            </div>
+            
+            <div class="tab-content active" id="numbersTab">
+                <h2 class="section-title">Distribuição dos Números</h2>
+                <div class="numbers-grid" id="numbersGrid"></div>
+                
+                <div class="chart-container">
+                    <canvas id="numbersChart"></canvas>
+                </div>
+            </div>
+            
+<!-- [B] CONTEÚDO DA ABA: cole após as outras <div class="tab-content"> -->
+    <div class="tab-content" id="normalizedTab">
+        <h2 class="section-title">🧭 Análise Normalizada (Região + Espelhos)</h2>
+      
+        <!-- Controles -->
+        <div style="background:#f8f9fa; padding:25px; border-radius:15px; margin-bottom:30px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px;">
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">⏰ Horário (HH:MM)</label>
+              <input type="time" id="normTime" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">⏱️ Intervalo ± min</label>
+              <select id="normInterval" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <option value="">(sem filtro de horário)</option>
+                <option value="1" selected>1</option>
+                <option value="3" selected>3</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">📅 Dias de histórico</label>
+              <select id="normDays" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <option value="15">15</option>
+                <option value="30" selected>30</option>
+                <option value="45">45</option>
+                <option value="60">60</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">🏆 Top-K núcleos</label>
+              <select id="normTopK" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <option value="10">10</option>
+                <option value="12" selected>12</option>
+                <option value="15">15</option>
+                <option value="18">18</option>
+                <option value="24">24</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">👥 Vizinhos por lado (k)</label>
+              <select id="normKNeighbors" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">🧪 Alpha (Dirichlet)</label>
+              <input type="number" id="normAlpha" step="0.5" value="10" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">🪞 Peso espelho (λ)</label>
+              <input type="number" id="normLambdaEsp" step="0.05" value="0.35" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">⚖️ Pesos w0..w3</label>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+                <input type="number" id="normW0" step="0.1" value="1.0" title="w0 (freq)" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <input type="number" id="normW1" step="0.1" value="1.0" title="w1 (vizinhos)" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <input type="number" id="normW2" step="0.1" value="1.0" title="w2 (espelhos)" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <input type="number" id="normW3" step="0.05" value="0.25" title="w3 (meta)" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">🧮 Kernel d=0..3</label>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+                <input type="number" id="normK0" step="0.05" value="1.0" title="k0" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <input type="number" id="normK1" step="0.05" value="0.6" title="k1" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <input type="number" id="normK2" step="0.05" value="0.35" title="k2" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <input type="number" id="normK3" step="0.05" value="0.2" title="k3" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#495057;">🪞 Mini-cluster de espelho</label>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+                <select id="normIncludeMirrors" title="include_mirrors" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                  <option value="true" selected>Incluir</option>
+                  <option value="false">Não incluir</option>
+                </select>
+                <input type="number" id="normMirrorCap" step="0.05" value="0.15" title="mirror_weight_cap" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                <select id="normMirrorNeighbors" title="mirror_neighbors" style="padding:10px;border:2px solid #dee2e6;border-radius:8px;">
+                  <option value="0">±0</option>
+                  <option value="1" selected>±1</option>
+                  <option value="2">±2</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="getNormalizedAnalysis()" style="width:100%;padding:14px;font-size:17px;">🔍 Rodar análise normalizada</button>
+        </div>
+      
+        <!-- Loading -->
+        <div id="normLoading" style="display:none;text-align:center;padding:30px;">
+          <div class="spinner"></div>
+          <p>Calculando análise normalizada…</p>
+        </div>
+      
+        <!-- Resultados -->
+        <div id="normResult" style="display:none;">
+          <div style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:18px;border-radius:10px;margin-bottom:16px;">
+            <div id="normHeader"></div>
+          </div>
+      
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:16px;">
+            <div style="background:#fff;border:2px solid #e9ecef;border-radius:12px;padding:14px;">
+              <h3 style="margin-bottom:10px;">🏁 Parâmetros</h3>
+              <div id="normParams" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;"></div>
+            </div>
+            <div style="background:#fff;border:2px solid #e9ecef;border-radius:12px;padding:14px;">
+              <h3 style="margin-bottom:10px;">🧮 Kernel</h3>
+              <div id="normKernel" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;"></div>
+            </div>
+          </div>
+      
+          <div style="background:#fff;border:2px solid #e9ecef;border-radius:12px;padding:14px;margin-bottom:16px;">
+            <h3 style="margin-bottom:10px;">📋 Ranking (score_final)</h3>
+            <div id="normRanking" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;"></div>
+          </div>
+      
+          <div style="background:#ecfeff;border:2px solid #a5f3fc;border-radius:12px;padding:14px;">
+            <h3 style="margin-bottom:10px;">🎯 Aposta sugerida (cluster mesclado)</h3>
+            <div id="normCluster" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            <small style="color:#0369a1;display:block;margin-top:8px;">*Pesos normalizados (soma = 1.0). Quanto maior o chip, maior o peso.</small>
+          </div>
+        </div>
+      </div>
+      
+            <!-- [B] Conteúdo da nova aba (adicione após as outras .tab-content) -->
+<div class="tab-content" id="regionTab">
+    <h2 class="section-title">🗺️ Região por horário</h2>
+  
+    <div style="background:#f8f9fa; padding:25px; border-radius:15px; margin-bottom:30px;">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:20px; margin-bottom:20px;">
+        <div>
+          <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">⏰ Horário (centro do intervalo)</label>
+          <input type="time" id="regionTime" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+        </div>
+        <div>
+          <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">⏱️ Intervalo (± minutos)</label>
+          <select id="regionInterval" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">📅 Dias de histórico</label>
+          <select id="regionDays" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+            <option value="7">7</option>
+            <option value="15">15</option>
+            <option value="30" selected>30</option>
+            <option value="60">60</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">👥 Vizinhos (span)</label>
+          <select id="regionSpan" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+            <option value="4">4</option>
+            <option value="6">6</option>
+            <option value="8" selected>8</option>
+            <option value="9">9</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">🔢 Mínimo de ocorrências (hoje)</label>
+          <input type="number" id="regionMinSpins" value="6" min="1" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+        </div>
+        <div>
+          <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">📈 Similaridade mínima</label>
+          <input type="number" id="regionMinSim" step="0.01" min="0" max="1" value="0.75" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+        </div>
+        <div>
+          <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">🗓️ Dias de suporte mínimos</label>
+          <input type="number" id="regionMinSupport" value="3" min="1" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="getRegionHotspot()" style="width:100%; padding:15px; font-size:18px;">
+        🔍 Detectar região quente
+      </button>
+    </div>
+  
+    <div id="regionLoading" style="display:none; text-align:center; padding:40px;">
+      <div class="spinner"></div>
+      <p>Calculando região por horário…</p>
+    </div>
+  
+    <div id="regionResult" style="display:none;">
+      <div style="background:linear-gradient(135deg,#0ea5e9 0%,#3b82f6 100%); color:#fff; padding:20px; border-radius:10px; margin-bottom:20px;">
+        <h3 style="margin-bottom:10px;">⏱️ Janela analisada</h3>
+        <div id="regionInfo"></div>
+      </div>
+  
+      <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:20px; margin-bottom:20px;">
+        <div style="background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:16px;">
+          <h3>🔥 Hoje – Setor quente</h3>
+          <div id="regionToday"></div>
+        </div>
+        <div style="background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:16px;">
+          <h3>📚 Histórico (agregado)</h3>
+          <div id="regionHist"></div>
+        </div>
+      </div>
+  
+      <div style="background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:16px; margin-bottom:20px;">
+        <h3>🔬 Similaridades (hoje vs dias anteriores)</h3>
+        <div id="regionSimilarities"></div>
+      </div>
+  
+      <div style="background:#ecfdf5; border:2px solid #a7f3d0; border-radius:12px; padding:16px;">
+        <h3>✅ Recomendação</h3>
+        <div id="regionReco"></div>
+      </div>
+    </div>
+  </div>
+  
+
+            <div class="tab-content" id="seqPredictionTab">
+                <h2 class="section-title">🧬 Previsão de Sequência por Horário</h2>
+            
+                <!-- Controles -->
+                <div style="background:#f8f9fa; padding:25px; border-radius:15px; margin-bottom:30px;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:20px; margin-bottom:20px;">
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">⏰ Horário (centro do intervalo)</label>
+                            <input type="time" id="seqTime" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">⏱️ Intervalo (± minutos)</label>
+                            <select id="seqInterval" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3" selected>3</option>
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="15">15</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">📅 Dias de histórico</label>
+                            <select id="seqDays" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+                                <option value="7">7</option>
+                                <option value="15">15</option>
+                                <option value="30" selected>30</option>
+                                <option value="60">60</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">📏 Tamanho da sequência (mín)</label>
+                            <select id="seqMinLen" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+                                <option value="2">2</option>
+                                <option value="3" selected>3</option>
+                                <option value="4">4</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">📏 Tamanho da sequência (máx)</label>
+                            <select id="seqMaxLen" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7" selected>7</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; font-weight:bold; margin-bottom:8px; color:#495057;">🎯 Número inicial (opcional)</label>
+                            <select id="seqSeed" style="width:100%; padding:10px; border:2px solid #dee2e6; border-radius:8px;">
+                                <option value="">(todos)</option>
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                                <option value="11">11</option>
+                                <option value="12">12</option>
+                                <option value="13">13</option>
+                                <option value="14">14</option>
+                                <option value="15">15</option>
+                                <option value="16">16</option>
+                                <option value="17">17</option>
+                                <option value="18">18</option>
+                                <option value="19">19</option>
+                                <option value="20">20</option>
+                                <option value="21">21</option>
+                                <option value="22">22</option>
+                                <option value="23">23</option>
+                                <option value="24">24</option>
+                                <option value="25">25</option>
+                                <option value="26">26</option>
+                                <option value="27">27</option>
+                                <option value="28">28</option>
+                                <option value="29">29</option>
+                                <option value="30">30</option>
+                                <option value="31">31</option>
+                                <option value="32">32</option>
+                                <option value="33">33</option>
+                                <option value="34">34</option>
+                                <option value="35">35</option>
+                                <option value="36">36</option>
+                                <!-- 1..36 -->
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="getSequencePrediction()" style="width:100%; padding:15px; font-size:18px;">
+                        🔍 Analisar Sequências no Intervalo
+                    </button>
+                </div>
+            
+                <!-- Resultado -->
+                <div id="seqResult" style="display:none;">
+                    <!-- Info do intervalo -->
+                    <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; padding:20px; border-radius:10px; margin-bottom:20px;">
+                        <h3 style="margin-bottom:10px;">📊 Janela Analisada</h3>
+                        <div id="seqIntervalInfo"></div>
+                    </div>
+            
+                    <!-- Sequência por dia -->
+                    <div style="background:#fff; padding:20px; border-radius:10px; border:2px solid #e9ecef; margin-bottom:20px;">
+                        <h3 style="margin-bottom:10px;">🗓️ Sequências por Dia (ordem de ocorrência)</h3>
+                        <div id="seqDailyList" style="display:grid; gap:10px;"></div>
+                        <small style="color:#6c757d;">Dica: passe o mouse nos “chips” para ver quantas vezes o número apareceu neste mesmo intervalo ao longo do período.</small>
+                    </div>
+            
+                    <!-- Top sequências por tamanho -->
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:20px;">
+                        <div style="background:#f8f9fa; padding:20px; border-radius:10px;">
+                            <h3 style="margin-bottom:10px;">🏆 Top Sequências</h3>
+                            <div id="seqTopList"></div>
+                        </div>
+                    </div>
+                </div>
+            
+                <div id="seqLoading" style="display:none; text-align:center; padding:40px;">
+                    <div class="spinner"></div>
+                    <p>Calculando sequências…</p>
+                </div>
+            </div>
+            
+
+
+<!-- Adicione esta nova aba -->
+<div class="tab-content" id="sequencesTab">
+    <h2 class="section-title">🔗 Sequências que se Repetem</h2>
+    
+    <!-- Controles -->
+    <div style="background: #f8f9fa; padding: 25px; border-radius: 15px; margin-bottom: 30px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                    🔢 Tamanho Mínimo
+                </label>
+                <select id="seqMinSize" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                    <option value="3" selected>3 números</option>
+                    <option value="4">4 números</option>
+                    <option value="5">5 números</option>
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                    📊 Tamanho Máximo
+                </label>
+                <select id="seqMaxSize" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                    <option value="5">5 números</option>
+                    <option value="6">6 números</option>
+                    <option value="7" selected>7 números</option>
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                    📅 Período de Análise
+                </label>
+                <select id="seqDays" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="15">Últimos 15 dias</option>
+                    <option value="30" selected>Últimos 30 dias</option>
+                </select>
+            </div>
+        </div>
+        
+        <button class="btn btn-primary" onclick="analyzeSequences()" style="width: 100%; padding: 15px; font-size: 18px;">
+            🔍 Buscar Sequências Repetidas
+        </button>
+    </div>
+    
+    <!-- Info Box -->
+    <div style="background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+        <strong>💡 O que são sequências repetidas?</strong><br>
+        São combinações exatas de números que aparecem na mesma ordem em dias diferentes. 
+        Por exemplo: se a sequência 7→15→23 apareceu hoje às 14h e também apareceu ontem às 14h30, 
+        isso é uma sequência repetida que pode indicar um padrão.
+    </div>
+    
+    <!-- Top Sequências -->
+    <div id="topSequences" style="display: none;">
+        <h3 style="margin-bottom: 15px; color: #28a745;">
+            🏆 Sequências Mais Frequentes
+        </h3>
+        <div id="topSequencesContent"></div>
+    </div>
+    
+    <!-- Sequências por Tamanho -->
+    <div id="sequencesBySize" style="display: none; margin-top: 30px;">
+        <h3 style="margin-bottom: 15px;">📏 Agrupadas por Tamanho</h3>
+        <div id="sequencesBySizeContent"></div>
+    </div>
+    
+    <!-- Sequências Recentes -->
+    <div id="recentSequences" style="display: none; margin-top: 30px;">
+        <h3 style="margin-bottom: 15px;">🕐 Últimas Sequências Repetidas</h3>
+        <div id="recentSequencesContent"></div>
+    </div>
+    
+    <!-- Loading -->
+    <div id="seqLoading" style="display: none; text-align: center; padding: 40px;">
+        <div class="spinner"></div>
+        <p>Identificando sequências que se repetem...</p>
+    </div>
+</div>
+
+
+<div class="tab-content" id="repetitionsTab">
+    <h2 class="section-title">🔄 Padrões de Repetição Expandidos</h2>
+    
+    <!-- Controles -->
+    <div style="background: #f8f9fa; padding: 25px; border-radius: 15px; margin-bottom: 30px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                    📅 Período de Análise
+                </label>
+                <select id="repPatternDays" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                    <option value="3">Últimos 3 dias</option>
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="15">Últimos 15 dias</option>
+                    <option value="20">Últimos 20 dias</option>
+                    <option value="30" selected>Últimos 30 dias</option>
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                    ⏱️ Janela de Tempo
+                </label>
+                <select id="repTimeWindow" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                    <option value="15">±15 minutos</option>
+                    <option value="30" selected>±30 minutos</option>
+                    <option value="45">±45 minutos</option>
+                    <option value="60">±60 minutos</option>
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                    🎯 Incluir Vizinhos
+                </label>
+                <select id="includeNeighbors" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                    <option value="true" selected>Sim</option>
+                    <option value="false">Não</option>
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                    🔄 Incluir Espelhos
+                </label>
+                <select id="includeMirrors" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                    <option value="true" selected>Sim</option>
+                    <option value="false">Não</option>
+                </select>
+            </div>
+        </div>
+        
+        <button class="btn btn-primary" onclick="analyzeExtendedRepetitions()" style="width: 100%; padding: 15px; font-size: 18px;">
+            🔍 Analisar Padrões de Repetição
+        </button>
+    </div>
+    
+    <!-- Legenda -->
+    <div style="background: #e7f3ff; border: 1px solid #b3d9ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+        <h4 style="color: #0066cc; margin-bottom: 10px;">📖 Tipos de Repetição:</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+            <div>
+                <strong style="color: #28a745;">🟢 Direta:</strong> O mesmo número repete
+            </div>
+            <div>
+                <strong style="color: #ff9800;">🟠 Vizinho:</strong> Números vizinhos na roleta (ex: 27→13)
+            </div>
+            <div>
+                <strong style="color: #9c27b0;">🟣 Espelho:</strong> Números espelhados (ex: 9→6, 12→21)
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estatísticas Gerais -->
+    <div id="repStatistics" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+        <h3 style="margin-bottom: 15px;">📊 Estatísticas Gerais</h3>
+        <div id="repStatisticsContent"></div>
+    </div>
+    
+    <!-- Padrões Mais Confiáveis -->
+    <div id="strongPatterns" style="display: none;">
+        <h3 style="margin-bottom: 15px; color: #28a745;">
+            🎯 Padrões Mais Confiáveis
+        </h3>
+        <div id="strongPatternsContent"></div>
+    </div>
+    
+    <!-- Previsões para Hoje -->
+    <div id="todayPredictions" style="display: none; margin-top: 30px;">
+        <h3 style="margin-bottom: 15px; color: #ff9800;">
+            🔮 Possíveis Repetições para Hoje
+        </h3>
+        <div id="todayPredictionsContent"></div>
+    </div>
+    
+    <!-- Loading -->
+    <div id="repPatternLoading" style="display: none; text-align: center; padding: 40px;">
+        <div class="spinner"></div>
+        <p>Analisando padrões de repetição expandidos...</p>
+    </div>
+</div>
+
+
+
+
+            <div class="tab-content" id="trendsTab">
+                <h2 class="section-title">📈 Detecção de Tendências Minuto a Minuto</h2>
+                
+                <!-- Controles -->
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 15px; margin-bottom: 30px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                                📊 Tipo de Análise
+                            </label>
+                            <select id="trendType" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                                <option value="colors">🎨 Cores</option>
+                                <option value="dozens">📦 Dúzias</option>
+                                <option value="columns">📊 Colunas</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                                📈 Limite Mínimo (%)
+                            </label>
+                            <select id="trendThreshold" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                                <option value="50">50% ou mais</option>
+                                <option value="55">55% ou mais</option>
+                                <option value="60" selected>60% ou mais</option>
+                                <option value="65">65% ou mais</option>
+                                <option value="70">70% ou mais</option>
+                                <option value="75">75% ou mais</option>
+                                <option value="80">80% ou mais</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                                ⏱️ Duração Mínima
+                            </label>
+                            <select id="trendDuration" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                                <option value="1">1 minuto</option>
+                                <option value="2">2 minutos</option>
+                                <option value="3" selected>3 minutos</option>
+                                <option value="5">5 minutos</option>
+                                <option value="10">10 minutos</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                                📅 Período de Análise
+                            </label>
+                            <select id="trendDays" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px;">
+                                <option value="7">Últimos 7 dias</option>
+                                <option value="15">Últimos 15 dias</option>
+                                <option value="30" selected>Últimos 30 dias</option>
+                                <option value="60">Últimos 60 dias</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="analyzeTrends()" style="width: 100%; padding: 15px; font-size: 18px;">
+                        🔍 Analisar Tendências
+                    </button>
+                </div>
+                
+                <!-- Resumo Estatístico -->
+                <div id="trendStats" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">📊 Resumo da Análise</h3>
+                    <div id="trendStatsContent"></div>
+                </div>
+                
+                <!-- Lista de Tendências Detectadas -->
+                <div id="trendsList" style="display: none;">
+                    <h3 style="margin-bottom: 15px;">🎯 Tendências Detectadas</h3>
+                    <div id="trendsListContent"></div>
+                </div>
+                
+                <!-- Melhores Horários por Item -->
+                <div id="bestTimes" style="display: none; margin-top: 30px;">
+                    <h3 style="margin-bottom: 15px;">⏰ Melhores Horários por Item</h3>
+                    <div id="bestTimesContent"></div>
+                </div>
+                
+                <!-- Loading -->
+                <div id="trendsLoading" style="display: none; text-align: center; padding: 40px;">
+                    <div class="spinner"></div>
+                    <p>Analisando tendências minuto a minuto...</p>
+                </div>
+            </div>
+<!-- Substitua todo o conteúdo da tab patternsTab por este -->
+            <div class="tab-content" id="predictionTab">
+                <h2 class="section-title">🎯 Previsão de Números por Horário</h2>
+                
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 15px; margin-bottom: 30px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                                ⏰ Horário para Análise
+                            </label>
+                            <input type="time" id="predictionTime" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 16px;">
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                                ⏱️ Intervalo (minutos)
+                            </label>
+                            <select id="predictionInterval" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 16px;">
+                                <option value="1">1 minuto</option>
+                                <option value="2">2 minutos</option>
+                                <option value="3">3 minutos</option>
+                                <option value="4">4 minutos</option>
+                                <option value="5">5 minutos</option>
+                                <option value="10">10 minutos</option>
+                                <option value="15">15 minutos</option>
+                                <option value="20">20 minutos</option>
+                                <option value="30">30 minutos</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #495057;">
+                                📅 Dias de Histórico
+                            </label>
+                            <select id="predictionDays" style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 16px;">
+                                <option value="7">Últimos 7 dias</option>
+                                <option value="15">Últimos 15 dias</option>
+                                <option value="30" selected>Últimos 30 dias</option>
+                                <option value="60">Últimos 60 dias</option>
+                                <option value="90">Últimos 90 dias</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="getPrediction()" style="width: 100%; padding: 15px; font-size: 18px;">
+                        🔮 Gerar Previsão
+                    </button>
+                </div>
+                
+                <!-- Resultado da Previsão -->
+                <div id="predictionResult" style="display: none;">
+                    <!-- Info do Intervalo -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 10px;">📊 Análise do Intervalo</h3>
+                        <div id="intervalInfo"></div>
+                    </div>
+                    
+                    <!-- Top 5 Mais Prováveis -->
+                    <div style="background: #d4edda; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <h3 style="color: #155724; margin-bottom: 15px;">🏆 TOP 5 - Mais Prováveis</h3>
+                        <div id="top5Numbers" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;"></div>
+                    </div>
+                    
+                    <!-- Ranking Completo -->
+                    <div style="background: white; padding: 20px; border-radius: 10px; border: 2px solid #e9ecef;">
+                        <h3 style="margin-bottom: 15px;">📋 Ranking Completo (Todos os Números)</h3>
+                        <div id="fullRanking" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px;"></div>
+                    </div>
+                    
+                    <!-- Números que Nunca Apareceram -->
+                    <div style="background: #f8d7da; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                        <h3 style="color: #721c24; margin-bottom: 15px;">❌ Nunca Apareceram neste Intervalo</h3>
+                        <div id="neverAppeared"></div>
+                    </div>
+                </div>
+                
+                <div id="predictionLoading" style="display: none; text-align: center; padding: 40px;">
+                    <div class="spinner"></div>
+                    <p>Analisando histórico...</p>
+                </div>
+            </div>
+            <div class="tab-content" id="hourlyTab">
+                <h2 class="section-title">Distribuição por Hora</h2>
+                <div class="hour-chart" id="hourChart"></div>
+            </div>
+            
+            <div class="tab-content" id="dailyTab">
+                <h2 class="section-title">Estatísticas por Dia</h2>
+                <div class="daily-stats" id="dailyStats"></div>
+            </div>
+            
+            <div class="tab-content" id="occurrencesTab">
+                <h2 class="section-title">Últimas Ocorrências</h2>
+                <div class="occurrences-list" id="occurrencesList"></div>
+            </div>
+
+            <div class="tab-content" id="patternsTab">
+                <h2 class="section-title">Análise de Padrões Temporais</h2>
+                
+                <div class="pattern-controls" style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Intervalo</label>
+                            <select id="intervalSelect" onchange="updatePatternAnalysis()" style="width: 100%; padding: 8px; border-radius: 5px;">
+                                <option value="1">1 minutos</option>
+                                <option value="2">2 minutos</option>
+                                <option value="3">3 minutos</option>
+                                <option value="4">4 minutos</option>
+                                <option value="5">5 minutos</option>
+                                <option value="10">10 minutos</option>
+                                <option value="15">15 minutos</option>
+                                <option value="20">20 minutos</option>
+                                <option value="30">30 minutos</option>
+                                <option value="60">60 minutos</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Dias para Análise</label>
+                            <select id="daysBackSelect" onchange="updatePatternAnalysis()" style="width: 100%; padding: 8px; border-radius: 5px;">
+                                <option value="7">Últimos 7 dias</option>
+                                <option value="15">Últimos 15 dias</option>
+                                <option value="30" selected>Últimos 30 dias</option>
+                                <option value="60">Últimos 60 dias</option>
+                                <option value="90">Últimos 90 dias</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Hora Atual (Previsão)</label>
+                            <input type="time" id="currentTimeInput" style="width: 100%; padding: 8px; border-radius: 5px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Número Específico</label>
+                            <select id="patternNumberSelect" onchange="updatePatternAnalysis()" style="width: 100%; padding: 8px; border-radius: 5px;">
+                                <option value="">Todos</option>
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                                <option value="11">11</option>
+                                <option value="12">12</option>
+                                <option value="13">13</option>
+                                <option value="14">14</option>
+                                <option value="15">15</option>
+                                <option value="16">16</option>
+                                <option value="17">17</option>
+                                <option value="18">18</option>
+                                <option value="19">19</option>
+                                <option value="20">20</option>
+                                <option value="21">21</option>
+                                <option value="22">22</option>
+                                <option value="23">23</option>
+                                <option value="24">24</option>
+                                <option value="25">25</option>
+                                <option value="26">26</option>
+                                <option value="27">27</option>
+                                <option value="28">28</option>
+                                <option value="29">29</option>
+                                <option value="30">30</option>
+                                <option value="31">31</option>
+                                <option value="32">32</option>
+                                <option value="33">33</option>
+                                <option value="34">34</option>
+                                <option value="35">35</option>
+                                <option value="36">36</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updatePatternAnalysis()" style="margin-top: 15px;">
+                        🔄 Atualizar Análise
+                    </button>
+                </div>
+                
+                <!-- Previsão para próximos intervalos -->
+                <div id="predictionSection" style="display: none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">🎯 Previsão para Próximos Intervalos</h3>
+                    <div id="predictionContent"></div>
+                </div>
+                
+                <!-- Zonas Quentes e Frias -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <div style="background: #fff3cd; padding: 20px; border-radius: 10px;">
+                        <h3 style="color: #856404; margin-bottom: 15px;">🔥 Zonas Quentes</h3>
+                        <div id="hotZones" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                    <div style="background: #d1ecf1; padding: 20px; border-radius: 10px;">
+                        <h3 style="color: #0c5460; margin-bottom: 15px;">❄️ Zonas Frias</h3>
+                        <div id="coldZones" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+                
+                <!-- Timeline de Intervalos -->
+                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">📊 Timeline de 24 Horas</h3>
+                    <div id="intervalTimeline" style="overflow-x: auto;"></div>
+                </div>
+                
+                <!-- Heatmap -->
+                <div style="background: white; padding: 20px; border-radius: 10px;">
+                    <h3 style="margin-bottom: 15px;">🗓️ Mapa de Calor (Números x Hora)</h3>
+                    <canvas id="heatmapCanvas" width="1000" height="400"></canvas>
+                </div>
+            </div>
+
+
+
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let selectedNumber = null;
+        let numbersChart = null;
+        
+        // Inicialização
+        window.onload = async function() {
+            await loadRoulettes();
+            
+            // Definir data padrão (último mês)
+            const today = new Date();
+            const lastMonth = new Date(today);
+            lastMonth.setDate(today.getDate() - 30);
+            
+            document.getElementById('startDate').value = lastMonth.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        };
+        
+        async function loadRoulettes() {
+            try {
+                const response = await fetch('/api/roulettes-list');
+                const roulettes = await response.json();
+                
+                const select = document.getElementById('rouletteSelect');
+                select.innerHTML = '<option value="">Selecione uma roleta</option>';
+                
+                roulettes.forEach(roulette => {
+                    const option = document.createElement('option');
+                    option.value = roulette.id;
+                    option.textContent = `${roulette.name} (${roulette.count.toLocaleString()} registros)`;
+                    
+                    // Selecionar pragmatic-brazilian-roulette por padrão
+                    if (roulette.id === 'pragmatic-brazilian-roulette') {
+                        option.selected = true;
+                    }
+                    
+                    select.appendChild(option);
+                });
+                
+                // Se tinha uma roleta selecionada, aplicar filtros
+                if (select.value) {
+                    applyFilters();
+                }
+                
+            } catch (error) {
+                console.error('Erro ao carregar roletas:', error);
+            }
+        }
+        
+        async function applyFilters() {
+            const rouletteId = document.getElementById('rouletteSelect').value;
+            
+            if (!rouletteId) {
+                alert('Por favor, selecione uma roleta');
+                return;
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+            
+            try {
+                // Construir URL com parâmetros
+                const params = new URLSearchParams();
+                
+                const number = document.getElementById('numberSelect').value;
+                if (number) params.append('number', number);
+                
+                const startDate = document.getElementById('startDate').value;
+                if (startDate) params.append('start_date', startDate);
+                
+                const endDate = document.getElementById('endDate').value;
+                if (endDate) params.append('end_date', endDate);
+                
+                const hourStart = document.getElementById('hourStart').value;
+                if (hourStart) params.append('hour_start', hourStart);
+                
+                const hourEnd = document.getElementById('hourEnd').value;
+                if (hourEnd) params.append('hour_end', hourEnd);
+                
+                const url = `/api/analise/${rouletteId}?${params.toString()}`;
+                const response = await fetch(url);
+                currentData = await response.json();
+                
+                renderResults();
+                
+            } catch (error) {
+                console.error('Erro ao buscar dados:', error);
+                alert('Erro ao carregar dados. Verifique o console.');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        function renderResults() {
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Atualizar estatísticas gerais
+            updateOverviewStats();
+            
+            // Renderizar números
+            renderNumbers();
+            
+            // Renderizar gráfico de barras
+            renderNumbersChart();
+            
+            // Renderizar distribuição horária
+            renderHourlyDistribution();
+            
+            // Renderizar estatísticas diárias
+            renderDailyStats();
+            
+            // Renderizar ocorrências
+            renderOccurrences();
+        }
+        
+        function updateOverviewStats() {
+            document.getElementById('totalCount').textContent = 
+                currentData.total_count.toLocaleString();
+            
+            document.getElementById('uniqueNumbers').textContent = 
+                Object.keys(currentData.number_statistics).length;
+                // Número mais frequente
+            let mostFrequentNum = '-';
+            let maxCount = 0;
+            for (const [num, stats] of Object.entries(currentData.number_statistics)) {
+                if (stats.count > maxCount) {
+                    maxCount = stats.count;
+                    mostFrequentNum = num;
+                }
+            }
+            document.getElementById('mostFrequent').textContent = mostFrequentNum;
+            
+            // Período analisado
+            const dates = Object.keys(currentData.daily_statistics).sort();
+            if (dates.length > 0) {
+                const firstDate = new Date(dates[0]).toLocaleDateString('pt-BR');
+                const lastDate = new Date(dates[dates.length - 1]).toLocaleDateString('pt-BR');
+                document.getElementById('dateRange').textContent = 
+                    dates.length === 1 ? firstDate : `${firstDate} - ${lastDate}`;
+            } else {
+                document.getElementById('dateRange').textContent = '-';
+            }
+        }
+        
+        function renderNumbers() {
+            const grid = document.getElementById('numbersGrid');
+            grid.innerHTML = '';
+            
+            // Criar caixas para todos os números (0-36)
+            for (let i = 0; i <= 36; i++) {
+                const stats = currentData.number_statistics[i] || { count: 0, percentage: 0 };
+                
+                const box = document.createElement('div');
+                box.className = `number-box ${getColorClass(i)}`;
+                if (selectedNumber === i) box.classList.add('selected');
+                
+                box.innerHTML = `
+                    <div class="number-value">${i}</div>
+                    <div class="number-count">${stats.count}</div>
+                    ${stats.count > 0 ? `<div class="number-percent">${stats.percentage.toFixed(1)}%</div>` : ''}
+                `;
+                
+                box.onclick = () => selectNumber(i);
+                grid.appendChild(box);
+            }
+        }
+        
+        function getColorClass(num) {
+            if (num === 0) return 'green';
+            const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+            return redNumbers.includes(num) ? 'red' : 'black';
+        }
+        
+        function selectNumber(num) {
+            selectedNumber = selectedNumber === num ? null : num;
+            
+            // Atualizar seleção visual
+            document.querySelectorAll('.number-box').forEach((box, index) => {
+                if (index === num) {
+                    box.classList.toggle('selected');
+                } else {
+                    box.classList.remove('selected');
+                }
+            });
+            
+            // Atualizar ocorrências se um número específico foi selecionado
+            if (selectedNumber !== null) {
+                renderOccurrences(num);
+            } else {
+                renderOccurrences();
+            }
+        }
+        
+        function renderNumbersChart() {
+            const ctx = document.getElementById('numbersChart').getContext('2d');
+            
+            // Destruir gráfico anterior se existir
+            if (numbersChart) {
+                numbersChart.destroy();
+            }
+            
+            // Preparar dados
+            const labels = [];
+            const data = [];
+            const colors = [];
+            
+            for (let i = 0; i <= 36; i++) {
+                const stats = currentData.number_statistics[i];
+                if (stats && stats.count > 0) {
+                    labels.push(i.toString());
+                    data.push(stats.count);
+                    
+                    // Cor baseada no tipo do número
+                    if (i === 0) {
+                        colors.push('rgba(40, 167, 69, 0.8)');
+                    } else {
+                        const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+                        colors.push(redNumbers.includes(i) ? 
+                            'rgba(220, 53, 69, 0.8)' : 
+                            'rgba(52, 58, 64, 0.8)');
+                    }
+                }
+            }
+            
+            numbersChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Frequência',
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.8', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Frequência dos Números',
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderHourlyDistribution() {
+            const container = document.getElementById('hourChart');
+            container.innerHTML = '';
+            
+            // Encontrar valor máximo para escala
+            const maxValue = Math.max(...Object.values(currentData.hourly_distribution));
+            
+            // Criar barras para cada hora
+            for (let hour = 0; hour < 24; hour++) {
+                const count = currentData.hourly_distribution[hour] || 0;
+                const percentage = maxValue > 0 ? (count / maxValue) * 100 : 0;
+                
+                const barWrapper = document.createElement('div');
+                barWrapper.style.flex = '1';
+                barWrapper.style.position = 'relative';
+                barWrapper.style.display = 'flex';
+                barWrapper.style.alignItems = 'flex-end';
+                
+                const bar = document.createElement('div');
+                bar.className = 'hour-bar';
+                bar.style.height = `${percentage}%`;
+                bar.style.width = '100%';
+                bar.title = `${hour}:00 - ${count} ocorrências`;
+                
+                if (count > 0) {
+                    const value = document.createElement('div');
+                    value.className = 'hour-value';
+                    value.textContent = count;
+                    bar.appendChild(value);
+                }
+                
+                const label = document.createElement('div');
+                label.className = 'hour-label';
+                label.textContent = hour;
+                bar.appendChild(label);
+                
+                barWrapper.appendChild(bar);
+                container.appendChild(barWrapper);
+            }
+        }
+        
+        function renderDailyStats() {
+            const container = document.getElementById('dailyStats');
+            container.innerHTML = '';
+            
+            // Ordenar dias do mais recente para o mais antigo
+            const sortedDays = Object.entries(currentData.daily_statistics)
+                .sort((a, b) => new Date(b[0]) - new Date(a[0]));
+            
+            sortedDays.forEach(([date, stats]) => {
+                const dayCard = document.createElement('div');
+                dayCard.className = 'day-card';
+                
+                const dateObj = new Date(date + 'T12:00:00');
+                const formattedDate = dateObj.toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                });
+                
+                // Encontrar números mais frequentes do dia
+                const topNumbers = Object.entries(stats.numbers)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([num, count]) => `${num} (${count}x)`)
+                    .join(', ');
+                
+                dayCard.innerHTML = `
+                    <div class="day-header">
+                        <div class="day-date">${formattedDate}</div>
+                        <div class="day-count">${stats.count} registros</div>
+                    </div>
+                    <div style="color: #6c757d; font-size: 0.9rem;">
+                        Números mais frequentes: ${topNumbers}
+                    </div>
+                `;
+                
+                container.appendChild(dayCard);
+            });
+        }
+        
+        function renderOccurrences(filterNumber = null) {
+            const container = document.getElementById('occurrencesList');
+            container.innerHTML = '';
+            
+            let occurrences = [];
+            
+            if (filterNumber !== null && currentData.number_statistics[filterNumber]) {
+                // Mostrar ocorrências do número específico
+                occurrences = currentData.number_statistics[filterNumber].occurrences;
+                
+                const header = document.createElement('div');
+                header.style.padding = '15px';
+                header.style.background = '#f8f9fa';
+                header.style.borderRadius = '10px';
+                header.style.marginBottom = '15px';
+                header.innerHTML = `
+                    <h3>Número ${filterNumber}: ${occurrences.length} ocorrências</h3>
+                    <p style="color: #6c757d; margin-top: 5px;">
+                        ${(occurrences.length / currentData.total_count * 100).toFixed(2)}% do total
+                    </p>
+                `;
+                container.appendChild(header);
+            } else {
+                // Mostrar últimas ocorrências gerais
+                occurrences = currentData.recent_results;
+            }
+            
+            occurrences.forEach(occurrence => {
+                const item = document.createElement('div');
+                item.className = 'occurrence-item';
+                
+                const colorClass = getColorClass(occurrence.value);
+                const bgColor = colorClass === 'green' ? '#28a745' :
+                               colorClass === 'red' ? '#dc3545' : '#343a40';
+                
+                item.innerHTML = `
+                    <div class="occurrence-number" style="background: ${bgColor}">
+                        ${occurrence.value}
+                    </div>
+                    <div class="occurrence-date">
+                        ${occurrence.formatted}
+                    </div>
+                    <div class="occurrence-time">
+                        ${occurrence.time}
+                    </div>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+        
+        function showTab(tabName) {
+            // Remover active de todos os tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+
+            if (tabName === 'patterns' && document.getElementById('rouletteSelect').value) {
+                // Definir hora atual
+                const now = new Date();
+                document.getElementById('currentTimeInput').value = 
+                    `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                updatePatternAnalysis();
+            }
+            // Adicionar active ao tab selecionado
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+        
+        function resetFilters() {
+            document.getElementById('numberSelect').value = '';
+            document.getElementById('hourStart').value = '';
+            document.getElementById('hourEnd').value = '';
+            
+            const today = new Date();
+            const lastMonth = new Date(today);
+            lastMonth.setDate(today.getDate() - 30);
+            
+            document.getElementById('startDate').value = lastMonth.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+            
+            selectedNumber = null;
+        }
+        
+        async function exportData() {
+            if (!currentData) {
+                alert('Por favor, aplique os filtros primeiro');
+                return;
+            }
+            
+            const rouletteId = document.getElementById('rouletteSelect').value;
+            const rouletteName = document.getElementById('rouletteSelect').options[
+                document.getElementById('rouletteSelect').selectedIndex
+            ].text;
+            
+            // Criar conteúdo CSV
+            let csv = 'Número,Data,Hora,Dia da Semana\n';
+            
+            for (const [num, stats] of Object.entries(currentData.number_statistics)) {
+                if (stats.occurrences) {
+                    stats.occurrences.forEach(occ => {
+                        csv += `${num},"${occ.date}","${occ.time}","${occ.day_of_week}"\n`;
+                    });
+                }
+            }
+            
+            // Criar blob e download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `analise_${rouletteId}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+        
+        // Adicionar atalhos de teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'Enter':
+                        applyFilters();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        resetFilters();
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        exportData();
+                        break;
+                }
+            }
+        });
+
+        // Adicione estas funções no final do script
+
+let patternData = null;
+let heatmapData = null;
+
+async function updatePatternAnalysis() {
+    const rouletteId = document.getElementById('rouletteSelect').value;
+    if (!rouletteId) {
+        alert('Selecione uma roleta primeiro');
+        return;
+    }
+    
+    const interval = document.getElementById('intervalSelect').value;
+    const daysBack = document.getElementById('daysBackSelect').value;
+    const currentTime = document.getElementById('currentTimeInput').value;
+    const number = document.getElementById('patternNumberSelect').value;
+    
+    try {
+        // Buscar análise de padrões
+        const params = new URLSearchParams({
+            interval_minutes: interval,
+            days_back: daysBack
+        });
+        
+        if (currentTime) params.append('current_time', currentTime);
+        if (number) params.append('number', number);
+        
+        const response = await fetch(`/api/analise/padroes/${rouletteId}?${params}`);
+        patternData = await response.json();
+        
+        renderPatternResults();
+        
+        // Buscar dados do heatmap
+        const heatmapResponse = await fetch(`/api/analise/heatmap/${rouletteId}?days_back=${daysBack}`);
+        heatmapData = await heatmapResponse.json();
+        
+        renderHeatmap();
+        
+    } catch (error) {
+        console.error('Erro na análise de padrões:', error);
+    }
+}
+
+function renderPatternResults() {
+    if (!patternData) return;
+    
+    // Renderizar previsão
+    if (patternData.prediction) {
+        document.getElementById('predictionSection').style.display = 'block';
+        const predContent = document.getElementById('predictionContent');
+        
+        let html = `<p>Análise para ${patternData.prediction.current_time}:</p>`;
+        
+        patternData.prediction.next_intervals.forEach(interval => {
+            html += `
+                <div style="background: rgba(255,255,255,0.2); padding: 10px; margin: 10px 0; border-radius: 5px;">
+                    <strong>Intervalo ${interval.interval}</strong><br>
+                    Probabilidade: ${interval.probability.toFixed(1)}%<br>
+                    Média histórica: ${interval.average_per_day.toFixed(1)} ocorrências/dia<br>
+                    Top números: ${interval.top_numbers.map(n => 
+                        `${n.number} (${n.percentage.toFixed(1)}%)`
+                    ).join(', ')}
+                </div>
+            `;
+        });
+        
+        predContent.innerHTML = html;
+    } else {
+        document.getElementById('predictionSection').style.display = 'none';
+    }
+    
+    // Renderizar zonas quentes
+    const hotZonesDiv = document.getElementById('hotZones');
+    hotZonesDiv.innerHTML = '';
+    
+    patternData.hot_zones.forEach(zone => {
+        const div = document.createElement('div');
+        div.style.cssText = 'background: white; padding: 10px; margin: 5px 0; border-radius: 5px;';
+        div.innerHTML = `
+            <strong>${zone.interval}</strong> - ${zone.probability.toFixed(1)}%<br>
+            <small>Média: ${zone.average_per_day.toFixed(1)}/dia</small><br>
+            <small>Top: ${zone.top_numbers.slice(0, 3).map(n => n.number).join(', ')}</small>
+        `;
+        hotZonesDiv.appendChild(div);
+    });
+    
+    // Renderizar zonas frias
+    const coldZonesDiv = document.getElementById('coldZones');
+    coldZonesDiv.innerHTML = '';
+    
+    patternData.cold_zones.forEach(zone => {
+        const div = document.createElement('div');
+        div.style.cssText = 'background: white; padding: 10px; margin: 5px 0; border-radius: 5px;';
+        div.innerHTML = `
+            <strong>${zone.interval}</strong><br>
+            <small>Probabilidade: ${zone.probability.toFixed(1)}%</small><br>
+            <small>Total: ${zone.total_occurrences} ocorrências</small>
+        `;
+        coldZonesDiv.appendChild(div);
+    });
+    
+    // Renderizar timeline
+    renderIntervalTimeline();
+}
+
+function renderIntervalTimeline() {
+    const timeline = document.getElementById('intervalTimeline');
+    timeline.innerHTML = '';
+    
+    const table = document.createElement('table');
+    table.style.cssText = 'width: 100%; border-collapse: collapse;';
+    
+    // Header
+    const header = document.createElement('tr');
+    header.innerHTML = '<th style="padding: 8px; border: 1px solid #ddd;">Intervalo</th>';
+    for (let i = 0; i <= 36; i++) {
+        header.innerHTML += `<th style="padding: 4px; border: 1px solid #ddd; font-size: 10px;">${i}</th>`;
+    }
+    table.appendChild(header);
+    
+    // Dados
+    Object.entries(patternData.interval_patterns).forEach(([interval, data]) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${interval}</td>`;
+        
+        for (let num = 0; num <= 36; num++) {
+            const count = data.numbers[num] || 0;
+            const intensity = count > 0 ? Math.min(count / 10, 1) : 0;
+            const color = count > 0 ? 
+                `rgba(102, 126, 234, ${intensity})` : 
+                'transparent';
+            
+            row.innerHTML += `
+                <td style="padding: 4px; border: 1px solid #ddd; background: ${color}; text-align: center; font-size: 10px;">
+                    ${count || '-'}
+                </td>
+            `;
+        }
+        
+        table.appendChild(row);
+    });
+    
+    timeline.appendChild(table);
+}
+
+function renderHeatmap() {
+    if (!heatmapData) return;
+    
+    const canvas = document.getElementById('heatmapCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const cellWidth = canvas.width / 37;
+    const cellHeight = canvas.height / 24;
+    
+    // Limpar canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Encontrar valor máximo para normalização
+    let maxValue = 0;
+    Object.values(heatmapData.heatmap_data).forEach(hours => {
+        Object.values(hours).forEach(count => {
+            if (count > maxValue) maxValue = count;
+        });
+    });
+    
+    // Desenhar células
+    for (let hour = 0; hour < 24; hour++) {
+        for (let num = 0; num < 37; num++) {
+            const value = heatmapData.heatmap_data[hour][num];
+            const intensity = maxValue > 0 ? value / maxValue : 0;
+            
+            // Cor baseada na intensidade
+            const hue = 240 - (intensity * 60); // De azul (240) para vermelho (0)
+            ctx.fillStyle = `hsla(${hue}, 70%, 50%, ${0.3 + intensity * 0.7})`;
+            
+            const x = num * cellWidth;
+            const y = hour * cellHeight;
+            
+            ctx.fillRect(x, y, cellWidth - 1, cellHeight - 1);
+            
+            // Texto
+            if (value > 0) {
+                ctx.fillStyle = intensity > 0.5 ? 'white' : 'black';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(value.toString(), x + cellWidth/2, y + cellHeight/2);
+            }
+        }
+    }
+    
+    // Labels
+    ctx.fillStyle = 'black';
+    ctx.font = '12px Arial';
+    
+    // Números no topo
+    for (let num = 0; num < 37; num++) {
+        ctx.save();
+        ctx.translate(num * cellWidth + cellWidth/2, -5);
+        ctx.textAlign = 'center';
+        ctx.fillText(num.toString(), 0, 0);
+        ctx.restore();
+    }
+    
+    // Horas na lateral
+    for (let hour = 0; hour < 24; hour++) {
+        ctx.save();
+        ctx.translate(-15, hour * cellHeight + cellHeight/2);
+        ctx.textAlign = 'right';
+        ctx.fillText(`${hour}h`, 0, 0);
+        ctx.restore();
+    }
+}
+
+
+// Remova todas as funções antigas de padrões e adicione estas:
+
+async function getPrediction() {
+    const rouletteId = document.getElementById('rouletteSelect').value;
+    if (!rouletteId) {
+        alert('Por favor, selecione uma roleta primeiro!');
+        return;
+    }
+    
+    const time = document.getElementById('predictionTime').value;
+    if (!time) {
+        alert('Por favor, selecione um horário!');
+        return;
+    }
+    
+    const interval = document.getElementById('predictionInterval').value;
+    const daysBack = document.getElementById('predictionDays').value;
+    
+    document.getElementById('predictionLoading').style.display = 'block';
+    document.getElementById('predictionResult').style.display = 'none';
+    
+    try {
+        const params = new URLSearchParams({
+            time: time,
+            interval: interval,
+            days_back: daysBack
+        });
+        
+        const response = await fetch(`/api/analise/previsao/${rouletteId}?${params}`);
+        const data = await response.json();
+        
+        renderPredictionResult(data);
+        
+    } catch (error) {
+        console.error('Erro ao gerar previsão:', error);
+        alert('Erro ao gerar previsão. Verifique o console.');
+    } finally {
+        document.getElementById('predictionLoading').style.display = 'none';
+    }
+}
+
+function renderPredictionResult(data) {
+    document.getElementById('predictionResult').style.display = 'block';
+    
+    // Informações do intervalo
+    document.getElementById('intervalInfo').innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+            <div>
+                <strong>Intervalo:</strong><br>
+                ${data.time} às ${data.interval_end}
+            </div>
+            <div>
+                <strong>Total de Ocorrências:</strong><br>
+                ${data.total_occurrences_in_interval}
+            </div>
+            <div>
+                <strong>Dias com Dados:</strong><br>
+                ${data.days_with_occurrences} de ${data.days_analyzed} dias
+            </div>
+            <div>
+                <strong>Taxa de Ocorrência:</strong><br>
+                ${((data.days_with_occurrences / data.days_analyzed) * 100).toFixed(1)}%
+            </div>
+        </div>
+    `;
+    
+    // Top 5
+    const top5Div = document.getElementById('top5Numbers');
+    top5Div.innerHTML = '';
+    
+    data.top_5.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.style.cssText = `
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #28a745;
+            position: relative;
+        `;
+        
+        const medal = ['🥇', '🥈', '🥉', '4º', '5º'][index];
+        
+        card.innerHTML = `
+            <div style="position: absolute; top: 5px; left: 5px; font-size: 20px;">${medal}</div>
+            <div style="font-size: 32px; font-weight: bold; color: ${getNumberColor(item.number)};">
+                ${item.number}
+            </div>
+            <div style="font-size: 18px; color: #28a745; font-weight: bold;">
+                ${item.percentage.toFixed(1)}%
+            </div>
+            <div style="font-size: 12px; color: #6c757d;">
+                ${item.count} vezes<br>
+                ${item.average_per_day.toFixed(2)}/dia
+            </div>
+        `;
+        
+        top5Div.appendChild(card);
+    });
+    
+    // Ranking completo
+    const rankingDiv = document.getElementById('fullRanking');
+    rankingDiv.innerHTML = '';
+    
+    renderSectionsAnalysis(data);
+
+    // NOVA FUNÇÃO para renderizar análise de seções
+function renderSectionsAnalysis(data) {
+    // Criar container se não existir
+    let sectionsDiv = document.getElementById('sectionsAnalysis');
+    if (!sectionsDiv) {
+        sectionsDiv = document.createElement('div');
+        sectionsDiv.id = 'sectionsAnalysis';
+        // Inserir após o Top 5
+        document.getElementById('top5Numbers').parentNode.insertAdjacentElement('afterend', sectionsDiv);
+    }
+    
+    sectionsDiv.innerHTML = `
+        <!-- Análise de Cores -->
+        <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3 style="color: #856404; margin-bottom: 15px;">🎨 Previsão por Cores</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                ${renderColorCard('vermelho', data.colors.vermelho, '#dc3545')}
+                ${renderColorCard('preto', data.colors.preto, '#343a40')}
+                ${renderColorCard('verde', data.colors.verde, '#28a745')}
+            </div>
+        </div>
+        
+        <!-- Análise de Dúzias -->
+        <div style="background: #d1ecf1; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3 style="color: #0c5460; margin-bottom: 15px;">📦 Previsão por Dúzias</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                ${Object.entries(data.dozens).filter(([key]) => key !== 'zero').map(([dozen, stats]) => 
+                    renderDozenCard(dozen, stats)
+                ).join('')}
+            </div>
+        </div>
+        
+        <!-- Análise de Colunas -->
+        <div style="background: #f8d7da; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3 style="color: #721c24; margin-bottom: 15px;">📊 Previsão por Colunas</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                ${Object.entries(data.columns).filter(([key]) => key !== 'zero').map(([column, stats]) => 
+                    renderColumnCard(column, stats)
+                ).join('')}
+            </div>
+        </div>
+        
+        <!-- Análise Par/Ímpar e Metades -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <!-- Par/Ímpar -->
+            <div style="background: #d4edda; padding: 20px; border-radius: 10px;">
+                <h3 style="color: #155724; margin-bottom: 15px;">⚖️ Par/Ímpar</h3>
+                <div style="display: grid; gap: 10px;">
+                    ${renderParityCard('par', data.parity.par)}
+                    ${renderParityCard('ímpar', data.parity['ímpar'])}
+                </div>
+            </div>
+            
+            <!-- Metades -->
+            <div style="background: #cce5ff; padding: 20px; border-radius: 10px;">
+                <h3 style="color: #004085; margin-bottom: 15px;">➗ Metades</h3>
+                <div style="display: grid; gap: 10px;">
+                    ${renderHalfCard('1-18', data.half['1-18'])}
+                    ${renderHalfCard('19-36', data.half['19-36'])}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Funções auxiliares para renderizar cards
+function renderColorCard(color, stats, bgColor) {
+    const colorNames = {
+        'vermelho': '🔴 Vermelho',
+        'preto': '⚫ Preto',
+        'verde': '🟢 Verde'
+    };
+    
+    return `
+        <div style="background: white; padding: 15px; border-radius: 10px; text-align: center; border: 3px solid ${bgColor};">
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+                ${colorNames[color]}
+            </div>
+            <div style="font-size: 32px; font-weight: bold; color: ${bgColor};">
+                ${stats.percentage.toFixed(1)}%
+            </div>
+            <div style="font-size: 14px; color: #6c757d;">
+                ${stats.count} ocorrências
+            </div>
+        </div>
+    `;
+}
+
+function renderDozenCard(dozen, stats) {
+    return `
+        <div style="background: white; padding: 15px; border-radius: 10px; text-align: center;">
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #0c5460;">
+                ${dozen}
+            </div>
+            <div style="font-size: 28px; font-weight: bold; color: #17a2b8;">
+                ${stats.percentage.toFixed(1)}%
+            </div>
+            <div style="font-size: 12px; color: #6c757d;">
+                ${stats.count} ocorrências
+            </div>
+            <div style="font-size: 10px; color: #6c757d; margin-top: 5px;">
+                Números: ${stats.numbers.join(', ')}
+            </div>
+        </div>
+    `;
+}
+
+function renderColumnCard(column, stats) {
+    return `
+        <div style="background: white; padding: 15px; border-radius: 10px; text-align: center;">
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #721c24;">
+                ${column}
+            </div>
+            <div style="font-size: 28px; font-weight: bold; color: #dc3545;">
+                ${stats.percentage.toFixed(1)}%
+            </div>
+            <div style="font-size: 12px; color: #6c757d;">
+                ${stats.count} ocorrências
+            </div>
+        </div>
+    `;
+}
+
+function renderParityCard(type, stats) {
+    return `
+        <div style="background: white; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; text-transform: uppercase;">${type}</span>
+            <div style="text-align: right;">
+                <span style="font-size: 20px; font-weight: bold; color: #28a745;">${stats.percentage.toFixed(1)}%</span>
+                <div style="font-size: 11px; color: #6c757d;">${stats.count}x</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderHalfCard(type, stats) {
+    return `
+        <div style="background: white; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold;">${type}</span>
+            <div style="text-align: right;">
+                <span style="font-size: 20px; font-weight: bold; color: #004085;">${stats.percentage.toFixed(1)}%</span>
+                <div style="font-size: 11px; color: #6c757d;">${stats.count}x</div>
+            </div>
+        </div>
+    `;
+}
+
+
+    data.ranking.forEach(item => {
+        const box = document.createElement('div');
+        const isZero = item.count === 0;
+        
+        box.style.cssText = `
+            background: ${isZero ? '#f8f9fa' : 'white'};
+            border: 2px solid ${isZero ? '#dee2e6' : '#007bff'};
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            opacity: ${isZero ? '0.6' : '1'};
+            transition: all 0.3s ease;
+            cursor: pointer;
+        `;
+        
+        box.onmouseover = () => {
+            if (!isZero) box.style.transform = 'scale(1.05)';
+        };
+        box.onmouseout = () => {
+            box.style.transform = 'scale(1)';
+        };
+        
+        box.innerHTML = `
+            <div style="font-size: 20px; font-weight: bold; color: ${getNumberColor(item.number)};">
+                ${item.number}
+            </div>
+            <div style="font-size: 14px; color: ${isZero ? '#6c757d' : '#007bff'};">
+                ${item.count}x
+            </div>
+            ${!isZero ? `<div style="font-size: 11px; color: #6c757d;">${item.percentage.toFixed(1)}%</div>` : ''}
+        `;
+        
+        rankingDiv.appendChild(box);
+    });
+    
+    // Números que nunca apareceram
+    const neverDiv = document.getElementById('neverAppeared');
+    const neverNumbers = data.ranking.filter(r => r.count === 0).map(r => r.number);
+    
+    if (neverNumbers.length > 0) {
+        neverDiv.innerHTML = `
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                ${neverNumbers.map(num => `
+                    <span style="
+                        background: white;
+                        color: #721c24;
+                        padding: 8px 12px;
+                        border-radius: 20px;
+                        font-weight: bold;
+                        border: 2px solid #f5c6cb;
+                    ">${num}</span>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        neverDiv.innerHTML = '<p style="color: #721c24;">Todos os números apareceram pelo menos uma vez neste intervalo.</p>';
+    }
+}
+
+function getNumberColor(num) {
+    if (num === 0) return '#28a745';
+    const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+    return redNumbers.includes(num) ? '#dc3545' : '#343a40';
+}
+
+// Atualizar função showTab
+function showTab(tabName) {
+    // Remover active de todos os tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Adicionar active ao tab selecionado
+    event.target.classList.add('active');
+    document.getElementById(tabName + 'Tab').classList.add('active');
+    
+    // Se for a aba de previsão, definir hora atual
+    if (tabName === 'prediction') {
+        const now = new Date();
+        document.getElementById('predictionTime').value = 
+            `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+}
+
+
+    // Adicione estas funções no script
+
+async function analyzeTrends() {
+    const rouletteId = document.getElementById('rouletteSelect').value;
+    if (!rouletteId) {
+        alert('Por favor, selecione uma roleta primeiro!');
+        return;
+    }
+    
+    const type = document.getElementById('trendType').value;
+    const threshold = document.getElementById('trendThreshold').value;
+    const minDuration = document.getElementById('trendDuration').value;
+    const daysBack = document.getElementById('trendDays').value;
+    
+    document.getElementById('trendsLoading').style.display = 'block';
+    document.getElementById('trendStats').style.display = 'none';
+    document.getElementById('trendsList').style.display = 'none';
+    document.getElementById('bestTimes').style.display = 'none';
+    
+    try {
+        const params = new URLSearchParams({
+            type: type,
+            threshold: threshold,
+            days_back: daysBack,
+            min_duration: minDuration
+        });
+        
+        const response = await fetch(`/api/analise/tendencias/${rouletteId}?${params}`);
+        const data = await response.json();
+        
+        renderTrendsResults(data);
+        
+    } catch (error) {
+        console.error('Erro ao analisar tendências:', error);
+        alert('Erro ao analisar tendências. Verifique o console.');
+    } finally {
+        document.getElementById('trendsLoading').style.display = 'none';
+    }
+}
+
+function renderTrendsResults(data) {
+    // Mostrar seções
+    document.getElementById('trendStats').style.display = 'block';
+    document.getElementById('trendsList').style.display = 'block';
+    document.getElementById('bestTimes').style.display = 'block';
+    
+    // Estatísticas gerais
+    const statsContent = document.getElementById('trendStatsContent');
+    statsContent.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+            <div>
+                <strong>Total de Tendências Detectadas:</strong><br>
+                <span style="font-size: 24px;">${data.trends.length}</span>
+            </div>
+            ${data.statistics.longest_trend ? `
+                <div>
+                    <strong>Tendência Mais Longa:</strong><br>
+                    <span style="font-size: 18px;">${data.statistics.longest_trend.item}</span><br>
+                    <span style="font-size: 14px;">${data.statistics.longest_trend.start_time} - ${data.statistics.longest_trend.end_time}</span><br>
+                    <span style="font-size: 14px;">${data.statistics.longest_trend.duration} minutos</span>
+                </div>
+            ` : ''}
+            ${data.statistics.strongest_trend ? `
+                <div>
+                    <strong>Tendência Mais Forte:</strong><br>
+                    <span style="font-size: 18px;">${data.statistics.strongest_trend.item}</span><br>
+                    <span style="font-size: 14px;">Máximo: ${data.statistics.strongest_trend.max_percentage.toFixed(1)}%</span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    // Lista de tendências
+    const trendsContent = document.getElementById('trendsListContent');
+    
+    if (data.trends.length > 0) {
+        // Agrupar tendências por item
+        const groupedTrends = {};
+        data.trends.forEach(trend => {
+            if (!groupedTrends[trend.item]) {
+                groupedTrends[trend.item] = [];
+            }
+            groupedTrends[trend.item].push(trend);
+        });
+        
+        let html = '';
+        for (const [item, trends] of Object.entries(groupedTrends)) {
+            const itemColor = getItemColor(item);
+            
+            html += `
+                <div style="margin-bottom: 30px;">
+                    <h4 style="color: ${itemColor}; margin-bottom: 15px;">
+                        ${getItemIcon(item)} ${item.toUpperCase()} (${trends.length} tendências)
+                    </h4>
+                    <div style="display: grid; gap: 15px;">
+                        ${trends.map(trend => `
+                            <div style="background: white; padding: 15px; border-radius: 10px; border-left: 5px solid ${itemColor};">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                                    <div>
+                                        <strong>Período:</strong><br>
+                                        ${trend.start_time} - ${trend.end_time}
+                                    </div>
+                                    <div>
+                                        <strong>Duração:</strong><br>
+                                        ${trend.duration} minutos
+                                    </div>
+                                    <div>
+                                        <strong>Média:</strong><br>
+                                        ${trend.average_percentage.toFixed(1)}%
+                                    </div>
+                                    <div>
+                                        <strong>Máximo:</strong><br>
+                                        ${trend.max_percentage.toFixed(1)}%
+                                    </div>
+                                    <div>
+                                        <strong>Ocorrências:</strong><br>
+                                        ${trend.total_occurrences}
+                                    </div>
+                                </div>
+                                <details style="margin-top: 10px;">
+                                    <summary style="cursor: pointer; color: #007bff;">Ver detalhes minuto a minuto</summary>
+                                    <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                                        ${trend.minutes.map(m => `
+                                            <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #dee2e6;">
+                                                <span>${m.time}</span>
+                                                <span><strong>${m.percentage.toFixed(1)}%</strong> (${m.count}/${m.total})</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </details>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        trendsContent.innerHTML = html;
+    } else {
+        trendsContent.innerHTML = `
+            <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 10px;">
+                Nenhuma tendência encontrada com os parâmetros selecionados. 
+                Tente reduzir o limite mínimo ou a duração mínima.
+            </div>
+        `;
+    }
+    
+    // Melhores horários
+    const bestTimesContent = document.getElementById('bestTimesContent');
+    let bestTimesHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">';
+    
+    for (const [item, stats] of Object.entries(data.statistics.trend_times)) {
+        const itemColor = getItemColor(item);
+        
+        bestTimesHtml += `
+            <div style="background: white; padding: 20px; border-radius: 10px; border: 2px solid ${itemColor};">
+                <h4 style="color: ${itemColor}; margin-bottom: 15px;">
+                    ${getItemIcon(item)} ${item}
+                </h4>
+                <div style="margin-bottom: 10px;">
+                    <strong>Total de tendências:</strong> ${stats.count}<br>
+                    <strong>Total de minutos:</strong> ${stats.total_minutes}<br>
+                    <strong>Duração média:</strong> ${stats.average_duration.toFixed(1)} minutos
+                </div>
+                ${stats.best_times.length > 0 ? `
+                    <div style="margin-top: 15px;">
+                        <strong>Top 5 Melhores Horários:</strong>
+                        ${stats.best_times.map((trend, idx) => `
+                            <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 5px;">
+                                ${idx + 1}. ${trend.start_time} - ${trend.end_time} 
+                                (${trend.average_percentage.toFixed(1)}% média)
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<p style="color: #6c757d;">Sem tendências detectadas</p>'}
+            </div>
+        `;
+    }
+    
+    bestTimesHtml += '</div>';
+    bestTimesContent.innerHTML = bestTimesHtml;
+}
+
+function getItemColor(item) {
+    const colors = {
+        'vermelho': '#dc3545',
+        'preto': '#343a40',
+        'verde': '#28a745',
+        '1ª dúzia': '#17a2b8',
+        '2ª dúzia': '#ffc107',
+        '3ª dúzia': '#6610f2',
+        '1ª coluna': '#e83e8c',
+        '2ª coluna': '#fd7e14',
+        '3ª coluna': '#20c997'
+    };
+    return colors[item] || '#6c757d';
+}
+
+function getItemIcon(item) {
+    const icons = {
+        'vermelho': '🔴',
+        'preto': '⚫',
+        'verde': '🟢',
+        '1ª dúzia': '1️⃣',
+        '2ª dúzia': '2️⃣',
+        '3ª dúzia': '3️⃣',
+        '1ª coluna': '📊',
+        '2ª coluna': '📈',
+        '3ª coluna': '📉'
+    };
+    return icons[item] || '📌';
+}
+
+// Atualizar função showTab para incluir trends
+function showTab(tabName) {
+    // Remover active de todos os tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Adicionar active ao tab selecionado
+    event.target.classList.add('active');
+    document.getElementById(tabName + 'Tab').classList.add('active');
+    
+    // Se for a aba de previsão, definir hora atual
+    if (tabName === 'prediction') {
+        const now = new Date();
+        document.getElementById('predictionTime').value = 
+            `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+}
+
+async function analyzeExtendedRepetitions() {
+    const rouletteId = document.getElementById('rouletteSelect').value;
+    if (!rouletteId) {
+        alert('Por favor, selecione uma roleta primeiro!');
+        return;
+    }
+    
+    const daysBack = document.getElementById('repPatternDays').value;
+    const timeWindow = document.getElementById('repTimeWindow').value;
+    const includeNeighbors = document.getElementById('includeNeighbors').value;
+    const includeMirrors = document.getElementById('includeMirrors').value;
+    
+    // Esconder seções
+    document.getElementById('repStatistics').style.display = 'none';
+    document.getElementById('strongPatterns').style.display = 'none';
+    document.getElementById('todayPredictions').style.display = 'none';
+    document.getElementById('repPatternLoading').style.display = 'block';
+    
+    try {
+        const params = new URLSearchParams({
+            days_back: daysBack,
+            time_window: timeWindow,
+            include_neighbors: includeNeighbors,
+            include_mirrors: includeMirrors
+        });
+        
+        const response = await fetch(`/api/analise/repeticoes-padroes/${rouletteId}?${params}`);
+        const data = await response.json();
+        
+        renderExtendedRepetitionPatterns(data);
+        
+    } catch (error) {
+        console.error('Erro ao analisar padrões:', error);
+        alert('Erro ao analisar padrões de repetição.');
+    } finally {
+        document.getElementById('repPatternLoading').style.display = 'none';
+    }
+}
+
+function renderExtendedRepetitionPatterns(data) {
+    // Mostrar seções
+    document.getElementById('repStatistics').style.display = 'block';
+    document.getElementById('strongPatterns').style.display = 'block';
+    document.getElementById('todayPredictions').style.display = 'block';
+    
+    // Estatísticas Gerais
+    const statsContent = document.getElementById('repStatisticsContent');
+    statsContent.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px;">
+            <div>
+                <strong>Total de Padrões:</strong><br>
+                <span style="font-size: 32px; font-weight: bold;">
+                    ${data.patterns_found}
+                </span>
+            </div>
+            <div>
+                <strong>Repetições Diretas:</strong><br>
+                <span style="font-size: 24px;">
+                    ${data.statistics.total_direct}
+                </span>
+            </div>
+            ${data.statistics.include_neighbors ? `
+                <div>
+                    <strong>Repetições Vizinhos:</strong><br>
+                    <span style="font-size: 24px;">
+                        ${data.statistics.total_neighbor}
+                    </span>
+                </div>
+            ` : ''}
+            ${data.statistics.include_mirrors ? `
+                <div>
+                    <strong>Repetições Espelhos:</strong><br>
+                    <span style="font-size: 24px;">
+                        ${data.statistics.total_mirror}
+                    </span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    // Padrões mais confiáveis
+    const strongContent = document.getElementById('strongPatternsContent');
+    
+    if (data.best_patterns.length > 0) {
+        let html = '<div style="display: grid; gap: 15px;">';
+        
+        data.best_patterns.forEach(pattern => {
+            const lastDatesFormatted = pattern.last_dates.map(d => {
+                const parts = d.split('-');
+                return `${parts[2]}/${parts[1]}`;
+            }).join(', ');
+            
+            // Determinar cor baseada no tipo predominante
+            let borderColor = '#28a745'; // Verde para diretas
+            if (pattern.type_breakdown.includes('vizinho') && !pattern.type_breakdown.includes('direta')) {
+                borderColor = '#ff9800'; // Laranja para vizinhos
+            } else if (pattern.type_breakdown.includes('espelho') && !pattern.type_breakdown.includes('direta')) {
+                borderColor = '#9c27b0'; // Roxo para espelhos
+            }
+            
+            html += `
+                <div style="background: white; padding: 20px; border-radius: 10px; border-left: 5px solid ${borderColor};">
+                    <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; color: ${getNumberColor(pattern.number)};">
+                                ${pattern.number}
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">Número</div>
+                        </div>
+                        
+                        <div>
+                            <div style="font-weight: bold; margin-bottom: 5px;">
+                                Repete por volta das ${pattern.time}
+                            </div>
+                            <div style="font-size: 14px; color: #6c757d;">
+                                ${pattern.days_count} dias diferentes | ${pattern.total_occurrences} ocorrências<br>
+                                Últimas: ${lastDatesFormatted}
+                            </div>
+                            <div style="font-size: 12px; color: #495057; margin-top: 5px; background: #f8f9fa; padding: 5px 8px; border-radius: 4px; display: inline-block;">
+                                Tipos: ${pattern.type_breakdown}
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: ${pattern.probability > 20 ? '#28a745' : pattern.probability > 10 ? '#ffc107' : '#17a2b8'};">
+                                ${pattern.probability.toFixed(1)}%
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">Probabilidade</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        strongContent.innerHTML = html;
+    } else {
+        strongContent.innerHTML = `
+            <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 10px;">
+                Nenhum padrão recorrente forte foi encontrado no período analisado.
+            </div>
+        `;
+    }
+    
+    // Previsões para hoje
+    renderTodayExtendedPredictions(data);
+}
+
+function renderTodayExtendedPredictions(data) {
+    const content = document.getElementById('todayPredictionsContent');
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    let predictions = [];
+    
+    // Verificar padrões para próximas horas
+    data.best_patterns.forEach(pattern => {
+        const [patternHour, patternMinute] = pattern.time.split(':').map(Number);
+        
+        if (patternHour > currentHour || (patternHour === currentHour && patternMinute > currentMinute)) {
+            predictions.push({
+                number: pattern.number,
+                time: pattern.time,
+                probability: pattern.probability,
+                days_count: pattern.days_count,
+                type_breakdown: pattern.type_breakdown,
+                timeInMinutes: patternHour * 60 + patternMinute
+            });
+        }
+    });
+    
+    predictions.sort((a, b) => a.timeInMinutes - b.timeInMinutes);
+    
+    if (predictions.length > 0) {
+        let html = '<div style="display: grid; gap: 10px;">';
+        
+        predictions.forEach(pred => {
+            html += `
+                <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); padding: 15px; border-radius: 10px; border: 1px solid #ffc107;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #856404;">🕐 ${pred.time}</strong> - 
+                            Número <span style="font-size: 18px; font-weight: bold; color: ${getNumberColor(pred.number)}">${pred.number}</span>
+                            pode repetir
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="background: #856404; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px;">
+                                ${pred.probability.toFixed(1)}%
+                            </span>
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; color: #856404; margin-top: 8px;">
+                        Tipos de repetição: ${pred.type_breakdown}<br>
+                        Baseado em ${pred.days_count} dias de histórico
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        content.innerHTML = html;
+    } else {
+        content.innerHTML = `
+            <div style="background: #e9ecef; color: #6c757d; padding: 20px; border-radius: 10px;">
+                Não há previsões de repetições para as próximas horas de hoje.
+            </div>
+        `;
+    }
+}
+
+// Função para mostrar lista de vizinhos e espelhos
+function showRepetitionReference() {
+    const html = `
+        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    background: white; padding: 30px; border-radius: 15px; 
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.3); z-index: 1000; 
+                    max-height: 80vh; overflow-y: auto; max-width: 600px;">
+            <h3 style="margin-bottom: 20px;">📖 Referência de Repetições</h3>
+            
+            <h4 style="color: #ff9800; margin-top: 20px;">Vizinhos na Roleta:</h4>
+            <div style="font-size: 12px; columns: 2; column-gap: 20px;">
+                <div>0: [32, 26]</div>
+                <div>1: [20, 33]</div>
+                <div>2: [25, 21]</div>
+                <!-- ... adicione todos os vizinhos ... -->
+            </div>
+            
+            <h4 style="color: #9c27b0; margin-top: 20px;">Números Espelhos:</h4>
+            <div style="font-size: 12px; columns: 2; column-gap: 20px;">
+                <div>1 ↔ 10</div>
+                <div>2 ↔ 20</div>
+                <div>3 ↔ 30</div>
+                <div>6 ↔ 9</div>
+                <div>12 ↔ 21</div>
+                <div>13 ↔ 31</div>
+                <div>16 ↔ 19</div>
+                <div>23 ↔ 32</div>
+                <div>26 ↔ 29</div>
+                <div>11 ↔ 22, 33</div>
+            </div>
+            
+            <button onclick="this.parentElement.remove()" 
+                    style="margin-top: 20px; padding: 10px 20px; 
+                           background: #dc3545; color: white; border: none; 
+                           border-radius: 5px; cursor: pointer;">
+                Fechar
+            </button>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+
+function renderTodayPredictions(data) {
+    const content = document.getElementById('todayPredictionsContent');
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    let predictions = [];
+    
+    // Verificar padrões que podem ocorrer nas próximas horas
+    data.best_patterns.forEach(pattern => {
+        const [patternHour, patternMinute] = pattern.time.split(':').map(Number);
+        
+        // Se o horário do padrão ainda não passou hoje
+        if (patternHour > currentHour || (patternHour === currentHour && patternMinute > currentMinute)) {
+            predictions.push({
+                number: pattern.number,
+                time: pattern.time,
+                probability: pattern.probability,
+                days_count: pattern.days_count,
+                timeInMinutes: patternHour * 60 + patternMinute
+            });
+        }
+    });
+    
+    // Ordenar por horário
+    predictions.sort((a, b) => a.timeInMinutes - b.timeInMinutes);
+    
+    if (predictions.length > 0) {
+        let html = '<div style="display: grid; gap: 10px;">';
+        
+        predictions.forEach(pred => {
+            html += `
+                <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); padding: 15px; border-radius: 10px; border: 1px solid #ffc107;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #856404;">🕐 ${pred.time}</strong> - 
+                            Número <span style="font-size: 18px; font-weight: bold; color: ${getNumberColor(pred.number)}">${pred.number}</span>
+                            pode repetir
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="background: #856404; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px;">
+                                ${pred.probability.toFixed(1)}% prob.
+                            </span>
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; color: #856404; margin-top: 5px;">
+                        Baseado em ${pred.days_count} dias de histórico
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        content.innerHTML = html;
+    } else {
+        content.innerHTML = `
+            <div style="background: #e9ecef; color: #6c757d; padding: 20px; border-radius: 10px;">
+                Não há previsões de repetições para as próximas horas de hoje.
+            </div>
+        `;
+    }
+}
+
+
+async function analyzeSequences() {
+    const rouletteId = document.getElementById('rouletteSelect').value;
+    if (!rouletteId) {
+        alert('Por favor, selecione uma roleta primeiro!');
+        return;
+    }
+    
+    const minSize = document.getElementById('seqMinSize').value;
+    const maxSize = document.getElementById('seqMaxSize').value;
+    const daysBack = document.getElementById('seqDays').value;
+    
+    // Validar tamanhos
+    if (parseInt(minSize) > parseInt(maxSize)) {
+        alert('O tamanho mínimo não pode ser maior que o máximo!');
+        return;
+    }
+    
+    // Esconder seções
+    document.getElementById('topSequences').style.display = 'none';
+    document.getElementById('sequencesBySize').style.display = 'none';
+    document.getElementById('recentSequences').style.display = 'none';
+    document.getElementById('seqLoading').style.display = 'block';
+    
+    try {
+        const params = new URLSearchParams({
+            days_back: daysBack,
+            min_sequence: minSize,
+            max_sequence: maxSize
+        });
+        
+        const response = await fetch(`/api/analise/sequencias/${rouletteId}?${params}`);
+        const data = await response.json();
+        
+        renderSequencesResults(data);
+        
+    } catch (error) {
+        console.error('Erro ao analisar sequências:', error);
+        alert('Erro ao buscar sequências repetidas.');
+    } finally {
+        document.getElementById('seqLoading').style.display = 'none';
+    }
+}
+
+function renderSequencesResults(data) {
+    // Mostrar seções
+    document.getElementById('topSequences').style.display = 'block';
+    document.getElementById('sequencesBySize').style.display = 'block';
+    document.getElementById('recentSequences').style.display = 'block';
+    
+    // Top Sequências
+    const topContent = document.getElementById('topSequencesContent');
+    
+    if (data.top_patterns && data.top_patterns.length > 0) {
+        let html = '<div style="display: grid; gap: 20px;">';
+        
+        data.top_patterns.forEach((pattern, index) => {
+            // Criar lista de todas as ocorrências
+            let occurrencesList = '';
+            const sortedDates = Object.keys(pattern.occurrences_by_date).sort().reverse();
+            
+            sortedDates.forEach(date => {
+                const dateFormatted = date.split('-').reverse().join('/');
+                const times = pattern.occurrences_by_date[date];
+                
+                occurrencesList += `
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #495057;">${dateFormatted}:</strong>
+                        ${times.map(t => `<span style="background: #e9ecef; padding: 2px 8px; border-radius: 4px; margin-left: 5px;">${t.time}</span>`).join('')}
+                    </div>
+                `;
+            });
+            
+            const medal = index < 3 ? ['🥇', '🥈', '🥉'][index] : `${index + 1}º`;
+            
+            html += `
+                <div style="background: white; padding: 20px; border-radius: 15px; border: 2px solid ${pattern.probability > 20 ? '#28a745' : pattern.probability > 10 ? '#ffc107' : '#17a2b8'};">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                        <div>
+                            <span style="font-size: 24px; margin-right: 10px;">${medal}</span>
+                            <span style="font-size: 20px; font-weight: bold; color: #333;">
+                                ${pattern.sequence_str}
+                            </span>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 24px; font-weight: bold; color: ${pattern.probability > 20 ? '#28a745' : pattern.probability > 10 ? '#ffc107' : '#17a2b8'};">
+                                ${pattern.probability.toFixed(1)}%
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">probabilidade</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #007bff;">
+                                ${pattern.total_occurrences}
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">ocorrências totais</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #28a745;">
+                                ${pattern.unique_days}
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">dias diferentes</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #ff9800;">
+                                ${pattern.most_common_time}
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">horário mais comum</div>
+                        </div>
+                    </div>
+                    
+                    <details>
+                        <summary style="cursor: pointer; color: #007bff; font-weight: bold; margin-bottom: 10px;">
+                            Ver todas as ocorrências
+                        </summary>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                            ${occurrencesList}
+                        </div>
+                    </details>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        topContent.innerHTML = html;
+    } else {
+        topContent.innerHTML = `
+            <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 10px;">
+                Nenhuma sequência repetida foi encontrada no período analisado.
+                Tente aumentar o período ou ajustar o tamanho das sequências.
+            </div>
+        `;
+    }
+    
+    // Sequências por Tamanho
+    const sizeContent = document.getElementById('sequencesBySizeContent');
+    let sizeHtml = '<div style="display: grid; gap: 15px;">';
+    
+    Object.entries(data.sequences_by_length).forEach(([size, sequences]) => {
+        if (sequences.length > 0) {
+            sizeHtml += `
+                <div style="background: white; padding: 15px; border-radius: 10px; border: 1px solid #dee2e6;">
+                    <h4 style="color: #495057; margin-bottom: 10px;">
+                        Sequências de ${size} números (${sequences.length} encontradas)
+                    </h4>
+                    <div style="display: grid; gap: 8px;">
+                        ${sequences.slice(0, 5).map(seq => `
+                            <div style="background: #f8f9fa; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between;">
+                                <span style="font-weight: bold;">${seq.sequence_str}</span>
+                                <span style="color: #6c757d; font-size: 12px;">
+                                    ${seq.unique_days} dias | ${seq.total_occurrences}x
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    sizeHtml += '</div>';
+    sizeContent.innerHTML = sizeHtml;
+    
+    // Sequências Recentes
+    const recentContent = document.getElementById('recentSequencesContent');
+    
+    if (data.recent_sequences && data.recent_sequences.length > 0) {
+        let recentHtml = '<div style="display: grid; gap: 10px;">';
+        
+        data.recent_sequences.forEach(seq => {
+            const dateFormatted = seq.last_date.split('-').reverse().join('/');
+            
+            recentHtml += `
+                <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #17a2b8; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${seq.sequence}</strong>
+                        <div style="font-size: 12px; color: #6c757d; margin-top: 5px;">
+                            Última vez: ${dateFormatted} às ${seq.common_time}
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="background: #17a2b8; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                            ${seq.days} dias | ${seq.occurrences}x
+                        </span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        recentHtml += '</div>';
+        recentContent.innerHTML = recentHtml;
+    }
+}
+    </script>
+
+<script>
+    // ===== Previsão de Sequência por Horário =====
+    let seqData = null;
+    
+    async function getSequencePrediction() {
+        const rouletteId = document.getElementById('rouletteSelect').value;
+        if (!rouletteId) {
+            alert('Selecione uma roleta primeiro');
+            return;
+        }
+    
+        const time = document.getElementById('seqTime').value;
+        if (!time) {
+            alert('Informe o horário central do intervalo (HH:MM).');
+            return;
+        }
+    
+        const interval = document.getElementById('seqInterval').value;
+        const days = document.getElementById('seqDays').value;
+        const minLen = document.getElementById('seqMinLen').value;
+        const maxLen = document.getElementById('seqMaxLen').value;
+        const seed = document.getElementById('seqSeed').value;
+    
+        document.getElementById('seqLoading').style.display = 'block';
+        document.getElementById('seqResult').style.display = 'none';
+    
+        try {
+            const params = new URLSearchParams({
+                time,
+                interval,
+                days_back: days,
+                min_len: minLen,
+                max_len: maxLen
+            });
+            if (seed) params.append('seed', seed);
+    
+            const res = await fetch(`/api/analise/previsao-sequencia/${rouletteId}?` + params.toString());
+            seqData = await res.json();
+    
+            renderSeqPrediction();
+        } catch (err) {
+            console.error('Erro na previsão de sequência:', err);
+            alert('Falha ao calcular sequências. Verifique o console.');
+        } finally {
+            document.getElementById('seqLoading').style.display = 'none';
+        }
+    }
+    
+    function renderSeqPrediction() {
+        if (!seqData) return;
+    
+        // Info do intervalo
+        document.getElementById('seqIntervalInfo').innerHTML = `
+            <div>Horário base: <strong>${seqData.time_base}</strong></div>
+            <div>Janela: <strong>${seqData.interval_start} → ${seqData.interval_end}</strong></div>
+            <div>Dias analisados: <strong>${seqData.days_analyzed}</strong></div>
+            <div>Total no intervalo: <strong>${seqData.total_occurrences_in_interval}</strong> (em ${seqData.days_with_occurrences} dias)</div>
+        `;
+    
+        // Sequências por dia
+        const daily = document.getElementById('seqDailyList');
+        daily.innerHTML = '';
+        const stats = seqData.number_interval_stats || {};
+    
+        seqData.daily_sequences.forEach(d => {
+            const wrap = document.createElement('div');
+            wrap.className = 'day-card';
+            wrap.innerHTML = `
+                <div class="day-header">
+                    <div class="day-date">${new Date(d.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}</div>
+                    <div class="day-count">${d.numbers.length} ocorrências</div>
+                </div>
+            `;
+    
+            const line = document.createElement('div');
+            line.style.display = 'flex';
+            line.style.flexWrap = 'wrap';
+            line.style.gap = '8px';
+    
+            d.numbers.forEach((n, idx) => {
+                const chip = document.createElement('div');
+                chip.style.cssText = `
+                    padding:6px 10px; border-radius:16px; font-weight:600; font-size:13px;
+                    background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; cursor:default;
+                `;
+                const s = stats[n] || { total:0, days:0 };
+                const t = d.times && d.times[idx] ? ` às ${d.times[idx]}` : '';
+                chip.title = `Número ${n}: ${s.total || 0}x em ${s.days || 0} dia(s) neste mesmo intervalo${t}`;
+                chip.textContent = n;
+                line.appendChild(chip);
+            });
+    
+            wrap.appendChild(line);
+            daily.appendChild(wrap);
+        });
+    
+        // Top sequências por tamanho (sequences_index)
+        const topDiv = document.getElementById('seqTopList');
+        topDiv.innerHTML = '';
+    
+        const sizes = Object.keys(seqData.sequences_index).map(k => parseInt(k,10)).sort((a,b)=>a-b);
+        sizes.forEach(k => {
+            const bucket = seqData.sequences_index[String(k)] || [];
+            if (bucket.length === 0) return;
+    
+            const card = document.createElement('div');
+            card.style.cssText = 'background:#fff; border:1px solid #e9ecef; border-radius:10px; padding:12px; margin-bottom:12px;';
+            const title = document.createElement('div');
+            title.style.cssText = 'font-weight:bold; margin-bottom:6px;';
+            title.textContent = `Sequências de ${k} números (top ${bucket.length})`;
+            card.appendChild(title);
+    
+            const list = document.createElement('div');
+            list.style.display = 'grid';
+            list.style.gridTemplateColumns = '1fr';
+            list.style.gap = '6px';
+    
+            bucket.forEach(item => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex; justify-content:space-between; gap:10px;';
+    
+                const left = document.createElement('div');
+                left.textContent = item.sequence.join(' → ');
+    
+                const right = document.createElement('div');
+                right.style.cssText = 'color:#6c757d;';
+                right.textContent = `${item.total}x em ${item.total_days} dia(s)`;
+    
+                row.appendChild(left);
+                row.appendChild(right);
+    
+                // Tooltip por dia/horas da sequência
+                row.title = Object.entries(item.by_date)
+                    .map(([d, times]) => `${d}: ${times.join(', ')}`)
+                    .join(' | ');
+    
+                list.appendChild(row);
+            });
+    
+            card.appendChild(list);
+            topDiv.appendChild(card);
+        });
+    
+        document.getElementById('seqResult').style.display = 'block';
+    }
+    
+    // Integra com o seletor de abas existente
+    // showTab('seqPrediction') já funciona, pois o HTML segue o padrão: id = tabName + 'Tab'
+    </script>
+
+    <!-- [C] Script (adicione antes de </body>) -->
+<script>
+    let regionData = null;
+    
+    async function getRegionHotspot() {
+      const rouletteIdEl = document.getElementById('rouletteSelect');
+      const rouletteId = rouletteIdEl ? rouletteIdEl.value : null;
+      if (!rouletteId) {
+        alert('Selecione uma roleta primeiro');
+        return;
+      }
+    
+      const time = document.getElementById('regionTime').value;
+      if (!time) {
+        alert('Informe o horário (HH:MM).');
+        return;
+      }
+      const interval = document.getElementById('regionInterval').value;
+      const days = document.getElementById('regionDays').value;
+      const span = document.getElementById('regionSpan').value;
+      const minSpins = document.getElementById('regionMinSpins').value;
+      const minSim = document.getElementById('regionMinSim').value;
+      const minSupport = document.getElementById('regionMinSupport').value;
+    
+      document.getElementById('regionLoading').style.display = 'block';
+      document.getElementById('regionResult').style.display = 'none';
+    
+      try {
+        const params = new URLSearchParams({
+          time,
+          interval,
+          days_back: days,
+          neighbor_span: span,
+          min_today_spins: minSpins,
+          min_similarity: minSim,
+          min_support_days: minSupport
+        });
+        const res = await fetch(`/api/analise/region-hotspot/${rouletteId}?` + params.toString());
+        regionData = await res.json();
+        renderRegionHotspot();
+      } catch (e) {
+        console.error('Erro em region-hotspot:', e);
+        alert('Falha ao calcular região por horário.');
+      } finally {
+        document.getElementById('regionLoading').style.display = 'none';
+      }
+    }
+    
+    function pills(list) {
+      if (!list || !list.length) return '<em>—</em>';
+      return list.map(n => `<span style="display:inline-block; margin:4px; padding:6px 10px; border-radius:14px; background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; font-weight:600;">${n}</span>`).join('');
+    }
+    
+    function renderRegionHotspot() {
+      if (!regionData) return;
+    
+      // Interval info
+      const info = document.getElementById('regionInfo');
+      info.innerHTML = `
+        <div>Horário base: <strong>${regionData.time_base || '-'}</strong></div>
+        <div>Janela: <strong>${regionData.interval_start || '-'} → ${regionData.interval_end || '-'}</strong></div>
+        <div>Dias analisados: <strong>${regionData.days_analyzed || '-'}</strong></div>
+      `;
+    
+      // Today
+      const t = regionData.today || {};
+      document.getElementById('regionToday').innerHTML = `
+        <div>Data: <strong>${t.date || '-'}</strong></div>
+        <div>Ocorrências no intervalo: <strong>${t.spins || 0}</strong></div>
+        <div>Centro do setor: <strong>${t.hot_center ?? '-'}</strong></div>
+        <div>Setor (central + vizinhos):</div>
+        <div style="margin-top:6px;">${pills(t.hot_numbers)}</div>
+      `;
+    
+      // Historical
+      const h = regionData.historical || {};
+      document.getElementById('regionHist').innerHTML = `
+        <div>Dias com dados: <strong>${h.days || 0}</strong></div>
+        <div>Centro do setor histórico: <strong>${h.hot_center ?? '-'}</strong></div>
+        <div>Setor histórico (agregado):</div>
+        <div style="margin-top:6px;">${pills(h.hot_numbers)}</div>
+      `;
+    
+      // Similarities table
+      const simDiv = document.getElementById('regionSimilarities');
+      const sims = (regionData.similarities || []);
+      if (!sims.length) {
+        simDiv.innerHTML = '<em>Sem dias anteriores suficientes.</em>';
+      } else {
+        const rows = sims.map(s => `
+          <tr>
+            <td>${s.date}</td>
+            <td style="text-align:right;">${(s.similarity*100).toFixed(1)}%</td>
+            <td style="text-align:right;">${s.top_overlap}</td>
+            <td style="text-align:right;">${s.day_spins}</td>
+            <td style="text-align:center;">${s.day_center ?? '-'}</td>
+          </tr>
+        `).join('');
+    
+        simDiv.innerHTML = `
+          <div style="overflow:auto;">
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f1f5f9;">
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #e2e8f0;">Dia</th>
+                  <th style="text-align:right; padding:8px; border-bottom:1px solid #e2e8f0;">Similaridade</th>
+                  <th style="text-align:right; padding:8px; border-bottom:1px solid #e2e8f0;">Overlap do setor</th>
+                  <th style="text-align:right; padding:8px; border-bottom:1px solid #e2e8f0;">Ocorrências</th>
+                  <th style="text-align:center; padding:8px; border-bottom:1px solid #e2e8f0;">Centro do setor</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `;
+      }
+    
+      // Recommendation
+      const reco = regionData.recommendation || { enter:false };
+      const badge = reco.enter
+        ? '<span style="background:#10b981; color:#fff; padding:6px 12px; border-radius:9999px; font-weight:700;">APOSTAR AGORA</span>'
+        : '<span style="background:#94a3b8; color:#fff; padding:6px 12px; border-radius:9999px; font-weight:700;">AGUARDAR</span>';
+    
+      const center = reco.center ?? '-';
+      const neighbors = reco.neighbors || [];
+    
+      document.getElementById('regionReco').innerHTML = `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">${badge}
+          <div style="color:#334155;">Centro sugerido: <strong>${center}</strong></div>
+        </div>
+        <div style="margin-top:6px;">Cobrir com 8 vizinhos: ${pills(neighbors)}</div>
+        <div style="margin-top:10px; color:#475569; font-size:14px;">
+          <div>Critérios: mín. hoje = <strong>${reco.thresholds?.min_today_spins ?? '-'}</strong>,
+            similaridade ≥ <strong>${reco.thresholds?.min_similarity ?? '-'}</strong>,
+            dias de suporte ≥ <strong>${reco.thresholds?.min_support_days ?? '-'}</strong></div>
+          <div>Dados: hoje = <strong>${reco.rationale?.today_spins ?? '-'}</strong> ocorrências,
+            suporte = <strong>${reco.rationale?.sim_support_days ?? '-'}</strong> dias,
+            similaridade média = <strong>${reco.rationale?.avg_similarity_above_threshold ?? '-'}</strong>,
+            alinhamento setor = <strong>${reco.rationale?.hist_sector_alignment ?? '-'}</strong></div>
+        </div>
+      `;
+    
+      document.getElementById('regionResult').style.display = 'block';
+    }
+    
+    // Fallback simples para showTab, caso não exista:
+    (function ensureShowTabCompatibility(){
+      if (typeof window.showTab === 'function') return;
+      window.showTab = function(name) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        const el = document.getElementById(name + 'Tab');
+        if (el) el.style.display = 'block';
+      }
+    })();
+    </script>
+    <!-- [C] JAVASCRIPT: cole no final do <script> principal -->
+<script>
+    async function getNormalizedAnalysis() {
+      const rouletteId = document.getElementById('rouletteSelect').value;
+      if (!rouletteId) {
+        alert('Selecione uma roleta primeiro.');
+        return;
+      }
+    
+      // Mostrar loading
+      document.getElementById('normResult').style.display = 'none';
+      document.getElementById('normLoading').style.display = 'block';
+    
+      try {
+        // Coletar parâmetros
+        const time = document.getElementById('normTime').value;
+        const interval = document.getElementById('normInterval').value;
+        const days = document.getElementById('normDays').value;
+        const topK = document.getElementById('normTopK').value;
+        const kNeighbors = document.getElementById('normKNeighbors').value;
+        const alpha = document.getElementById('normAlpha').value;
+        const lambdaEsp = document.getElementById('normLambdaEsp').value;
+        const w0 = document.getElementById('normW0').value;
+        const w1 = document.getElementById('normW1').value;
+        const w2 = document.getElementById('normW2').value;
+        const w3 = document.getElementById('normW3').value;
+        const k0 = document.getElementById('normK0').value;
+        const k1 = document.getElementById('normK1').value;
+        const k2 = document.getElementById('normK2').value;
+        const k3 = document.getElementById('normK3').value;
+        const includeMirrors = document.getElementById('normIncludeMirrors').value;
+        const mirrorCap = document.getElementById('normMirrorCap').value;
+        const mirrorNeighbors = document.getElementById('normMirrorNeighbors').value;
+    
+        const params = new URLSearchParams();
+        params.append('days_back', days);
+        params.append('top_k', topK);
+        params.append('k_neighbors', kNeighbors);
+        params.append('alpha', alpha);
+        params.append('lambda_esp', lambdaEsp);
+        params.append('w0', w0);
+        params.append('w1', w1);
+        params.append('w2', w2);
+        params.append('w3', w3);
+        params.append('k0', k0);
+        params.append('k1', k1);
+        params.append('k2', k2);
+        params.append('k3', k3);
+        params.append('include_mirrors', includeMirrors);
+        params.append('mirror_weight_cap', mirrorCap);
+        params.append('mirror_neighbors', mirrorNeighbors);
+    
+        // time + interval são opcionais (apenas adiciona se preenchidos)
+        if (time) params.append('time', time);
+        if (interval) params.append('interval', interval);
+    
+        const url = `/api/analise/normalizada/${encodeURIComponent(rouletteId)}?${params.toString()}`;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.detail || ('Falha na requisição: ' + resp.status));
+        }
+        const data = await resp.json();
+        renderNormalizedResults(data);
+      } catch (e) {
+        console.error(e);
+        alert('Erro ao executar análise normalizada: ' + e.message);
+      } finally {
+        document.getElementById('normLoading').style.display = 'none';
+      }
+    }
+    
+    function renderNormalizedResults(data) {
+      // Header
+      const info = [];
+      info.push(`<strong>Roleta:</strong> ${data.roulette_id}`);
+      if (data.time) info.push(`<strong>Horário:</strong> ${data.time} (±${data.interval_minutes}m)`);
+      info.push(`<strong>Dias:</strong> ${data.days_back}`);
+      info.push(`<strong>Total de giros:</strong> ${data.total_spins}`);
+      document.getElementById('normHeader').innerHTML = info.join(' &nbsp;•&nbsp; ');
+    
+      // Params
+      const paramsPretty = JSON.stringify(data.params || {}, null, 2);
+      document.getElementById('normParams').textContent = paramsPretty;
+    
+      // Kernel
+      const kernelEntries = Object.entries(data.kernel || {}).map(([d, v]) => `d=${d}: ${v}`).join('\n');
+      document.getElementById('normKernel').textContent = kernelEntries || '(vazio)';
+    
+      // Ranking
+      const rankingBox = document.getElementById('normRanking');
+      rankingBox.innerHTML = '';
+      (data.ranking || []).forEach((r, idx) => {
+        const chipColor = r.number === 0 ? '#16a34a' : ([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(r.number) ? '#dc2626' : '#111827');
+        const el = document.createElement('div');
+        el.style.border = '2px solid #e5e7eb';
+        el.style.borderRadius = '10px';
+        el.style.padding = '10px';
+        el.style.background = '#fff';
+        el.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;flex-direction: column">
+            <div style="width:34px;height:34px;border-radius:50%;background:${chipColor};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;">${r.number}</div>
+            <div style="flex:1;">
+              <div style="font-weight:700;">#${idx+1} — score ${r.score_final.toFixed(6)}</div>
+              <div style="font-size:12px;color:#6b7280;">freq=${r.score_freq.toFixed(6)} • viz=${r.score_viz.toFixed(6)} • esp=${r.score_esp.toFixed(6)} • meta=${r.score_meta.toFixed(6)} • count=${r.count}</div>
+            </div>
+          </div>
+        `;
+        rankingBox.appendChild(el);
+      });
+    
+      // Cluster (último item do array é o mesclado/normalizado conforme a rota)
+      const clusterWrap = document.getElementById('normCluster');
+      clusterWrap.innerHTML = '';
+      const clusters = data.clusters || [];
+      const merged = clusters.length ? clusters[clusters.length - 1] : null;
+    
+      if (merged && merged.members && merged.members.length) {
+        // normalizado já vem com soma 1.0; escala visual
+        const maxW = merged.members[0].weight || 0.001;
+        merged.members.forEach(m => {
+          const size = 20 + Math.round((m.weight / maxW) * 28); // 20..48 px
+          const chipColor = m.number === 0 ? '#16a34a' : ([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(m.number) ? '#dc2626' : '#111827');
+          const chip = document.createElement('div');
+          chip.title = `#${m.number} — peso ${m.weight.toFixed(4)}`;
+          chip.style.width = chip.style.height = size + 'px';
+          chip.style.borderRadius = '50%';
+          chip.style.display = 'flex';
+          chip.style.alignItems = 'center';
+          chip.style.justifyContent = 'center';
+          chip.style.color = '#fff';
+          chip.style.background = chipColor;
+          chip.style.fontWeight = '700';
+          chip.style.fontSize = '13px';
+          chip.textContent = m.number;
+          clusterWrap.appendChild(chip);
+        });
+      } else {
+        clusterWrap.innerHTML = '<em>Nenhum cluster retornado.</em>';
+      }
+    
+      // Exibe resultado
+      document.getElementById('normResult').style.display = 'block';
+    }
+    
+    // Dica UX: quando o usuário abrir a aba, preenche o horário atual por padrão
+    document.addEventListener('click', (ev) => {
+      const el = ev.target;
+      if (el && el.classList.contains('tab-btn')) {
+        const name = el.getAttribute('onclick')?.match(/showTab\('(.+?)'\)/)?.[1];
+        if (name === 'normalized') {
+          const now = new Date();
+          const hh = String(now.getHours()).padStart(2,'0');
+          const mm = String(now.getMinutes()).padStart(2,'0');
+          const t = document.getElementById('normTime');
+          if (t && !t.value) t.value = `${hh}:${mm}`;
+        }
+      }
+    });
+    </script>
+    
+</body>
+</html>

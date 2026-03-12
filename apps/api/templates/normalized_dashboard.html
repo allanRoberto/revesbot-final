@@ -1,0 +1,326 @@
+<!-- templates/normalized_dashboard.html -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Dashboard | Análise Normalizada</title>
+  <style>
+    :root {
+      --bg:#0b0f16; --card:#121826; --muted:#7b88a8; --text:#e5eefb; --accent:#3b82f6; --ok:#10b981; --bad:#ef4444; --warn:#f59e0b;
+      --table:#0f1624; --chip:#1f2937;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu; }
+    header {
+      padding:20px; border-bottom:1px solid #182136; position:sticky; top:0;
+      background:linear-gradient(180deg, rgba(11,15,22,.95), rgba(11,15,22,.85));
+      backdrop-filter: blur(6px); z-index:5;
+    }
+    h1 { margin:0; font-size:18px; letter-spacing:.5px; }
+    .container { max-width:1200px; margin:0 auto; padding:20px; }
+    .grid { display:grid; gap:16px; }
+    .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    .card {
+      background:var(--card); border:1px solid #1b2336; border-radius:14px; padding:16px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .kpi { display:flex; gap:12px; align-items: baseline; }
+    .kpi h3 { margin:0; font-size:12px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.6px; }
+    .kpi .val { font-size:28px; font-weight:700; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input, select {
+      background:#0c1322; color:var(--text); border:1px solid #1b2336; border-radius:10px; padding:8px 10px; outline:none;
+    }
+    input::placeholder { color:#71809f; }
+    button {
+      background:var(--accent); border:none; color:white; border-radius:10px; padding:10px 12px; font-weight:600; cursor:pointer;
+    }
+    button.ghost { background:transparent; border:1px solid #25304a; }
+    button.danger { background:var(--bad); }
+    table { width:100%; border-collapse:collapse; background:var(--table); border-radius:12px; overflow:hidden; }
+    thead th { text-align:left; padding:10px 12px; font-size:12px; color:#a9b5d4; background:#11192b; }
+    tbody td { padding:10px 12px; border-top:1px solid #19223a; vertical-align:top; }
+    .tag { background:var(--chip); border:1px solid #26324a; color:#b7c5e6; padding:2px 8px; border-radius:999px; font-size:12px; }
+    .status-hit { color:var(--ok); font-weight:700; }
+    .status-lost { color:var(--bad); font-weight:700; }
+    .status-pending { color:var(--warn); font-weight:700; }
+    .mono { font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; }
+    .flex-between { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    small.mono { color:#90a0c2; }
+    .chips { display:flex; gap:6px; flex-wrap:wrap; }
+    .nowrap { white-space: nowrap; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container flex-between">
+      <h1>Análise Normalizada — Dashboard</h1>
+      <div class="row">
+        <input id="f-roulette" type="text" placeholder="Filtrar por slug (ex: pragmatic-brazilian-roulette)" style="min-width:340px"/>
+        <select id="f-hours">
+          <option value="1">Últ. 1h</option>
+          <option value="3">Últ. 3h</option>
+          <option value="6">Últ. 6h</option>
+          <option value="12">Últ. 12h</option>
+          <option value="24" selected>Últ. 24h</option>
+          <option value="72">Últ. 72h</option>
+          <option value="168">Últ. 7d</option>
+        </select>
+        <select id="f-status">
+          <option value="">Status: Todos</option>
+          <option value="pending">Pendentes</option>
+          <option value="hit">Hits</option>
+          <option value="lost">Lost</option>
+        </select>
+        <select id="f-limit">
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+        </select>
+        <button id="btn-refresh">Atualizar</button>
+        <button id="btn-autorefresh" class="ghost">Auto 15s: OFF</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container grid cols-3" id="kpis">
+    <div class="card kpi"><div>
+      <h3>Total</h3><div class="val" id="k-total">0</div>
+      <small class="mono" id="k-filter"></small>
+    </div></div>
+    <div class="card kpi"><div>
+      <h3>Hits / Lost / Pending</h3>
+      <div class="val"><span class="status-hit" id="k-hits">0</span> / <span class="status-lost" id="k-lost">0</span> / <span class="status-pending" id="k-pending">0</span></div>
+    </div></div>
+    <div class="card kpi"><div>
+      <h3>Hit Rate (resolvidas)</h3><div class="val" id="k-hitrate">0%</div>
+      <small class="mono" id="k-window"></small>
+    </div></div>
+  </div>
+
+  <div class="container grid cols-2" style="margin-top:16px">
+    <div class="card">
+      <div class="flex-between">
+        <h3 style="margin:0">Por Mesa (Top)</h3>
+        <small class="mono" id="sum-last"></small>
+      </div>
+      <div style="overflow:auto; margin-top:10px">
+        <table>
+          <thead>
+            <tr>
+              <th>Mesa</th>
+              <th class="nowrap">Hit Rate</th>
+              <th>Total</th>
+              <th>Hits</th>
+              <th>Lost</th>
+              <th>Pending</th>
+              <th>Última Previsão</th>
+            </tr>
+          </thead>
+          <tbody id="table-agg"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="flex-between">
+        <h3 style="margin:0">Previsões Recentes</h3>
+        <div class="actions">
+          <select id="f-del-window" title="Escolha a janela a excluir">
+            <option value="30m">Excluir últimas 30 min</option>
+            <option value="1h">Excluir última 1 hora</option>
+            <option value="all">Excluir TODAS</option>
+          </select>
+          <button id="btn-delete" class="danger">Excluir</button>
+        </div>
+      </div>
+      <div style="overflow:auto; margin-top:10px; max-height:520px">
+        <table>
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Mesa</th>
+              <th>Status</th>
+              <th class="nowrap">Bets (#)</th>
+              <th>Resultado</th>
+              <th class="nowrap">Janela</th>
+              <th>Vetos</th>
+            </tr>
+          </thead>
+          <tbody id="table-items"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+
+    const fRoulette = $('#f-roulette');
+    const fHours = $('#f-hours');
+    const fStatus = $('#f-status');
+    const fLimit = $('#f-limit');
+    const btnRefresh = $('#btn-refresh');
+    const btnAuto = $('#btn-autorefresh');
+    const fDelWindow = $('#f-del-window');
+    const btnDelete = $('#btn-delete');
+
+    let auto = false;
+    let timer = null;
+
+    btnAuto.addEventListener('click', () => {
+      auto = !auto;
+      btnAuto.textContent = auto ? 'Auto 15s: ON' : 'Auto 15s: OFF';
+      if (auto) {
+        run();
+        timer = setInterval(run, 15000);
+      } else {
+        clearInterval(timer);
+      }
+    });
+
+    btnRefresh.addEventListener('click', run);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') run();
+    });
+
+    btnDelete.addEventListener('click', async () => {
+      const windowVal = fDelWindow.value;
+      const slug = fRoulette.value.trim();
+      const scope = slug ? `para a mesa "${slug}"` : 'para TODAS as mesas';
+      let msg = '';
+      if (windowVal === '30m') msg = `Tem certeza que deseja excluir as previsões das ÚLTIMAS 30 MIN ${scope}?`;
+      else if (windowVal === '1h') msg = `Tem certeza que deseja excluir as previsões da ÚLTIMA 1 HORA ${scope}?`;
+      else msg = `Tem certeza que deseja excluir TODAS as previsões ${scope}? Esta ação é irreversível.`;
+      if (!confirm(msg)) return;
+
+      const q = new URLSearchParams();
+      q.set('window', windowVal);
+      if (slug) q.set('roulette_id', slug);
+
+      try {
+        const res = await fetch('/api/analise/normalizada/predictions?' + q.toString(), { method: 'DELETE' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        alert(`Excluídas ${data.deleted_count} previsões (${data.window})` + (data.roulette_id ? ` da mesa ${data.roulette_id}` : ''));
+        run();
+      } catch (e) {
+        alert('Erro ao excluir previsões: ' + (e?.message || e));
+        console.error(e);
+      }
+    });
+
+    async function fetchJSON(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+
+    function esc(s) {
+      if (s == null) return '';
+      return String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);
+    }
+
+    function fmtPct(x) {
+      if (x == null) return '0%';
+      return Number(x).toFixed(2) + '%';
+    }
+
+    function renderKPIs(meta) {
+      $('#k-total').textContent = meta.summary.total;
+      $('#k-hits').textContent = meta.summary.hits;
+      $('#k-lost').textContent = meta.summary.lost;
+      $('#k-pending').textContent = meta.summary.pending;
+      $('#k-hitrate').textContent = fmtPct(meta.summary.hit_rate);
+      $('#k-filter').textContent = meta.filters.roulette_id ? ('Filtro: ' + meta.filters.roulette_id) : 'Filtro: todas as mesas';
+      $('#k-window').textContent = 'Janela: ' + meta.filters.hours_back + 'h';
+    }
+
+    function renderAgg(rows) {
+      const tbody = $('#table-agg');
+      tbody.innerHTML = '';
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="mono">${esc(r.roulette_id)}</span></td>
+          <td><b>${fmtPct(r.hit_rate)}</b></td>
+          <td>${r.total}</td>
+          <td class="status-hit"><b>${r.hits}</b></td>
+          <td class="status-lost"><b>${r.lost}</b></td>
+          <td class="status-pending"><b>${r.pending}</b></td>
+          <td><small class="mono">${esc(r.last_created_brt || '')}</small></td>
+        `;
+        tbody.appendChild(tr);
+      }
+      const sum = rows.length ? 'Total mesas: ' + rows.length : '';
+      const el = document.getElementById('sum-last');
+      if (el) el.textContent = sum;
+    }
+
+    function renderItems(items) {
+      const tbody = $('#table-items');
+      tbody.innerHTML = '';
+      for (const it of items) {
+        const st = it.status === 'hit' ? 'status-hit' : (it.status === 'lost' ? 'status-lost' : 'status-pending');
+        const bets = esc((it.bet_numbers || []).join(', '));
+        const betsCount = it.bets_count || (it.bet_numbers ? it.bet_numbers.length : 0);
+        const resNum = it.result_number != null ? it.result_number : '-';
+        const resOk = it.result_ok === true ? '<span class="status-hit">✓</span>'
+                    : (it.result_ok === false ? '<span class="status-lost">✗</span>' : '');
+        const vetos = (it.vetos || []).map(v => `<span class="tag">${esc(v)}</span>`).join(' ');
+        const janela = (it.time ? esc(it.time) : '--') + ' ± ' + (it.interval_minutes ?? '-') + 'm';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono nowrap">${esc(it.created_at_brt || '')}</td>
+          <td class="mono">${esc(it.roulette_id)}</td>
+          <td class="${st}"><b>${esc(it.status)}</b></td>
+          <td>
+            <div class="chips">
+              <span class="tag">#${betsCount}</span>
+              <span class="mono" title="${bets}">${bets.length > 64 ? esc(bets.slice(0,64)) + '…' : bets}</span>
+            </div>
+          </td>
+          <td><div class="chips"><span class="tag">n=${resNum}</span> ${resOk}</div></td>
+          <td class="mono nowrap">${janela}</td>
+          <td>${vetos}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function run() {
+      const q = new URLSearchParams();
+      if (fRoulette.value.trim()) q.set('roulette_id', fRoulette.value.trim());
+      q.set('hours_back', fHours.value);
+
+      try {
+        const meta = await fetchJSON('/api/analise/normalizada/metrics?' + q.toString());
+        renderKPIs(meta);
+        renderAgg(meta.by_roulette || []);
+        const sumEl = document.getElementById('sum-last');
+        if (sumEl && meta.by_roulette) sumEl.textContent = 'Total mesas: ' + meta.by_roulette.length;
+      } catch (e) {
+        console.error('metrics error', e);
+      }
+
+      const q2 = new URLSearchParams(q.toString());
+      if (fStatus.value) q2.set('status', fStatus.value);
+      q2.set('limit', fLimit.value);
+
+      try {
+        const data = await fetchJSON('/api/analise/normalizada/predictions?' + q2.toString());
+        renderItems(data.items || []);
+      } catch (e) {
+        console.error('predictions error', e);
+      }
+    }
+
+    run();
+  </script>
+</body>
+</html>

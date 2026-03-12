@@ -1,0 +1,27 @@
+{
+  "id": "color_neighbor_alternation_missing_entry",
+  "name": "Color Neighbor Alternation Missing Entry",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 97,
+  "weight": 3.8,
+  "evaluator": "color_neighbor_alternation_missing_entry",
+  "max_numbers": 16,
+  "params": {
+    "wait_spins": 4,
+    "attempts_per_count": 6,
+    "base_score": 1.0,
+    "near_neighbor_score": 0.9,
+    "far_neighbor_score": 0.75,
+    "zero_score": 0.7,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 6,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.35
+    }
+  }
+}

@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizer - Sistema Completo de Análise</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+        }
+        .numero-chip {
+            transition: all 0.3s ease;
+        }
+        .numero-chip:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+        .consenso-total { 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+        .consenso-duplo { 
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+        .faltante-badge {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .loading {
+            border: 4px solid #1e293b;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .tab-active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+        
+        /* Novos estilos para força do sinal */
+        .forca-muito-forte {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+        }
+        .forca-forte {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        }
+        .forca-moderada {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+        }
+        .forca-fraca {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        }
+        
+        /* Animação para números validados por âncoras */
+        .validado-ancora {
+            position: relative;
+            overflow: hidden;
+        }
+        .validado-ancora::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent,
+                rgba(59, 130, 246, 0.3),
+                transparent
+            );
+            animation: shine 2s infinite;
+        }
+        @keyframes shine {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Indicador de comportamento */
+        .comportamento-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">
+                🎯 Analizer - Sistema Completo
+            </h1>
+            <p class="text-gray-400">6 Padrões + Comportamentos Imediatos + Validação por Âncoras</p>
+            <p class="text-gray-500 text-sm mt-2">{{ dados.roulette_id }}</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-gray-800/50 backdrop-blur-sm rounded-t-xl border-x border-t border-gray-700">
+            <div class="flex gap-4 px-6 pt-4 overflow-x-auto">
+                <button onclick="showTab('sugestao')" id="tab-sugestao" class="tab-active pb-2 px-2 font-semibold transition-all whitespace-nowrap">
+                    📊 Sugestão Atual
+                </button>
+                <button onclick="showTab('analise')" id="tab-analise" class="pb-2 px-2 text-gray-400 hover:text-white font-semibold transition-all whitespace-nowrap">
+                    🧠 Análise Avançada
+                </button>
+                <button onclick="showTab('config')" id="tab-config" class="pb-2 px-2 text-gray-400 hover:text-white font-semibold transition-all whitespace-nowrap">
+                    ⚙️ Configurações
+                </button>
+                <button onclick="showTab('historico')" id="tab-historico" class="pb-2 px-2 text-gray-400 hover:text-white font-semibold transition-all whitespace-nowrap">
+                    📜 Histórico (20)
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab: Sugestão Atual -->
+        <div id="content-sugestao" class="bg-gray-800/50 backdrop-blur-sm rounded-b-xl p-6 mb-6 border border-gray-700">
+            
+            <!-- NOVA SEÇÃO: Força do Sinal e Recomendação -->
+            {% if dados.analise.forca_sinal %}
+            <div class="mb-6 p-4 rounded-xl 
+                {% if dados.analise.forca_sinal.classificacao == 'MUITO_FORTE' %}forca-muito-forte
+                {% elif dados.analise.forca_sinal.classificacao == 'FORTE' %}forca-forte
+                {% elif dados.analise.forca_sinal.classificacao == 'MODERADA' %}forca-moderada
+                {% else %}forca-fraca{% endif %}">
+                
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-white font-bold text-lg mb-1">
+                            💪 Força do Sinal: {{ dados.analise.forca_sinal.classificacao }}
+                        </h3>
+                        <p class="text-white/90 text-sm">
+                            Confiança: {{ (dados.analise.forca_sinal.confianca * 100) | round }}%
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold text-white">{{ dados.analise.forca_sinal.valor }}/100</div>
+                        <div class="text-xs text-white/70">pontos</div>
+                    </div>
+                </div>
+                
+                {% if dados.analise.recomendacao %}
+                <div class="mt-4 pt-4 border-t border-white/20">
+                    <div class="text-white font-semibold mb-2">
+                        🎯 {{ dados.analise.recomendacao.acao }}
+                    </div>
+                    <p class="text-white/90 text-sm mb-2">
+                        {{ dados.analise.recomendacao.descricao }}
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        <div>
+                            <span class="text-white/70">📊 Cobertura:</span>
+                            <span class="text-white">{{ dados.analise.recomendacao.cobertura }}</span>
+                        </div>
+                        <div>
+                            <span class="text-white/70">💰 Gestão:</span>
+                            <span class="text-white">{{ dados.analise.recomendacao.gestao }}</span>
+                        </div>
+                    </div>
+                    {% if dados.analise.recomendacao.estrategia_especifica %}
+                    <div class="mt-2 text-sm">
+                        <span class="text-white/70">🎲 Estratégia:</span>
+                        <span class="text-white">{{ dados.analise.recomendacao.estrategia_especifica }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- NOVA SEÇÃO: Comportamento Dominante -->
+            {% if dados.analise.comportamento_dominante %}
+            <div class="mb-6 bg-gray-700/50 rounded-xl p-4 border border-gray-600">
+                <h3 class="text-white font-bold mb-3">🔍 Comportamento Dominante</h3>
+                <div class="flex items-center gap-3">
+                    <span class="comportamento-badge bg-purple-600/20 text-purple-400 border border-purple-600/30">
+                        {{ dados.analise.comportamento_dominante.tipo | upper }}
+                    </span>
+                    <span class="text-gray-300 text-sm">
+                        {{ dados.analise.comportamento_dominante.descricao }}
+                    </span>
+                    <span class="ml-auto text-gray-400 text-sm">
+                        Força: {{ dados.analise.comportamento_dominante.forca }}
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Último número e últimos 10 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-gray-700/50 rounded-xl p-4 text-center">
+                    <p class="text-gray-400 mb-2">Último Número</p>
+                    <div class="text-4xl font-bold text-yellow-400">
+                        {{ dados.ultimo_numero }}
+                    </div>
+                </div>
+                <div class="bg-gray-700/50 rounded-xl p-4">
+                    <p class="text-gray-400 mb-2">Últimos 10 Números</p>
+                    <div class="flex gap-1 flex-wrap">
+                        {% for num in dados.analise.ultimos_10 %}
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                            {{ num }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sugestões Principais -->
+            <div class="bg-gray-700/50 rounded-xl p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-white">
+                        🎯 Sugestões Principais
+                    </h2>
+                    <span class="text-gray-400 text-sm">
+                        Top {{ dados.sugestoes.principais | length }} números
+                    </span>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {% for item in dados.sugestoes.principais %}
+                    <div class="bg-gray-800/70 rounded-xl p-4 border border-gray-600 
+                        {% if item.validado_ancoras %}validado-ancora{% endif %}
+                        {% if item.consenso == 'forca_maxima_6/6+ancoras' %}border-green-500{% endif %}">
+                        
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="numero-chip w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold 
+                                {% if item.consenso == 'forca_maxima_6/6+ancoras' %}consenso-total
+                                {% elif 'confluencia_ancoras' in item.consenso %}bg-blue-600
+                                {% elif 'quintuplo' in item.consenso %}bg-green-600
+                                {% elif 'quadruplo' in item.consenso %}bg-blue-500
+                                {% elif 'triplo' in item.consenso %}bg-purple-600
+                                {% elif 'duplo' in item.consenso %}consenso-duplo
+                                {% else %}bg-gray-600{% endif %} text-white">
+                                {{ item.numero }}
+                            </div>
+                            
+                            <div class="text-right">
+                                <div class="text-xs text-gray-500">#{{ item.ranking }}</div>
+                                <div class="text-xs text-gray-400 mt-1">
+                                    {{ (item.score * 100) | round(2) }}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-1">
+                            {% if item.faltante %}
+                            <span class="faltante-badge inline-block px-2 py-1 bg-yellow-600/20 text-yellow-400 text-xs rounded-full">
+                                💫 Faltante
+                            </span>
+                            {% endif %}
+                            
+                            {% if item.validado_ancoras %}
+                            <span class="inline-block px-2 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-full">
+                                ⚓ Validado
+                            </span>
+                            {% endif %}
+                            
+                            <div class="text-xs text-gray-500 mt-2">
+                                {{ item.consenso | replace('_', ' ') | title }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Proteções -->
+            {% if dados.sugestoes.protecoes %}
+            <div class="bg-gray-700/50 rounded-xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-white">
+                        🛡️ Proteções
+                    </h2>
+                    <span class="text-gray-400 text-sm">
+                        {{ dados.sugestoes.protecoes | length }} números adicionais
+                    </span>
+                </div>
+                
+                <div class="flex gap-2 flex-wrap">
+                    {% for prot in dados.sugestoes.protecoes %}
+                    <div class="relative group">
+                        <div class="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-white font-semibold hover:bg-gray-500 transition-colors">
+                            {{ prot.numero }}
+                        </div>
+                        <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-xs text-gray-300 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {{ prot.tipo }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-gray-600">
+                    <p class="text-gray-400 text-sm">
+                        📊 Total de números cobertos: <span class="text-white font-semibold">{{ dados.sugestoes.total_numeros }}</span>
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab: Análise Avançada (NOVA) -->
+        <div id="content-analise" class="hidden bg-gray-800/50 backdrop-blur-sm rounded-b-xl p-6 mb-6 border border-gray-700">
+            
+            <!-- Validação por Âncoras -->
+            {% if dados.validacao_ancoras %}
+            <div class="mb-6 bg-gray-700/50 rounded-xl p-6 border border-gray-600">
+                <h2 class="text-xl font-bold text-white mb-4">⚓ Validação por Múltiplas Âncoras</h2>
+                
+                {% if dados.validacao_ancoras.confluencia_detectada %}
+                <div class="bg-green-600/20 border border-green-600/30 rounded-lg p-4 mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-400 text-2xl">✓</span>
+                        <div>
+                            <p class="text-green-400 font-semibold">Confluência Detectada!</p>
+                            <p class="text-green-400/80 text-sm">
+                                Início e fim do padrão concordam. Boost de {{ (dados.validacao_ancoras.boost_multiplicador * 100) | round }}% aplicado.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-gray-600/20 border border-gray-600/30 rounded-lg p-4 mb-4">
+                    <p class="text-gray-400">Sem confluência detectada neste ciclo.</p>
+                </div>
+                {% endif %}
+                
+                {% if dados.validacao_ancoras.estrutura %}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gray-800/50 rounded-lg p-3">
+                        <p class="text-gray-400 text-sm mb-1">Âncora Início</p>
+                        <p class="text-white font-bold text-xl">
+                            {{ dados.validacao_ancoras.ancora_inicio | default('-') }}
+                        </p>
+                    </div>
+                    <div class="bg-gray-800/50 rounded-lg p-3">
+                        <p class="text-gray-400 text-sm mb-1">Desenvolvimento</p>
+                        <p class="text-white font-bold">
+                            {% if dados.validacao_ancoras.estrutura.desenvolvimento %}
+                                {{ dados.validacao_ancoras.estrutura.desenvolvimento | join(', ') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="bg-gray-800/50 rounded-lg p-3">
+                        <p class="text-gray-400 text-sm mb-1">Âncora Quebra</p>
+                        <p class="text-white font-bold text-xl">
+                            {{ dados.validacao_ancoras.ancora_quebra | default('-') }}
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if dados.validacao_ancoras.terminais_confluentes %}
+                <div class="mt-4">
+                    <p class="text-gray-400 text-sm mb-2">Terminais Confluentes:</p>
+                    <div class="flex gap-2">
+                        {% for terminal in dados.validacao_ancoras.terminais_confluentes %}
+                        <span class="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full text-sm font-semibold">
+                            Terminal {{ terminal }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Comportamentos Imediatos -->
+            {% if dados.padroes.comportamentos_imediatos %}
+            <div class="mb-6 bg-gray-700/50 rounded-xl p-6 border border-gray-600">
+                <h2 class="text-xl font-bold text-white mb-4">⚡ Comportamentos Imediatos</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% if dados.padroes.comportamentos_imediatos.alternancia_tripla %}
+                    <div class="bg-green-600/20 border border-green-600/30 rounded-lg p-3">
+                        <p class="text-green-400 font-semibold">✓ Alternância Tripla Detectada</p>
+                        <p class="text-green-400/70 text-sm">Terminal alternando 3x</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if dados.padroes.comportamentos_imediatos.repeticoes_duplas > 0 %}
+                    <div class="bg-blue-600/20 border border-blue-600/30 rounded-lg p-3">
+                        <p class="text-blue-400 font-semibold">{{ dados.padroes.comportamentos_imediatos.repeticoes_duplas }} Repetições Duplas</p>
+                        <p class="text-blue-400/70 text-sm">Vizinhos/Espelhos repetindo</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if dados.padroes.comportamentos_imediatos.cavalos_incompletos %}
+                    <div class="bg-purple-600/20 border border-purple-600/30 rounded-lg p-3">
+                        <p class="text-purple-400 font-semibold">Cavalos Incompletos</p>
+                        <p class="text-purple-400/70 text-sm">
+                            {% for cavalo in dados.padroes.comportamentos_imediatos.cavalos_incompletos %}
+                                {{ cavalo | join(',') }}{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if dados.padroes.comportamentos_imediatos.crescentes_detectadas %}
+                    <div class="bg-amber-600/20 border border-amber-600/30 rounded-lg p-3">
+                        <p class="text-amber-400 font-semibold">Crescentes Detectadas</p>
+                        <p class="text-amber-400/70 text-sm">Sequências ordenadas ativas</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-gray-600">
+                    <div class="flex justify-between items-center">
+                        <p class="text-gray-400">Confiança do Padrão:</p>
+                        <div class="flex items-center gap-2">
+                            <div class="w-32 h-2 bg-gray-600 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded-full"
+                                     style="width: {{ (dados.padroes.comportamentos_imediatos.confianca * 100) | round }}%">
+                                </div>
+                            </div>
+                            <span class="text-white font-semibold">
+                                {{ (dados.padroes.comportamentos_imediatos.confianca * 100) | round }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Status dos 6 Padrões -->
+            <div class="bg-gray-700/50 rounded-xl p-6 border border-gray-600">
+                <h2 class="text-xl font-bold text-white mb-4">📊 Status dos 6 Padrões</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- MASTER -->
+                    <div class="bg-gray-800/50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-blue-400">🎯 MASTER</h3>
+                            <span class="text-xs text-gray-500">{{ (dados.configuracao.pesos.master * 100) | round }}%</span>
+                        </div>
+                        <p class="text-gray-300 text-sm">
+                            {{ dados.padroes.master.padroes_encontrados }} padrões exatos
+                        </p>
+                        <p class="text-gray-500 text-xs mt-1">
+                            Modo: {{ dados.padroes.master.modo }}
+                        </p>
+                    </div>
+                    
+                    <!-- ESTELAR -->
+                    <div class="bg-gray-800/50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-purple-400">⭐ ESTELAR</h3>
+                            <span class="text-xs text-gray-500">{{ (dados.configuracao.pesos.estelar * 100) | round }}%</span>
+                        </div>
+                        <p class="text-gray-300 text-sm">
+                            {{ dados.padroes.estelar.padroes_equivalentes }} equivalências
+                        </p>
+                    </div>
+                    
+                    <!-- CHAIN -->
+                    <div class="bg-gray-800/50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-green-400">🔗 CHAIN</h3>
+                            <span class="text-xs text-gray-500">{{ (dados.configuracao.pesos.chain * 100) | round }}%</span>
+                        </div>
+                        <p class="text-gray-300 text-sm">
+                            {{ dados.padroes.chain.cadeias_aprendidas }} cadeias
+                        </p>
+                        <p class="text-gray-500 text-xs mt-1">
+                            Inversões: {{ dados.padroes.chain.inversoes }}
+                        </p>
+                    </div>
+                    
+                    <!-- PUXADAS -->
+                    <div class="bg-gray-800/50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-amber-400">🎲 PUXADAS</h3>
+                            <span class="text-xs text-gray-500">{{ (dados.configuracao.pesos.puxadas * 100) | round }}%</span>
+                        </div>
+                        <p class="text-gray-300 text-sm">
+                            Gatilho: {{ dados.padroes.puxadas.numero_gatilho | default('-') }}
+                        </p>
+                        <p class="text-gray-500 text-xs mt-1">
+                            {{ dados.padroes.puxadas.puxados_encontrados }} puxados
+                        </p>
+                    </div>
+                    
+                    <!-- TEMPORAL -->
+                    <div class="bg-gray-800/50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-cyan-400">⏰ TEMPORAL</h3>
+                            <span class="text-xs text-gray-500">{{ (dados.configuracao.pesos.temporal * 100) | round }}%</span>
+                        </div>
+                        <p class="text-gray-300 text-sm">
+                            {{ dados.padroes.temporal.candidates_found }} candidatos
+                        </p>
+                        <p class="text-gray-500 text-xs mt-1">
+                            {{ dados.padroes.temporal.time_analyzed }}
+                        </p>
+                    </div>
+                    
+                    <!-- COMPORTAMENTOS -->
+                    <div class="bg-gray-800/50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-pink-400">⚡ COMPORTAMENTOS</h3>
+                            <span class="text-xs text-gray-500">{{ (dados.configuracao.pesos.comportamentos * 100) | round }}%</span>
+                        </div>
+                        <p class="text-gray-300 text-sm">
+                            Confiança: {{ (dados.padroes.comportamentos_imediatos.confianca * 100) | round }}%
+                        </p>
+                        <p class="text-gray-500 text-xs mt-1">
+                            Top: {{ dados.padroes.comportamentos_imediatos.top_5[:3] | join(', ') }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Configurações -->
+        <div id="content-config" class="hidden bg-gray-800/50 backdrop-blur-sm rounded-b-xl p-6 mb-6 border border-gray-700">
+            <h2 class="text-xl font-bold text-white mb-4">⚙️ Configurações da API</h2>
+            <form id="configForm" class="space-y-6">
+                
+                <!-- Seção: Parâmetros Gerais -->
+                <div>
+                    <h3 class="text-lg font-semibold text-blue-400 mb-3">📋 Parâmetros Gerais</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Quantidade -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                Quantidade de Sugestões
+                                <span class="text-gray-500 text-xs">(1-15)</span>
+                            </label>
+                            <input type="number" id="config-quantidade" name="quantidade" min="1" max="15"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                   value="5">
+                        </div>
+
+                        <!-- Máximo de Proteções -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                Máximo de Proteções
+                                <span class="text-gray-500 text-xs">(0-12)</span>
+                            </label>
+                            <input type="number" id="config-max-protecoes" name="max_protecoes" min="0" max="12"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                   value="6">
+                        </div>
+
+                        <!-- Confiança Mínima -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                Confiança Mínima
+                                <span class="text-gray-500 text-xs">(0.0 - 1.0)</span>
+                            </label>
+                            <input type="number" id="config-min-confianca" name="min_confianca" min="0" max="1" step="0.1"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                   value="0.6">
+                        </div>
+                    </div>
+
+                    <!-- Checkboxes -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="config-incluir-protecoes" name="incluir_protecoes" checked
+                                   class="w-5 h-5 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 text-blue-600 mr-3">
+                            <span class="text-gray-300">Incluir Proteções</span>
+                        </label>
+
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="config-incluir-zero" name="incluir_zero" checked
+                                   class="w-5 h-5 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 text-blue-600 mr-3">
+                            <span class="text-gray-300">Incluir Zero</span>
+                        </label>
+
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="config-usar-pesos-dinamicos" name="usar_pesos_dinamicos" checked
+                                   class="w-5 h-5 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 text-blue-600 mr-3">
+                            <span class="text-gray-300">🆕 Pesos Dinâmicos</span>
+                        </label>
+
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="config-validar-ancoras" name="validar_ancoras" checked
+                                   class="w-5 h-5 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 text-blue-600 mr-3">
+                            <span class="text-gray-300">🆕 Validar Âncoras</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Seção: Pesos do Ensemble -->
+                <div>
+                    <h3 class="text-lg font-semibold text-purple-400 mb-3">⚖️ Pesos do Ensemble (6 Padrões)</h3>
+                    <p class="text-gray-400 text-sm mb-3">
+                        💡 Ajuste o peso de cada padrão. Soma: <span id="soma-pesos" class="font-bold text-white">1.00</span>
+                    </p>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <!-- Peso MASTER -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                🎯 MASTER
+                            </label>
+                            <input type="number" id="config-w-master" name="w_master" min="0" max="1" step="0.05"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600"
+                                   value="0.12" onchange="atualizarSomaPesos()">
+                        </div>
+
+                        <!-- Peso ESTELAR -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                ⭐ ESTELAR
+                            </label>
+                            <input type="number" id="config-w-estelar" name="w_estelar" min="0" max="1" step="0.05"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600"
+                                   value="0.12" onchange="atualizarSomaPesos()">
+                        </div>
+
+                        <!-- Peso CHAIN -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                🔗 CHAIN
+                            </label>
+                            <input type="number" id="config-w-chain" name="w_chain" min="0" max="1" step="0.05"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600"
+                                   value="0.12" onchange="atualizarSomaPesos()">
+                        </div>
+
+                        <!-- Peso PUXADAS -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                🎲 PUXADAS
+                            </label>
+                            <input type="number" id="config-w-puxadas" name="w_puxadas" min="0" max="1" step="0.05"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600"
+                                   value="0.12" onchange="atualizarSomaPesos()">
+                        </div>
+
+                        <!-- Peso TEMPORAL -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                ⏰ TEMPORAL
+                            </label>
+                            <input type="number" id="config-w-temporal" name="w_temporal" min="0" max="1" step="0.05"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600"
+                                   value="0.12" onchange="atualizarSomaPesos()">
+                        </div>
+
+                        <!-- Peso COMPORTAMENTOS -->
+                        <div>
+                            <label class="text-gray-300 text-sm block mb-2">
+                                ⚡ COMPORTAMENTOS
+                            </label>
+                            <input type="number" id="config-w-comportamentos" name="w_comportamentos" min="0" max="1" step="0.05"
+                                   class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600"
+                                   value="0.40" onchange="atualizarSomaPesos()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="flex gap-4 pt-4">
+                    <button type="button" onclick="salvarConfiguracoes()" 
+                            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+                        💾 Salvar e Aplicar
+                    </button>
+                    <button type="button" onclick="resetarConfiguracoes()" 
+                            class="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors">
+                        🔄 Resetar Padrão
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab: Histórico -->
+        <div id="content-historico" class="hidden bg-gray-800/50 backdrop-blur-sm rounded-b-xl p-6 mb-6 border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white">📜 Histórico de Sugestões</h2>
+                <button onclick="limparHistorico()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors">
+                    🗑️ Limpar Tudo
+                </button>
+            </div>
+            <div id="lista-historico" class="space-y-4">
+                <!-- Será preenchido dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // GERENCIAMENTO DE CONFIGURAÇÕES
+        // ==========================================
+        
+        const CONFIG_KEY = 'analizer_config_v2';
+        const HISTORICO_KEY = 'analizer_historico_v2';
+
+        function salvarConfiguracoes() {
+            const form = document.getElementById('configForm');
+            const formData = new FormData(form);
+            const config = {};
+
+            // Converter FormData para objeto
+            for (let [key, value] of formData) {
+                if (key.includes('incluir_') || key.includes('usar_') || key.includes('validar_')) {
+                    config[key] = true;
+                } else if (key.startsWith('w_') || key === 'min_confianca') {
+                    config[key] = parseFloat(value);
+                } else {
+                    config[key] = isNaN(value) ? value : parseInt(value);
+                }
+            }
+
+            // Adicionar checkboxes desmarcados
+            ['incluir_protecoes', 'incluir_zero', 'usar_pesos_dinamicos', 'validar_ancoras'].forEach(key => {
+                if (!config.hasOwnProperty(key)) {
+                    config[key] = false;
+                }
+            });
+
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+            alert('✅ Configurações salvas! Atualizando...');
+            atualizarSugestao();
+        }
+
+        function carregarConfiguracoes() {
+            const saved = localStorage.getItem(CONFIG_KEY);
+            if (saved) {
+                return JSON.parse(saved);
+            }
+            
+            // Configuração padrão otimizada para maior assertividade
+            return {
+                quantidade: 5,
+                incluir_protecoes: true,
+                max_protecoes: 6,
+                incluir_zero: true,
+                min_confianca: 0.60,
+                usar_pesos_dinamicos: true,
+                validar_ancoras: true,
+                w_master: 0.12,
+                w_estelar: 0.12,
+                w_chain: 0.12,
+                w_puxadas: 0.12,
+                w_temporal: 0.12,
+                w_comportamentos: 0.40
+            };
+        }
+
+        function resetarConfiguracoes() {
+            if (confirm('⚠️ Resetar todas as configurações para o padrão?')) {
+                localStorage.removeItem(CONFIG_KEY);
+                const config = carregarConfiguracoes();
+                preencherFormulario(config);
+                atualizarSomaPesos();
+                alert('✅ Configurações resetadas!');
+            }
+        }
+
+        function preencherFormulario(config) {
+            Object.keys(config).forEach(key => {
+                const element = document.getElementById('config-' + key.replace('_', '-'));
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        element.checked = config[key];
+                    } else {
+                        element.value = config[key];
+                    }
+                }
+            });
+        }
+
+        function atualizarSomaPesos() {
+            const pesos = ['master', 'estelar', 'chain', 'puxadas', 'temporal', 'comportamentos'];
+            let soma = 0;
+            
+            pesos.forEach(peso => {
+                const input = document.getElementById('config-w-' + peso);
+                if (input) {
+                    soma += parseFloat(input.value) || 0;
+                }
+            });
+
+            const somaElement = document.getElementById('soma-pesos');
+            somaElement.textContent = soma.toFixed(2);
+            
+            if (Math.abs(soma - 1.0) > 0.01) {
+                somaElement.classList.add('text-yellow-400');
+                somaElement.classList.remove('text-green-400');
+            } else {
+                somaElement.classList.add('text-green-400');
+                somaElement.classList.remove('text-yellow-400');
+            }
+        }
+
+        // ==========================================
+        // GERENCIAMENTO DE HISTÓRICO
+        // ==========================================
+
+        function salvarNoHistorico(dados) {
+            let historico = carregarHistorico();
+            
+            const entrada = {
+                timestamp: new Date().toISOString(),
+                horario: new Date().toLocaleString('pt-BR'),
+                ultimo_numero: dados.ultimo_numero,
+                sugestoes: dados.sugestoes.principais.map(item => item.numero),
+                protecoes: dados.sugestoes.protecoes ? dados.sugestoes.protecoes.map(item => item.numero) : [],
+                ultimos_10: dados.analise.ultimos_10,
+                total_numeros: dados.sugestoes.total_numeros,
+                pesos: dados.configuracao.pesos,
+                forca_sinal: dados.analise.forca_sinal,
+                comportamento: dados.analise.comportamento_dominante
+            };
+
+            historico.unshift(entrada);
+            historico = historico.slice(0, 20);
+
+            localStorage.setItem(HISTORICO_KEY, JSON.stringify(historico));
+        }
+
+        function carregarHistorico() {
+            return JSON.parse(localStorage.getItem(HISTORICO_KEY) || '[]');
+        }
+
+        function limparHistorico() {
+            if (confirm('⚠️ Tem certeza que deseja limpar todo o histórico?')) {
+                localStorage.removeItem(HISTORICO_KEY);
+                exibirHistorico();
+                alert('✅ Histórico limpo com sucesso!');
+            }
+        }
+
+        function exibirHistorico() {
+            const historico = carregarHistorico();
+            const container = document.getElementById('lista-historico');
+
+            if (historico.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-8">Nenhuma sugestão salva ainda.</p>';
+                return;
+            }
+
+            container.innerHTML = historico.map((item, index) => `
+                <div class="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <p class="text-white font-semibold">📅 ${item.horario}</p>
+                            <p class="text-gray-400 text-sm">
+                                Último: <span class="text-yellow-400 font-bold">${item.ultimo_numero}</span>
+                                ${item.forca_sinal ? ` | Força: <span class="text-blue-400">${item.forca_sinal.classificacao}</span>` : ''}
+                            </p>
+                        </div>
+                        <span class="text-gray-500 text-xs">#${index + 1}</span>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-gray-400 text-xs mb-1">🎯 Sugestões:</p>
+                            <div class="flex flex-wrap gap-1">
+                                ${item.sugestoes.map(num => `
+                                    <div class="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold">${num}</div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ${item.protecoes && item.protecoes.length > 0 ? `
+                        <div>
+                            <p class="text-gray-400 text-xs mb-1">🛡️ Proteções:</p>
+                            <div class="flex flex-wrap gap-1">
+                                ${item.protecoes.map(num => `
+                                    <div class="bg-gray-600 text-gray-300 w-7 h-7 rounded-full flex items-center justify-center text-xs">${num}</div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==========================================
+        // NAVEGAÇÃO ENTRE TABS
+        // ==========================================
+
+        function showTab(tab) {
+            // Esconde todas as tabs
+            ['sugestao', 'analise', 'config', 'historico'].forEach(t => {
+                document.getElementById('content-' + t).classList.add('hidden');
+                document.getElementById('tab-' + t).classList.remove('tab-active');
+                document.getElementById('tab-' + t).classList.add('text-gray-400');
+            });
+
+            // Mostra a tab selecionada
+            document.getElementById('content-' + tab).classList.remove('hidden');
+            document.getElementById('tab-' + tab).classList.add('tab-active');
+            document.getElementById('tab-' + tab).classList.remove('text-gray-400');
+
+            // Atualiza histórico se necessário
+            if (tab === 'historico') {
+                exibirHistorico();
+            }
+        }
+
+        // ==========================================
+        // ATUALIZAÇÃO DE SUGESTÃO
+        // ==========================================
+
+        function atualizarSugestao() {
+            const config = carregarConfiguracoes();
+            const params = new URLSearchParams({
+                quantidade: config.quantidade,
+                incluir_protecoes: config.incluir_protecoes,
+                max_protecoes: config.max_protecoes,
+                incluir_zero: config.incluir_zero,
+                min_confianca: config.min_confianca,
+                usar_pesos_dinamicos: config.usar_pesos_dinamicos,
+                validar_ancoras: config.validar_ancoras,
+                w_master: config.w_master,
+                w_estelar: config.w_estelar,
+                w_chain: config.w_chain,
+                w_puxadas: config.w_puxadas,
+                w_temporal: config.w_temporal,
+                w_comportamentos: config.w_comportamentos
+            });
+
+            const url = window.location.pathname + '?' + params.toString();
+            window.location.href = url;
+        }
+
+        // ==========================================
+        // INICIALIZAÇÃO
+        // ==========================================
+
+        window.addEventListener('load', () => {
+            // Carrega e preenche configurações
+            const config = carregarConfiguracoes();
+            preencherFormulario(config);
+            atualizarSomaPesos();
+            
+            const dadosAtuais = {{ dados | tojson | safe }};
+            salvarNoHistorico(dadosAtuais);
+
+            // Mostra tab de sugestão por padrão
+            showTab('sugestao');
+        });
+    </script>
+</body>
+</html>

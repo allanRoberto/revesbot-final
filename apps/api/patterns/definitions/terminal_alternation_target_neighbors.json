@@ -1,0 +1,29 @@
+{
+  "id": "terminal_alternation_target_neighbors",
+  "name": "Terminal Alternation -> Target + Neighbors",
+  "kind": "positive",
+  "version": "1.2.0",
+  "active": true,
+  "priority": 107,
+  "weight": 5.0,
+  "evaluator": "terminal_alternation_target_neighbors",
+  "max_numbers": 12,
+  "params": {
+    "include_neighbors": true,
+    "enforce_presence": true,
+    "min_keep": 4,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.6
+    },
+    "last_auto_tune": {
+      "signals": 51,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

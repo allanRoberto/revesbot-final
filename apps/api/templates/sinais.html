@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Sinais{% endblock %}
+
+{% block content %}
+
+<header class="p-3 bg-dark text-white">
+  <div class="container space-between">
+    <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-between">
+      <a href="/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">
+        <svg class="bi me-2" width="40" height="32" role="img" aria-label="Bootstrap">
+          <use xlink:href="#bootstrap"></use>
+        </svg>
+      </a>
+      <div class="text-end">
+        <button type="button" class="btn btn-outline-light me-2">Logout</button>
+        <button type="button" class="btn btn-warning">Cadastro da casa de aposta</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container mt-4" x-data="signalsTable()" x-init="init()">
+  <h4 class="mb-3">Sinais Detectados</h4>
+
+  <div class="btn-group mb-3">
+    <template x-for="opt in filters" :key="opt.value">
+      <button class="btn" :class="{
+        'btn-outline-primary': currentFilter !== opt.value,
+        'btn-primary': currentFilter === opt.value
+      }" @click="setFilter(opt.value)" x-text="opt.label"></button>
+    </template>
+  </div>
+
+  <table class="table table-bordered table-sm table-hover text-center signals">
+    <thead class="table-light">
+      <tr>
+        <th>Roleta</th>
+        <th>Alvos</th>
+        <th>Gatilho</th>
+        <th>Aposta</th>
+        <th>Status</th>
+        <th>Hora</th>
+        <th>...</th>
+      </tr>
+    </thead>
+    <tbody>
+      <template x-for="signal in filteredSignals" :key="signal.id">
+        <tr :class="getRowClass(signal.status)">
+          <td x-text="signal.roulette_name"></td>
+          <td>
+            <div class="grid-numbers">
+              <template x-for="num in signal.targets">
+                <div class="cell" :class="getColorClass(num)" x-text="num"></div>
+              </template>
+            </div>
+          </td>
+          <td>
+            <div class="grid-numbers">
+              <template x-for="num in signal.triggers">
+                <div class="cell" :class="getColorClass(num)" x-text="num"></div>
+              </template>
+            </div>
+          </td>
+          <td>
+            <div class="grid-numbers">
+              <template x-for="num in signal.bets">
+                <div class="cell" :class="getColorClass(num)" x-text="num"></div>
+              </template>
+            </div>
+          </td>
+          <td x-text="signal.message || '---'"></td>
+          <td x-text="signal.created_at_formatted || '---'"></td>
+          <td><a :href="signal.roulette_url || '#'" class="btn btn-sm btn-secondary" target="_blank">Abrir mesa</a></td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+</div>
+<div>
+  <div class="container">
+    <div class="row">Sinal recebido:<strong>Mesa Brazilian Roulette</strong></div>
+    <div class="row"><span>Gatilhos: </span><div class="grid-numbers">
+      <div class="cell red number-32">32</div>
+    </div></div>
+    <div class="row">
+      <span>Alvos :</span>
+      <div class="grid-numbers">
+        <div class="cell red number-32">32</div>
+      </div>
+    </div>
+    <div class="row">
+    <span>Últimos resultados :</span>
+    <div class="grid-numbers">
+      <div class="cell red num-26">26</div>
+    </div>
+  </div>
+</div>
+
+
+<script id="initial-signals" type="application/json">
+  {{ sinais | tojson | safe }}
+</script>
+<script>
+  window.__initialSignals = JSON.parse(
+    document.getElementById('initial-signals').textContent
+  );
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+  function signalsTable() {
+    return {
+      signals: window.__initialSignals || [],
+      currentFilter: 'all',
+      filters: [
+        { value: 'all', label: 'Todos' },
+        { value: 'win', label: 'Ganhos' },
+        { value: 'lost', label: 'Perdidos' },
+        { value: 'inverted', label: 'Pago na inversão' },
+        { value: 'cancelled', label: 'Cancelados' },
+        { value: 'processing', label: 'Ativos' },
+        { value: 'waiting', label: 'Aguardando rodadas' },
+        { value: 'pending', label: 'Aguardando gatilhos' },
+      ],
+      init() {
+        this.connectWebSocket();
+      },
+      get filteredSignals() {
+        if (this.currentFilter === 'all') return this.signals;
+        return this.signals.filter(s => s.status === this.currentFilter);
+      },
+      setFilter(status) {
+        this.currentFilter = status;
+      },
+      updateSignal(signal) {
+        const index = this.signals.findIndex(s => s.id === signal.id);
+        if (index !== -1) {
+          this.signals[index] = { ...this.signals[index], ...signal };
+
+          if (this.currentFilter !== 'all' && signal.status !== this.currentFilter) {
+            setTimeout(() => {
+              this.signals = [...this.signals];
+            }, 2000);
+          }
+        } else {
+          this.signals.unshift(signal);
+        }
+      },
+      connectWebSocket() {
+        const ws = new WebSocket(`ws://${window.location.host}/ws/signals`);
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (['new_signal', 'signal_update'].includes(data.type)) {
+            this.updateSignal(data);
+          }
+        };
+      },
+      getRowClass(status) {
+        return {
+          'table-success': status === 'win',
+          'table-danger': status === 'lost',
+          'table-warning': ['processing', 'gale'].includes(status),
+          'table-info': status === 'inverted',
+          'table-default': status === 'pending',
+        };
+      },
+      getColorClass(num) {
+        num = parseInt(num);
+        if ([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36].includes(num)) return 'red';
+        if ([2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35].includes(num)) return 'black';
+        return 'green';
+      }
+    };
+  }
+</script>
+
+{% endblock %}

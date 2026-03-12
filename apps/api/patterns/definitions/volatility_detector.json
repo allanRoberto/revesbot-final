@@ -1,0 +1,36 @@
+{
+  "id": "volatility_detector",
+  "name": "Detector de volatilidade",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 70,
+  "weight": 3.1125,
+  "evaluator": "volatility_detector",
+  "max_numbers": 14,
+  "params": {
+    "short_window": 15,
+    "long_window": 50,
+    "high_volatility_threshold": 0.7,
+    "low_volatility_threshold": 0.3,
+    "high_vol_strategy": "spread",
+    "low_vol_strategy": "concentrate",
+    "spread_sector_size": 12,
+    "concentrate_top_n": 8,
+    "base_score": 1.0,
+    "volatility_bonus": 0.3,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 350,
+      "min_signals": 15,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.4
+    },
+    "last_auto_tune": {
+      "signals": 480,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

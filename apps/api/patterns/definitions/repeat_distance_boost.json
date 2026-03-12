@@ -1,0 +1,31 @@
+{
+  "id": "repeat_distance_boost",
+  "name": "Impulso por distancia de repeticao",
+  "kind": "positive",
+  "version": "1.1.0",
+  "active": true,
+  "priority": 74,
+  "weight": 4.5,
+  "evaluator": "repeat_distance_boost",
+  "max_numbers": 12,
+  "params": {
+    "analysis_window": 100,
+    "min_repeats": 2,
+    "ideal_distance_min": 8,
+    "ideal_distance_max": 30,
+    "tolerance": 5,
+    "base_score": 1.2,
+    "regularity_bonus": 0.6,
+    "due_bonus": 0.7,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.55,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.8,
+      "max_multiplier": 1.6
+    }
+  }
+}

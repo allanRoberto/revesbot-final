@@ -1,0 +1,29 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "start:src": "tsx main.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "puppeteer": "^24.31.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3"
+  }
+}

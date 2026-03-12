@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+import os
+
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+
+router = APIRouter()
+base_dir = os.path.dirname(os.path.dirname(__file__))
+templates_dir = os.path.join(base_dir, "templates")
+
+
+@router.get("/", response_class=HTMLResponse)
+async def dashboard():
+    with open(os.path.join(templates_dir, "dashboard.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/analise", response_class=HTMLResponse)
+async def analise_page():
+    """
+    Página principal de análise de números
+    """
+    with open(os.path.join(templates_dir, "analise.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/assertividade", response_class=HTMLResponse)
+async def assertividade():
+    with open(os.path.join(templates_dir, "assertividade.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/analizador", response_class=HTMLResponse)
+async def analizador_page():
+    """
+    Página do Analizador Master + Estelar + Puxadas
+    """
+    with open(os.path.join(templates_dir, "analizador.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/sugestao", response_class=HTMLResponse)
+async def sugestao_page():
+    """
+    Página do Analizador Master + Estelar + Puxadas
+    """
+    with open(os.path.join(templates_dir, "sugestao.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/agent", response_class=HTMLResponse)
+async def agent_page():
+    """
+    Página do Agente de padrões
+    """
+    with open(os.path.join(templates_dir, "agent.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/agent/sessions", response_class=HTMLResponse)
+async def agent_sessions_page():
+    """
+    Página de sessões do agente
+    """
+    with open(os.path.join(templates_dir, "agent_sessions.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/agent/templates", response_class=HTMLResponse)
+async def agent_templates_page():
+    """
+    Página de templates do agente
+    """
+    with open(os.path.join(templates_dir, "agent_templates.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/monitor", response_class=HTMLResponse)
+async def monitor_page(request: Request):
+    """
+    Página de monitoramento de apostas em tempo real
+    """
+    templates = Jinja2Templates(directory=templates_dir)
+    return templates.TemplateResponse(
+        "monitor.html",
+        {"request": request}
+    )

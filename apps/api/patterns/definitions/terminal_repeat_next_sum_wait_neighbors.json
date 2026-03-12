@@ -1,0 +1,21 @@
+{
+  "id": "terminal_repeat_next_sum_wait_neighbors",
+  "name": "Repeticao terminal com espera pela soma do proximo",
+  "kind": "positive",
+  "active": true,
+  "priority": 43,
+  "version": "1.0.0",
+  "weight": 5.0,
+  "evaluator": "terminal_repeat_next_sum_wait_neighbors",
+  "max_numbers": 12,
+  "params": {
+    "include_neighbors": true,
+    "min_wait": 0,
+    "max_wait": 60,
+    "last_auto_tune": {
+      "signals": 42,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

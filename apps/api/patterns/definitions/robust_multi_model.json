@@ -1,0 +1,48 @@
+{
+  "id": "robust_multi_model",
+  "name": "Robust Multi-Model Pattern",
+  "kind": "positive",
+  "version": "1.1.0",
+  "active": true,
+  "priority": 120,
+  "weight": 5.0,
+  "evaluator": "robust_multi_model",
+  "max_numbers": 14,
+  "params": {
+    "window": 20,
+    "markov_window": 100,
+    "min_models_pass": 5,
+    "min_models_pass_primary": 7,
+    "include_neighbors": true,
+    "markov_min_lift": 1.15,
+    "cluster_min_density": 0.55,
+    "autocorr_min_rate": 0.45,
+    "autocorr_lags": [
+      1,
+      3,
+      5
+    ],
+    "graph_min_centrality": 0.45,
+    "fibonacci_windows": [
+      2,
+      3,
+      5,
+      8
+    ],
+    "enforce_presence": true,
+    "min_keep": 4,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 5,
+      "window": 400,
+      "min_signals": 15,
+      "min_multiplier": 0.6,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 25,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

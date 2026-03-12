@@ -1,0 +1,30 @@
+{
+  "id": "alinhamento_boost",
+  "name": "Alinhamento (Triangulação)",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 88,
+  "weight": 5.0,
+  "evaluator": "alinhamento_boost",
+  "max_numbers": 15,
+  "params": {
+    "num_ocorrencias": 3,
+    "nums_para_tras": 40,
+    "nums_apos_ocorrencia": 3,
+    "aplicar_decaimento": true,
+    "peso_vizinhos": 1.5,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.6,
+    "enforce_presence": true,
+    "min_keep": 5,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    }
+  }
+}

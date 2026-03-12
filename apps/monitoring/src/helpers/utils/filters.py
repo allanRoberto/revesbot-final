@@ -1,0 +1,29 @@
+from pathlib import Path
+import sys
+
+for parent in Path(__file__).resolve().parents:
+    shared_python = parent / "shared" / "python"
+    if shared_python.exists():
+        if str(shared_python) not in sys.path:
+            sys.path.insert(0, str(shared_python))
+        break
+
+from utils.filters import *  # noqa: F401,F403,E402
+
+
+def get_figure(number):
+    figure_mapping = {
+        0: [10, 20, 30],
+        1: [1, 10, 19, 28],
+        2: [2, 11, 20, 29],
+        3: [3, 12, 21, 30],
+        4: [4, 13, 22, 31],
+        5: [5, 14, 23, 32],
+        6: [6, 15, 24, 33],
+        7: [7, 16, 25, 34],
+        8: [8, 17, 26, 35],
+        9: [9, 18, 27, 36],
+        10: [1, 10, 19, 28],
+    }
+
+    return figure_mapping.get(number, [])

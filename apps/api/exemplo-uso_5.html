@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exemplo - Roulette Racetrack Plugin</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        #racetrack-container {
+            margin: 20px 0;
+        }
+        #info {
+            background: #1a1a2e;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-width: 750px;
+        }
+        #info h3 {
+            margin: 0 0 10px 0;
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        #info .number {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        #info .details {
+            color: #aaa;
+            margin-top: 8px;
+        }
+        .red { color: #e63946; }
+        .black { color: #fff; }
+        .green { color: #2a9d8f; }
+    </style>
+</head>
+<body>
+    <h1>Roulette Racetrack Plugin - Exemplo</h1>
+    
+    <!-- Container onde o racetrack será renderizado -->
+    <div id="racetrack-container"></div>
+    
+    <!-- Painel de informações (opcional) -->
+    <div id="info">
+        <h3>Selecionado</h3>
+        <div class="number">-</div>
+        <div class="details">Passe o mouse ou clique nos números</div>
+    </div>
+
+    <!-- Incluir o plugin -->
+    <script src="roulette-racetrack_2.js"></script>
+    
+    <script>
+        // Inicializar o racetrack
+        const racetrack = new RouletteRacetrack('#racetrack-container', {
+            // Callbacks opcionais
+            onNumberHover: (data) => {
+                document.querySelector('#info .number').textContent = data.number;
+                document.querySelector('#info .number').className = `number ${data.color}`;
+                document.querySelector('#info .details').innerHTML = `
+                    <strong>Cor:</strong> ${data.color} · 
+                    <strong>Vizinhos:</strong> ${data.neighbors.join(' • ')}<br>
+                    <strong>Seções:</strong> ${data.sections.join(', ') || 'Nenhuma'}
+                `;
+            },
+            onNumberClick: (data) => {
+                console.log('Número clicado:', data);
+            },
+            onSectionClick: (data) => {
+                document.querySelector('#info .number').textContent = data.name;
+                document.querySelector('#info .number').className = 'number';
+                document.querySelector('#info .number').style.color = '#00ffff';
+                document.querySelector('#info .details').innerHTML = `
+                    <strong>Números (${data.numbers.length}):</strong> ${data.numbers.join(', ')}
+                `;
+                console.log('Seção clicada:', data);
+            }
+        });
+
+        // Métodos públicos disponíveis:
+        // racetrack.highlightNumbers([1, 2, 3])  - Destaca números específicos
+        // racetrack.highlightSection('tiers')    - Destaca uma seção
+        // racetrack.clearHighlights()            - Limpa destaques
+        // racetrack.getWheelSequence()           - Retorna sequência da roda
+        // racetrack.getSections()                - Retorna as seções
+        // racetrack.destroy()                    - Remove o racetrack
+    </script>
+</body>
+</html>

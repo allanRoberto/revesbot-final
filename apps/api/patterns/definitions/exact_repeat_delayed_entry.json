@@ -1,0 +1,27 @@
+{
+  "id": "exact_repeat_delayed_entry",
+  "name": "Exact Repeat Delayed Entry",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 102,
+  "weight": 4.2,
+  "evaluator": "exact_repeat_delayed_entry",
+  "max_numbers": 16,
+  "params": {
+    "attempts_per_count": 3,
+    "cancel_lookback": 4,
+    "base_score": 1.0,
+    "near_neighbor_score": 0.9,
+    "far_neighbor_score": 0.75,
+    "zero_score": 0.7,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.4
+    }
+  }
+}

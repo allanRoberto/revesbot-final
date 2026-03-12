@@ -1,0 +1,33 @@
+{
+  "id": "dozen_column_streak_boost",
+  "name": "Impulso por sequencia de duzias/colunas",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 80,
+  "weight": 4.3575,
+  "evaluator": "dozen_column_streak_boost",
+  "max_numbers": 12,
+  "params": {
+    "min_streak": 3,
+    "max_streak": 6,
+    "streak_boost_base": 1.0,
+    "streak_boost_increment": 0.2,
+    "favor_cold_dozen": true,
+    "cold_dozen_bonus": 0.3,
+    "include_neighbors": false,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 300,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.4
+    },
+    "last_auto_tune": {
+      "signals": 100,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

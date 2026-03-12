@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Teste de Iframe da Roleta{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3>🎰 Teste de Carregamento do Jogo</h3>
+
+  <div class="alert alert-info">
+    Este é um teste para carregar diretamente o jogo via iframe.
+  </div>
+
+  <div class="border" style="height: 80vh;">
+    <iframe
+      src="https://j14w975tbq.tiituitdsa.net/gs2c/playGame.do?key=token%3DUGIWQtglQnDLcZb4%60%7C%60symbol%3D226%60%7C%60technology%3DH5%60%7C%60platform%3DWEB%60%7C%60language%3Dpt%60%7C%60cashierUrl%3Dhttps%3A%2F%2Flotogreen.bet.br%2Fuser%2Fdeposit%60%7C%60lobbyUrl%3Dhttps%3A%2F%2Flotogreen.bet.br%2Fcasino%2Flive&amp;ppkv=2&amp;stylename=cstb_lotogreen&amp;rcCloseUrl=https://lotogreen.bet.br&amp;isGameUrlApiCalled=true"
+      width="100%"
+      height="100%"
+      frameborder="0"
+      allowfullscreen
+    ></iframe>
+  </div>
+</div>
+{% endblock %}

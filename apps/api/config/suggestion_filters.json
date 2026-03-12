@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "description": "Configuracao de filtros de qualidade para sugestoes",
+  "filters": {
+    "min_patterns": {
+      "enabled": true,
+      "threshold": 3,
+      "description": "Numero minimo de padroes positivos ativos"
+    },
+    "min_confidence": {
+      "enabled": true,
+      "threshold": 55,
+      "description": "Confianca minima para sugerir"
+    },
+    "max_negative_pressure": {
+      "enabled": true,
+      "threshold": 0.45,
+      "description": "Pressao negativa maxima tolerada (ratio neg/pos)"
+    },
+    "min_overlap_ratio": {
+      "enabled": true,
+      "threshold": 0.25,
+      "description": "Sobreposicao minima entre padroes (consenso)"
+    }
+  }
+}

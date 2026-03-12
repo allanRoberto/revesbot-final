@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Monitor Padrão Comportamental - RevesBot</title>
+  <style>
+    body {
+      background: #111;
+      color: #eee;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 16px;
+    }
+    h1 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    label {
+      font-size: 13px;
+    }
+    input, select, button {
+      font-size: 13px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 12px;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 4px 6px;
+      font-size: 11px;
+    }
+    th {
+      background: #222;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .badge-win {
+      background: #1b5e20;
+      color: #c8e6c9;
+    }
+    .badge-loss {
+      background: #b71c1c;
+      color: #ffcdd2;
+    }
+    .badge-pending {
+      background: #37474f;
+      color: #eceff1;
+    }
+    #last-spins {
+      font-family: monospace;
+      font-size: 11px;
+      margin-top: 8px;
+      white-space: pre-wrap;
+    }
+    #monitor-status {
+      font-family: monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Monitor Comportamental (Simulação com Gales)</h1>
+
+  <div id="monitor-controls" style="margin-bottom: 16px; padding: 8px; border: 1px solid #444;">
+    <div style="margin-bottom: 6px;">
+      <label>
+        Slug da mesa:
+        <input id="input-slug" type="text" value="pragmatic-brazilian-roulette" style="width: 260px;" />
+      </label>
+      <label style="margin-left: 12px;">
+        Nº de gales (giros para testar):
+        <input id="input-gales" type="number" min="1" max="50" value="3" style="width: 60px;" />
+      </label>
+      <label style="margin-left: 12px;">
+        Tamanho da janela (giros):
+        <input id="input-window" type="number" min="20" max="200" value="50" style="width: 60px;" />
+      </label>
+    </div>
+    <div style="margin-bottom: 6px;">
+      <label>
+        Mín. clareza para gerar sugestão:
+        <input id="input-min-clarity" type="number" step="0.01" min="0" max="1" value="0.35" style="width: 60px;" />
+      </label>
+      <label style="margin-left: 12px;">
+        Raio da região (vizinhos na roda):
+        <input id="input-radius" type="number" min="1" max="4" value="2" style="width: 60px;" />
+      </label>
+    </div>
+    <div>
+      <button id="btn-start-monitor">Iniciar monitoramento</button>
+      <button id="btn-stop-monitor">Parar</button>
+      <button id="btn-clear-history" style="margin-left: 4px;">Limpar histórico (localStorage)</button>
+    </div>
+  </div>
+
+  <div id="monitor-status" style="margin-bottom: 8px;"></div>
+  <div>
+    <strong>Últimos giros (mais recente &rarr; mais antigo):</strong>
+    <div id="last-spins"></div>
+  </div>
+
+  <table id="monitor-history" cellpadding="0" cellspacing="0">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Horário</th>
+        <th>Slug</th>
+        <th>Clarity</th>
+        <th>Gales (max)</th>
+        <th>Usados</th>
+        <th>Resultado</th>
+        <th>Números sugeridos</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    // =========================
+    // 1) MODELO DA RODA (europeia)
+    // =========================
+    const ROULETTE_WHEEL_ORDER = [
+      0,
+      32, 15, 19, 4, 21, 2, 25, 17, 34, 6,
+      27, 13, 36, 11, 30, 8, 23, 10, 5,
+      24, 16, 33, 1, 20, 14, 31, 9, 22,
+      18, 29, 7, 28, 12, 35, 3, 26
+    ];
+
+    const WHEEL_INDEX = {};
+    ROULETTE_WHEEL_ORDER.forEach((num, idx) => {
+      WHEEL_INDEX[num] = idx;
+    });
+
+    function distOnWheel(a, b) {
+      const len = ROULETTE_WHEEL_ORDER.length;
+      const ia = WHEEL_INDEX[a];
+      const ib = WHEEL_INDEX[b];
+      if (ia === undefined || ib === undefined) return Infinity;
+      const diff = Math.abs(ia - ib);
+      return Math.min(diff, len - diff);
+    }
+
+    function buildRegionNumbers(centerIndex, radius) {
+      const len = ROULETTE_WHEEL_ORDER.length;
+      const out = [];
+      for (let d = -radius; d <= radius; d++) {
+        let idx = centerIndex + d;
+        while (idx < 0) idx += len;
+        while (idx >= len) idx -= len;
+        out.push(ROULETTE_WHEEL_ORDER[idx]);
+      }
+      return out;
+    }
+
+    // =========================
+    // 2) ANALYTICS V2 - COMPORTAMENTO
+    // =========================
+    function analyzeWheelRegionsV2(history, options = {}) {
+      const windowSize = options.windowSize || 50;
+      const radius = options.radius || 2;
+
+      if (!Array.isArray(history) || history.length === 0) {
+        return {
+          clarityIndex: 0,
+          regions: [],
+          bestRegion: null
+        };
+      }
+
+      // history[0] = mais recente
+      const recent = history.slice(0, windowSize);
+
+      // Peso maior para os últimos giros
+      const weights = recent.map((_, idx) => {
+        const rank = idx + 1; // 1 = mais recente
+        return 1 / rank;      // decai com o tempo
+      });
+
+      const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+
+      const regionScores = [];
+      const len = ROULETTE_WHEEL_ORDER.length;
+
+      for (let centerIdx = 0; centerIdx < len; centerIdx++) {
+        const regionNums = buildRegionNumbers(centerIdx, radius);
+        let score = 0;
+        let lastHitsPositions = [];
+
+        recent.forEach((num, i) => {
+          if (regionNums.includes(num)) {
+            score += weights[i];
+            lastHitsPositions.push(i);
+          }
+        });
+
+        if (score === 0) continue;
+
+        regionScores.push({
+          centerIndex: centerIdx,
+          centerNumber: ROULETTE_WHEEL_ORDER[centerIdx],
+          regionNumbers: regionNums,
+          score,
+          normalizedScore: score / totalWeight,
+          lastHitsPositions
+        });
+      }
+
+      if (regionScores.length === 0) {
+        return {
+          clarityIndex: 0,
+          regions: [],
+          bestRegion: null
+        };
+      }
+
+      regionScores.sort((a, b) => b.normalizedScore - a.normalizedScore);
+
+      const best = regionScores[0];
+      const second = regionScores[1] || null;
+
+      const bestScore = best.normalizedScore;
+      const secondScore = second ? second.normalizedScore : 0;
+
+      let contrast = 0;
+      if (bestScore > 0) {
+        contrast = (bestScore - secondScore) / bestScore;
+      }
+
+      // densidade de hits recentes (60% do peso de clarity)
+      const recentCut = Math.floor(windowSize / 3) || 1;
+      let recentHitsWeight = 0;
+      for (let i = 0; i < recentCut && i < best.lastHitsPositions.length; i++) {
+        const pos = best.lastHitsPositions[i];
+        if (pos < recentCut) {
+          recentHitsWeight += 1;
+        }
+      }
+      const recencyFactor = Math.min(1, recentHitsWeight / Math.max(1, best.lastHitsPositions.length));
+
+      const clarityIndex = Math.max(0, Math.min(1, 0.6 * recencyFactor + 0.4 * contrast));
+
+      return {
+        clarityIndex,
+        regions: regionScores,
+        bestRegion: {
+          centerNumber: best.centerNumber,
+          regionNumbers: best.regionNumbers,
+          coreNumbers: best.regionNumbers.slice(),
+          normalizedScore: best.normalizedScore
+        }
+      };
+    }
+
+    // expõe para debug se quiser
+    window.analyzeWheelRegionsV2 = analyzeWheelRegionsV2;
+
+    // =========================
+    // 3) ESTADO DO MONITOR
+    // =========================
+    const STORAGE_KEY_SUGGESTIONS = "behavior_monitor_suggestions_v1";
+
+    let monitorState = {
+      monitoring: false,
+      slug: "pragmatic-brazilian-roulette",
+      maxGales: 3,
+      windowSize: 50,
+      minClarity: 0.35,
+      radius: 2,
+      historyNumbers: [],      // mais recente no índice 0
+      currentSuggestion: null, // { id, slug, createdAt, numbers, clarity, maxGales, usedGales, result }
+      suggestionsLog: []
+    };
+
+    function loadSuggestionsFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_SUGGESTIONS);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+        return [];
+      } catch (e) {
+        console.warn("Erro ao ler sugestões do localStorage:", e);
+        return [];
+      }
+    }
+
+    function saveSuggestionsToStorage() {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY_SUGGESTIONS,
+          JSON.stringify(monitorState.suggestionsLog)
+        );
+      } catch (e) {
+        console.warn("Erro ao salvar sugestões no localStorage:", e);
+      }
+    }
+
+    function clearSuggestionsStorage() {
+      localStorage.removeItem(STORAGE_KEY_SUGGESTIONS);
+      monitorState.suggestionsLog = [];
+      renderMonitorHistory();
+    }
+
+    // =========================
+    // 4) RENDERIZAÇÃO
+    // =========================
+    function renderMonitorStatus() {
+      const el = document.getElementById("monitor-status");
+      if (!el) return;
+
+      if (!monitorState.monitoring) {
+        el.textContent = "Monitoramento parado.";
+        return;
+      }
+
+      const s = monitorState.currentSuggestion;
+      if (!s) {
+        el.textContent =
+          `Monitorando ${monitorState.slug} | aguardando próxima sugestão... ` +
+          `(janela=${monitorState.windowSize}, gales=${monitorState.maxGales}, clarity_min=${monitorState.minClarity})`;
+      } else {
+        el.textContent =
+          `Sugestão #${s.id} | slug=${s.slug} | ` +
+          `tentativa ${s.usedGales + 1}/${s.maxGales} | ` +
+          `clarity=${s.clarity.toFixed(3)} | números: ${s.numbers.join(", ")}`;
+      }
+    }
+
+    function renderMonitorHistory() {
+      const tbody = document.querySelector("#monitor-history tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      monitorState.suggestionsLog
+        .slice()
+        .reverse()
+        .forEach((sug, idx) => {
+          const tr = document.createElement("tr");
+
+          const tdIdx = document.createElement("td");
+          tdIdx.textContent = monitorState.suggestionsLog.length - idx;
+          tr.appendChild(tdIdx);
+
+          const tdTime = document.createElement("td");
+          tdTime.textContent = new Date(sug.createdAt).toLocaleString();
+          tr.appendChild(tdTime);
+
+          const tdSlug = document.createElement("td");
+          tdSlug.textContent = sug.slug;
+          tr.appendChild(tdSlug);
+
+          const tdClarity = document.createElement("td");
+          tdClarity.textContent = sug.clarity.toFixed(3);
+          tr.appendChild(tdClarity);
+
+          const tdMaxG = document.createElement("td");
+          tdMaxG.textContent = sug.maxGales;
+          tr.appendChild(tdMaxG);
+
+          const tdUsedG = document.createElement("td");
+          tdUsedG.textContent = sug.usedGales;
+          tr.appendChild(tdUsedG);
+
+          const tdResult = document.createElement("td");
+          const span = document.createElement("span");
+          span.textContent = sug.result;
+          span.classList.add("badge");
+          if (sug.result === "WIN") span.classList.add("badge-win");
+          else if (sug.result === "LOSS") span.classList.add("badge-loss");
+          else span.classList.add("badge-pending");
+          tdResult.appendChild(span);
+          tr.appendChild(tdResult);
+
+          const tdNums = document.createElement("td");
+          tdNums.textContent = sug.numbers.join(", ");
+          tr.appendChild(tdNums);
+
+          tbody.appendChild(tr);
+        });
+    }
+
+    function renderLastSpins() {
+      const el = document.getElementById("last-spins");
+      if (!el) return;
+      const chunk = monitorState.historyNumbers.slice(0, 40);
+      el.textContent = chunk.join(", ");
+    }
+
+    // =========================
+    // 5) CONTROLES
+    // =========================
+    function initMonitorControls() {
+      monitorState.suggestionsLog = loadSuggestionsFromStorage();
+      renderMonitorHistory();
+      renderMonitorStatus();
+
+      const inputSlug = document.getElementById("input-slug");
+      const inputGales = document.getElementById("input-gales");
+      const inputWindow = document.getElementById("input-window");
+      const inputMinClarity = document.getElementById("input-min-clarity");
+      const inputRadius = document.getElementById("input-radius");
+      const btnStart = document.getElementById("btn-start-monitor");
+      const btnStop = document.getElementById("btn-stop-monitor");
+      const btnClear = document.getElementById("btn-clear-history");
+
+      if (btnStart) {
+        btnStart.addEventListener("click", () => {
+          const slug = inputSlug.value.trim();
+          const gales = parseInt(inputGales.value, 10) || 1;
+          const winSize = parseInt(inputWindow.value, 10) || 50;
+          const minCl = parseFloat(inputMinClarity.value) || 0;
+          const radius = parseInt(inputRadius.value, 10) || 2;
+
+          monitorState.slug = slug;
+          monitorState.maxGales = Math.max(1, gales);
+          monitorState.windowSize = Math.min(Math.max(20, winSize), 200);
+          monitorState.minClarity = Math.max(0, Math.min(1, minCl));
+          monitorState.radius = Math.min(Math.max(1, radius), 4);
+          monitorState.monitoring = true;
+          monitorState.currentSuggestion = null;
+
+          // Recarrega histórico inicial da mesa
+          fetchInitialHistory(slug).then(() => {
+            renderMonitorStatus();
+            renderLastSpins();
+          });
+        });
+      }
+
+      if (btnStop) {
+        btnStop.addEventListener("click", () => {
+          monitorState.monitoring = false;
+          monitorState.currentSuggestion = null;
+          renderMonitorStatus();
+        });
+      }
+
+      if (btnClear) {
+        btnClear.addEventListener("click", () => {
+          clearSuggestionsStorage();
+        });
+      }
+    }
+
+    // =========================
+    // 6) HISTÓRICO INICIAL VIA HTTP
+    // =========================
+    async function fetchInitialHistory(slug) {
+      try {
+        const url = `https://api.revesbot.com.br/history/${encodeURIComponent(slug)}?limit=200`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          console.warn("Erro ao buscar histórico inicial:", res.status);
+          return;
+        }
+        const data = await res.json();
+        let nums = [];
+
+        if (Array.isArray(data)) {
+          nums = data;
+        } else if (Array.isArray(data.history)) {
+          nums = data.history;
+        } else if (Array.isArray(data.results)) {
+          nums = data.results;
+        } else if (Array.isArray(data.numeros)) {
+          nums = data.numeros;
+        }
+
+        // API: "o primeiro da list foi o ultimo que saiu"
+        // Queremos historyNumbers[0] = mais recente
+        monitorState.historyNumbers = nums.slice(0, 200);
+        renderLastSpins();
+      } catch (e) {
+        console.warn("Erro ao buscar histórico inicial:", e);
+      }
+    }
+
+    // =========================
+    // 7) LOOP POR NOVO NÚMERO
+    // =========================
+    function onNewSpinForMonitor(slug, numero, timestampIso) {
+      if (!monitorState.monitoring) return;
+      if (slug !== monitorState.slug) return;
+
+      // Atualiza histórico
+      monitorState.historyNumbers.unshift(numero);
+      if (monitorState.historyNumbers.length > 200) {
+        monitorState.historyNumbers.length = 200;
+      }
+      renderLastSpins();
+
+      const nowIso = timestampIso || new Date().toISOString();
+
+      // Se não há sugestão ativa, cria uma nova
+      if (!monitorState.currentSuggestion) {
+        if (monitorState.historyNumbers.length < 20) {
+          renderMonitorStatus();
+          return;
+        }
+
+        const analysis = analyzeWheelRegionsV2(monitorState.historyNumbers, {
+          windowSize: monitorState.windowSize,
+          radius: monitorState.radius
+        });
+
+        const clarity = analysis.clarityIndex || 0;
+        if (clarity < monitorState.minClarity) {
+          // clareza baixa, melhor não sugerir agora
+          renderMonitorStatus();
+          return;
+        }
+
+        const bestRegion = analysis.bestRegion;
+        if (!bestRegion || !Array.isArray(bestRegion.coreNumbers) || !bestRegion.coreNumbers.length) {
+          renderMonitorStatus();
+          return;
+        }
+
+        const newSuggestion = {
+          id: (monitorState.suggestionsLog.length || 0) + 1,
+          slug: monitorState.slug,
+          createdAt: nowIso,
+          numbers: bestRegion.coreNumbers.slice(),
+          clarity: clarity,
+          maxGales: monitorState.maxGales,
+          usedGales: 0,
+          result: "PENDING"
+        };
+
+        monitorState.currentSuggestion = newSuggestion;
+        renderMonitorStatus();
+        return;
+      }
+
+      // Já existe sugestão ativa => contar gale
+      const s = monitorState.currentSuggestion;
+      s.usedGales += 1;
+
+      if (s.numbers.includes(numero)) {
+        s.result = "WIN";
+        monitorState.suggestionsLog.push({ ...s });
+        saveSuggestionsToStorage();
+        monitorState.currentSuggestion = null;
+        renderMonitorHistory();
+        renderMonitorStatus();
+        return;
+      }
+
+      if (s.usedGales >= s.maxGales) {
+        s.result = "LOSS";
+        monitorState.suggestionsLog.push({ ...s });
+        saveSuggestionsToStorage();
+        monitorState.currentSuggestion = null;
+        renderMonitorHistory();
+        renderMonitorStatus();
+        return;
+      }
+
+      // ainda em fase de gale
+      renderMonitorStatus();
+    }
+
+    // =========================
+    // 8) WEBSOCKET
+    // =========================
+    let ws = null;
+    let wsReconnectTimer = null;
+
+    function connectWebSocket() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+
+      ws = new WebSocket("wss://api.revesbot.com.br/ws");
+
+      ws.onopen = () => {
+        console.log("[WS] Conectado.");
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const slug = data.slug;
+          const numero = data.result;
+          const tsIso = data.full_result?.timestamp_br || data.full_result?.timestamp || null;
+
+          // Atualiza monitor
+          onNewSpinForMonitor(slug, numero, tsIso);
+        } catch (e) {
+          console.error("[WS] Erro ao processar mensagem:", e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("[WS] Desconectado, tentando reconectar em 5s...");
+        if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+        wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("[WS] Erro:", err);
+        ws.close();
+      };
+    }
+
+    // =========================
+    // 9) BOOT
+    // =========================
+    document.addEventListener("DOMContentLoaded", () => {
+      initMonitorControls();
+      connectWebSocket();
+    });
+  </script>
+</body>
+</html>

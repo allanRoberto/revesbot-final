@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Teste de Proxy{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3>🔎 Teste de carregamento via Proxy</h3>
+
+  <form id="proxyForm" class="mb-3">
+    <label for="urlInput">URL a carregar via proxy:</label>
+    <input type="text" id="urlInput" class="form-control" placeholder="https://lotogreen.bet.br/play/6253" required>
+    <button class="btn btn-primary mt-2">Abrir na iframe</button>
+  </form>
+
+  <div class="border" style="height: 80vh;">
+    <iframe id="proxyFrame" src="" width="100%" height="100%" frameborder="0"></iframe>
+  </div>
+</div>
+
+<script>
+  document.getElementById("proxyForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const url = document.getElementById("urlInput").value;
+    const encoded = encodeURIComponent(url);
+    document.getElementById("proxyFrame").src = `/proxy?url=${encoded}`;
+  });
+
+  // Registra o service worker se ainda não estiver registrado
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/proxy-sw.js').then(() => {
+      console.log("✅ Service Worker registrado na página de teste");
+    });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,26 @@
+{
+  "id": "repeat_trend_next_projection_delayed_entry",
+  "name": "Repeat Trend Next Projection Delayed Entry",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 99,
+  "weight": 3.9,
+  "evaluator": "repeat_trend_next_projection_delayed_entry",
+  "max_numbers": 7,
+  "params": {
+    "wait_spins": 4,
+    "attempts_per_count": 5,
+    "target_score": 1.0,
+    "neighbor_score": 0.85,
+    "zero_score": 0.7,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 5,
+      "window": 400,
+      "min_signals": 8,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.35
+    }
+  }
+}

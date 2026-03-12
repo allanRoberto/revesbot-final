@@ -1,0 +1,27 @@
+{
+  "id": "terminal_repeat_wait_target_neighbors",
+  "name": "Terminal Repeat + Wait(Target Sum) + Target Neighbors",
+  "version": "1.1.0",
+  "active": true,
+  "priority": 110,
+  "weight": 5.0,
+  "evaluator": "terminal_repeat_wait_spins_neighbors",
+  "max_numbers": 12,
+  "params": {
+    "wait_from_target_sum": true,
+    "include_neighbors": true,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.6,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 35,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

@@ -1,0 +1,382 @@
+{
+  "generated_at": "2026-03-11T11:42:44.522586Z",
+  "source": {
+    "mode": "snapshot_cache",
+    "histories_used": 5,
+    "details": {
+      "snapshot_dir": "apps/api/data/confidence_history_snapshots",
+      "derived_from": "/history/{slug}"
+    },
+    "calibration_cases": 600,
+    "evaluation_cases": 400
+  },
+  "eligible_cases": 400,
+  "variants": {
+    "current_confidence": {
+      "metrics": {
+        "eligible_cases": 400,
+        "available_cases": 400,
+        "coverage": 1.0,
+        "average_list_size": 11,
+        "confidence_distribution": {
+          "100-100": 1,
+          "80-89": 55,
+          "90-99": 344
+        },
+        "confidence_mean": 92.3975,
+        "conditional_hits": {
+          "hit@1": 0.3,
+          "hit@2": 0.51,
+          "hit@3": 0.62,
+          "hit@4": 0.7175
+        },
+        "effective_hits": {
+          "hit@1": 0.3,
+          "hit@2": 0.51,
+          "hit@3": 0.62,
+          "hit@4": 0.7175
+        }
+      },
+      "confidence_buckets": {
+        "100-100": {
+          "available_cases": 1,
+          "coverage_total": 0.0025,
+          "confidence_mean": 100,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 0,
+            "hit@2": 0,
+            "hit@3": 1,
+            "hit@4": 1
+          },
+          "conditional_hits": {
+            "hit@1": 0.0,
+            "hit@2": 0.0,
+            "hit@3": 1.0,
+            "hit@4": 1.0
+          },
+          "effective_hits": {
+            "hit@1": 0.0,
+            "hit@2": 0.0,
+            "hit@3": 0.0025,
+            "hit@4": 0.0025
+          }
+        },
+        "80-89": {
+          "available_cases": 55,
+          "coverage_total": 0.1375,
+          "confidence_mean": 88.181818,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 16,
+            "hit@2": 28,
+            "hit@3": 37,
+            "hit@4": 43
+          },
+          "conditional_hits": {
+            "hit@1": 0.290909,
+            "hit@2": 0.509091,
+            "hit@3": 0.672727,
+            "hit@4": 0.781818
+          },
+          "effective_hits": {
+            "hit@1": 0.04,
+            "hit@2": 0.07,
+            "hit@3": 0.0925,
+            "hit@4": 0.1075
+          }
+        },
+        "90-99": {
+          "available_cases": 344,
+          "coverage_total": 0.86,
+          "confidence_mean": 93.049419,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 104,
+            "hit@2": 176,
+            "hit@3": 210,
+            "hit@4": 243
+          },
+          "conditional_hits": {
+            "hit@1": 0.302326,
+            "hit@2": 0.511628,
+            "hit@3": 0.610465,
+            "hit@4": 0.706395
+          },
+          "effective_hits": {
+            "hit@1": 0.26,
+            "hit@2": 0.44,
+            "hit@3": 0.525,
+            "hit@4": 0.6075
+          }
+        }
+      },
+      "confidence_thresholds": {
+        ">=40": {
+          "threshold": 40,
+          "selected_cases": 400,
+          "eligible_cases": 400,
+          "coverage": 1.0,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        },
+        ">=50": {
+          "threshold": 50,
+          "selected_cases": 400,
+          "eligible_cases": 400,
+          "coverage": 1.0,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        },
+        ">=60": {
+          "threshold": 60,
+          "selected_cases": 400,
+          "eligible_cases": 400,
+          "coverage": 1.0,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        },
+        ">=70": {
+          "threshold": 70,
+          "selected_cases": 400,
+          "eligible_cases": 400,
+          "coverage": 1.0,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        }
+      },
+      "calibration": {
+        "ece_hit@4": 0.206475,
+        "available_cases": 400,
+        "monotonic_pairs": 2,
+        "monotonic_non_decrease_ratio_hit@4": 0.0
+      }
+    },
+    "confidence_v2": {
+      "metrics": {
+        "eligible_cases": 400,
+        "available_cases": 400,
+        "coverage": 1.0,
+        "average_list_size": 11,
+        "confidence_distribution": {
+          "70-79": 400
+        },
+        "confidence_mean": 73.5125,
+        "conditional_hits": {
+          "hit@1": 0.3,
+          "hit@2": 0.51,
+          "hit@3": 0.62,
+          "hit@4": 0.7175
+        },
+        "effective_hits": {
+          "hit@1": 0.3,
+          "hit@2": 0.51,
+          "hit@3": 0.62,
+          "hit@4": 0.7175
+        }
+      },
+      "confidence_buckets": {
+        "70-79": {
+          "available_cases": 400,
+          "coverage_total": 1.0,
+          "confidence_mean": 73.5125,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        }
+      },
+      "confidence_thresholds": {
+        ">=40": {
+          "threshold": 40,
+          "selected_cases": 400,
+          "eligible_cases": 400,
+          "coverage": 1.0,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        },
+        ">=50": {
+          "threshold": 50,
+          "selected_cases": 400,
+          "eligible_cases": 400,
+          "coverage": 1.0,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        },
+        ">=60": {
+          "threshold": 60,
+          "selected_cases": 400,
+          "eligible_cases": 400,
+          "coverage": 1.0,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        },
+        ">=70": {
+          "threshold": 70,
+          "selected_cases": 400,
+          "eligible_cases": 400,
+          "coverage": 1.0,
+          "average_list_size": 11,
+          "hits_abs": {
+            "hit@1": 120,
+            "hit@2": 204,
+            "hit@3": 248,
+            "hit@4": 287
+          },
+          "conditional_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          },
+          "effective_hits": {
+            "hit@1": 0.3,
+            "hit@2": 0.51,
+            "hit@3": 0.62,
+            "hit@4": 0.7175
+          }
+        }
+      },
+      "calibration": {
+        "ece_hit@4": 0.017625,
+        "available_cases": 400,
+        "monotonic_pairs": 0,
+        "monotonic_non_decrease_ratio_hit@4": 0.0
+      }
+    }
+  }
+}

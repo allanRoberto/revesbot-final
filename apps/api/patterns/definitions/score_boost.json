@@ -1,0 +1,32 @@
+{
+  "id": "score_boost",
+  "name": "Score v5",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 85,
+  "weight": 4.0,
+  "evaluator": "score_boost",
+  "max_numbers": 18,
+  "params": {
+    "min_history": 200,
+    "peso_principal": 4.0,
+    "peso_vizinhos": 2.0,
+    "peso_vizinhos1": 1.2,
+    "peso_espelho": 1.5,
+    "peso_terminal": 1.0,
+    "decaimento": 0.5,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.55,
+    "enforce_presence": true,
+    "min_keep": 5,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    }
+  }
+}

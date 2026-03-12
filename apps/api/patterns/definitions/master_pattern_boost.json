@@ -1,0 +1,39 @@
+{
+  "id": "master_pattern_boost",
+  "name": "Master - Padroes Exatos",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 90,
+  "weight": 5.0,
+  "evaluator": "master_pattern_boost",
+  "max_numbers": 12,
+  "params": {
+    "window_sizes": [
+      2,
+      3,
+      4
+    ],
+    "search_depth": 200,
+    "recent_depth": 50,
+    "min_matches": 1,
+    "recency_decay": 0.1,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.6,
+    "enforce_presence": true,
+    "min_keep": 2,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 10,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.5
+    },
+    "last_auto_tune": {
+      "signals": 422,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}

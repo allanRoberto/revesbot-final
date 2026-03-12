@@ -1,0 +1,35 @@
+{
+  "id": "high_low_streak_boost",
+  "name": "Impulso por sequencia alto/baixo",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 81,
+  "weight": 3.735,
+  "evaluator": "high_low_streak_boost",
+  "max_numbers": 12,
+  "params": {
+    "min_streak": 3,
+    "max_streak": 7,
+    "alternation_window": 6,
+    "min_alternation_ratio": 0.8,
+    "streak_boost_base": 1.0,
+    "streak_boost_increment": 0.15,
+    "alternation_boost": 1.1,
+    "include_neighbors": true,
+    "neighbor_score_ratio": 0.5,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 3,
+      "window": 300,
+      "min_signals": 12,
+      "min_multiplier": 0.7,
+      "max_multiplier": 1.4
+    },
+    "last_auto_tune": {
+      "signals": 168,
+      "hit_rate": 1.0,
+      "recommended_multiplier": 1.35
+    }
+  }
+}
