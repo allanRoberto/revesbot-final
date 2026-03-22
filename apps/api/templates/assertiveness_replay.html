@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Replay de Assertividade</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --panel: #fffdf8;
+      --text: #1d2a33;
+      --muted: #66727b;
+      --accent: #1f6f5f;
+      --accent-2: #d9a441;
+      --danger: #b84c3f;
+      --border: #ded6c9;
+      --shadow: 0 18px 40px rgba(29, 42, 51, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top left, rgba(217, 164, 65, 0.22), transparent 32%),
+        linear-gradient(180deg, #efe7d7 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    .hero, .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(31, 111, 95, 0.1);
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
+    .panel {
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 13px 18px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.7; cursor: wait; transform: none; }
+
+    .primary {
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+    }
+
+    .secondary {
+      background: rgba(31, 111, 95, 0.08);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .card .label {
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .card .value {
+      font-size: 34px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .card .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8f2e7;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .hit { background: rgba(31, 111, 95, 0.12); color: var(--accent); }
+    .miss { background: rgba(184, 76, 63, 0.12); color: var(--danger); }
+    .hidden { display: none; }
+    .muted { color: var(--muted); }
+
+    pre {
+      margin: 0;
+      padding: 16px;
+      border-radius: 16px;
+      background: #192127;
+      color: #e6edf3;
+      overflow: auto;
+      font-size: 12px;
+    }
+
+    @media (max-width: 720px) {
+      h1 { font-size: 30px; }
+      .page { padding: 20px 14px 32px; }
+      .hero, .panel { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="eyebrow">Replay Backend</div>
+      <h1>Replay de assertividade da sugestão</h1>
+      <p>
+        Esta ferramenta roda o teste no backend, simulando giro a giro com o histórico real da roleta,
+        aplicando a mesma lógica de sugestão da API e medindo acerto, tentativa, custo e resultado financeiro.
+      </p>
+    </section>
+
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label for="roulette-id">Roleta</label>
+          <select id="roulette-id"></select>
+        </div>
+        <div>
+          <label for="history-limit">Números buscados</label>
+          <input id="history-limit" type="number" value="1200" min="100" max="10000">
+        </div>
+        <div>
+          <label for="entries-limit">Entradas avaliadas</label>
+          <input id="entries-limit" type="number" value="300" min="10" max="5000">
+        </div>
+        <div>
+          <label for="bet-size">Números da aposta</label>
+          <input id="bet-size" type="number" value="8" min="1" max="37">
+        </div>
+        <div>
+          <label for="max-attempts">Tentativas</label>
+          <input id="max-attempts" type="number" value="3" min="1" max="12">
+        </div>
+        <div>
+          <label for="min-history-size">Histórico mínimo</label>
+          <input id="min-history-size" type="number" value="50" min="5" max="500">
+        </div>
+        <div>
+          <label for="min-confidence">Confiança mínima</label>
+          <input id="min-confidence" type="number" value="60" min="0" max="100">
+        </div>
+        <div>
+          <label for="base-weight">Peso base</label>
+          <input id="base-weight" type="number" value="0.5" min="0" max="1" step="0.05">
+        </div>
+        <div>
+          <label for="optimized-weight">Peso otimizado</label>
+          <input id="optimized-weight" type="number" value="0.5" min="0" max="1" step="0.05">
+        </div>
+        <div>
+          <label for="chip-values">Fichas por tentativa</label>
+          <input id="chip-values" type="text" value="1,1,1">
+        </div>
+        <div>
+          <label for="block-bets-enabled">Apostas em blocos</label>
+          <select id="block-bets-enabled">
+            <option value="false" selected>Desligado</option>
+            <option value="true">Ligado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="run-btn" class="primary">Rodar replay</button>
+        <button id="copy-btn" class="secondary">Copiar JSON</button>
+        <div id="status" class="status">Aguardando configuração.</div>
+      </div>
+    </section>
+
+    <section id="summary-panel" class="panel hidden">
+      <div class="summary" id="summary-grid"></div>
+    </section>
+
+    <section id="details-panel" class="panel hidden">
+      <h2 style="margin-top:0;">Entradas avaliadas</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Entrada</th>
+              <th>Sugestão</th>
+              <th>Confiança</th>
+              <th>Próximos números</th>
+              <th>Resultado</th>
+              <th>Investido</th>
+              <th>Lucro</th>
+            </tr>
+          </thead>
+          <tbody id="details-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="json-panel" class="panel hidden">
+      <h2 style="margin-top:0;">JSON</h2>
+      <pre id="raw-json"></pre>
+    </section>
+  </div>
+
+  <script>
+    const rouletteSelect = document.getElementById('roulette-id');
+    const runBtn = document.getElementById('run-btn');
+    const copyBtn = document.getElementById('copy-btn');
+    const statusEl = document.getElementById('status');
+    const summaryPanel = document.getElementById('summary-panel');
+    const summaryGrid = document.getElementById('summary-grid');
+    const detailsPanel = document.getElementById('details-panel');
+    const detailsBody = document.getElementById('details-body');
+    const jsonPanel = document.getElementById('json-panel');
+    const rawJson = document.getElementById('raw-json');
+
+    let lastResult = null;
+
+    function money(value) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+    }
+
+    function pct(value) {
+      return `${(Number(value || 0) * 100).toFixed(2)}%`;
+    }
+
+    function parseChipValues(raw) {
+      return String(raw || '')
+        .split(',')
+        .map((item) => Number(item.trim()))
+        .filter((item) => Number.isFinite(item) && item > 0);
+    }
+
+    function getPayload() {
+      return {
+        roulette_id: rouletteSelect.value,
+        history_limit: Number(document.getElementById('history-limit').value) || 1200,
+        entries_limit: Number(document.getElementById('entries-limit').value) || 300,
+        bet_size: Number(document.getElementById('bet-size').value) || 8,
+        max_attempts: Number(document.getElementById('max-attempts').value) || 3,
+        min_history_size: Number(document.getElementById('min-history-size').value) || 50,
+        min_confidence: Number(document.getElementById('min-confidence').value) || 0,
+        base_weight: Number(document.getElementById('base-weight').value) || 0.5,
+        optimized_weight: Number(document.getElementById('optimized-weight').value) || 0.5,
+        chip_values: parseChipValues(document.getElementById('chip-values').value),
+        block_bets_enabled: document.getElementById('block-bets-enabled').value === 'true',
+      };
+    }
+
+    async function loadRoulettes() {
+      let data = [];
+      let lastError = null;
+
+      for (const endpoint of ['/api/roulettes-list', '/api/roulettes']) {
+        try {
+          const response = await fetch(endpoint);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const payload = await response.json();
+          if (Array.isArray(payload) && payload.length) {
+            data = payload;
+            break;
+          }
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (!data.length) {
+        throw lastError || new Error('Nenhuma roleta disponível');
+      }
+
+      rouletteSelect.innerHTML = data
+        .map((item) => {
+          const value = item.id || item.slug || item.name;
+          const label = item.displayName || item.name || value;
+          return `<option value="${value}">${label}</option>`;
+        })
+        .join('');
+    }
+
+    function renderSummary(result) {
+      const cards = [
+        { label: 'Sinais aceitos', value: result.signals_taken, sub: `${result.entries_analyzed} entradas avaliadas` },
+        { label: 'Hit rate', value: pct(result.hit_rate), sub: `${result.hits} hits / ${result.misses} misses` },
+        { label: 'ROI', value: pct(result.roi), sub: `Investido ${money(result.total_invested)}` },
+        { label: 'Lucro', value: money(result.total_profit), sub: `Confiança mínima ${result.config.min_confidence}%` },
+        { label: 'Pulados por confiança', value: result.skipped_confidence, sub: 'Sinais abaixo do corte' },
+        { label: 'Pulados por indisponibilidade', value: result.skipped_unavailable, sub: 'Sem sugestão válida' },
+      ];
+
+      summaryGrid.innerHTML = cards.map((card) => `
+        <div class="card">
+          <div class="label">${card.label}</div>
+          <div class="value">${card.value}</div>
+          <div class="sub">${card.sub}</div>
+        </div>
+      `).join('');
+      summaryPanel.classList.remove('hidden');
+    }
+
+    function renderDetails(result) {
+      detailsBody.innerHTML = (result.details || []).map((item) => `
+        <tr>
+          <td class="mono">${item.entry_number}</td>
+          <td class="mono">${item.suggestion.join(', ')}</td>
+          <td>${item.confidence.label} (${item.confidence.score}%)</td>
+          <td class="mono">${item.future_numbers.join(', ')}</td>
+          <td>
+            <span class="badge ${item.hit ? 'hit' : 'miss'}">${item.hit ? `Hit @${item.hit_attempt}` : 'Miss'}</span>
+            <div class="muted">${item.hit_number !== null ? `Número ${item.hit_number}` : 'Sem acerto'}</div>
+          </td>
+          <td>${money(item.invested)}</td>
+          <td>${money(item.profit)}</td>
+        </tr>
+      `).join('');
+      detailsPanel.classList.remove('hidden');
+    }
+
+    function renderJson(result) {
+      rawJson.textContent = JSON.stringify(result, null, 2);
+      jsonPanel.classList.remove('hidden');
+    }
+
+    async function runReplay() {
+      const payload = getPayload();
+      runBtn.disabled = true;
+      statusEl.textContent = 'Executando replay no backend...';
+
+      try {
+        const response = await fetch('/api/assertiveness/replay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || `HTTP ${response.status}`);
+        }
+        lastResult = data;
+        renderSummary(data);
+        renderDetails(data);
+        renderJson(data);
+        statusEl.textContent = `Replay concluído para ${data.roulette_id}.`;
+      } catch (error) {
+        statusEl.textContent = `Falha no replay: ${String(error.message || error)}`;
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    async function copyJson() {
+      if (!lastResult) {
+        statusEl.textContent = 'Nenhum resultado para copiar.';
+        return;
+      }
+      await navigator.clipboard.writeText(JSON.stringify(lastResult, null, 2));
+      statusEl.textContent = 'JSON copiado.';
+    }
+
+    runBtn.addEventListener('click', runReplay);
+    copyBtn.addEventListener('click', copyJson);
+    loadRoulettes().catch((error) => {
+      statusEl.textContent = `Falha ao carregar roletas: ${String(error.message || error)}`;
+    });
+  </script>
+</body>
+</html>

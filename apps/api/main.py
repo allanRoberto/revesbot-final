@@ -64,6 +64,7 @@ from api.routes.signals import router as signals_router
 from api.routes.pages import router as pages_router
 from api.routes.agent import router as agent_router
 from api.routes.patterns import router as patterns_router
+from api.routes.assertiveness_replay import router as assertiveness_replay_router
 
 
 
@@ -95,6 +96,7 @@ app.include_router(signals_router)
 app.include_router(pages_router)
 app.include_router(agent_router)
 app.include_router(patterns_router)
+app.include_router(assertiveness_replay_router)
 
  
 
