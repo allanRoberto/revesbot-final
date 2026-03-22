@@ -77,6 +77,7 @@ class FinalSuggestionRequest(BaseModel):
     siege_min_occurrences: int = 3
     siege_min_streak: int = 2
     siege_veto_relief: float = 0.4
+    block_bets_enabled: bool = False
     inversion_enabled: bool = True
     inversion_context_window: int = 15
     inversion_penalty_factor: float = 0.3
@@ -299,6 +300,7 @@ async def _compute_final_suggestion(
         pulled_counts=pulled_counts,
         base_weight=final_base_weight,
         optimized_weight=final_optimized_weight,
+        block_bets_enabled=bool(payload.block_bets_enabled),
         inversion_enabled=inversion_enabled,
         inversion_context_window=inversion_context_window,
         inversion_penalty_factor=inversion_penalty_factor,
@@ -322,6 +324,7 @@ async def _compute_final_suggestion(
         "suggestion": final_list,
         "focus_number": focus_number,
         "from_index": from_index,
+        "block_bets_enabled": bool(payload.block_bets_enabled),
         "optimized_max_numbers": optimized_max_numbers,
         "base_weight": final_base_weight,
         "optimized_weight": final_optimized_weight,
