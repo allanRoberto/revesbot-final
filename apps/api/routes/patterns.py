@@ -14,6 +14,7 @@ from api.services.pattern_correlation import correlation_matrix
 from api.services.backtesting import backtest_engine
 from api.services.suggestion_filter import suggestion_filter
 from api.services.pattern_decay import pattern_decay
+from api.services.final_suggestion_entry_intelligence import final_suggestion_entry_intelligence
 from api.patterns.final_suggestion import (
     build_base_suggestion,
     build_final_suggestion,
@@ -89,6 +90,42 @@ class FinalSuggestionBatchRequest(BaseModel):
     confidence_threshold: int = 70
     base_weight: float = 0.4
     optimized_weight: float = 0.6
+
+
+class ActiveSignalRequest(BaseModel):
+    suggestion: List[int] = Field(default_factory=list)
+    confidence_score: int = 0
+    suggestion_size: int = 0
+    policy_score: float | None = None
+    block_compaction_applied: bool = False
+    attempts_used: int = 0
+    max_attempts: int = 1
+    wait_spins: int = 0
+
+
+class FinalSuggestionPolicyRequest(BaseModel):
+    history: List[int] = Field(default_factory=list)
+    focus_number: int | None = None
+    from_index: int = 0
+    max_numbers: int = 12
+    optimized_max_numbers: int = 37
+    base_weight: float = 0.4
+    optimized_weight: float = 0.6
+    runtime_overrides: Dict[str, Dict[str, float | int | bool]] = Field(default_factory=dict)
+    siege_window: int = 6
+    siege_min_occurrences: int = 3
+    siege_min_streak: int = 2
+    siege_veto_relief: float = 0.4
+    block_bets_enabled: bool = False
+    inversion_enabled: bool = True
+    inversion_context_window: int = 15
+    inversion_penalty_factor: float = 0.3
+    max_attempts: int = 4
+    policy_observation_window: int = 2
+    policy_switch_min_hold_spins: int = 1
+    policy_switch_min_score_delta: float = 6.0
+    policy_switch_min_confidence_delta: int = 4
+    active_signal: ActiveSignalRequest | None = None
 
 
 def _event_from_result(
@@ -731,6 +768,74 @@ async def get_final_suggestion(payload: FinalSuggestionRequest):
     """
     try:
         return await _compute_final_suggestion(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/api/patterns/final-suggestion/policy")
+async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
+    try:
+        suggestion_payload = FinalSuggestionRequest(
+            history=payload.history,
+            focus_number=payload.focus_number,
+            from_index=payload.from_index,
+            max_numbers=payload.max_numbers,
+            optimized_max_numbers=payload.optimized_max_numbers,
+            base_weight=payload.base_weight,
+            optimized_weight=payload.optimized_weight,
+            runtime_overrides=payload.runtime_overrides,
+            siege_window=payload.siege_window,
+            siege_min_occurrences=payload.siege_min_occurrences,
+            siege_min_streak=payload.siege_min_streak,
+            siege_veto_relief=payload.siege_veto_relief,
+            block_bets_enabled=payload.block_bets_enabled,
+            inversion_enabled=payload.inversion_enabled,
+            inversion_context_window=payload.inversion_context_window,
+            inversion_penalty_factor=payload.inversion_penalty_factor,
+        )
+        result = await _compute_final_suggestion(suggestion_payload)
+        candidate_list = [int(n) for n in (result.get("suggestion") or []) if 0 <= int(n) <= 36]
+        candidate_confidence = int(result.get("confidence", {}).get("score", 0) or 0)
+        candidate_policy_score = candidate_confidence - (len(candidate_list) * 1.5)
+        if bool(result.get("breakdown", {}).get("block_compaction_applied")):
+            candidate_policy_score += 3.0
+
+        live_decision = final_suggestion_entry_intelligence.recommend(
+            active_signal=(
+                payload.active_signal.model_dump()
+                if (payload.active_signal and hasattr(payload.active_signal, "model_dump"))
+                else payload.active_signal.dict()
+                if payload.active_signal
+                else None
+            ),
+            candidate_signal={
+                "suggestion": candidate_list,
+                "confidence_score": candidate_confidence,
+                "suggestion_size": len(candidate_list),
+                "policy_score": candidate_policy_score,
+                "block_compaction_applied": bool(result.get("breakdown", {}).get("block_compaction_applied")),
+            },
+            history=payload.history,
+        )
+        return {
+            "available": bool(result.get("available", False)),
+            "decision": live_decision,
+            "candidate_signal": {
+                "focus_number": int(result.get("focus_number", payload.focus_number or 0) or 0),
+                "suggestion": candidate_list,
+                "confidence": result.get("confidence", {"score": 0, "label": "Baixa"}),
+                "confidence_v2_score": int(
+                    result.get("optimized_payload", {}).get("confidence_breakdown", {}).get("calibrated_confidence_v2", 0)
+                    or result.get("optimized_breakdown", {}).get("calibrated_confidence_v2", 0)
+                    or 0
+                ),
+                "suggestion_size": len(candidate_list),
+                "policy_score": round(float(candidate_policy_score), 4),
+                "block_compaction_applied": bool(result.get("breakdown", {}).get("block_compaction_applied")),
+                "block_bets_enabled": bool(result.get("blockBetsEnabled", payload.block_bets_enabled)),
+            },
+            "result": result,
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
