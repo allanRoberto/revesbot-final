@@ -1,0 +1,42 @@
+name: Deploy Develop
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-develop
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: 45.179.88.173
+          DEPLOY_USER: root
+        run: |
+          if [[ -z "$DEPLOY_SSH_KEY" ]]; then
+            echo "Missing GitHub secret: DEPLOY_SSH_KEY" >&2
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy develop
+        shell: bash
+        env:
+          DEPLOY_HOST: 45.179.88.173
+          DEPLOY_USER: root
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash -lc 'cd /var/www/revesbot-final/develop && ./infra/deploy/deploy.sh develop'"

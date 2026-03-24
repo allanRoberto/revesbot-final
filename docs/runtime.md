@@ -9,7 +9,9 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Entrypoint final: `apps/api/start.py`
 - Comando local: `cd apps/api && python3 start.py`
 - Comando de produção: `cd apps/api && PORT=8080 python3 start.py`
-- Comando PM2: `pm2 start infra/pm2/ecosystem.config.js --only api`
+- Comando PM2 nesta etapa:
+  - develop: `DEPLOY_STAGE=develop pm2 startOrReload infra/pm2/ecosystem.config.js --only api-dev --update-env`
+  - main: `DEPLOY_STAGE=main pm2 startOrReload infra/pm2/ecosystem.config.js --only api-prod --update-env`
 - Dependências relevantes:
   - Redis: `REDIS_CONNECT`
   - MongoDB: `mongo_url` via `.env`
@@ -27,7 +29,7 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Entrypoint final: `apps/collector/main.py`
 - Comando local: `cd apps/collector && python3 main.py`
 - Comando de produção: `cd apps/collector && python3 main.py`
-- Comando PM2: `pm2 start infra/pm2/ecosystem.config.js --only collector`
+- Comando PM2: `ainda não versionado nesta etapa`
 - Dependências relevantes:
   - Redis: `REDIS_CONNECT`
   - MongoDB: `MONGO_URL`
@@ -43,7 +45,7 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Entrypoint final: `apps/signals/main.py`
 - Comando local: `cd apps/signals && python3 main.py`
 - Comando de produção: `cd apps/signals && python3 main.py`
-- Comando PM2: `pm2 start infra/pm2/ecosystem.config.js --only signals`
+- Comando PM2: `ainda não versionado nesta etapa`
 - Dependências relevantes:
   - Redis (estado de sinais): `REDIS_SIGNALS_CONNECT` (fallback: `REDIS_CONNECT`)
   - Redis (resultados/pubsub): `REDIS_RESULTS_CONNECT` (fallback: Redis de sinais)
@@ -60,7 +62,7 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Entrypoint final: `apps/monitoring/main.py`
 - Comando local: `cd apps/monitoring && PYTHONPATH=. python3 main.py`
 - Comando de produção: `cd apps/monitoring && PYTHONPATH=. python3 main.py`
-- Comando PM2: `pm2 start infra/pm2/ecosystem.config.js --only monitoring`
+- Comando PM2: `ainda não versionado nesta etapa`
 - Dependências relevantes:
   - Redis (estado de sinais/streams): `REDIS_SIGNALS_CONNECT` (fallback: `REDIS_CONNECT`)
   - Redis (resultados/pubsub): `REDIS_RESULTS_CONNECT` (fallback: Redis de sinais)
@@ -81,7 +83,9 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Comando de produção:
   - `cd apps/auth_api && npm run build`
   - `cd apps/auth_api && npm run start`
-- Comando PM2: `pm2 start infra/pm2/ecosystem.config.js --only auth_api`
+- Comando PM2 nesta etapa:
+  - develop: `DEPLOY_STAGE=develop pm2 startOrReload infra/pm2/ecosystem.config.js --only auth-api-dev --update-env`
+  - main: `DEPLOY_STAGE=main pm2 startOrReload infra/pm2/ecosystem.config.js --only auth-api-prod --update-env`
 - Dependências relevantes:
   - Porta HTTP: `PORT` (default 3090)
   - Build obrigatório para produção: `dist/main.js`
