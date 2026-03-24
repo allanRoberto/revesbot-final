@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-11T11:42:44.522586Z",
+  "generated_at": "2026-03-22T23:31:10.965412Z",
   "source": {
     "mode": "snapshot_cache",
     "histories_used": 5,
@@ -7,373 +7,413 @@
       "snapshot_dir": "apps/api/data/confidence_history_snapshots",
       "derived_from": "/history/{slug}"
     },
-    "calibration_cases": 600,
-    "evaluation_cases": 400
+    "calibration_cases": 1200,
+    "evaluation_cases": 800
   },
-  "eligible_cases": 400,
+  "eligible_cases": 800,
   "variants": {
     "current_confidence": {
       "metrics": {
-        "eligible_cases": 400,
-        "available_cases": 400,
+        "eligible_cases": 800,
+        "available_cases": 800,
         "coverage": 1.0,
         "average_list_size": 11,
         "confidence_distribution": {
-          "100-100": 1,
-          "80-89": 55,
-          "90-99": 344
+          "100-100": 3,
+          "80-89": 142,
+          "90-99": 655
         },
-        "confidence_mean": 92.3975,
+        "confidence_mean": 92.17,
         "conditional_hits": {
-          "hit@1": 0.3,
-          "hit@2": 0.51,
-          "hit@3": 0.62,
-          "hit@4": 0.7175
+          "hit@1": 0.31625,
+          "hit@2": 0.52875,
+          "hit@4": 0.78125,
+          "hit@8": 0.9375,
+          "hit@10": 0.9625
         },
         "effective_hits": {
-          "hit@1": 0.3,
-          "hit@2": 0.51,
-          "hit@3": 0.62,
-          "hit@4": 0.7175
+          "hit@1": 0.31625,
+          "hit@2": 0.52875,
+          "hit@4": 0.78125,
+          "hit@8": 0.9375,
+          "hit@10": 0.9625
         }
       },
       "confidence_buckets": {
         "100-100": {
-          "available_cases": 1,
-          "coverage_total": 0.0025,
+          "available_cases": 3,
+          "coverage_total": 0.00375,
           "confidence_mean": 100,
           "average_list_size": 11,
           "hits_abs": {
             "hit@1": 0,
-            "hit@2": 0,
-            "hit@3": 1,
-            "hit@4": 1
+            "hit@2": 2,
+            "hit@4": 2,
+            "hit@8": 3,
+            "hit@10": 3
           },
           "conditional_hits": {
             "hit@1": 0.0,
-            "hit@2": 0.0,
-            "hit@3": 1.0,
-            "hit@4": 1.0
+            "hit@2": 0.666667,
+            "hit@4": 0.666667,
+            "hit@8": 1.0,
+            "hit@10": 1.0
           },
           "effective_hits": {
             "hit@1": 0.0,
-            "hit@2": 0.0,
-            "hit@3": 0.0025,
-            "hit@4": 0.0025
+            "hit@2": 0.0025,
+            "hit@4": 0.0025,
+            "hit@8": 0.00375,
+            "hit@10": 0.00375
           }
         },
         "80-89": {
-          "available_cases": 55,
-          "coverage_total": 0.1375,
-          "confidence_mean": 88.181818,
+          "available_cases": 142,
+          "coverage_total": 0.1775,
+          "confidence_mean": 88.253521,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 16,
-            "hit@2": 28,
-            "hit@3": 37,
-            "hit@4": 43
+            "hit@1": 47,
+            "hit@2": 75,
+            "hit@4": 110,
+            "hit@8": 134,
+            "hit@10": 137
           },
           "conditional_hits": {
-            "hit@1": 0.290909,
-            "hit@2": 0.509091,
-            "hit@3": 0.672727,
-            "hit@4": 0.781818
+            "hit@1": 0.330986,
+            "hit@2": 0.528169,
+            "hit@4": 0.774648,
+            "hit@8": 0.943662,
+            "hit@10": 0.964789
           },
           "effective_hits": {
-            "hit@1": 0.04,
-            "hit@2": 0.07,
-            "hit@3": 0.0925,
-            "hit@4": 0.1075
+            "hit@1": 0.05875,
+            "hit@2": 0.09375,
+            "hit@4": 0.1375,
+            "hit@8": 0.1675,
+            "hit@10": 0.17125
           }
         },
         "90-99": {
-          "available_cases": 344,
-          "coverage_total": 0.86,
-          "confidence_mean": 93.049419,
+          "available_cases": 655,
+          "coverage_total": 0.81875,
+          "confidence_mean": 92.983206,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 104,
-            "hit@2": 176,
-            "hit@3": 210,
-            "hit@4": 243
+            "hit@1": 206,
+            "hit@2": 346,
+            "hit@4": 513,
+            "hit@8": 613,
+            "hit@10": 630
           },
           "conditional_hits": {
-            "hit@1": 0.302326,
-            "hit@2": 0.511628,
-            "hit@3": 0.610465,
-            "hit@4": 0.706395
+            "hit@1": 0.314504,
+            "hit@2": 0.528244,
+            "hit@4": 0.783206,
+            "hit@8": 0.935878,
+            "hit@10": 0.961832
           },
           "effective_hits": {
-            "hit@1": 0.26,
-            "hit@2": 0.44,
-            "hit@3": 0.525,
-            "hit@4": 0.6075
+            "hit@1": 0.2575,
+            "hit@2": 0.4325,
+            "hit@4": 0.64125,
+            "hit@8": 0.76625,
+            "hit@10": 0.7875
           }
         }
       },
       "confidence_thresholds": {
         ">=40": {
           "threshold": 40,
-          "selected_cases": 400,
-          "eligible_cases": 400,
+          "selected_cases": 800,
+          "eligible_cases": 800,
           "coverage": 1.0,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         },
         ">=50": {
           "threshold": 50,
-          "selected_cases": 400,
-          "eligible_cases": 400,
+          "selected_cases": 800,
+          "eligible_cases": 800,
           "coverage": 1.0,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         },
         ">=60": {
           "threshold": 60,
-          "selected_cases": 400,
-          "eligible_cases": 400,
+          "selected_cases": 800,
+          "eligible_cases": 800,
           "coverage": 1.0,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         },
         ">=70": {
           "threshold": 70,
-          "selected_cases": 400,
-          "eligible_cases": 400,
+          "selected_cases": 800,
+          "eligible_cases": 800,
           "coverage": 1.0,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         }
       },
       "calibration": {
-        "ece_hit@4": 0.206475,
-        "available_cases": 400,
+        "ece_hit@4": 0.14045,
+        "available_cases": 800,
         "monotonic_pairs": 2,
-        "monotonic_non_decrease_ratio_hit@4": 0.0
+        "monotonic_non_decrease_ratio_hit@4": 1.0
       }
     },
     "confidence_v2": {
       "metrics": {
-        "eligible_cases": 400,
-        "available_cases": 400,
+        "eligible_cases": 800,
+        "available_cases": 800,
         "coverage": 1.0,
         "average_list_size": 11,
         "confidence_distribution": {
-          "70-79": 400
+          "70-79": 800
         },
-        "confidence_mean": 73.5125,
+        "confidence_mean": 70.54,
         "conditional_hits": {
-          "hit@1": 0.3,
-          "hit@2": 0.51,
-          "hit@3": 0.62,
-          "hit@4": 0.7175
+          "hit@1": 0.31625,
+          "hit@2": 0.52875,
+          "hit@4": 0.78125,
+          "hit@8": 0.9375,
+          "hit@10": 0.9625
         },
         "effective_hits": {
-          "hit@1": 0.3,
-          "hit@2": 0.51,
-          "hit@3": 0.62,
-          "hit@4": 0.7175
+          "hit@1": 0.31625,
+          "hit@2": 0.52875,
+          "hit@4": 0.78125,
+          "hit@8": 0.9375,
+          "hit@10": 0.9625
         }
       },
       "confidence_buckets": {
         "70-79": {
-          "available_cases": 400,
+          "available_cases": 800,
           "coverage_total": 1.0,
-          "confidence_mean": 73.5125,
+          "confidence_mean": 70.54,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         }
       },
       "confidence_thresholds": {
         ">=40": {
           "threshold": 40,
-          "selected_cases": 400,
-          "eligible_cases": 400,
+          "selected_cases": 800,
+          "eligible_cases": 800,
           "coverage": 1.0,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         },
         ">=50": {
           "threshold": 50,
-          "selected_cases": 400,
-          "eligible_cases": 400,
+          "selected_cases": 800,
+          "eligible_cases": 800,
           "coverage": 1.0,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         },
         ">=60": {
           "threshold": 60,
-          "selected_cases": 400,
-          "eligible_cases": 400,
+          "selected_cases": 800,
+          "eligible_cases": 800,
           "coverage": 1.0,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         },
         ">=70": {
           "threshold": 70,
-          "selected_cases": 400,
-          "eligible_cases": 400,
+          "selected_cases": 800,
+          "eligible_cases": 800,
           "coverage": 1.0,
           "average_list_size": 11,
           "hits_abs": {
-            "hit@1": 120,
-            "hit@2": 204,
-            "hit@3": 248,
-            "hit@4": 287
+            "hit@1": 253,
+            "hit@2": 423,
+            "hit@4": 625,
+            "hit@8": 750,
+            "hit@10": 770
           },
           "conditional_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           },
           "effective_hits": {
-            "hit@1": 0.3,
-            "hit@2": 0.51,
-            "hit@3": 0.62,
-            "hit@4": 0.7175
+            "hit@1": 0.31625,
+            "hit@2": 0.52875,
+            "hit@4": 0.78125,
+            "hit@8": 0.9375,
+            "hit@10": 0.9625
           }
         }
       },
       "calibration": {
-        "ece_hit@4": 0.017625,
-        "available_cases": 400,
+        "ece_hit@4": 0.07585,
+        "available_cases": 800,
         "monotonic_pairs": 0,
         "monotonic_non_decrease_ratio_hit@4": 0.0
       }

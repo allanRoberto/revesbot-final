@@ -23,8 +23,17 @@ class _StubCalibration:
             "score": 67,
             "bucket": "60-69",
             "hit_rate": 0.71,
+            "promptness_score": 62.0,
             "reliability": 0.9,
             "signals": 190,
+            "avg_first_hit_attempt": 3.2,
+            "attempt_rates": {
+                "hit@1": 0.22,
+                "hit@2": 0.44,
+                "hit@4": 0.71,
+                "hit@8": 0.79,
+                "hit@10": 0.83,
+            },
         }
 
 
@@ -38,6 +47,13 @@ def test_confidence_calibration_store_uses_bucket_hit_rate_and_reliability(tmp_p
             "50-59": {
                 "signals": 180,
                 "hit_rate": 0.74,
+                "promptness_score": 58.0,
+                "avg_first_hit_attempt": 3.5,
+                "hit@1": 0.18,
+                "hit@2": 0.39,
+                "hit@4": 0.74,
+                "hit@8": 0.82,
+                "hit@10": 0.84,
                 "reliability": 0.8,
             }
         },
@@ -50,8 +66,11 @@ def test_confidence_calibration_store_uses_bucket_hit_rate_and_reliability(tmp_p
 
     assert calibrated["bucket"] == "50-59"
     assert calibrated["hit_rate"] == 0.74
+    assert calibrated["promptness_score"] == 58.0
     assert calibrated["reliability"] == 0.8
-    assert calibrated["score"] == 70
+    assert calibrated["avg_first_hit_attempt"] == 3.5
+    assert calibrated["attempt_rates"]["hit@2"] == 0.39
+    assert calibrated["score"] == 57
 
 
 def test_confidence_v2_merge_is_stable_without_legacy_overlap() -> None:
@@ -102,6 +121,12 @@ def test_engine_evaluate_exposes_v2_shadow_breakdown_fields(tmp_path) -> None:
     assert breakdown["calibrated_confidence_v2"] == 67
     assert breakdown["calibration_bucket"] == "60-69"
     assert breakdown["calibration_bucket_hit4"] == 0.71
+    assert breakdown["calibration_bucket_promptness_v2"] == 62.0
     assert breakdown["calibration_reliability"] == 0.9
+    assert breakdown["calibration_avg_first_hit_attempt_v2"] == 3.2
+    assert breakdown["calibration_bucket_hit1"] == 0.22
+    assert breakdown["calibration_bucket_hit2"] == 0.44
+    assert breakdown["calibration_bucket_hit8"] == 0.79
+    assert breakdown["calibration_bucket_hit10"] == 0.83
     assert result["confidence"]["score"] != 67
     assert result["confidence_breakdown"]["confidence_v2_shadow"]["score"] == 67

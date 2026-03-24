@@ -164,10 +164,10 @@ async def get_history_detailed(
 
 
 @router.get("/history/{slug}")
-async def get_history(slug: str, request: Request, limit: int = 500):
+async def get_history(slug: str, request: Request, limit: int = 2000):
     """
     Retorna histórico da roleta.
-    - Param `limit`: número de resultados (default=500)
+    - Param `limit`: número de resultados (default=2000)
     - Mais recente sempre vem primeiro.
     """
     try:

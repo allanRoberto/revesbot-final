@@ -203,13 +203,28 @@ class PatternEngine:
         legacy_confidence_score: float | None = None,
         use_adaptive_weights: bool = True,
         runtime_overrides: Dict[str, Dict[str, Any]] | None = None,
+        weight_profile_id: str | None = None,
+        weight_profile_weights: Dict[str, float] | None = None,
         use_fallback: bool = True,
     ) -> Dict[str, Any]:
         normalized_history = [self._normalize_number(n) for n in history if self._is_valid_number(n)]
         normalized_base = [self._normalize_number(n) for n in (base_suggestion or []) if self._is_valid_number(n)]
+        normalized_profile_id = str(weight_profile_id or "").strip()
+        normalized_profile_weights = {
+            str(k): float(v)
+            for k, v in dict(weight_profile_weights or {}).items()
+            if str(k).strip()
+        }
 
         # Cache de avaliações
-        cache_key = self._build_cache_key(normalized_history, from_index, max_numbers, focus_number)
+        cache_key = self._build_cache_key(
+            normalized_history,
+            from_index,
+            max_numbers,
+            focus_number,
+            profile_id=normalized_profile_id,
+            profile_weights=normalized_profile_weights,
+        )
         if cache_key in self._evaluation_cache:
             return self._evaluation_cache[cache_key]
 
@@ -268,6 +283,8 @@ class PatternEngine:
             if self.is_pattern_disabled_by_decay(definition.id):
                 continue
 
+            profile_multiplier = float(normalized_profile_weights.get(definition.id, 1.0))
+            profiled_weight = float(definition.weight) * profile_multiplier
             effective_definition = definition
             if runtime_overrides and isinstance(runtime_overrides, dict):
                 raw_override = runtime_overrides.get(definition.id)
@@ -281,11 +298,27 @@ class PatternEngine:
                         kind=definition.kind,
                         active=definition.active,
                         priority=definition.priority,
-                        weight=definition.weight,
+                        weight=profiled_weight,
                         evaluator=definition.evaluator,
                         max_numbers=definition.max_numbers,
                         params=merged_params,
                     )
+            elif profiled_weight != float(definition.weight):
+                effective_definition = PatternDefinition(
+                    id=definition.id,
+                    name=definition.name,
+                    version=definition.version,
+                    kind=definition.kind,
+                    active=definition.active,
+                    priority=definition.priority,
+                    weight=profiled_weight,
+                    evaluator=definition.evaluator,
+                    max_numbers=definition.max_numbers,
+                    params=dict(definition.params or {}),
+                )
+            runtime_profile_multiplier = profile_multiplier
+            if abs(float(effective_definition.weight) - float(definition.weight)) > 1e-9:
+                runtime_profile_multiplier = 1.0
             evaluator = self._evaluator_registry.get(definition.evaluator)
             if evaluator is None:
                 logger.warning("Evaluator nao encontrado: %s", definition.evaluator)
@@ -332,7 +365,7 @@ class PatternEngine:
 
                     item_pattern_id = str(item.get("pattern_id", "")).strip() or f"{definition.id}_{idx}"
                     item_pattern_name = str(item.get("pattern_name", "")).strip() or f"{definition.name} #{idx}"
-                    item_base_weight = float(item.get("weight", effective_definition.weight))
+                    item_base_weight = float(item.get("weight", effective_definition.weight)) * runtime_profile_multiplier
                     item_adaptive = adaptive_multipliers.get(definition.id, 1.0)
                     item_weight = item_base_weight * item_adaptive
 
@@ -393,8 +426,8 @@ class PatternEngine:
                 pattern_id=definition.id,
                 pattern_name=definition.name,
                 version=definition.version,
-                weight=(effective_definition.weight * adaptive_multipliers.get(definition.id, 1.0)),
-                base_weight=effective_definition.weight,
+                weight=(effective_definition.weight * adaptive_multipliers.get(definition.id, 1.0) * runtime_profile_multiplier),
+                base_weight=(effective_definition.weight * runtime_profile_multiplier),
                 adaptive_multiplier=adaptive_multipliers.get(definition.id, 1.0),
                 numbers=sorted(set(numbers)),
                 explanation=explanation,
@@ -428,6 +461,7 @@ class PatternEngine:
                 effective_weight = (
                     effective_definition.weight
                     * adaptive_multipliers.get(definition.id, 1.0)
+                    * runtime_profile_multiplier
                     * correlation_boost
                     * decay_multiplier
                 )
@@ -846,12 +880,20 @@ class PatternEngine:
         from_index: int,
         max_numbers: int,
         focus_number: int | None,
+        profile_id: str = "",
+        profile_weights: Dict[str, float] | None = None,
     ) -> str:
         """Gera chave única para cache baseada nos parâmetros."""
         # Usar apenas os últimos 20 números para a chave (suficiente para os padrões)
         relevant_history = history[from_index:from_index + 20]
         history_str = ",".join(str(n) for n in relevant_history)
-        return f"{history_str}|{from_index}|{max_numbers}|{focus_number}"
+        profile_signature = profile_id.strip()
+        if not profile_signature and profile_weights:
+            profile_signature = ",".join(
+                f"{key}:{round(float(value), 6)}"
+                for key, value in sorted(profile_weights.items(), key=lambda item: item[0])
+            )
+        return f"{history_str}|{from_index}|{max_numbers}|{focus_number}|{profile_signature}"
 
     def _save_to_cache(self, key: str, result: Dict[str, Any]) -> None:
         """Salva resultado no cache com limite de tamanho."""
@@ -952,7 +994,13 @@ class PatternEngine:
             "calibrated_confidence_v2": calibrated_score,
             "calibration_bucket": str(calibration.get("bucket", "00-09")),
             "calibration_bucket_hit4": round(float(calibration.get("hit_rate", 0.0) or 0.0), 4),
+            "calibration_bucket_promptness_v2": round(float(calibration.get("promptness_score", 0.0) or 0.0), 4),
             "calibration_reliability": round(float(calibration.get("reliability", 0.0) or 0.0), 4),
+            "calibration_avg_first_hit_attempt_v2": calibration.get("avg_first_hit_attempt"),
+            "calibration_bucket_hit1": round(float((calibration.get("attempt_rates") or {}).get("hit@1", 0.0) or 0.0), 4),
+            "calibration_bucket_hit2": round(float((calibration.get("attempt_rates") or {}).get("hit@2", 0.0) or 0.0), 4),
+            "calibration_bucket_hit8": round(float((calibration.get("attempt_rates") or {}).get("hit@8", 0.0) or 0.0), 4),
+            "calibration_bucket_hit10": round(float((calibration.get("attempt_rates") or {}).get("hit@10", 0.0) or 0.0), 4),
             "confidence_v2_api_weight": round(float(merged_v2.get("api_weight", 1.0) or 1.0), 4),
             "confidence_v2_legacy_weight": round(float(merged_v2.get("legacy_weight", 0.0) or 0.0), 4),
             "confidence_v2_overlap_ratio": round(float(merged_v2.get("overlap_ratio", 0.0) or 0.0), 4),

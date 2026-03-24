@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "mode": "shadow",
-  "description": "Calibracao bucketizada da confidence_v2 baseada em replay hit@4.",
+  "description": "Calibracao bucketizada da confidence_v2 baseada em hit rapido e latencia do primeiro acerto.",
   "bucket_signal_target": 150,
   "source": {
     "type": "snapshot_cache",
@@ -11,15 +11,41 @@
     }
   },
   "buckets": {
+    "70-79": {
+      "signals": 2,
+      "hit_rate": 1.0,
+      "hit@1": 0.5,
+      "hit@2": 1.0,
+      "hit@4": 1.0,
+      "hit@8": 1.0,
+      "hit@10": 1.0,
+      "avg_first_hit_attempt": 1.5,
+      "promptness_score": 94.9,
+      "reliability": 0.013333
+    },
     "80-89": {
-      "signals": 519,
-      "hit_rate": 0.726397,
+      "signals": 1122,
+      "hit_rate": 0.737968,
+      "hit@1": 0.296791,
+      "hit@2": 0.493761,
+      "hit@4": 0.737968,
+      "hit@8": 0.926916,
+      "hit@10": 0.959893,
+      "avg_first_hit_attempt": 3.655525,
+      "promptness_score": 69.841927,
       "reliability": 1.0
     },
     "90-99": {
-      "signals": 78,
-      "hit_rate": 0.666667,
-      "reliability": 0.52
+      "signals": 73,
+      "hit_rate": 0.69863,
+      "hit@1": 0.315068,
+      "hit@2": 0.479452,
+      "hit@4": 0.69863,
+      "hit@8": 0.835616,
+      "hit@10": 0.931507,
+      "avg_first_hit_attempt": 3.838235,
+      "promptness_score": 66.60079,
+      "reliability": 0.486667
     }
   }
 }

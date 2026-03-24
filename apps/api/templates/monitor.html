@@ -99,6 +99,12 @@
     opacity: 0.82;
   }
 
+  .attempt-stake-profit {
+    font-size: 0.78rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
   .attempt-stake-item input {
     padding: 10px 12px;
     border: 1px solid #ddd;
@@ -171,6 +177,23 @@
 
   .btn-stop {
     background: linear-gradient(135deg, var(--danger), #e17055);
+  }
+
+  .btn-secondary {
+    background: linear-gradient(135deg, #1f2937, #475569);
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .config-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
   }
 
   .status-panel {
@@ -323,6 +346,16 @@
     color: #e17055;
   }
 
+  .bet-status.action-bet {
+    background: rgba(0, 184, 148, 0.18);
+    color: var(--success);
+  }
+
+  .bet-status.action-wait {
+    background: rgba(253, 203, 110, 0.22);
+    color: #d97706;
+  }
+
   .history-panel {
     background: var(--card-light);
     border-radius: 12px;
@@ -334,53 +367,6 @@
 
   body.dark-mode .history-panel {
     background: var(--card-dark);
-  }
-
-  .debug-panel {
-    background: var(--card-light);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-  }
-
-  body.dark-mode .debug-panel {
-    background: var(--card-dark);
-  }
-
-  .debug-panel h3 {
-    margin: 0 0 15px 0;
-    font-size: 1rem;
-    opacity: 0.8;
-  }
-
-  .debug-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
-  }
-
-  .debug-card {
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: 10px;
-    padding: 12px;
-    background: rgba(148, 163, 184, 0.06);
-  }
-
-  .debug-card h4 {
-    margin: 0 0 10px 0;
-    font-size: 0.9rem;
-    opacity: 0.85;
-  }
-
-  .debug-card pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    max-height: 240px;
-    overflow: auto;
   }
 
   .history-panel h3 {
@@ -423,6 +409,21 @@
     font-size: 0.85rem;
   }
 
+  .history-number.red,
+  .cycle-chip.red {
+    background: var(--roulette-red);
+  }
+
+  .history-number.black,
+  .cycle-chip.black {
+    background: var(--roulette-black);
+  }
+
+  .history-number.green,
+  .cycle-chip.green {
+    background: var(--roulette-green);
+  }
+
   .history-details {
     flex: 1;
     font-size: 0.85rem;
@@ -433,6 +434,112 @@
     font-size: 0.78rem;
     opacity: 0.78;
     line-height: 1.45;
+  }
+
+  .cycle-strip {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .cycle-chip {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: white;
+    font-size: 1rem;
+    border: 3px solid transparent;
+    opacity: 1;
+  }
+
+  .cycle-chip.pause {
+    opacity: 0.32;
+    filter: grayscale(0.4);
+  }
+
+  .cycle-chip.pause-hit {
+    opacity: 0.5;
+    border-color: rgba(253, 203, 110, 0.9);
+  }
+
+  .cycle-chip.switch {
+    border-color: #f97316;
+    box-shadow: 0 0 0 2px rgba(253, 203, 110, 0.22);
+  }
+
+  .cycle-chip.attempt {
+    opacity: 1;
+  }
+
+  .switch-log {
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(253, 203, 110, 0.12);
+    border: 1px solid rgba(253, 203, 110, 0.3);
+  }
+
+  .switch-log strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .cycle-live {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+  }
+
+  .policy-quick-card {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  body.dark-mode .policy-quick-card {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .policy-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .policy-tag {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+  }
+
+  .policy-tag.on {
+    background: rgba(249, 115, 22, 0.15);
+    color: #c2410c;
+    border-color: rgba(249, 115, 22, 0.28);
+  }
+
+  .policy-tag.off {
+    background: rgba(148, 163, 184, 0.12);
+    color: #64748b;
+    border-color: rgba(148, 163, 184, 0.18);
+  }
+
+  .policy-tag.bet {
+    background: rgba(0, 184, 148, 0.16);
+    color: #047857;
+    border-color: rgba(0, 184, 148, 0.24);
   }
 
   .history-result {
@@ -500,6 +607,105 @@
   .confidence-badge.media, .confidence-badge.média { background: rgba(253, 203, 110, 0.2); color: #e17055; }
   .confidence-badge.baixa { background: rgba(214, 48, 49, 0.2); color: var(--danger); }
   .confidence-badge.muito-baixa { background: rgba(214, 48, 49, 0.3); color: var(--danger); }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 24px;
+  }
+
+  .modal-backdrop.open {
+    display: flex;
+  }
+
+  .modal-card {
+    width: min(1100px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--card-light);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  }
+
+  body.dark-mode .modal-card {
+    background: var(--card-dark);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .modal-close {
+    border: none;
+    background: transparent;
+    font-size: 1.6rem;
+    cursor: pointer;
+    color: inherit;
+  }
+
+  .win-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    background: rgba(0, 184, 148, 0.18);
+  }
+
+  .win-overlay.show {
+    display: flex;
+    animation: winFlash 1.8s ease forwards;
+  }
+
+  .win-message {
+    background: rgba(255, 255, 255, 0.94);
+    color: #047857;
+    padding: 18px 28px;
+    border-radius: 16px;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+  }
+
+  .confetti-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 10px;
+    height: 18px;
+    opacity: 0.9;
+    animation: confettiFall 1.8s linear forwards;
+  }
+
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+  }
+
+  @keyframes winFlash {
+    0% { opacity: 0; }
+    12% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { opacity: 0; }
+  }
 </style>
 
 <div class="monitor-container">
@@ -533,11 +739,23 @@
       </div>
       <div class="config-item">
         <label>Qtd. Fichas / Números</label>
-        <input type="number" id="bet-size" value="8" min="1" max="18">
+        <input type="number" id="bet-size" value="8" min="1" max="37">
       </div>
       <div class="config-item">
         <label>Confiança Mínima (%)</label>
         <input type="number" id="min-confidence" value="60" min="0" max="100" step="1">
+      </div>
+      <div class="config-item">
+        <label>Modo de execução</label>
+        <select id="execution-mode">
+          <option value="manual" selected>Manual</option>
+          <option value="conservative">Conservador</option>
+          <option value="aggressive">Agressivo</option>
+        </select>
+      </div>
+      <div class="config-item">
+        <label>Máx. trocas por ciclo</label>
+        <input type="number" id="max-switches-per-cycle" value="1" min="0" max="10" step="1">
       </div>
       <div class="config-item" style="justify-content: flex-end;">
         <button class="btn-start" id="btn-toggle">Iniciar Monitoramento</button>
@@ -549,6 +767,9 @@
       <div class="attempt-stake-help">
         Cada tentativa usa o valor configurado aqui. O lucro/prejuízo passa a considerar o investimento acumulado real por tentativa.
       </div>
+    </div>
+    <div class="config-actions">
+      <button class="btn-secondary" id="btn-open-advanced-config" type="button">Configuração da Sugestão</button>
     </div>
   </div>
 
@@ -589,7 +810,6 @@
       <div class="current-number">
         <div class="number-display waiting" id="current-number">—</div>
       </div>
-      <div class="bet-status waiting" id="bet-status">Aguardando início...</div>
       <div class="attempts-indicator" id="attempts-indicator"></div>
     </div>
 
@@ -602,21 +822,34 @@
     </div>
   </div>
 
-  <div class="debug-panel">
-    <h3>Debug da Sugestão</h3>
-    <div class="debug-grid">
-      <div class="debug-card">
-        <h4>Payload enviado</h4>
-        <pre id="debug-payload">Aguardando primeira chamada...</pre>
+  <div class="display-card" style="margin-bottom: 20px;">
+    <h3>Política do Sinal</h3>
+    <div id="policy-decision" class="bet-status waiting">Aguardando primeira avaliação...</div>
+    <div class="policy-quick-card">
+      <div id="policy-summary" style="font-weight: 700;">Sem leitura ativa.</div>
+      <div class="policy-tags" id="policy-tags"></div>
+    </div>
+    <div class="config-grid" style="margin-top: 15px;">
+      <div class="config-item">
+        <label>Atual</label>
+        <div id="policy-current" style="font-weight: 600; min-height: 24px;">—</div>
       </div>
-      <div class="debug-card">
-        <h4>Resposta da API</h4>
-        <pre id="debug-response">Aguardando primeira resposta...</pre>
+      <div class="config-item">
+        <label>Candidato</label>
+        <div id="policy-candidate" style="font-weight: 600; min-height: 24px;">—</div>
       </div>
-      <div class="debug-card">
-        <h4>Sugestão aplicada no monitor</h4>
-        <pre id="debug-monitor">Aguardando primeira sugestão...</pre>
+      <div class="config-item">
+        <label>Razão</label>
+        <div id="policy-reason" style="min-height: 24px; opacity: 0.85;">—</div>
       </div>
+      <div class="config-item">
+        <label>Métricas</label>
+        <div id="policy-metrics" style="min-height: 24px; opacity: 0.85;">—</div>
+      </div>
+    </div>
+    <div class="cycle-live">
+      <h3 style="margin-bottom:10px;">Histórico do Ciclo Atual</h3>
+      <div id="cycle-live-strip"></div>
     </div>
   </div>
 
@@ -628,6 +861,137 @@
       </div>
     </div>
   </div>
+</div>
+
+<div class="modal-backdrop" id="advanced-config-modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 style="margin: 0;">Configuração da Sugestão</h3>
+      <button class="modal-close" id="btn-close-advanced-config" type="button">&times;</button>
+    </div>
+    <div class="config-subpanel" style="margin-top: 0; padding-top: 0; border-top: none;">
+      <h3>Configuração da Sugestão API</h3>
+      <div class="config-grid">
+        <div class="config-item">
+          <label>Histórico analisado</label>
+          <input type="number" id="api-history-limit" value="1000" min="50" max="5000" step="50">
+        </div>
+        <div class="config-item">
+          <label>Máx. números sugeridos</label>
+          <input type="number" id="api-max-numbers" value="8" min="1" max="37" step="1">
+        </div>
+        <div class="config-item">
+          <label>Máx. números otimizados</label>
+          <input type="number" id="api-optimized-max-numbers" value="37" min="1" max="37" step="1">
+        </div>
+        <div class="config-item">
+          <label>Perfil de pesos</label>
+          <select id="api-weight-profile">
+            <option value="">Peso padrão</option>
+          </select>
+        </div>
+        <div class="config-item">
+          <label>Peso base</label>
+          <input type="number" id="api-base-weight" value="0.5" min="0" max="1" step="0.05">
+        </div>
+        <div class="config-item">
+          <label>Peso otimizado</label>
+          <input type="number" id="api-optimized-weight" value="0.5" min="0" max="1" step="0.05">
+        </div>
+        <div class="config-item">
+          <label>Siege window</label>
+          <input type="number" id="api-siege-window" value="6" min="2" max="20" step="1">
+        </div>
+        <div class="config-item">
+          <label>Siege min occurrences</label>
+          <input type="number" id="api-siege-min-occurrences" value="3" min="1" max="10" step="1">
+        </div>
+        <div class="config-item">
+          <label>Siege min streak</label>
+          <input type="number" id="api-siege-min-streak" value="2" min="1" max="10" step="1">
+        </div>
+        <div class="config-item">
+          <label>Siege veto relief</label>
+          <input type="number" id="api-siege-veto-relief" value="0.4" min="0" max="1" step="0.05">
+        </div>
+        <div class="config-item">
+          <label>Inversão</label>
+          <select id="api-inversion-enabled">
+            <option value="false" selected>Desligada</option>
+            <option value="true">Ligada</option>
+          </select>
+        </div>
+        <div class="config-item">
+          <label>Janela da inversão</label>
+          <input type="number" id="api-inversion-context-window" value="15" min="1" max="50" step="1">
+        </div>
+        <div class="config-item">
+          <label>Penalty da inversão</label>
+          <input type="number" id="api-inversion-penalty-factor" value="0.3" min="0" max="1" step="0.05">
+        </div>
+        <div class="config-item">
+          <label>Apostas em bloco</label>
+          <select id="api-block-bets-enabled">
+            <option value="false">Desligadas</option>
+            <option value="true">Ligadas</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="config-subpanel">
+      <h3>Política do Sinal</h3>
+      <div class="config-grid">
+        <div class="config-item">
+          <label>Janela de observação</label>
+          <input type="number" id="policy-observation-window" value="2" min="1" max="10" step="1">
+        </div>
+        <div class="config-item">
+          <label>Mín. giros antes de trocar</label>
+          <input type="number" id="policy-switch-min-hold-spins" value="1" min="1" max="10" step="1">
+        </div>
+        <div class="config-item">
+          <label>Delta mínimo de score</label>
+          <input type="number" id="policy-switch-min-score-delta" value="6" min="0" max="50" step="0.5">
+        </div>
+        <div class="config-item">
+          <label>Delta mínimo de confiança</label>
+          <input type="number" id="policy-switch-min-confidence-delta" value="4" min="0" max="50" step="1">
+        </div>
+        <div class="config-item">
+          <label>Overlap máximo para trocar</label>
+          <input type="number" id="policy-switch-max-overlap" value="0.45" min="0" max="1" step="0.05">
+        </div>
+        <div class="config-item">
+          <label>Máx. giros aguardando</label>
+          <input type="number" id="policy-max-wait-spins" value="4" min="1" max="20" step="1">
+        </div>
+        <div class="config-item">
+          <label>Modo alerta</label>
+          <select id="policy-alert-enabled">
+            <option value="true" selected>Ligado</option>
+            <option value="false">Desligado</option>
+          </select>
+        </div>
+        <div class="config-item">
+          <label>Entrar em alerta após tentativa</label>
+          <input type="number" id="policy-alert-after-attempt" value="2" min="1" max="10" step="1">
+        </div>
+        <div class="config-item">
+          <label>Mín. tentativas restantes</label>
+          <input type="number" id="policy-alert-min-remaining" value="2" min="1" max="10" step="1">
+        </div>
+        <div class="config-item">
+          <label>Janela de resgate</label>
+          <input type="number" id="policy-alert-rescue-window" value="2" min="1" max="5" step="1">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="win-overlay" id="win-overlay">
+  <div class="confetti-layer" id="confetti-layer"></div>
+  <div class="win-message">APOSTA GANHA</div>
 </div>
 
 <script>
@@ -677,12 +1041,50 @@
     }
   }
 
+  function openAdvancedConfigModal() {
+    advancedConfigModal?.classList.add('open');
+  }
+
+  function closeAdvancedConfigModal() {
+    advancedConfigModal?.classList.remove('open');
+  }
+
+  function triggerWinCelebration() {
+    if (!winOverlay || !confettiLayer) return;
+    confettiLayer.innerHTML = '';
+    const colors = ['#00b894', '#fdcb6e', '#d60700', '#6c5ce7', '#00a13a'];
+    for (let index = 0; index < 36; index += 1) {
+      const piece = document.createElement('span');
+      piece.className = 'confetti-piece';
+      piece.style.left = `${Math.random() * 100}%`;
+      piece.style.background = colors[index % colors.length];
+      piece.style.animationDelay = `${Math.random() * 0.25}s`;
+      piece.style.transform = `translateY(0) rotate(${Math.random() * 360}deg)`;
+      confettiLayer.appendChild(piece);
+    }
+    winOverlay.classList.remove('show');
+    void winOverlay.offsetWidth;
+    winOverlay.classList.add('show');
+    window.setTimeout(() => {
+      winOverlay.classList.remove('show');
+      confettiLayer.innerHTML = '';
+    }, 1900);
+  }
+
   function loadStoredConfig(key, defaultValue) {
     try {
       const value = window.localStorage.getItem(key);
       return value !== null ? value : defaultValue;
     } catch (error) {
       return defaultValue;
+    }
+  }
+
+  function saveStoredConfig(key, value) {
+    try {
+      window.localStorage.setItem(key, String(value));
+    } catch (error) {
+      console.warn('Falha ao salvar configuracao local', key, error);
     }
   }
 
@@ -722,25 +1124,32 @@
     };
   }
 
+  function getWeightProfileStorageKey(slug) {
+    return `api:selectedWeightProfile:${slug || ''}`;
+  }
+
   function getFinalSuggestionPayload(sourceArr, focusNumber, maxNumbers) {
     const weightConfig = normalizeBlendWeights(
-      loadStoredConfig('finalBaseWeight', '0.5'),
-      loadStoredConfig('finalOptimizedWeight', '0.5')
+      apiBaseWeightInput.value,
+      apiOptimizedWeightInput.value
     );
-    const siegeWindow = toBoundedInteger(loadStoredConfig('siegeWindow', '6'), 6, 2, 20);
-    const siegeMinOccurrences = toBoundedInteger(loadStoredConfig('siegeMinOccurrences', '3'), 3, 1, 10);
-    const siegeMinStreak = toBoundedInteger(loadStoredConfig('siegeMinStreak', '2'), 2, 1, 10);
-    const siegeVetoRelief = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('siegeVetoRelief', '0.4'), 0.4)));
-    const inversionEnabled = String(loadStoredConfig('inversionEnabled', 'false')) === 'true';
-    const inversionContextWindow = toBoundedInteger(loadStoredConfig('inversionContextWindow', '5'), 5, 1, 50);
-    const inversionPenaltyFactor = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('inversionPenaltyFactor', '0.3'), 0.3)));
+    const siegeWindow = toBoundedInteger(apiSiegeWindowInput.value, 6, 2, 20);
+    const siegeMinOccurrences = toBoundedInteger(apiSiegeMinOccurrencesInput.value, 3, 1, 10);
+    const siegeMinStreak = toBoundedInteger(apiSiegeMinStreakInput.value, 2, 1, 10);
+    const siegeVetoRelief = Math.min(1, Math.max(0, toFiniteNumber(apiSiegeVetoReliefInput.value, 0.4)));
+    const inversionEnabled = apiInversionEnabledSelect.value === 'true';
+    const inversionContextWindow = toBoundedInteger(apiInversionContextWindowInput.value, 15, 1, 50);
+    const inversionPenaltyFactor = Math.min(1, Math.max(0, toFiniteNumber(apiInversionPenaltyFactorInput.value, 0.3)));
+    const blockBetsEnabled = apiBlockBetsEnabledSelect.value === 'true';
+    const optimizedMaxNumbers = toBoundedInteger(apiOptimizedMaxNumbersInput.value, 37, 1, 37);
+    const selectedWeightProfileId = apiWeightProfileSelect.value || null;
 
     return {
       history: sourceArr || [],
       focus_number: Number.isInteger(focusNumber) ? focusNumber : null,
       from_index: 0,
       max_numbers: maxNumbers,
-      optimized_max_numbers: 37,
+      optimized_max_numbers: optimizedMaxNumbers,
       base_weight: weightConfig.baseWeight,
       optimized_weight: weightConfig.optimizedWeight,
       runtime_overrides: getRuntimeOverridesPayload(siegeWindow, siegeMinOccurrences, siegeMinStreak),
@@ -748,10 +1157,113 @@
       siege_min_occurrences: siegeMinOccurrences,
       siege_min_streak: siegeMinStreak,
       siege_veto_relief: siegeVetoRelief,
+      block_bets_enabled: blockBetsEnabled,
       inversion_enabled: inversionEnabled,
       inversion_context_window: inversionContextWindow,
       inversion_penalty_factor: inversionPenaltyFactor,
+      weight_profile_id: selectedWeightProfileId,
     };
+  }
+
+  function getPolicyPayload(sourceArr, focusNumber, maxNumbers) {
+    const payload = getFinalSuggestionPayload(sourceArr, focusNumber, maxNumbers);
+    return {
+      ...payload,
+      max_attempts: parseInt(maxAttemptsInput.value, 10) || 3,
+      policy_observation_window: toBoundedInteger(policyObservationWindowInput.value, 2, 1, 10),
+      policy_switch_min_hold_spins: toBoundedInteger(policySwitchMinHoldSpinsInput.value, 1, 1, 10),
+      policy_switch_min_score_delta: Math.max(0, toFiniteNumber(policySwitchMinScoreDeltaInput.value, 6)),
+      policy_switch_min_confidence_delta: toBoundedInteger(policySwitchMinConfidenceDeltaInput.value, 4, 0, 50),
+      active_signal: betState.active ? {
+        suggestion: Array.isArray(betState.suggestion) ? betState.suggestion : [],
+        confidence_score: betState.confidence?.score || 0,
+        suggestion_size: Array.isArray(betState.suggestion) ? betState.suggestion.length : 0,
+        policy_score: betState.policyScore ?? null,
+        block_compaction_applied: !!betState.blockCompactionApplied,
+        attempts_used: betState.attempts || 0,
+        max_attempts: betState.maxAttempts || 1,
+        wait_spins: betState.waitSpins || 0,
+      } : null,
+    };
+  }
+
+  function getDynamicMaxWaitSpins() {
+    const configured = toBoundedInteger(policyMaxWaitSpinsInput.value, 4, 1, 20);
+    const dynamic = Array.isArray(betState.suggestion) && betState.suggestion.length > 12 ? 3 : 6;
+    return Math.min(configured, dynamic);
+  }
+
+  function getAlertConfig() {
+    return {
+      enabled: policyAlertEnabledSelect.value === 'true',
+      afterAttempt: toBoundedInteger(policyAlertAfterAttemptInput.value, 2, 1, 10),
+      minRemaining: toBoundedInteger(policyAlertMinRemainingInput.value, 2, 1, 10),
+      rescueWindow: toBoundedInteger(policyAlertRescueWindowInput.value, 2, 1, 5),
+    };
+  }
+
+  function buildOperationalPolicy(action, label, reason, extraMetrics = {}) {
+    return {
+      action,
+      label,
+      reason,
+      metrics: {
+        ...extraMetrics,
+      },
+      current: betState.active ? {
+        confidence_score: betState.confidence?.score || 0,
+        suggestion: Array.isArray(betState.suggestion) ? [...betState.suggestion] : [],
+        attempts_used: betState.attempts || 0,
+        max_attempts: betState.maxAttempts || 1,
+      } : null,
+      candidate: null,
+    };
+  }
+
+  function shouldActivateAlertMode() {
+    const config = getAlertConfig();
+    if (!config.enabled) return false;
+    if (!betState.active || betState.alertMode || betState.alertUsed || betState.rescueSpinsRemaining > 0) return false;
+    const remainingAttempts = Math.max(0, (betState.maxAttempts || 0) - (betState.attempts || 0));
+    return (betState.attempts || 0) >= config.afterAttempt && remainingAttempts >= config.minRemaining;
+  }
+
+  function activateAlertMode(reason = '') {
+    betState.alertMode = true;
+    betState.alertUsed = true;
+    betState.betOnTable = false;
+    betState.waitSpins = 0;
+    betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+    betState.signalTimeline.push(buildCycleEvent('alert-start', {
+      number: Array.isArray(rouletteHistory) && rouletteHistory.length ? rouletteHistory[0] : null,
+      suggestion: betState.suggestion,
+      confidence: betState.confidence?.score || 0,
+      policy: 'Modo Alerta',
+      reason: reason || 'Aposta entrou em observação de resgate.',
+      label: 'Alerta',
+    }));
+  }
+
+  function armAlertRescue(triggerNumber) {
+    const remainingAttempts = Math.max(0, (betState.maxAttempts || 0) - (betState.attempts || 0));
+    const rescueWindow = Math.min(getAlertConfig().rescueWindow, remainingAttempts);
+    if (rescueWindow <= 0) {
+      return false;
+    }
+    betState.alertMode = false;
+    betState.waitSpins = 0;
+    betState.betOnTable = true;
+    betState.rescueSpinsRemaining = rescueWindow;
+    betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+    betState.signalTimeline.push(buildCycleEvent('alert-trigger', {
+      number: Number.isInteger(triggerNumber) ? triggerNumber : null,
+      suggestion: betState.suggestion,
+      confidence: betState.confidence?.score || 0,
+      policy: 'Resgate',
+      reason: `Número ${triggerNumber} confirmou a sugestão. Reentrada armada por ${rescueWindow} tentativa(s).`,
+      label: 'Resgate',
+    }));
+    return true;
   }
 
   // State
@@ -785,7 +1297,16 @@
     totalInvested: 0,
     minConfidence: 60,
     openedAt: null,
-    openedAtLabel: ''
+    openedAtLabel: '',
+    policyScore: null,
+    blockCompactionApplied: false,
+    betOnTable: false,
+    waitSpins: 0,
+    alertMode: false,
+    alertUsed: false,
+    rescueSpinsRemaining: 0,
+    switches: 0,
+    signalTimeline: []
   };
 
   // DOM elements
@@ -795,19 +1316,57 @@
   const maxAttemptsInput = document.getElementById('max-attempts');
   const betSizeInput = document.getElementById('bet-size');
   const minConfidenceInput = document.getElementById('min-confidence');
+  const executionModeSelect = document.getElementById('execution-mode');
+  const maxSwitchesPerCycleInput = document.getElementById('max-switches-per-cycle');
+  const btnOpenAdvancedConfig = document.getElementById('btn-open-advanced-config');
+  const advancedConfigModal = document.getElementById('advanced-config-modal');
+  const btnCloseAdvancedConfig = document.getElementById('btn-close-advanced-config');
+  const apiHistoryLimitInput = document.getElementById('api-history-limit');
+  const apiMaxNumbersInput = document.getElementById('api-max-numbers');
+  const apiOptimizedMaxNumbersInput = document.getElementById('api-optimized-max-numbers');
+  const apiWeightProfileSelect = document.getElementById('api-weight-profile');
+  const apiBaseWeightInput = document.getElementById('api-base-weight');
+  const apiOptimizedWeightInput = document.getElementById('api-optimized-weight');
+  const apiSiegeWindowInput = document.getElementById('api-siege-window');
+  const apiSiegeMinOccurrencesInput = document.getElementById('api-siege-min-occurrences');
+  const apiSiegeMinStreakInput = document.getElementById('api-siege-min-streak');
+  const apiSiegeVetoReliefInput = document.getElementById('api-siege-veto-relief');
+  const apiInversionEnabledSelect = document.getElementById('api-inversion-enabled');
+  const apiInversionContextWindowInput = document.getElementById('api-inversion-context-window');
+  const apiInversionPenaltyFactorInput = document.getElementById('api-inversion-penalty-factor');
+  const apiBlockBetsEnabledSelect = document.getElementById('api-block-bets-enabled');
+  const policyObservationWindowInput = document.getElementById('policy-observation-window');
+  const policySwitchMinHoldSpinsInput = document.getElementById('policy-switch-min-hold-spins');
+  const policySwitchMinScoreDeltaInput = document.getElementById('policy-switch-min-score-delta');
+  const policySwitchMinConfidenceDeltaInput = document.getElementById('policy-switch-min-confidence-delta');
+  const policySwitchMaxOverlapInput = document.getElementById('policy-switch-max-overlap');
+  const policyMaxWaitSpinsInput = document.getElementById('policy-max-wait-spins');
+  const policyAlertEnabledSelect = document.getElementById('policy-alert-enabled');
+  const policyAlertAfterAttemptInput = document.getElementById('policy-alert-after-attempt');
+  const policyAlertMinRemainingInput = document.getElementById('policy-alert-min-remaining');
+  const policyAlertRescueWindowInput = document.getElementById('policy-alert-rescue-window');
   const attemptStakeGrid = document.getElementById('attempt-stake-grid');
   const btnToggle = document.getElementById('btn-toggle');
   const wsIndicator = document.getElementById('ws-indicator');
   const wsStatusText = document.getElementById('ws-status-text');
   const currentNumberEl = document.getElementById('current-number');
-  const betStatusEl = document.getElementById('bet-status');
   const suggestionGrid = document.getElementById('suggestion-grid');
   const suggestionInfo = document.getElementById('suggestion-info');
+  const policyDecisionEl = document.getElementById('policy-decision');
+  const policySummaryEl = document.getElementById('policy-summary');
+  const policyTagsEl = document.getElementById('policy-tags');
+  const policyCurrentEl = document.getElementById('policy-current');
+  const policyCandidateEl = document.getElementById('policy-candidate');
+  const policyReasonEl = document.getElementById('policy-reason');
+  const policyMetricsEl = document.getElementById('policy-metrics');
+  const cycleLiveStripEl = document.getElementById('cycle-live-strip');
   const attemptsIndicator = document.getElementById('attempts-indicator');
   const historyList = document.getElementById('history-list');
-  const debugPayloadEl = document.getElementById('debug-payload');
-  const debugResponseEl = document.getElementById('debug-response');
-  const debugMonitorEl = document.getElementById('debug-monitor');
+  const winOverlay = document.getElementById('win-overlay');
+  const confettiLayer = document.getElementById('confetti-layer');
+  const debugPayloadEl = null;
+  const debugResponseEl = null;
+  const debugMonitorEl = null;
 
   // Lista de roletas com slugs (para combinar com WebSocket)
   const ROULETTES = [
@@ -850,6 +1409,116 @@
     });
   }
 
+  function hydrateSuggestionConfig() {
+    const storedMaxNumbers = toBoundedInteger(loadStoredConfig('finalSuggestionCount', String(betSizeInput.value || 8)), 8, 1, 37);
+    const storedHistoryLimit = toBoundedInteger(loadStoredConfig('monitorHistoryLimit', '1000'), 1000, 50, 5000);
+    const storedOptimizedMaxNumbers = toBoundedInteger(loadStoredConfig('monitorOptimizedMaxNumbers', '37'), 37, 1, 37);
+    const storedBaseWeight = toFiniteNumber(loadStoredConfig('finalBaseWeight', '0.5'), 0.5);
+    const storedOptimizedWeight = toFiniteNumber(loadStoredConfig('finalOptimizedWeight', '0.5'), 0.5);
+    const storedSiegeWindow = toBoundedInteger(loadStoredConfig('siegeWindow', '6'), 6, 2, 20);
+    const storedSiegeMinOccurrences = toBoundedInteger(loadStoredConfig('siegeMinOccurrences', '3'), 3, 1, 10);
+    const storedSiegeMinStreak = toBoundedInteger(loadStoredConfig('siegeMinStreak', '2'), 2, 1, 10);
+    const storedSiegeVetoRelief = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('siegeVetoRelief', '0.4'), 0.4)));
+    const storedInversionEnabled = String(loadStoredConfig('inversionEnabled', 'false')) === 'true';
+    const storedInversionContextWindow = toBoundedInteger(loadStoredConfig('inversionContextWindow', '15'), 15, 1, 50);
+    const storedInversionPenaltyFactor = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('inversionPenaltyFactor', '0.3'), 0.3)));
+    const storedBlockBetsEnabled = String(loadStoredConfig('blockBetsEnabled', 'false')) === 'true';
+    const storedPolicyObservationWindow = toBoundedInteger(loadStoredConfig('policyObservationWindow', '2'), 2, 1, 10);
+    const storedPolicySwitchMinHoldSpins = toBoundedInteger(loadStoredConfig('policySwitchMinHoldSpins', '1'), 1, 1, 10);
+    const storedPolicySwitchMinScoreDelta = Math.max(0, toFiniteNumber(loadStoredConfig('policySwitchMinScoreDelta', '6'), 6));
+    const storedPolicySwitchMinConfidenceDelta = toBoundedInteger(loadStoredConfig('policySwitchMinConfidenceDelta', '4'), 4, 0, 50);
+    const storedPolicySwitchMaxOverlap = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('policySwitchMaxOverlap', '0.45'), 0.45)));
+    const storedPolicyMaxWaitSpins = toBoundedInteger(loadStoredConfig('policyMaxWaitSpins', '4'), 4, 1, 20);
+    const storedPolicyAlertEnabled = String(loadStoredConfig('policyAlertEnabled', 'true')) === 'true';
+    const storedPolicyAlertAfterAttempt = toBoundedInteger(loadStoredConfig('policyAlertAfterAttempt', '2'), 2, 1, 10);
+    const storedPolicyAlertMinRemaining = toBoundedInteger(loadStoredConfig('policyAlertMinRemaining', '2'), 2, 1, 10);
+    const storedPolicyAlertRescueWindow = toBoundedInteger(loadStoredConfig('policyAlertRescueWindow', '2'), 2, 1, 5);
+    const storedExecutionMode = String(loadStoredConfig('monitorExecutionMode', 'manual'));
+    const storedMaxSwitchesPerCycle = toBoundedInteger(loadStoredConfig('maxSwitchesPerCycle', '1'), 1, 0, 10);
+
+    betSizeInput.value = String(storedMaxNumbers);
+    apiMaxNumbersInput.value = String(storedMaxNumbers);
+    apiHistoryLimitInput.value = String(storedHistoryLimit);
+    apiOptimizedMaxNumbersInput.value = String(storedOptimizedMaxNumbers);
+    apiBaseWeightInput.value = String(storedBaseWeight);
+    apiOptimizedWeightInput.value = String(storedOptimizedWeight);
+    apiSiegeWindowInput.value = String(storedSiegeWindow);
+    apiSiegeMinOccurrencesInput.value = String(storedSiegeMinOccurrences);
+    apiSiegeMinStreakInput.value = String(storedSiegeMinStreak);
+    apiSiegeVetoReliefInput.value = String(storedSiegeVetoRelief);
+    apiInversionEnabledSelect.value = storedInversionEnabled ? 'true' : 'false';
+    apiInversionContextWindowInput.value = String(storedInversionContextWindow);
+    apiInversionPenaltyFactorInput.value = String(storedInversionPenaltyFactor);
+    apiBlockBetsEnabledSelect.value = storedBlockBetsEnabled ? 'true' : 'false';
+    policyObservationWindowInput.value = String(storedPolicyObservationWindow);
+    policySwitchMinHoldSpinsInput.value = String(storedPolicySwitchMinHoldSpins);
+    policySwitchMinScoreDeltaInput.value = String(storedPolicySwitchMinScoreDelta);
+    policySwitchMinConfidenceDeltaInput.value = String(storedPolicySwitchMinConfidenceDelta);
+    policySwitchMaxOverlapInput.value = String(storedPolicySwitchMaxOverlap);
+    policyMaxWaitSpinsInput.value = String(storedPolicyMaxWaitSpins);
+    policyAlertEnabledSelect.value = storedPolicyAlertEnabled ? 'true' : 'false';
+    policyAlertAfterAttemptInput.value = String(storedPolicyAlertAfterAttempt);
+    policyAlertMinRemainingInput.value = String(storedPolicyAlertMinRemaining);
+    policyAlertRescueWindowInput.value = String(storedPolicyAlertRescueWindow);
+    executionModeSelect.value = ['manual', 'conservative', 'aggressive'].includes(storedExecutionMode) ? storedExecutionMode : 'manual';
+    maxSwitchesPerCycleInput.value = String(storedMaxSwitchesPerCycle);
+  }
+
+  function persistSuggestionConfig() {
+    saveStoredConfig('finalSuggestionCount', toBoundedInteger(apiMaxNumbersInput.value, 8, 1, 37));
+    saveStoredConfig('monitorHistoryLimit', toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000));
+    saveStoredConfig('monitorOptimizedMaxNumbers', toBoundedInteger(apiOptimizedMaxNumbersInput.value, 37, 1, 37));
+    saveStoredConfig('finalBaseWeight', Math.max(0, toFiniteNumber(apiBaseWeightInput.value, 0.5)));
+    saveStoredConfig('finalOptimizedWeight', Math.max(0, toFiniteNumber(apiOptimizedWeightInput.value, 0.5)));
+    saveStoredConfig('siegeWindow', toBoundedInteger(apiSiegeWindowInput.value, 6, 2, 20));
+    saveStoredConfig('siegeMinOccurrences', toBoundedInteger(apiSiegeMinOccurrencesInput.value, 3, 1, 10));
+    saveStoredConfig('siegeMinStreak', toBoundedInteger(apiSiegeMinStreakInput.value, 2, 1, 10));
+    saveStoredConfig('siegeVetoRelief', Math.min(1, Math.max(0, toFiniteNumber(apiSiegeVetoReliefInput.value, 0.4))));
+    saveStoredConfig('inversionEnabled', apiInversionEnabledSelect.value === 'true' ? 'true' : 'false');
+    saveStoredConfig('inversionContextWindow', toBoundedInteger(apiInversionContextWindowInput.value, 15, 1, 50));
+    saveStoredConfig('inversionPenaltyFactor', Math.min(1, Math.max(0, toFiniteNumber(apiInversionPenaltyFactorInput.value, 0.3))));
+    saveStoredConfig('blockBetsEnabled', apiBlockBetsEnabledSelect.value === 'true' ? 'true' : 'false');
+    saveStoredConfig('policyObservationWindow', toBoundedInteger(policyObservationWindowInput.value, 2, 1, 10));
+    saveStoredConfig('policySwitchMinHoldSpins', toBoundedInteger(policySwitchMinHoldSpinsInput.value, 1, 1, 10));
+    saveStoredConfig('policySwitchMinScoreDelta', Math.max(0, toFiniteNumber(policySwitchMinScoreDeltaInput.value, 6)));
+    saveStoredConfig('policySwitchMinConfidenceDelta', toBoundedInteger(policySwitchMinConfidenceDeltaInput.value, 4, 0, 50));
+    saveStoredConfig('policySwitchMaxOverlap', Math.min(1, Math.max(0, toFiniteNumber(policySwitchMaxOverlapInput.value, 0.45))));
+    saveStoredConfig('policyMaxWaitSpins', toBoundedInteger(policyMaxWaitSpinsInput.value, 4, 1, 20));
+    saveStoredConfig('policyAlertEnabled', policyAlertEnabledSelect.value === 'true' ? 'true' : 'false');
+    saveStoredConfig('policyAlertAfterAttempt', toBoundedInteger(policyAlertAfterAttemptInput.value, 2, 1, 10));
+    saveStoredConfig('policyAlertMinRemaining', toBoundedInteger(policyAlertMinRemainingInput.value, 2, 1, 10));
+    saveStoredConfig('policyAlertRescueWindow', toBoundedInteger(policyAlertRescueWindowInput.value, 2, 1, 5));
+    saveStoredConfig('monitorExecutionMode', executionModeSelect.value || 'manual');
+    saveStoredConfig('maxSwitchesPerCycle', toBoundedInteger(maxSwitchesPerCycleInput.value, 1, 0, 10));
+  }
+
+  async function loadWeightProfilesForMonitor() {
+    if (!apiWeightProfileSelect) return;
+    const slug = rouletteSelect.value;
+    const selectedProfileId = loadStoredConfig(getWeightProfileStorageKey(slug), '');
+    try {
+      const response = await fetch('/api/patterns/training/profiles');
+      const data = await response.json();
+      const profiles = (Array.isArray(data?.profiles) ? data.profiles : []).filter((item) => {
+        const rouletteId = String(item?.roulette_id || '').trim();
+        return !rouletteId || rouletteId === slug;
+      });
+      const options = ['<option value="">Peso padrão</option>'];
+      profiles.forEach((item) => {
+        const selected = item.id === selectedProfileId ? 'selected' : '';
+        options.push(`<option value="${item.id}" ${selected}>${item.name}</option>`);
+      });
+      apiWeightProfileSelect.innerHTML = options.join('');
+      if (selectedProfileId && !profiles.some((item) => item.id === selectedProfileId)) {
+        saveStoredConfig(getWeightProfileStorageKey(slug), '');
+        apiWeightProfileSelect.value = '';
+      }
+    } catch (error) {
+      console.error('Erro ao carregar perfis de treino para o monitor:', error);
+      apiWeightProfileSelect.innerHTML = '<option value="">Peso padrão</option>';
+    }
+  }
+
   function getAttemptStakeInputs() {
     return Array.from(document.querySelectorAll('[data-attempt-stake]'));
   }
@@ -857,7 +1526,10 @@
   function renderAttemptStakeInputs() {
     const maxAttempts = parseInt(maxAttemptsInput.value, 10) || 1;
     const fallbackValue = parseFloat(chipValueInput.value) || 1;
-    const currentValues = getAttemptStakeInputs().map((input) => parseFloat(input.value) || fallbackValue);
+    const currentValues = getAttemptStakeInputs().map((input) => {
+      const parsed = parseFloat(input.value);
+      return Number.isFinite(parsed) ? parsed : fallbackValue;
+    });
 
     attemptStakeGrid.innerHTML = '';
 
@@ -872,30 +1544,43 @@
       const input = document.createElement('input');
       input.type = 'number';
       input.id = `attempt-stake-${attempt}`;
-      input.min = '0.01';
+      input.min = '0';
       input.step = '0.01';
       input.value = String(currentValues[attempt - 1] ?? fallbackValue);
       input.setAttribute('data-attempt-stake', String(attempt));
 
+      const profit = document.createElement('div');
+      profit.className = 'attempt-stake-profit';
+      profit.id = `attempt-stake-profit-${attempt}`;
+      profit.textContent = 'Lucro se bater: calculando...';
+
       item.appendChild(label);
       item.appendChild(input);
+      item.appendChild(profit);
       attemptStakeGrid.appendChild(item);
     }
+
+    updateAttemptStakeProfits();
   }
 
   function syncAttemptStakeBaseValue() {
     const fallbackValue = parseFloat(chipValueInput.value) || 1;
     getAttemptStakeInputs().forEach((input) => {
-      if (!input.value || Number(input.value) <= 0) {
+      const parsed = parseFloat(input.value);
+      if (input.value === '' || !Number.isFinite(parsed)) {
         input.value = String(fallbackValue);
       }
     });
+    updateAttemptStakeProfits();
   }
 
   function getChipSchedule() {
     const maxAttempts = parseInt(maxAttemptsInput.value, 10) || 1;
     const fallbackValue = parseFloat(chipValueInput.value) || 1;
-    const rawValues = getAttemptStakeInputs().map((input) => parseFloat(input.value) || fallbackValue);
+    const rawValues = getAttemptStakeInputs().map((input) => {
+      const parsed = parseFloat(input.value);
+      return Number.isFinite(parsed) ? parsed : fallbackValue;
+    });
     const schedule = [];
 
     for (let index = 0; index < maxAttempts; index++) {
@@ -905,9 +1590,45 @@
     return schedule;
   }
 
+  function updateAttemptStakeProfits() {
+    const suggestionSize = Math.max(1, toBoundedInteger(betSizeInput.value, 8, 1, 37));
+    const inputs = getAttemptStakeInputs();
+    let cumulativeCost = 0;
+
+    inputs.forEach((input, index) => {
+      const parsed = parseFloat(input.value);
+      const chipValue = Number.isFinite(parsed) ? parsed : (parseFloat(chipValueInput.value) || 1);
+      const profitEl = document.getElementById(`attempt-stake-profit-${index + 1}`);
+      if (profitEl) {
+        if (chipValue <= 0) {
+          profitEl.textContent = `Observação na ${index + 1}ª: sem custo e sem win/loss`;
+          profitEl.style.color = '#b45309';
+          return;
+        }
+        cumulativeCost += chipValue * suggestionSize;
+        const payout = 36 * chipValue;
+        const profit = payout - cumulativeCost;
+        profitEl.textContent = `Lucro se bater na ${index + 1}ª: ${formatMoney(profit)}`;
+        profitEl.style.color = profit >= 0 ? '#047857' : '#d63031';
+      }
+    });
+  }
+
   function getChipValueForAttempt(attemptNumber) {
     const index = Math.max(0, attemptNumber - 1);
     return betState.chipSchedule[index] ?? betState.chipSchedule[betState.chipSchedule.length - 1] ?? betState.chipValue;
+  }
+
+  async function restartCycleWithoutSettlement(reason = '') {
+    resetBetState();
+    if (reason) {
+      updateSuggestionDisplay([], { score: 0, label: 'Baixa' }, { score: 0, label: 'Baixa' }, reason);
+      updatePolicyDisplay(buildOperationalPolicy('wait', 'Reavaliar', reason, {}));
+      updateAttemptsIndicator();
+    }
+    if (isMonitoring) {
+      await tryStartBetCycle();
+    }
   }
 
   // Connect WebSocket
@@ -961,10 +1682,11 @@
 
     console.log(`[Monitor] Novo número: ${number} na roleta ${rouletteSlug}`);
 
-    // Update history (mantém 500 números)
+    const historyLimit = toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000);
+    // Update history com o mesmo limite configurado para a sugestão
     rouletteHistory.unshift(number);
-    if (rouletteHistory.length > 500) {
-      rouletteHistory = rouletteHistory.slice(0, 500);
+    if (rouletteHistory.length > historyLimit) {
+      rouletteHistory = rouletteHistory.slice(0, historyLimit);
     }
 
     // Update display
@@ -983,8 +1705,9 @@
   // Fetch suggestion from API
   // Usa o endpoint final-suggestion que já faz a fusão com a sugestão base
   async function fetchSuggestion() {
-    const betSize = parseInt(betSizeInput.value, 10) || 8;
+    const betSize = toBoundedInteger(apiMaxNumbersInput.value, parseInt(betSizeInput.value, 10) || 8, 1, 37);
     const minConfidence = parseInt(minConfidenceInput.value, 10) || 0;
+    const historyLimit = toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000);
 
     if (rouletteHistory.length < 50) {
       console.log('[Monitor] Histórico insuficiente para sugestão:', rouletteHistory.length);
@@ -997,7 +1720,7 @@
     }
 
     const focusNumber = rouletteHistory[0];
-    const payload = getFinalSuggestionPayload(rouletteHistory.slice(0, 500), focusNumber, betSize);
+    const payload = getFinalSuggestionPayload(rouletteHistory.slice(0, historyLimit), focusNumber, betSize);
 
     console.log('[Monitor] Enviando para API final-suggestion:', {
       historyLength: payload.history.length,
@@ -1008,8 +1731,10 @@
       base_weight: payload.base_weight,
       optimized_weight: payload.optimized_weight,
       inversion_enabled: payload.inversion_enabled,
-      primeiros5: payload.history.slice(0, 5)
-    });
+        block_bets_enabled: payload.block_bets_enabled,
+        weight_profile_id: payload.weight_profile_id,
+        primeiros5: payload.history.slice(0, 5)
+      });
     setDebugContent(debugPayloadEl, {
       endpoint: '/api/patterns/final-suggestion',
       roulette: rouletteSelect.value,
@@ -1088,12 +1813,12 @@
         label: getConfidenceLabel(confidenceV2Score),
       };
 
-      if ((confidence.score || 0) < minConfidence) {
+      if ((confidenceV2.score || 0) < minConfidence) {
         return {
           list: [],
           confidence,
           confidenceV2,
-          reason: `Confiança ${confidence.score || 0}% abaixo do mínimo configurado (${minConfidence}%).`,
+          reason: `Confiança v2 ${confidenceV2.score || 0}% abaixo do mínimo configurado (${minConfidence}%).`,
         };
       }
 
@@ -1116,6 +1841,245 @@
         reason: 'Falha ao consultar a sugestão da API.',
       };
     }
+  }
+
+  async function fetchPolicyDecision() {
+    const betSize = toBoundedInteger(apiMaxNumbersInput.value, parseInt(betSizeInput.value, 10) || 8, 1, 37);
+    const historyLimit = toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000);
+
+    if (rouletteHistory.length < 50) {
+      return {
+        action: 'wait',
+        label: 'Esperar',
+        reason: `Histórico insuficiente (${rouletteHistory.length}/50).`,
+        metrics: {},
+        current: null,
+        candidate: null,
+      };
+    }
+
+    const focusNumber = rouletteHistory[0];
+    const payload = getPolicyPayload(rouletteHistory.slice(0, historyLimit), focusNumber, betSize);
+    try {
+      const response = await fetch('/api/patterns/final-suggestion/policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.detail || `HTTP ${response.status}`);
+      }
+      return {
+        action: data?.decision?.action || 'wait',
+        label: data?.decision?.label || 'Esperar',
+        reason: data?.decision?.reason || 'Sem decisão.',
+        metrics: data?.decision || {},
+        candidate: data?.candidate_signal || null,
+        current: payload.active_signal || null,
+      };
+    } catch (error) {
+      console.error('Erro ao avaliar política do sinal:', error);
+      return {
+        action: 'wait',
+        label: 'Esperar',
+        reason: 'Falha ao consultar política do sinal.',
+        metrics: {},
+        current: null,
+        candidate: null,
+      };
+    }
+  }
+
+  function updatePolicyDisplay(policy) {
+    const effective = getEffectivePolicyState(policy);
+    const { label, reason, finalStatus, tone } = effective;
+    const metrics = policy?.metrics || {};
+    const current = policy?.current || null;
+    const candidate = policy?.candidate || null;
+    const activeFar = Number(metrics.last_distance || 0) >= 3;
+    const candidateFar = Number(metrics.candidate_last_distance || 0) >= 3;
+    const switchRecommended = effective.action === 'switch';
+    const alternatingRegions = !!metrics.alternating_regions;
+    const touchedRegion = Number(metrics.touch_exact || 0) > 0 || Number(metrics.touch_near || 0) > 0;
+    const waitingLimit = Number(metrics.max_wait_allowed || getDynamicMaxWaitSpins());
+    const alertMode = !!metrics.alert_mode;
+    const rescueMode = !!metrics.rescue_mode;
+
+    policyDecisionEl.className = `bet-status ${tone}`;
+    policyDecisionEl.innerHTML = `
+      <div style="font-size: 1.35rem; font-weight: 800; letter-spacing: 0.04em;">${finalStatus === 'APOSTAR' ? 'APOSTE AGORA!' : 'AGUARDE, NÃO REALIZE APOSTA.'}</div>
+      <div style="margin-top: 6px; font-size: 0.85rem; opacity: 0.92;">${label}: ${reason}</div>
+    `;
+
+    if (policySummaryEl) {
+      if (finalStatus === 'AGUARDAR') {
+        policySummaryEl.textContent = alertMode
+          ? `Modo alerta ativo. Esperando um número da sugestão para reentrar.`
+          : `Mesa ainda desalinhada. Espera atual: ${metrics.wait_spins || 0}/${waitingLimit}.`;
+      } else if (switchRecommended) {
+        policySummaryEl.textContent = 'Troca recomendada. A nova sugestão já entra pronta para apostar.';
+      } else if (rescueMode) {
+        policySummaryEl.textContent = `Resgate armado. Mantendo a aposta por mais ${metrics.rescue_spins_remaining || 0} tentativa(s).`;
+      } else {
+        policySummaryEl.textContent = 'Leitura liberada. A aposta atual pode permanecer na mesa.';
+      }
+    }
+
+    if (policyTagsEl) {
+      const tags = [
+        { label: 'Região tocada', active: touchedRegion },
+        { label: 'Alternância regional', active: alternatingRegions },
+        { label: 'Longe da região', active: activeFar },
+        { label: 'Modo alerta', active: alertMode },
+        { label: 'Resgate armado', active: rescueMode, className: rescueMode ? 'bet' : '' },
+        { label: 'Troca recomendada', active: switchRecommended, className: switchRecommended ? 'bet' : '' },
+      ];
+      policyTagsEl.innerHTML = tags.map((tag) => {
+        const classes = ['policy-tag', tag.active ? 'on' : 'off'];
+        if (tag.className) {
+          classes.push(tag.className);
+        }
+        return `<span class="${classes.join(' ')}">${tag.label}</span>`;
+      }).join('');
+    }
+
+    policyCurrentEl.textContent = current
+      ? `${current.confidence_score || 0}% | ${(current.suggestion || []).length} números | tentativa ${(current.attempts_used || 0) + 1}/${current.max_attempts || 1}`
+      : 'Nenhum sinal ativo';
+    policyCandidateEl.textContent = candidate
+      ? `${candidate.confidence?.score || 0}% | ${(candidate.suggestion || []).length} números`
+      : 'Sem candidato';
+    policyReasonEl.textContent = reason;
+    policyMetricsEl.textContent = `Δscore ${Number(metrics.score_delta || 0).toFixed(2)} | Δconf ${metrics.confidence_delta || 0} | overlap ${((metrics.overlap_ratio || 0) * 100).toFixed(0)}% | passos ${metrics.saved_steps_estimate || 0}`;
+  }
+
+  function getExecutionMode() {
+    return executionModeSelect.value || 'manual';
+  }
+
+  function shouldAutoEnterFromPolicy(policy) {
+    if (!policy) return false;
+    return policy.action !== 'wait';
+  }
+
+  function shouldAutoSwitchFromPolicy(policy) {
+    const mode = getExecutionMode();
+    if (mode === 'manual') return false;
+    if (!policy || policy.action !== 'switch') return false;
+    if ((betState.attempts || 0) < 2) return false;
+
+    const maxSwitches = toBoundedInteger(maxSwitchesPerCycleInput.value, 1, 0, 10);
+    if ((betState.switches || 0) >= maxSwitches) return false;
+
+    const overlap = Number(policy.metrics?.overlap_ratio || 0);
+    const maxOverlap = Math.min(1, Math.max(0, toFiniteNumber(policySwitchMaxOverlapInput.value, 0.45)));
+    if (overlap > maxOverlap) return false;
+
+    return true;
+  }
+
+  function shouldPauseFromPolicy(policy) {
+    if (!policy) return false;
+    return policy.action === 'wait';
+  }
+
+  function buildConfidenceV2FromPolicyCandidate(candidate) {
+    const score = parseInt(candidate?.confidence_v2_score ?? candidate?.confidenceV2Score ?? 0, 10) || 0;
+    return {
+      score,
+      label: getConfidenceLabel(score),
+    };
+  }
+
+  function applyPolicySwitch(policy) {
+    const candidate = policy?.candidate;
+    if (!candidate || !Array.isArray(candidate.suggestion) || !candidate.suggestion.length) {
+      return false;
+    }
+
+    const switchedAt = new Date();
+    const previousSuggestion = Array.isArray(betState.suggestion) ? [...betState.suggestion] : [];
+    const preserveAlertUsed = !!betState.alertUsed;
+    const preserveRescueSpins = Math.max(0, betState.rescueSpinsRemaining || 0);
+    betState.suggestion = candidate.suggestion;
+    betState.confidence = candidate.confidence || { score: 0, label: 'Baixa' };
+    betState.confidenceV2 = buildConfidenceV2FromPolicyCandidate(candidate);
+    betState.betSize = candidate.suggestion.length;
+    betState.policyScore = candidate.policy_score ?? ((betState.confidence.score || 0) - (betState.betSize * 1.5));
+    betState.blockCompactionApplied = !!candidate.block_compaction_applied;
+    betState.switches = (betState.switches || 0) + 1;
+    betState.betOnTable = true;
+    betState.alertMode = false;
+    betState.alertUsed = preserveAlertUsed;
+    betState.rescueSpinsRemaining = preserveRescueSpins;
+    betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+    betState.signalTimeline.push({
+      ...buildCycleEvent('switch', {
+        number: Array.isArray(rouletteHistory) && rouletteHistory.length ? rouletteHistory[0] : null,
+        suggestion: candidate.suggestion,
+        previousSuggestion,
+        confidence: betState.confidence.score || 0,
+        reason: policy.reason || '',
+        policy: policy.label || 'Trocar',
+        label: `Troca ${betState.switches}`,
+        savedStepsEstimate: policy.metrics?.saved_steps_estimate || 0,
+      }),
+      switchedAt: formatDateTime(switchedAt),
+    });
+    setDebugContent(debugMonitorEl, {
+      ...(betState.signalTimeline.length ? { timeline: betState.signalTimeline } : {}),
+      action: 'switch',
+      policy,
+      current_attempt: betState.attempts,
+      current_suggestion: betState.suggestion,
+      switches: betState.switches,
+    });
+    updateCycleLiveSummary();
+    return true;
+  }
+
+  function resetBetState() {
+    betState.active = false;
+    betState.suggestion = [];
+    betState.confidence = { score: 0, label: 'Baixa' };
+    betState.confidenceV2 = { score: 0, label: 'Baixa' };
+    betState.attempts = 0;
+    betState.totalInvested = 0;
+    betState.openedAt = null;
+    betState.openedAtLabel = '';
+    betState.policyScore = null;
+    betState.blockCompactionApplied = false;
+    betState.betOnTable = false;
+    betState.waitSpins = 0;
+    betState.alertMode = false;
+    betState.alertUsed = false;
+    betState.rescueSpinsRemaining = 0;
+    betState.switches = 0;
+    betState.signalTimeline = [];
+    updateCycleLiveSummary();
+  }
+
+  function applyPolicyToNextSpin(policy) {
+    if (!betState.active) {
+      return { switched: false, paused: false };
+    }
+
+    if (shouldAutoSwitchFromPolicy(policy)) {
+      const switched = applyPolicySwitch(policy);
+      betState.betOnTable = true;
+      betState.waitSpins = 0;
+      return { switched, paused: false };
+    }
+
+    if (shouldPauseFromPolicy(policy)) {
+      betState.betOnTable = false;
+      return { switched: false, paused: true };
+    }
+
+    betState.betOnTable = true;
+    betState.waitSpins = 0;
+    return { switched: false, paused: false };
   }
 
   // Update suggestion display
@@ -1141,7 +2105,7 @@
     const confV2Label = confidenceV2?.label || 'Baixa';
 
     // Alerta visual se confiança muito baixa
-    const warningHtml = confScore < 50
+    const warningHtml = confV2Score < 50
       ? '<div style="color: #fdcb6e; font-size: 0.75rem; margin-top: 5px;">⚠️ Aguarde melhor momento</div>'
       : '';
 
@@ -1162,7 +2126,7 @@
     for (let i = 0; i < max; i++) {
       if (i < used) {
         html += '<div class="attempt-dot used"></div>';
-      } else if (i === used && betState.active) {
+      } else if (i === used && betState.active && betState.betOnTable) {
         html += '<div class="attempt-dot current"></div>';
       } else {
         html += '<div class="attempt-dot"></div>';
@@ -1171,9 +2135,86 @@
     attemptsIndicator.innerHTML = html;
   }
 
+  function buildCycleEvent(type, data = {}) {
+    return {
+      type,
+      atAttempt: betState.attempts,
+      number: Number.isInteger(data.number) ? data.number : null,
+      suggestion: Array.isArray(data.suggestion) ? [...data.suggestion] : [],
+      previousSuggestion: Array.isArray(data.previousSuggestion) ? [...data.previousSuggestion] : [],
+      confidence: Number.isFinite(data.confidence) ? data.confidence : (betState.confidence?.score || 0),
+      reason: data.reason || '',
+      policy: data.policy || '',
+      label: data.label || '',
+      createdAt: formatDateTime(new Date()),
+      savedStepsEstimate: data.savedStepsEstimate || 0,
+    };
+  }
+
+  function renderCycleNumbers(signalTimeline) {
+    const timeline = Array.isArray(signalTimeline) ? signalTimeline : [];
+    const numberEvents = timeline.filter((entry) => Number.isInteger(entry?.number));
+    if (!numberEvents.length) {
+      return '<div class="cycle-strip"><span style="opacity:0.65;">Sem números registrados no ciclo.</span></div>';
+    }
+    return `
+      <div class="cycle-strip">
+        ${numberEvents.map((entry) => {
+          const typeClass = entry.type === 'switch'
+            ? 'switch'
+            : entry.type === 'pause-hit' || entry.type === 'alert-trigger'
+              ? 'pause-hit'
+              : entry.type === 'pause' || entry.type === 'alert-wait' || entry.type === 'alert-start' || entry.type === 'observation-hit' || entry.type === 'observation-miss'
+                ? 'pause'
+                : 'attempt';
+          const colorClass = getColor(entry.number);
+          return `<span class="cycle-chip ${colorClass} ${typeClass}" title="${entry.type || 'event'}">${entry.number}</span>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function renderSwitchLogs(signalTimeline) {
+    const timeline = Array.isArray(signalTimeline) ? signalTimeline : [];
+    const switches = timeline.filter((entry) => entry?.type === 'switch');
+    if (!switches.length) {
+      return '<div style="margin-top:8px; opacity:0.7;">Nenhuma troca de sugestão.</div>';
+    }
+    return switches.map((entry, index) => `
+      <div class="switch-log">
+        <strong>Troca ${index + 1} no giro ${entry.atAttempt}</strong>
+        <div>Número que disparou a troca: ${entry.number ?? '—'}</div>
+        <div>Sugestão anterior: ${(entry.previousSuggestion || []).join(', ') || '—'}</div>
+        <div>Sugestão nova: ${(entry.suggestion || []).join(', ') || '—'}</div>
+        <div>Motivo: ${entry.reason || entry.policy || '—'}</div>
+      </div>
+    `).join('');
+  }
+
+  function getEffectivePolicyState(policy) {
+    let action = policy?.action || 'wait';
+    let label = policy?.label || 'Esperar';
+    const reason = policy?.reason || 'Sem avaliação.';
+
+    if (action === 'switch' && !shouldAutoSwitchFromPolicy(policy)) {
+      action = 'hold';
+      label = 'Segurar';
+    }
+
+    const finalStatus = action === 'wait' ? 'AGUARDAR' : 'APOSTAR';
+    const tone = finalStatus === 'APOSTAR' ? 'action-bet' : 'action-wait';
+    return { action, label, reason, finalStatus, tone };
+  }
+
+  function updateCycleLiveSummary() {
+    const timeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+    cycleLiveStripEl.innerHTML = renderCycleNumbers(timeline);
+  }
+
   // Process bet
   async function tryStartBetCycle() {
     const suggestion = await fetchSuggestion();
+    const policy = await fetchPolicyDecision();
     if (!suggestion.list.length) {
       stats.skippedSignals++;
       updateStats();
@@ -1186,8 +2227,8 @@
         history_head: rouletteHistory.slice(0, 10),
       });
       updateSuggestionDisplay([], suggestion.confidence, suggestion.confidenceV2, suggestion.reason || 'Aguardando sugestão válida...');
-      betStatusEl.className = 'bet-status waiting';
-      betStatusEl.textContent = suggestion.reason || 'Aguardando sugestão válida...';
+      updatePolicyDisplay(policy);
+      updateCycleLiveSummary();
       updateAttemptsIndicator();
       return false;
     }
@@ -1205,24 +2246,44 @@
     betState.minConfidence = parseInt(minConfidenceInput.value, 10) || 0;
     betState.openedAt = new Date();
     betState.openedAtLabel = formatDateTime(betState.openedAt);
+    betState.policyScore = (suggestion.confidence?.score || 0) - (suggestion.list.length * 1.5);
+    betState.blockCompactionApplied = !!policy?.candidate?.block_compaction_applied;
+    betState.betOnTable = shouldAutoEnterFromPolicy(policy);
+    betState.waitSpins = 0;
+    betState.alertMode = false;
+    betState.alertUsed = false;
+    betState.rescueSpinsRemaining = 0;
+    betState.switches = 0;
+    betState.signalTimeline = [{
+      ...buildCycleEvent('start', {
+        number: Array.isArray(rouletteHistory) && rouletteHistory.length ? rouletteHistory[0] : null,
+        suggestion: suggestion.list,
+        confidence: suggestion.confidence?.score || 0,
+        policy: policy?.label || 'Entrar Agora',
+        label: 'Início',
+      }),
+      openedAt: betState.openedAtLabel,
+    }];
 
     setDebugContent(debugMonitorEl, {
       roulette: rouletteSelect.value,
       suggestion: suggestion.list,
       confidence: suggestion.confidence,
       confidence_v2: suggestion.confidenceV2,
+      policy,
       attempts: betState.maxAttempts,
       chip_value: betState.chipValue,
       chip_schedule: betState.chipSchedule,
       bet_size: betState.betSize,
       min_confidence: betState.minConfidence,
       opened_at: betState.openedAtLabel,
+      execution_mode: getExecutionMode(),
       history_head: rouletteHistory.slice(0, 10),
     });
 
     updateSuggestionDisplay(suggestion.list, suggestion.confidence, suggestion.confidenceV2);
-    betStatusEl.className = 'bet-status pending';
-    betStatusEl.textContent = `Aposta armada em ${betState.betSize} números | Confiança ${suggestion.confidence.score}% | Próximo giro decide a tentativa 1/${betState.maxAttempts}.`;
+    updatePolicyDisplay(policy);
+    updateCycleLiveSummary();
     updateAttemptsIndicator();
     return true;
   }
@@ -1233,15 +2294,205 @@
       return;
     }
 
-    // Check if we won
-    const won = betState.suggestion.includes(number);
+    if (betState.alertMode) {
+      const touchedSuggestion = Array.isArray(betState.suggestion) && betState.suggestion.includes(number);
+      if (touchedSuggestion && armAlertRescue(number)) {
+        const rescuePolicy = buildOperationalPolicy(
+          'enter',
+          'Resgate',
+          `Número ${number} confirmou a sugestão. Aposte nas próximas ${betState.rescueSpinsRemaining} tentativa(s).`,
+          {
+            rescue_mode: true,
+            rescue_spins_remaining: betState.rescueSpinsRemaining,
+            alert_mode: false,
+          }
+        );
+        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+        updatePolicyDisplay(rescuePolicy);
+        updateCycleLiveSummary();
+        updateAttemptsIndicator();
+        return;
+      }
+
+      betState.waitSpins = (betState.waitSpins || 0) + 1;
+      betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+      betState.signalTimeline.push(buildCycleEvent('alert-wait', {
+        number,
+        suggestion: betState.suggestion,
+        confidence: betState.confidence?.score || 0,
+        policy: 'Modo Alerta',
+        reason: 'Aguardando toque da sugestão para reentrada.',
+        label: 'Alerta',
+      }));
+
+      const maxWaitSpins = getDynamicMaxWaitSpins();
+      if (betState.waitSpins >= maxWaitSpins) {
+        resetBetState();
+        updateSuggestionDisplay([], { score: 0, label: 'Baixa' }, { score: 0, label: 'Baixa' }, `Alerta expirou após ${maxWaitSpins} giros. Reavaliando a mesa.`);
+        updatePolicyDisplay(buildOperationalPolicy('wait', 'Esperar', `Alerta expirou após ${maxWaitSpins} giros. Reavaliando a mesa.`, { alert_mode: false }));
+        updateAttemptsIndicator();
+        if (isMonitoring) {
+          await tryStartBetCycle();
+        }
+        return;
+      }
+
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      updatePolicyDisplay(buildOperationalPolicy(
+        'wait',
+        'Modo Alerta',
+        'Aguardando um número da sugestão para reentrar no sinal.',
+        {
+          alert_mode: true,
+          wait_spins: betState.waitSpins,
+          max_wait_allowed: maxWaitSpins,
+        }
+      ));
+      updateCycleLiveSummary();
+      updateAttemptsIndicator();
+      return;
+    }
+
+    if (!betState.betOnTable) {
+      const passiveHit = Array.isArray(betState.suggestion) && betState.suggestion.includes(number);
+      const policy = await fetchPolicyDecision();
+      const transition = applyPolicyToNextSpin(policy);
+      if (!transition.switched) {
+        betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+        betState.signalTimeline.push(buildCycleEvent(passiveHit ? 'pause-hit' : 'pause', {
+          number,
+          suggestion: betState.suggestion,
+          confidence: betState.confidence?.score || 0,
+          policy: policy?.label || 'Esperar',
+          reason: policy?.reason || '',
+          label: passiveHit ? 'Pausa com hit' : 'Pausa',
+        }));
+      }
+      if (transition.paused) {
+        betState.waitSpins = (betState.waitSpins || 0) + 1;
+      }
+      const maxWaitSpins = getDynamicMaxWaitSpins();
+      if (transition.paused && betState.waitSpins >= maxWaitSpins) {
+        setDebugContent(debugMonitorEl, {
+          action: 'wait-expired',
+          max_wait_spins: maxWaitSpins,
+          timeline: betState.signalTimeline,
+          suggestion: betState.suggestion,
+        });
+        resetBetState();
+        updateSuggestionDisplay([], { score: 0, label: 'Baixa' }, { score: 0, label: 'Baixa' }, `Sinal expirou apos ${maxWaitSpins} giros aguardando. Reavaliando a mesa.`);
+        updatePolicyDisplay({
+          action: 'wait',
+          label: 'Esperar',
+          reason: `Sinal expirou apos ${maxWaitSpins} giros aguardando. Reavaliando a mesa.`,
+          metrics: {},
+          current: null,
+          candidate: null,
+        });
+        updateAttemptsIndicator();
+        if (isMonitoring) {
+          await tryStartBetCycle();
+        }
+        return;
+      }
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      updatePolicyDisplay(policy);
+      updateCycleLiveSummary();
+      updateAttemptsIndicator();
+      return;
+    }
+
     betState.attempts++;
     const attemptChipValue = getChipValueForAttempt(betState.attempts);
     const settledSuggestionSize = Array.isArray(betState.suggestion) ? betState.suggestion.length : 0;
+    const won = betState.suggestion.includes(number);
+    const isObservationAttempt = attemptChipValue <= 0;
+
+    if (isObservationAttempt) {
+      const hadNoInvestment = betState.totalInvested <= 0;
+      betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+      betState.signalTimeline.push(buildCycleEvent(won ? 'observation-hit' : 'observation-miss', {
+        number,
+        suggestion: betState.suggestion,
+        confidence: betState.confidence?.score || 0,
+        policy: 'Observação',
+        reason: won
+          ? 'Número da sugestão saiu durante tentativa sem aposta.'
+          : 'Tentativa configurada com ficha zero: apenas observação.',
+        label: `Observação ${betState.attempts}`,
+      }));
+
+      if (won && hadNoInvestment) {
+        await restartCycleWithoutSettlement(`Número ${number} saiu durante observação. Cancelando a entrada e buscando nova sugestão.`);
+        return;
+      }
+
+      if (betState.attempts >= betState.maxAttempts) {
+        if (betState.totalInvested > 0) {
+          const loss = -betState.totalInvested;
+          const settledAt = new Date();
+
+          stats.rounds++;
+          stats.losses++;
+          stats.profit += loss;
+
+          addHistoryItem({
+            number,
+            suggestion: betState.suggestion,
+            won: false,
+            attempts: betState.attempts,
+            profit: loss,
+            confidence: betState.confidence,
+            confidenceV2: betState.confidenceV2,
+            openedAt: betState.openedAt,
+            openedAtLabel: betState.openedAtLabel,
+            settledAt,
+            settledAtLabel: formatDateTime(settledAt),
+            chipSchedule: [...betState.chipSchedule],
+            attemptChipValue,
+            betSize: settledSuggestionSize,
+            totalInvested: betState.totalInvested,
+            switchCount: betState.switches || 0,
+            signalTimeline: [...(betState.signalTimeline || [])],
+          });
+          resetBetState();
+          updateStats();
+          updateAttemptsIndicator();
+          if (isMonitoring) {
+            await tryStartBetCycle();
+          }
+          return;
+        }
+
+        await restartCycleWithoutSettlement('Ciclo de observação terminou sem entrada real. Reavaliando a mesa.');
+        return;
+      }
+
+      if (betState.rescueSpinsRemaining > 0) {
+        betState.rescueSpinsRemaining = Math.max(0, betState.rescueSpinsRemaining - 1);
+      }
+
+      const policy = await fetchPolicyDecision();
+      const transition = applyPolicyToNextSpin(policy);
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      updatePolicyDisplay(policy);
+      updateCycleLiveSummary();
+      updateAttemptsIndicator();
+      return;
+    }
 
     // Cada tentativa usa o valor de ficha configurado para aquela rodada.
     const attemptCost = attemptChipValue * settledSuggestionSize;
     betState.totalInvested += attemptCost;
+    betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+    betState.signalTimeline.push(buildCycleEvent(won ? 'attempt-hit' : 'attempt-miss', {
+      number,
+      suggestion: betState.suggestion,
+      confidence: betState.confidence?.score || 0,
+      policy: won ? 'Acerto' : 'Tentativa',
+      reason: won ? 'Aposta na mesa foi vencedora.' : 'Aposta na mesa não bateu.',
+      label: won ? 'Hit' : `Tentativa ${betState.attempts}`,
+    }));
 
     if (won) {
       const payout = 36 * attemptChipValue;
@@ -1268,20 +2519,11 @@
         attemptChipValue,
         betSize: settledSuggestionSize,
         totalInvested: betState.totalInvested,
+        switchCount: betState.switches || 0,
+        signalTimeline: [...(betState.signalTimeline || [])],
       });
-
-      betStatusEl.className = 'bet-status win';
-      betStatusEl.textContent = `VITÓRIA! Número ${number} na tentativa ${betState.attempts}. Ficha ${formatMoney(attemptChipValue)}. Lucro: ${formatMoney(profit)}`;
-
-      // Reset bet state
-      betState.active = false;
-      betState.suggestion = [];
-      betState.confidence = { score: 0, label: 'Baixa' };
-      betState.confidenceV2 = { score: 0, label: 'Baixa' };
-      betState.attempts = 0;
-      betState.totalInvested = 0;
-      betState.openedAt = null;
-      betState.openedAtLabel = '';
+      triggerWinCelebration();
+      resetBetState();
 
       updateStats();
       updateAttemptsIndicator();
@@ -1314,20 +2556,10 @@
         attemptChipValue,
         betSize: settledSuggestionSize,
         totalInvested: betState.totalInvested,
+        switchCount: betState.switches || 0,
+        signalTimeline: [...(betState.signalTimeline || [])],
       });
-
-      betStatusEl.className = 'bet-status loss';
-      betStatusEl.textContent = `DERROTA! Esgotou ${betState.maxAttempts} tentativas. Última ficha ${formatMoney(attemptChipValue)}. Prejuízo: ${formatMoney(Math.abs(loss))}`;
-
-      // Reset bet state
-      betState.active = false;
-      betState.suggestion = [];
-      betState.confidence = { score: 0, label: 'Baixa' };
-      betState.confidenceV2 = { score: 0, label: 'Baixa' };
-      betState.attempts = 0;
-      betState.totalInvested = 0;
-      betState.openedAt = null;
-      betState.openedAtLabel = '';
+      resetBetState();
 
       updateStats();
       updateAttemptsIndicator();
@@ -1337,10 +2569,50 @@
       }
 
     } else {
-      // Still have attempts - mantém a mesma sugestão até o fim do ciclo
+      if (betState.rescueSpinsRemaining > 0) {
+        betState.rescueSpinsRemaining = Math.max(0, betState.rescueSpinsRemaining - 1);
+      }
+
+      if (shouldActivateAlertMode()) {
+        activateAlertMode(`Sinal demorou ${betState.attempts} tentativa(s). Entrando em alerta para aguardar confirmação.`);
+        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+        updatePolicyDisplay(buildOperationalPolicy(
+          'wait',
+          'Modo Alerta',
+          `Sinal demorou ${betState.attempts} tentativa(s). Agora aguarda um número da sugestão para reentrar.`,
+          {
+            alert_mode: true,
+            wait_spins: 0,
+            max_wait_allowed: getDynamicMaxWaitSpins(),
+          }
+        ));
+        updateCycleLiveSummary();
+        updateAttemptsIndicator();
+        return;
+      }
+
+      if (betState.rescueSpinsRemaining > 0) {
+        betState.betOnTable = true;
+        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+        updatePolicyDisplay(buildOperationalPolicy(
+          'enter',
+          'Resgate',
+          `Resgate em andamento. Manter aposta por mais ${betState.rescueSpinsRemaining} tentativa(s).`,
+          {
+            rescue_mode: true,
+            rescue_spins_remaining: betState.rescueSpinsRemaining,
+          }
+        ));
+        updateCycleLiveSummary();
+        updateAttemptsIndicator();
+        return;
+      }
+
+      const policy = await fetchPolicyDecision();
+      const transition = applyPolicyToNextSpin(policy);
       updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
-      betStatusEl.className = 'bet-status pending';
-      betStatusEl.textContent = `Tentativa ${betState.attempts}/${betState.maxAttempts}. Número ${number} não bateu. Ficha usada: ${formatMoney(attemptChipValue)}. Mantendo a mesma sugestão para a próxima rodada.`;
+      updatePolicyDisplay(policy);
+      updateCycleLiveSummary();
       updateAttemptsIndicator();
     }
   }
@@ -1368,9 +2640,13 @@
           <div class="history-meta">
             <div>Confianca: ${item.confidence?.label || 'Baixa'} (${item.confidence?.score || 0}%) | v2: ${item.confidenceV2?.label || 'Baixa'} (${item.confidenceV2?.score || 0}%)</div>
             <div>Aberta: ${item.openedAtLabel || formatDateTime(item.openedAt)} | Fechada: ${item.settledAtLabel || formatDateTime(item.settledAt)}</div>
+            <div>Início do ciclo: ${item.signalTimeline?.[0]?.number ?? '—'} | Números vistos no ciclo: ${(Array.isArray(item.signalTimeline) ? item.signalTimeline.filter((entry) => Number.isInteger(entry?.number)).length : 0)}</div>
             <div>Numeros apostados: ${item.betSize || item.suggestion.length}</div>
+            <div>Trocas no ciclo: ${item.switchCount || 0}</div>
             <div>Fichas: ${(item.chipSchedule || []).map((value) => formatMoney(value)).join(' | ')}</div>
             <div>Investido: ${formatMoney(item.totalInvested)}${item.won ? ` | Ficha vencedora: ${formatMoney(item.attemptChipValue)}` : ''}</div>
+            ${renderCycleNumbers(item.signalTimeline)}
+            ${renderSwitchLogs(item.signalTimeline)}
           </div>
         </div>
         <div class="history-result ${item.won ? 'win' : 'loss'}">
@@ -1396,10 +2672,11 @@
     document.getElementById('win-rate').textContent = `${winRate}%`;
   }
 
-  // Load initial history from API (500 números)
+  // Load initial history from API (limite configuravel)
   async function loadInitialHistory(slug) {
     try {
-      const response = await fetch(`/history/${slug}?limit=500`, {
+      const historyLimit = toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000);
+      const response = await fetch(`/history/${slug}?limit=${historyLimit}`, {
         headers: { 'Accept': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed to load history');
@@ -1426,9 +2703,8 @@
       }
       btnToggle.textContent = 'Iniciar Monitoramento';
       btnToggle.classList.remove('btn-stop');
-      betStatusEl.className = 'bet-status waiting';
-      betStatusEl.textContent = 'Monitoramento pausado';
-      betState.active = false;
+      resetBetState();
+      updatePolicyDisplay(null);
     } else {
       // Start
       if (!rouletteSelect.value) {
@@ -1438,6 +2714,7 @@
 
       btnToggle.disabled = true;
       btnToggle.textContent = 'Carregando...';
+      persistSuggestionConfig();
       stats.initialBankroll = parseFloat(initialBankrollInput.value) || 0;
       stats.profit = 0;
       stats.rounds = 0;
@@ -1457,19 +2734,83 @@
       btnToggle.disabled = false;
       btnToggle.textContent = 'Parar Monitoramento';
       btnToggle.classList.add('btn-stop');
-      if (!betState.active) {
-        betStatusEl.className = 'bet-status waiting';
-      }
     }
   }
 
   // Initialize
   document.addEventListener('DOMContentLoaded', () => {
     loadRoulettes();
+    hydrateSuggestionConfig();
     renderAttemptStakeInputs();
+    loadWeightProfilesForMonitor();
     btnToggle.addEventListener('click', toggleMonitoring);
+    btnOpenAdvancedConfig?.addEventListener('click', openAdvancedConfigModal);
+    btnCloseAdvancedConfig?.addEventListener('click', closeAdvancedConfigModal);
+    advancedConfigModal?.addEventListener('click', (event) => {
+      if (event.target === advancedConfigModal) {
+        closeAdvancedConfigModal();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeAdvancedConfigModal();
+      }
+    });
     maxAttemptsInput.addEventListener('input', renderAttemptStakeInputs);
     chipValueInput.addEventListener('input', syncAttemptStakeBaseValue);
+    betSizeInput.addEventListener('input', () => {
+      apiMaxNumbersInput.value = String(toBoundedInteger(betSizeInput.value, 8, 1, 37));
+      persistSuggestionConfig();
+      updateAttemptStakeProfits();
+    });
+    apiMaxNumbersInput.addEventListener('input', () => {
+      betSizeInput.value = String(toBoundedInteger(apiMaxNumbersInput.value, 8, 1, 37));
+      persistSuggestionConfig();
+      updateAttemptStakeProfits();
+    });
+    attemptStakeGrid.addEventListener('input', (event) => {
+      if (event.target && event.target.matches('[data-attempt-stake]')) {
+        updateAttemptStakeProfits();
+      }
+    });
+    [
+      apiHistoryLimitInput,
+      apiOptimizedMaxNumbersInput,
+      apiBaseWeightInput,
+      apiOptimizedWeightInput,
+      apiSiegeWindowInput,
+      apiSiegeMinOccurrencesInput,
+      apiSiegeMinStreakInput,
+      apiSiegeVetoReliefInput,
+      apiInversionEnabledSelect,
+      apiInversionContextWindowInput,
+      apiInversionPenaltyFactorInput,
+      apiBlockBetsEnabledSelect,
+      policyObservationWindowInput,
+      policySwitchMinHoldSpinsInput,
+      policySwitchMinScoreDeltaInput,
+      policySwitchMinConfidenceDeltaInput,
+      policySwitchMaxOverlapInput,
+      policyMaxWaitSpinsInput,
+      policyAlertEnabledSelect,
+      policyAlertAfterAttemptInput,
+      policyAlertMinRemainingInput,
+      policyAlertRescueWindowInput,
+      executionModeSelect,
+      maxSwitchesPerCycleInput,
+    ].forEach((element) => {
+      if (!element) return;
+      element.addEventListener('change', persistSuggestionConfig);
+      element.addEventListener('input', persistSuggestionConfig);
+    });
+    rouletteSelect.addEventListener('change', () => {
+      loadWeightProfilesForMonitor();
+    });
+    apiWeightProfileSelect.addEventListener('change', () => {
+      saveStoredConfig(getWeightProfileStorageKey(rouletteSelect.value), apiWeightProfileSelect.value || '');
+    });
+    updatePolicyDisplay(null);
+    updateCycleLiveSummary();
     updateAttemptsIndicator();
     updateStats();
   });

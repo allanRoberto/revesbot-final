@@ -861,7 +861,7 @@ async def agent_prediction(payload: AgentPredictionIn) -> Dict[str, Any]:
             if isinstance(tooltip_data.get(key), list):
                 tooltip_data[key] = tooltip_data[key][:50]
         if isinstance(tooltip_data.get("topPulledItems"), list):
-            tooltip_data["topPulledItems"] = tooltip_data["topPulledItems"][:12]
+            tooltip_data["topPulledItems"] = tooltip_data["topPulledItems"][:18]
     else:
         raise HTTPException(status_code=400, detail="tooltip_data vazio. Reenvie com os dados do tooltip.")
 

@@ -2063,9 +2063,11 @@
         <select id="grid-count-select" class="form-select form-select-sm">
           <option value="50">50</option>
           <option value="100">100</option>
-          <option value="200" selected>200</option>
+          <option value="200">200</option>
           <option value="300">300</option>
           <option value="500">500</option>
+          <option value="1000">1000</option>
+          <option value="2000" selected>2000</option>
         </select>
         <label for="grid-per-row-select">Por linha</label>
         <select id="grid-per-row-select" class="form-select form-select-sm">
@@ -2131,6 +2133,12 @@
         {% for r in all_roulettes %}
         <option value="{{ r.slug }}" data-url="{{ r.url }}">{{ r.name }}</option>
         {% endfor %}
+      </select>
+    </div>
+    <div class="roulette-select-group">
+      <span class="roulette-select-label">Treino de pesos</span>
+      <select id="weight-profile-select" class="form-select form-select-sm" style="max-width: 260px;">
+        <option value="">Peso padrão</option>
       </select>
     </div>
   </div>
@@ -2278,11 +2286,13 @@
     </div>
     <div class="drawer-group">
       <span>Mostrar:</span><br />
-      <button class="btn btn-sm btn-outline-secondary btn-count-mobile btn-active" data-count="200">200</button>
+      <button class="btn btn-sm btn-outline-secondary btn-count-mobile" data-count="200">200</button>
       <button class="btn btn-sm btn-outline-secondary btn-count-mobile" data-count="50">50</button>
       <button class="btn btn-sm btn-outline-secondary btn-count-mobile" data-count="100">100</button>
       <button class="btn btn-sm btn-outline-secondary btn-count-mobile" data-count="300">300</button>
       <button class="btn btn-sm btn-outline-secondary btn-count-mobile" data-count="500">500</button>
+      <button class="btn btn-sm btn-outline-secondary btn-count-mobile" data-count="1000">1000</button>
+      <button class="btn btn-sm btn-outline-secondary btn-count-mobile btn-active" data-count="2000">2000</button>
     </div>
     <div class="drawer-group">
       <span>Por linha:</span><br />
@@ -2356,7 +2366,9 @@
                 <option value="100">100</option>
                 <option value="200">200</option>
                 <option value="300">300</option>
-                <option value="500" selected>500</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+                <option value="2000" selected>2000</option>
               </select>
             </div>
             <div class="ui-field">
@@ -2442,6 +2454,14 @@
             <div class="ui-field">
               <label class="ui-label">Peso base da sugestão final (%)</label>
               <input type="number" id="cfg-final-base-weight" class="ui-input" min="0" max="100" step="1" value="50" />
+            </div>
+            <div class="ui-field ui-field--wide">
+              <label class="ui-label">Apostas em blocos</label>
+              <label class="ui-switch">
+                <input type="checkbox" id="cfg-block-bets-enabled" />
+                <span class="ui-switch-control" aria-hidden="true"></span>
+                <span class="ui-switch-label">Agrupar números vizinhos e cobrir buracos na sugestão final</span>
+              </label>
             </div>
             <div class="ui-field">
               <label class="ui-label">Peso otimizada da sugestão final (%)</label>
@@ -2530,13 +2550,14 @@
     let txtColorBlack = "#ffffff";
     let txtColorRed = "#ffffff";
     let txtColorZero = "#ffffff";
-    let maxHistory = 500;
+    let maxHistory = 2000;
     let perRow = 30;
     let tooltipEnabled = true;
     let confidenceFlagThreshold = 50;
     let hotCount = 18;
     let coldCount = 18;
     let finalSuggestionCount = 8;
+    let blockBetsEnabled = false;
     let finalBaseWeight = 0.5;
     let finalOptimizedWeight = 0.5;
     let siegeWindow = 6;
@@ -2802,6 +2823,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     if (!Number.isInteger(finalSuggestionCount) || finalSuggestionCount < 1 || finalSuggestionCount > 37) {
       finalSuggestionCount = 8;
     }
+    blockBetsEnabled = loadConfig("blockBetsEnabled", "false") === "true";
     finalBaseWeight = parseFloat(loadConfig("finalBaseWeight", String(finalBaseWeight)));
     finalOptimizedWeight = parseFloat(loadConfig("finalOptimizedWeight", String(finalOptimizedWeight)));
     if (!Number.isFinite(finalBaseWeight) || finalBaseWeight < 0) finalBaseWeight = 0.5;
@@ -2870,6 +2892,10 @@ countContainers.forEach(({ selector, itemClass }) => {
     if (finalSuggestionCountSelect) {
       finalSuggestionCountSelect.value = String(finalSuggestionCount);
     }
+    const blockBetsEnabledCheck = document.getElementById("cfg-block-bets-enabled");
+    if (blockBetsEnabledCheck) {
+      blockBetsEnabledCheck.checked = blockBetsEnabled;
+    }
     const finalBaseWeightSelect = document.getElementById("cfg-final-base-weight");
     if (finalBaseWeightSelect) {
       finalBaseWeightSelect.value = String(Math.round(finalBaseWeight * 100));
@@ -2918,6 +2944,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     const selHotCount = document.getElementById("cfg-hot-count");
     const selColdCount = document.getElementById("cfg-cold-count");
     const selFinalSuggestionCount = document.getElementById("cfg-final-suggestion-count");
+    const selBlockBetsEnabled = document.getElementById("cfg-block-bets-enabled");
     const selFinalBaseWeight = document.getElementById("cfg-final-base-weight");
     const selFinalOptimizedWeight = document.getElementById("cfg-final-optimized-weight");
     const selSiegeWindow = document.getElementById("cfg-siege-window");
@@ -2989,6 +3016,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     const rouletteSlug = "{{ slug }}";
     const STORAGE_SELECTED_NUMBERS_KEY = `api:selectedNumbers:${rouletteSlug}`;
     const STORAGE_MANUAL_SELECTIONS_KEY = `api:manualSelections:${rouletteSlug}`;
+    const STORAGE_WEIGHT_PROFILE_KEY = `api:selectedWeightProfile:${rouletteSlug}`;
 
     // --- referências aos elementos ---
     const inputGatilho = document.getElementById("inputGatilho");
@@ -3055,6 +3083,7 @@ countContainers.forEach(({ selector, itemClass }) => {
 
 
     const rouletteSelect = document.getElementById("roulette-select");
+    const weightProfileSelect = document.getElementById("weight-profile-select");
     const btnOpenTable = document.getElementById("btn-open-table");
     const gridConfigBtn = document.getElementById("grid-config-btn");
     const gridConfigTooltip = document.getElementById("grid-config-tooltip");
@@ -3076,6 +3105,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     let hotNumbersSwiper = null;
     let coldNumbersSwiper = null;
     let terminalsSwiper = null;
+    let selectedWeightProfileId = localStorage.getItem(STORAGE_WEIGHT_PROFILE_KEY) || "";
     const tooltipCache = new Map();
     const finalSuggestionApiCache = new Map();
     const finalSuggestionApiPending = new Map();
@@ -3531,6 +3561,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       const storedSiegeMinOccurrences = parseInt(loadConfig("siegeMinOccurrences", "3"), 10);
       const storedSiegeMinStreak = parseInt(loadConfig("siegeMinStreak", "2"), 10);
       const storedSiegeVetoRelief = parseFloat(loadConfig("siegeVetoRelief", "0.4"));
+      const storedBlockBetsEnabled = loadConfig("blockBetsEnabled", "false") === "true";
       const storedInversionEnabled = loadConfig("inversionEnabled", "true") === "true";
       const storedInversionWindow = parseInt(loadConfig("inversionContextWindow", "15"), 10);
       const storedInversionPenalty = parseFloat(loadConfig("inversionPenaltyFactor", "0.3"));
@@ -3556,6 +3587,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       if (selHotCount) selHotCount.value = String(hotCount);
       if (selColdCount) selColdCount.value = String(coldCount);
       if (selFinalSuggestionCount) selFinalSuggestionCount.value = String(finalSuggestionCount);
+      if (selBlockBetsEnabled) selBlockBetsEnabled.checked = storedBlockBetsEnabled;
       if (selFinalBaseWeight) selFinalBaseWeight.value = String(Math.round(finalBaseWeight * 100));
       if (selFinalOptimizedWeight) selFinalOptimizedWeight.value = String(Math.round(finalOptimizedWeight * 100));
       if (selBotEnabled) selBotEnabled.checked = storedBotEnabled;
@@ -3693,6 +3725,9 @@ countContainers.forEach(({ selector, itemClass }) => {
       if (!Number.isInteger(finalSuggestionCount) || finalSuggestionCount < 1 || finalSuggestionCount > 37) {
         finalSuggestionCount = 8;
       }
+      if (selBlockBetsEnabled) {
+        blockBetsEnabled = !!selBlockBetsEnabled.checked;
+      }
       {
         const rawBasePct = parseFloat(document.getElementById("cfg-final-base-weight").value);
         const rawOptPct = parseFloat(document.getElementById("cfg-final-optimized-weight").value);
@@ -3766,6 +3801,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       saveConfig("hotCount", hotCount);
       saveConfig("coldCount", coldCount);
       saveConfig("finalSuggestionCount", finalSuggestionCount);
+      saveConfig("blockBetsEnabled", blockBetsEnabled ? "true" : "false");
       saveConfig("finalBaseWeight", finalBaseWeight);
       saveConfig("finalOptimizedWeight", finalOptimizedWeight);
       saveConfig("siegeWindow", siegeWindow);
@@ -4252,10 +4288,38 @@ countContainers.forEach(({ selector, itemClass }) => {
         siegeMinOccurrences,
         siegeMinStreak,
         Number(siegeVetoRelief).toFixed(3),
+        blockBetsEnabled ? 1 : 0,
         inversionEnabled ? 1 : 0,
         inversionContextWindow,
         Number(inversionPenaltyFactor).toFixed(3),
+        selectedWeightProfileId || "",
       ].join("|");
+    }
+
+    async function loadWeightProfiles() {
+      if (!weightProfileSelect) return;
+      try {
+        const response = await fetch("/api/patterns/training/profiles");
+        const data = await response.json();
+        const items = (Array.isArray(data?.profiles) ? data.profiles : []).filter((item) => {
+          const rouletteId = String(item?.roulette_id || "").trim();
+          return !rouletteId || rouletteId === rouletteSlug;
+        });
+        const options = ['<option value="">Peso padrão</option>'];
+        items.forEach((item) => {
+          const selected = item.id === selectedWeightProfileId ? "selected" : "";
+          const label = `${item.name} (${item.roulette_id || "-"})`;
+          options.push(`<option value="${item.id}" ${selected}>${label}</option>`);
+        });
+        weightProfileSelect.innerHTML = options.join("");
+        if (selectedWeightProfileId && !items.some((item) => item.id === selectedWeightProfileId)) {
+          selectedWeightProfileId = "";
+          localStorage.removeItem(STORAGE_WEIGHT_PROFILE_KEY);
+          weightProfileSelect.value = "";
+        }
+      } catch (error) {
+        console.error("Falha ao carregar perfis de treino", error);
+      }
     }
 
     async function fetchFinalSuggestionFromApi(sourceArr, focusNumber = null, fromIndex = 0, maxNumbers = 8) {
@@ -4272,9 +4336,11 @@ countContainers.forEach(({ selector, itemClass }) => {
         siege_min_occurrences: siegeMinOccurrences,
         siege_min_streak: siegeMinStreak,
         siege_veto_relief: siegeVetoRelief,
+        block_bets_enabled: blockBetsEnabled,
         inversion_enabled: inversionEnabled,
         inversion_context_window: inversionContextWindow,
         inversion_penalty_factor: inversionPenaltyFactor,
+        weight_profile_id: selectedWeightProfileId || null,
       };
       const response = await fetch("/api/patterns/final-suggestion", {
         method: "POST",
@@ -4437,6 +4503,8 @@ countContainers.forEach(({ selector, itemClass }) => {
     }
 
     function buildNumberTooltipData(num, fromIndex = null, sourceArr = history) {
+      const windowBehind = 3;
+      const windowAhead = 5;
       const occurrences = [];
       if (typeof fromIndex === "number") {
         for (let i = fromIndex; i < sourceArr.length; i++) {
@@ -4449,17 +4517,19 @@ countContainers.forEach(({ selector, itemClass }) => {
       }
       const pulled = [];
       occurrences.forEach(idx => {
-        if (typeof fromIndex === "number") {
-          if (idx - 1 >= fromIndex) pulled.push(sourceArr[idx - 1]);
-        } else if (idx > 0) {
-          pulled.push(sourceArr[idx - 1]);
+        const lowerBound = typeof fromIndex === "number" ? fromIndex : 0;
+        const start = Math.max(lowerBound, idx - windowAhead);
+        const end = Math.min(sourceArr.length - 1, idx + windowBehind);
+        for (let pos = start; pos <= end; pos++) {
+          if (pos === idx) continue;
+          pulled.push(sourceArr[pos]);
         }
       });
       const pulledCounts = {};
       pulled.forEach(n => { pulledCounts[n] = (pulledCounts[n] || 0) + 1; });
       const topPulledItems = Object.entries(pulledCounts)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 6);
+        .slice(0, 18);
 
       const bucket = {
         dozen: { "1ª": 0, "2ª": 0, "3ª": 0, "Zero": 0 },
@@ -4883,7 +4953,7 @@ countContainers.forEach(({ selector, itemClass }) => {
           <summary>Ocorrências (${occurrences.length})</summary>
           <div class="tt-accordion-content">
             <div class="tt-list">Ocorrências: ${occurrences.length}</div>
-            <div class="tt-section">Puxou (top 6)</div>
+            <div class="tt-section">Puxou (top 18)</div>
             ${topPulledItems.length ? `
               <div class="tt-pulled">
                 ${topPulledItems.map(([n, c]) => `
@@ -5249,6 +5319,8 @@ countContainers.forEach(({ selector, itemClass }) => {
     }
 
     function computeLegacyConfidenceByNumber(sourceArr) {
+      const windowBehind = 3;
+      const windowAhead = 5;
       const byNumber = {};
       for (let n = 0; n <= 36; n++) {
         const occurrences = [];
@@ -5257,7 +5329,12 @@ countContainers.forEach(({ selector, itemClass }) => {
         }
         const pulled = [];
         occurrences.forEach((idx) => {
-          if (idx > 0) pulled.push(sourceArr[idx - 1]);
+          const start = Math.max(0, idx - windowAhead);
+          const end = Math.min(sourceArr.length - 1, idx + windowBehind);
+          for (let pos = start; pos <= end; pos++) {
+            if (pos === idx) continue;
+            pulled.push(sourceArr[pos]);
+          }
         });
         const bucket = bucketFromHistory(pulled, "bucket");
         const conf = computeConfidence(bucket, pulled.length);
@@ -6578,7 +6655,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       numbers.forEach((num) => {
         const ult = String(num);
         history.unshift(num);
-        if (history.length > 500) history.pop();
+        if (history.length > 2000) history.pop();
         announceTrigger(ult);
       });
       renderHistory();
@@ -6701,6 +6778,21 @@ countContainers.forEach(({ selector, itemClass }) => {
       const apiBase = window.location.origin;
       window.location.href = `${apiBase}/history/${newSlug}`;
     });
+
+    if (weightProfileSelect) {
+      weightProfileSelect.value = selectedWeightProfileId || "";
+      weightProfileSelect.addEventListener("change", () => {
+        selectedWeightProfileId = weightProfileSelect.value || "";
+        if (selectedWeightProfileId) {
+          localStorage.setItem(STORAGE_WEIGHT_PROFILE_KEY, selectedWeightProfileId);
+        } else {
+          localStorage.removeItem(STORAGE_WEIGHT_PROFILE_KEY);
+        }
+        finalSuggestionApiCache.clear();
+        finalSuggestionApiPending.clear();
+        renderHistory();
+      });
+    }
 
     if (btnWsToggle) {
       btnWsToggle.addEventListener("click", () => {
@@ -6936,6 +7028,8 @@ countContainers.forEach(({ selector, itemClass }) => {
           console.log('Estatísticas por período:', stats);
       }
   }
+
+  loadWeightProfiles();
   </script>
   
 

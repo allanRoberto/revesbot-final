@@ -3,7 +3,7 @@
   "name": "Chain - Cadeias Comportamentais",
   "kind": "positive",
   "version": "1.0.0",
-  "active": true,
+  "active": false,
   "priority": 91,
   "weight": 5.0,
   "evaluator": "chain_behavior_boost",

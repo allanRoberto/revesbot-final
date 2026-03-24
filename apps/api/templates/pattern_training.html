@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Treino de Padrões</title>
+  <style>
+    :root {
+      --bg: #f4f7f8;
+      --panel: #ffffff;
+      --line: #d9e2e8;
+      --ink: #18343f;
+      --muted: #5d7480;
+      --brand: #0b7285;
+      --brand-2: #095c6b;
+      --ok: #1f8f5f;
+      --warn: #b96b16;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(11, 114, 133, 0.12), transparent 30%),
+        linear-gradient(180deg, #f9fbfc 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+    .wrap {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      line-height: 1.1;
+    }
+    .sub {
+      margin: 0 0 22px;
+      color: var(--muted);
+      max-width: 920px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 12px 32px rgba(19, 43, 51, 0.08);
+      padding: 18px;
+    }
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+    }
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .field input,
+    .field select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.65; cursor: wait; transform: none; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-secondary { background: #e8eef1; color: var(--ink); }
+    .status {
+      min-height: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .kpi {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #f7fafb 100%);
+    }
+    .kpi .label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+    .kpi .value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+      background: #fff;
+    }
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #edf2f5;
+      text-align: left;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #f5f8fa;
+      z-index: 1;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .profiles {
+      display: grid;
+      gap: 10px;
+      max-height: 340px;
+      overflow: auto;
+    }
+    .profile-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fbfdfe;
+    }
+    .profile-card strong { display: block; margin-bottom: 4px; }
+    .profile-card small { color: var(--muted); display: block; }
+    .hint {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #f4fbfc;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .inline { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Treino e Auditoria de Padrões</h1>
+    <p class="sub">
+      Rode replay histórico, veja quais padrões realmente sustentam os hits e salve perfis de peso para usar na rota
+      <code>final-suggestion</code>.
+    </p>
+
+    <div class="grid">
+      <div class="stack">
+        <section class="panel">
+          <h2>Configuração</h2>
+          <div class="stack">
+            <div class="field">
+              <label for="roulette-id">Roleta</label>
+              <select id="roulette-id"></select>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="history-limit">Quantidade de números</label>
+                <input id="history-limit" type="number" min="100" max="50000" step="100" value="1000" />
+              </div>
+              <div class="field">
+                <label for="max-attempts">Tentativas</label>
+                <input id="max-attempts" type="number" min="1" max="50" step="1" value="4" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="optimized-max-numbers">Máx. números sugeridos</label>
+                <input id="optimized-max-numbers" type="number" min="1" max="37" step="1" value="18" />
+              </div>
+              <div class="field">
+                <label for="use-adaptive-weights">Adaptive do engine</label>
+                <select id="use-adaptive-weights">
+                  <option value="false" selected>Desligado</option>
+                  <option value="true">Ligado</option>
+                </select>
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="base-weight">Peso base</label>
+                <input id="base-weight" type="number" min="0" max="1" step="0.05" value="0.50" />
+              </div>
+              <div class="field">
+                <label for="optimized-weight">Peso otimizado</label>
+                <input id="optimized-weight" type="number" min="0" max="1" step="0.05" value="0.50" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="block-bets-enabled">Apostas em bloco</label>
+                <select id="block-bets-enabled">
+                  <option value="true" selected>Ligado</option>
+                  <option value="false">Desligado</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="inversion-enabled">Inversão</label>
+                <select id="inversion-enabled">
+                  <option value="false" selected>Desligado</option>
+                  <option value="true">Ligado</option>
+                </select>
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="inversion-context-window">Janela da inversão</label>
+                <input id="inversion-context-window" type="number" min="1" max="50" step="1" value="15" />
+              </div>
+              <div class="field">
+                <label for="inversion-penalty-factor">Penalty da inversão</label>
+                <input id="inversion-penalty-factor" type="number" min="0" max="1" step="0.05" value="0.30" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="siege-window">Siege window</label>
+                <input id="siege-window" type="number" min="2" max="20" step="1" value="6" />
+              </div>
+              <div class="field">
+                <label for="siege-min-occurrences">Siege mín. ocorrências</label>
+                <input id="siege-min-occurrences" type="number" min="1" max="10" step="1" value="3" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="siege-min-streak">Siege mín. streak</label>
+                <input id="siege-min-streak" type="number" min="1" max="10" step="1" value="2" />
+              </div>
+              <div class="field">
+                <label for="siege-veto-relief">Siege veto relief</label>
+                <input id="siege-veto-relief" type="number" min="0" max="1" step="0.05" value="0.40" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="min-sample">Amostra mínima</label>
+                <input id="min-sample" type="number" min="1" max="1000" step="1" value="20" />
+              </div>
+              <div class="field">
+                <label for="full-sample">Amostra cheia</label>
+                <input id="full-sample" type="number" min="2" max="5000" step="1" value="120" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="prior-strength">Prior strength</label>
+                <input id="prior-strength" type="number" min="1" max="500" step="1" value="24" />
+              </div>
+              <div class="field">
+                <label for="lift-alpha">Lift alpha</label>
+                <input id="lift-alpha" type="number" min="0" max="2" step="0.05" value="0.85" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="weight-floor">Peso mínimo</label>
+                <input id="weight-floor" type="number" min="0.1" max="3" step="0.05" value="0.75" />
+              </div>
+              <div class="field">
+                <label for="weight-ceil">Peso máximo</label>
+                <input id="weight-ceil" type="number" min="0.1" max="5" step="0.05" value="1.30" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="policy-observation-window">Espera: janela observação</label>
+                <input id="policy-observation-window" type="number" min="1" max="10" step="1" value="2" />
+              </div>
+              <div class="field">
+                <label for="policy-pressure-window">Espera: janela pressão</label>
+                <input id="policy-pressure-window" type="number" min="1" max="10" step="1" value="3" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="policy-min-block-touches">Armar com toques no bloco</label>
+                <input id="policy-min-block-touches" type="number" min="1" max="10" step="1" value="1" />
+              </div>
+              <div class="field">
+                <label for="policy-min-near-touches">Armar com toques próximos</label>
+                <input id="policy-min-near-touches" type="number" min="1" max="10" step="1" value="2" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="policy-confirm-window">Confirmação pós-hit</label>
+                <input id="policy-confirm-window" type="number" min="1" max="10" step="1" value="2" />
+              </div>
+              <div class="field">
+                <label for="policy-switch-window">Troca: janela de análise</label>
+                <input id="policy-switch-window" type="number" min="1" max="10" step="1" value="3" />
+              </div>
+            </div>
+            <div class="inline">
+              <div class="field">
+                <label for="policy-switch-min-score-delta">Troca: delta mínimo de score</label>
+                <input id="policy-switch-min-score-delta" type="number" min="0" max="50" step="0.5" value="6.0" />
+              </div>
+              <div class="field">
+                <label for="policy-switch-min-confidence-delta">Troca: delta mínimo de confiança</label>
+                <input id="policy-switch-min-confidence-delta" type="number" min="0" max="50" step="1" value="4" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="policy-switch-min-hold-spins">Troca: mínimo de giros antes de abandonar</label>
+              <input id="policy-switch-min-hold-spins" type="number" min="1" max="10" step="1" value="1" />
+            </div>
+            <div class="actions">
+              <button id="run-training" class="btn-primary">Treinar Agora</button>
+              <button id="save-profile" class="btn-secondary" disabled>Salvar Perfil</button>
+            </div>
+            <div id="status" class="status"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Perfis Salvos</h2>
+          <div id="profiles" class="profiles"></div>
+          <div class="hint">
+            Os perfis salvos aparecem também na página da API e podem ser usados na rota <code>final-suggestion</code>.
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <h2>Resultado do Treino</h2>
+        <div id="summary" class="summary">
+          <div class="kpi"><span class="label">Casos válidos</span><span class="value">0</span></div>
+          <div class="kpi"><span class="label">Hit geral</span><span class="value">0%</span></div>
+          <div class="kpi"><span class="label">Hit atribuído</span><span class="value">0%</span></div>
+          <div class="kpi"><span class="label">Padrões ativos</span><span class="value">0</span></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Padrão</th>
+                <th>Amostra</th>
+                <th>Cobertura</th>
+                <th>Hit atrib.</th>
+                <th>Hit suporte</th>
+                <th>Hit@1</th>
+                <th>Hit@2</th>
+                <th>Hit@4</th>
+                <th>Streak miss</th>
+                <th>Peso base</th>
+                <th>Mult. sugerido</th>
+                <th>Peso efetivo</th>
+              </tr>
+            </thead>
+            <tbody id="patterns-body">
+              <tr><td colspan="12">Nenhum treino executado.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h2 style="margin-top:18px;">Comportamento Temporal</h2>
+        <div id="policy-behavior" class="summary">
+          <div class="kpi"><span class="label">Bloco antes do exato</span><span class="value">0%</span></div>
+          <div class="kpi"><span class="label">Gap bloco -> exato</span><span class="value">0.00</span></div>
+          <div class="kpi"><span class="label">Hit tardio</span><span class="value">0%</span></div>
+          <div class="kpi"><span class="label">Re-hit após acerto</span><span class="value">0%</span></div>
+        </div>
+        <div class="table-wrap" style="margin-top:14px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Política</th>
+                <th>Hit rate</th>
+                <th>Armed / Switch</th>
+                <th>Delay médio</th>
+                <th>Detalhe</th>
+              </tr>
+            </thead>
+            <tbody id="policy-body">
+              <tr><td colspan="5">Nenhuma auditoria temporal disponível.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap" style="margin-top:14px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Foco atual</th>
+                <th>Confiança atual</th>
+                <th>Delay atual</th>
+                <th>Trocar para</th>
+                <th>Delay novo</th>
+                <th>Passos salvos</th>
+              </tr>
+            </thead>
+            <tbody id="opportunities-body">
+              <tr><td colspan="6">Nenhuma oportunidade de troca detectada.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const rouletteSelect = document.getElementById("roulette-id");
+    const runButton = document.getElementById("run-training");
+    const saveButton = document.getElementById("save-profile");
+    const statusEl = document.getElementById("status");
+    const profilesEl = document.getElementById("profiles");
+    const patternsBody = document.getElementById("patterns-body");
+    const summaryEl = document.getElementById("summary");
+    const policyBehaviorEl = document.getElementById("policy-behavior");
+    const policyBody = document.getElementById("policy-body");
+    const opportunitiesBody = document.getElementById("opportunities-body");
+    let latestTrainingResult = null;
+    let activeJobId = null;
+    let activePollTimer = null;
+
+    function setStatus(message, tone = "muted") {
+      statusEl.textContent = message || "";
+      statusEl.style.color = tone === "error"
+        ? "#b42318"
+        : tone === "ok"
+          ? "#1f8f5f"
+          : "#5d7480";
+    }
+
+    function readPayload() {
+      return {
+        roulette_id: rouletteSelect.value,
+        history_limit: parseInt(document.getElementById("history-limit").value, 10) || 1000,
+        max_attempts: parseInt(document.getElementById("max-attempts").value, 10) || 4,
+        optimized_max_numbers: parseInt(document.getElementById("optimized-max-numbers").value, 10) || 18,
+        use_adaptive_weights: document.getElementById("use-adaptive-weights").value === "true",
+        base_weight: parseFloat(document.getElementById("base-weight").value) || 0.5,
+        optimized_weight: parseFloat(document.getElementById("optimized-weight").value) || 0.5,
+        block_bets_enabled: document.getElementById("block-bets-enabled").value === "true",
+        inversion_enabled: document.getElementById("inversion-enabled").value === "true",
+        inversion_context_window: parseInt(document.getElementById("inversion-context-window").value, 10) || 15,
+        inversion_penalty_factor: parseFloat(document.getElementById("inversion-penalty-factor").value) || 0.3,
+        siege_window: parseInt(document.getElementById("siege-window").value, 10) || 6,
+        siege_min_occurrences: parseInt(document.getElementById("siege-min-occurrences").value, 10) || 3,
+        siege_min_streak: parseInt(document.getElementById("siege-min-streak").value, 10) || 2,
+        siege_veto_relief: parseFloat(document.getElementById("siege-veto-relief").value) || 0.4,
+        min_sample: parseInt(document.getElementById("min-sample").value, 10) || 20,
+        full_sample: parseInt(document.getElementById("full-sample").value, 10) || 120,
+        prior_strength: parseFloat(document.getElementById("prior-strength").value) || 24,
+        lift_alpha: parseFloat(document.getElementById("lift-alpha").value) || 0.85,
+        weight_floor: parseFloat(document.getElementById("weight-floor").value) || 0.75,
+        weight_ceil: parseFloat(document.getElementById("weight-ceil").value) || 1.3,
+        policy_observation_window: parseInt(document.getElementById("policy-observation-window").value, 10) || 2,
+        policy_pressure_window: parseInt(document.getElementById("policy-pressure-window").value, 10) || 3,
+        policy_min_block_touches: parseInt(document.getElementById("policy-min-block-touches").value, 10) || 1,
+        policy_min_near_touches: parseInt(document.getElementById("policy-min-near-touches").value, 10) || 2,
+        policy_confirm_window: parseInt(document.getElementById("policy-confirm-window").value, 10) || 2,
+        policy_switch_window: parseInt(document.getElementById("policy-switch-window").value, 10) || 3,
+        policy_switch_min_score_delta: parseFloat(document.getElementById("policy-switch-min-score-delta").value) || 6,
+        policy_switch_min_confidence_delta: parseInt(document.getElementById("policy-switch-min-confidence-delta").value, 10) || 4,
+        policy_switch_min_hold_spins: parseInt(document.getElementById("policy-switch-min-hold-spins").value, 10) || 1,
+      };
+    }
+
+    function pct(value) {
+      return `${(Number(value || 0) * 100).toFixed(2)}%`;
+    }
+
+    function renderSummary(result) {
+      const summary = result?.summary || {};
+      const values = [
+        summary.available_cases || 0,
+        pct(summary.overall_hit_rate || 0),
+        pct(summary.attributed_hit_rate || 0),
+        Array.isArray(result?.patterns) ? result.patterns.length : 0,
+      ];
+      summaryEl.querySelectorAll(".value").forEach((el, index) => {
+        el.textContent = String(values[index] ?? "");
+      });
+    }
+
+    function renderPatterns(result) {
+      const rows = Array.isArray(result?.patterns) ? result.patterns : [];
+      if (!rows.length) {
+        patternsBody.innerHTML = '<tr><td colspan="12">Nenhum padrão disponível no treino.</td></tr>';
+        return;
+      }
+      patternsBody.innerHTML = rows.map((row) => `
+        <tr>
+          <td><strong>${row.pattern_name || row.pattern_id}</strong><br><small>${row.pattern_id}</small></td>
+          <td>${row.sample_size}</td>
+          <td>${pct(row.coverage)}</td>
+          <td>${pct(row.attributed_hit_rate)}</td>
+          <td>${pct(row.support_hit_rate)}</td>
+          <td>${pct(row.hit_at_1)}</td>
+          <td>${pct(row.hit_at_2)}</td>
+          <td>${pct(row.hit_at_4)}</td>
+          <td>${row.recent_miss_streak}</td>
+          <td>${Number(row.base_weight || 0).toFixed(3)}</td>
+          <td>${Number(row.recommended_multiplier || 0).toFixed(3)}</td>
+          <td>${Number(row.effective_weight || 0).toFixed(3)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderSignalPolicies(result) {
+      if (!result?.signal_policies?.available) {
+        policyBehaviorEl.querySelectorAll(".value").forEach((el, index) => {
+          el.textContent = index === 1 ? "0.00" : "0%";
+        });
+        policyBody.innerHTML = '<tr><td colspan="5">Nenhuma auditoria temporal disponível.</td></tr>';
+        opportunitiesBody.innerHTML = '<tr><td colspan="6">Nenhuma oportunidade de troca detectada.</td></tr>';
+        return;
+      }
+      const behavior = result?.signal_policies?.behavior || {};
+      const policyValues = [
+        pct(behavior.block_before_exact_rate || 0),
+        Number(behavior.avg_block_to_exact_gap || 0).toFixed(2),
+        pct(behavior.late_hit_rate || 0),
+        pct(behavior.repeat_after_exact_rate || 0),
+      ];
+      policyBehaviorEl.querySelectorAll(".value").forEach((el, index) => {
+        el.textContent = String(policyValues[index] ?? "");
+      });
+
+      const policies = result?.signal_policies?.policies || {};
+      const rows = [
+        {
+          label: policies?.hold?.label || "Segurar",
+          hitRate: pct(policies?.hold?.hit_rate || 0),
+          secondary: "Baseline",
+          delay: Number(policies?.hold?.avg_hit_delay || 0).toFixed(2),
+          detail: `Bloco médio ${Number(policies?.hold?.avg_block_delay || 0).toFixed(2)}`,
+        },
+        {
+          label: policies?.wait_for_pressure?.label || "Esperar Pressao",
+          hitRate: pct(policies?.wait_for_pressure?.hit_rate || 0),
+          secondary: `${pct(policies?.wait_for_pressure?.armed_rate || 0)} armado`,
+          delay: Number(policies?.wait_for_pressure?.avg_hit_delay || 0).toFixed(2),
+          detail: `Arma em ${Number(policies?.wait_for_pressure?.avg_arm_step || 0).toFixed(2)} | perde rápido ${pct(policies?.wait_for_pressure?.missed_fast_hit_rate || 0)}`,
+        },
+        {
+          label: policies?.switch_if_better?.label || "Trocar se Melhor",
+          hitRate: pct(policies?.switch_if_better?.hit_rate || 0),
+          secondary: `${pct(policies?.switch_if_better?.switch_rate || 0)} troca`,
+          delay: Number(policies?.switch_if_better?.avg_hit_delay || 0).toFixed(2),
+          detail: `Melhora ${pct(policies?.switch_if_better?.improved_rate || 0)} | salva ${Number(policies?.switch_if_better?.avg_saved_steps || 0).toFixed(2)}`,
+        },
+      ];
+      policyBody.innerHTML = rows.map((row) => `
+        <tr>
+          <td><strong>${row.label}</strong></td>
+          <td>${row.hitRate}</td>
+          <td>${row.secondary}</td>
+          <td>${row.delay}</td>
+          <td>${row.detail}</td>
+        </tr>
+      `).join("");
+
+      const opportunities = Array.isArray(result?.signal_policies?.opportunities)
+        ? result.signal_policies.opportunities
+        : [];
+      if (!opportunities.length) {
+        opportunitiesBody.innerHTML = '<tr><td colspan="6">Nenhuma oportunidade de troca detectada.</td></tr>';
+        return;
+      }
+      opportunitiesBody.innerHTML = opportunities.map((item) => `
+        <tr>
+          <td>#${item.focus_number} <small>(idx ${item.from_index})</small></td>
+          <td>${item.current_confidence}</td>
+          <td>${item.current_delay ?? "-"}</td>
+          <td>#${item.switch_to?.focus_number ?? "-"} <small>(+${item.switch_to?.offset ?? "-"} giros)</small></td>
+          <td>${item.switch_to?.absolute_delay ?? "-"}</td>
+          <td>${item.saved_steps ?? "-"}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadRoulettes() {
+      const response = await fetch("/api/roulettes-list");
+      const data = await response.json();
+      const items = Array.isArray(data) ? data : [];
+      rouletteSelect.innerHTML = items.map((item) => `
+        <option value="${item.id}">${item.name || item.id} (${item.count || 0})</option>
+      `).join("");
+    }
+
+    async function loadProfiles() {
+      const response = await fetch("/api/patterns/training/profiles");
+      const data = await response.json();
+      const items = Array.isArray(data?.profiles) ? data.profiles : [];
+      if (!items.length) {
+        profilesEl.innerHTML = "<div class='profile-card'><strong>Nenhum perfil salvo.</strong><small>Execute um treino e salve o resultado.</small></div>";
+        return;
+      }
+      profilesEl.innerHTML = items.map((profile) => `
+        <div class="profile-card">
+          <strong>${profile.name}</strong>
+          <small>ID: ${profile.id}</small>
+          <small>Roleta: ${profile.roulette_id || "-"}</small>
+          <small>Histórico: ${profile.history_size || 0} | Tentativas: ${profile.max_attempts || 0}</small>
+          <small>Hit geral: ${pct(profile.overall_hit_rate || 0)} | Hit atribuído: ${pct(profile.attributed_hit_rate || 0)}</small>
+          <small><a href="/history/${profile.roulette_id}" target="_blank" rel="noreferrer">Abrir API dessa roleta</a></small>
+        </div>
+      `).join("");
+    }
+
+    async function runTraining() {
+      const payload = readPayload();
+      if (!payload.roulette_id) {
+        setStatus("Selecione uma roleta.", "error");
+        return;
+      }
+      runButton.disabled = true;
+      saveButton.disabled = true;
+      setStatus("Enfileirando treino...");
+      try {
+        const response = await fetch("/api/patterns/training/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.detail || `HTTP ${response.status}`);
+        }
+        activeJobId = data?.job_id || null;
+        if (!activeJobId) {
+          throw new Error("Job de treino nao retornou ID.");
+        }
+        setStatus("Treino iniciado. Preparando progresso...");
+        await pollTrainingJob(activeJobId);
+      } catch (error) {
+        latestTrainingResult = null;
+        renderSummary(null);
+        renderPatterns(null);
+        renderSignalPolicies(null);
+        setStatus(error.message || "Falha no treino.", "error");
+        runButton.disabled = false;
+      }
+    }
+
+    async function pollTrainingJob(jobId) {
+      if (!jobId) return;
+      if (activePollTimer) {
+        clearTimeout(activePollTimer);
+        activePollTimer = null;
+      }
+      const response = await fetch(`/api/patterns/training/jobs/${jobId}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.detail || `HTTP ${response.status}`);
+      }
+
+      const status = String(data?.status || "");
+      const progress = data?.progress || {};
+      const processed = Number(progress?.processed || 0);
+      const total = Number(progress?.total || 0);
+      const pctText = total > 0 ? `${((processed / total) * 100).toFixed(1)}%` : "0.0%";
+      if (status === "queued") {
+        setStatus("Treino na fila...");
+      } else if (status === "running") {
+        setStatus(
+          `Treinando: ${processed}/${total || "?"} casos (${pctText}) | sinais válidos ${progress?.available_cases || 0} | hits ${progress?.hit_cases || 0}`
+        );
+      } else if (status === "completed") {
+        latestTrainingResult = data?.result || null;
+        renderSummary(latestTrainingResult);
+        renderPatterns(latestTrainingResult);
+        renderSignalPolicies(latestTrainingResult);
+        saveButton.disabled = !latestTrainingResult?.available;
+        runButton.disabled = false;
+        setStatus("Treino concluído.", "ok");
+        activeJobId = null;
+        activePollTimer = null;
+        return;
+      } else if (status === "failed") {
+        latestTrainingResult = null;
+        renderSummary(null);
+        renderPatterns(null);
+        renderSignalPolicies(null);
+        runButton.disabled = false;
+        setStatus(data?.error || "Treino falhou.", "error");
+        activeJobId = null;
+        activePollTimer = null;
+        return;
+      }
+
+      activePollTimer = window.setTimeout(() => {
+        pollTrainingJob(jobId).catch((error) => {
+          setStatus(error.message || "Falha ao consultar progresso.", "error");
+          runButton.disabled = false;
+          activePollTimer = null;
+        });
+      }, 1200);
+    }
+
+    async function saveProfile() {
+      if (!latestTrainingResult?.available) {
+        setStatus("Execute um treino antes de salvar.", "error");
+        return;
+      }
+      const profileName = window.prompt("Nome do perfil de treino:", `treino-${latestTrainingResult.roulette_id}-${Date.now()}`);
+      if (!profileName) {
+        return;
+      }
+      saveButton.disabled = true;
+      setStatus("Salvando perfil...");
+      try {
+        const payload = {
+          name: profileName,
+          roulette_id: latestTrainingResult.roulette_id,
+          history_size: latestTrainingResult.summary?.history_size || 0,
+          max_attempts: latestTrainingResult.config?.max_attempts || 4,
+          optimized_max_numbers: latestTrainingResult.config?.optimized_max_numbers || 18,
+          use_adaptive_weights: !!latestTrainingResult.config?.use_adaptive_weights,
+          config: latestTrainingResult.config || {},
+          summary: latestTrainingResult.summary || {},
+          patterns: latestTrainingResult.patterns || [],
+          weights: latestTrainingResult.weights || {},
+          effective_weights: latestTrainingResult.effective_weights || {},
+        };
+        const response = await fetch("/api/patterns/training/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.detail || `HTTP ${response.status}`);
+        }
+        setStatus(`Perfil salvo: ${data?.profile?.name || profileName}`, "ok");
+        await loadProfiles();
+      } catch (error) {
+        setStatus(error.message || "Falha ao salvar perfil.", "error");
+      } finally {
+        saveButton.disabled = false;
+      }
+    }
+
+    runButton.addEventListener("click", runTraining);
+    saveButton.addEventListener("click", saveProfile);
+    renderSignalPolicies(null);
+
+    Promise.all([loadRoulettes(), loadProfiles()])
+      .then(() => setStatus("Pronto para treinar."))
+      .catch((error) => setStatus(error.message || "Falha ao carregar a página.", "error"));
+  </script>
+</body>
+</html>

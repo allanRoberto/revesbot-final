@@ -8,7 +8,7 @@ from helpers.utils.redis_client import r
 
 # Importe todos os seus padrões aqui
 from patterns import (
-    api,
+    soma_terminal_grupo,
     # blackhorse,
     # api_monitor,
     # cinco_bases,
@@ -41,8 +41,7 @@ from patterns import (
 # Lista de módulos de patterns que possuem a função process_roulette
 ALL_PATTERNS = [
     # ================= PATTERNS ATIVOS =================
-    # 1) api -> chama /api/patterns/final-suggestion e usa top 10 bets.
-    api,
+    soma_terminal_grupo,
     # ================= PATTERNS INATIVOS =================
     # blackhorse,
     # api_monitor,

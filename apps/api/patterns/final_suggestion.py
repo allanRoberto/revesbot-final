@@ -598,6 +598,185 @@ def find_protections(suggestion_list: List[int]) -> List[int]:
     return sorted(protections)
 
 
+def _wheel_neighbor(number: int, offset: int) -> int | None:
+    try:
+        idx = ROULETTE_EUROPEAN_NUMBERS.index(int(number))
+    except ValueError:
+        return None
+    wheel_len = len(ROULETTE_EUROPEAN_NUMBERS)
+    return ROULETTE_EUROPEAN_NUMBERS[(idx + offset) % wheel_len]
+
+
+def _is_isolated_on_wheel(selected_set: Set[int], number: int) -> bool:
+    left = _wheel_neighbor(number, -1)
+    right = _wheel_neighbor(number, 1)
+    return bool(left not in selected_set and right not in selected_set)
+
+
+def _estimate_block_candidate_score(
+    number: int,
+    selected_set: Set[int],
+    score_map: Dict[int, float],
+    pulled_counts: Dict[int, int],
+) -> float:
+    if number in score_map:
+        return float(score_map[number])
+
+    score = float(pulled_counts.get(number, 0) or 0) * 0.5
+    for offset, weight in ((-1, 0.92), (1, 0.92), (-2, 0.38), (2, 0.38)):
+        neighbor = _wheel_neighbor(number, offset)
+        if neighbor in selected_set:
+            score += float(score_map.get(neighbor, 0.0)) * weight
+    return score
+
+
+def _pick_lowest_ranked_for_block_swap(
+    *,
+    selected_set: Set[int],
+    score_map: Dict[int, float],
+    protected_set: Set[int],
+    count: int,
+) -> List[int]:
+    candidates = [n for n in selected_set if n not in protected_set]
+    candidates.sort(
+        key=lambda n: (
+            1 if not _is_isolated_on_wheel(selected_set, n) else 0,
+            sum(1 for neighbor in (_wheel_neighbor(n, -1), _wheel_neighbor(n, 1)) if neighbor in selected_set),
+            float(score_map.get(n, 0.0)),
+            int(n),
+        )
+    )
+    return candidates[:count]
+
+
+def _compact_final_list_into_blocks(
+    initial_list: List[int],
+    score_map: Dict[int, float],
+    pulled_counts: Dict[int, int],
+    target_size: int,
+) -> Dict[str, Any]:
+    selected_set: Set[int] = {int(n) for n in initial_list if isinstance(n, int)}
+    if target_size <= 1 or len(selected_set) <= 1:
+        ordered = sorted(selected_set, key=lambda n: (-float(score_map.get(n, 0.0)), int(n)))
+        return {
+            "list": ordered[:target_size],
+            "added": [],
+            "removed": [],
+            "changed": False,
+        }
+
+    added_numbers: List[int] = []
+    removed_numbers: List[int] = []
+
+    def swap_in(candidate_numbers: List[int], protected_set: Set[int]) -> bool:
+        normalized_candidates = []
+        for raw in candidate_numbers:
+            try:
+                n = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if 0 <= n <= 36 and n not in selected_set and n not in normalized_candidates:
+                normalized_candidates.append(n)
+        if not normalized_candidates:
+            return False
+
+        removals = _pick_lowest_ranked_for_block_swap(
+            selected_set=selected_set,
+            score_map=score_map,
+            protected_set=set(protected_set).union(normalized_candidates),
+            count=len(normalized_candidates),
+        )
+        if len(removals) != len(normalized_candidates):
+            return False
+
+        candidate_scores = {
+            n: _estimate_block_candidate_score(n, selected_set, score_map, pulled_counts)
+            for n in normalized_candidates
+        }
+
+        for n in removals:
+            selected_set.remove(n)
+            removed_numbers.append(n)
+
+        for n in normalized_candidates:
+            selected_set.add(n)
+            score_map[n] = candidate_scores[n]
+            added_numbers.append(n)
+
+        return True
+
+    max_iterations = len(ROULETTE_EUROPEAN_NUMBERS) * 2
+    iterations = 0
+    changed = False
+
+    while iterations < max_iterations:
+        iterations += 1
+        iteration_changed = False
+
+        gap_candidates: List[Dict[str, Any]] = []
+        for idx, number in enumerate(ROULETTE_EUROPEAN_NUMBERS):
+            if number in selected_set:
+                continue
+            left = ROULETTE_EUROPEAN_NUMBERS[(idx - 1) % len(ROULETTE_EUROPEAN_NUMBERS)]
+            right = ROULETTE_EUROPEAN_NUMBERS[(idx + 1) % len(ROULETTE_EUROPEAN_NUMBERS)]
+            if left in selected_set and right in selected_set:
+                score = _estimate_block_candidate_score(number, selected_set, score_map, pulled_counts) + 0.2
+                gap_candidates.append(
+                    {
+                        "number": number,
+                        "protected": {left, right},
+                        "score": score,
+                    }
+                )
+
+        gap_candidates.sort(key=lambda item: (-float(item["score"]), int(item["number"])))
+        for candidate in gap_candidates:
+            number = int(candidate["number"])
+            protected = set(candidate["protected"])
+            if number in selected_set or not protected.issubset(selected_set):
+                continue
+            if swap_in([number], protected):
+                iteration_changed = True
+                changed = True
+                break
+
+        if iteration_changed:
+            continue
+
+        isolated_numbers = sorted(
+            [n for n in selected_set if _is_isolated_on_wheel(selected_set, n)],
+            key=lambda n: (-float(score_map.get(n, 0.0)), int(n)),
+        )
+        for anchor in isolated_numbers:
+            if anchor not in selected_set or not _is_isolated_on_wheel(selected_set, anchor):
+                continue
+            neighbor_candidates = []
+            for neighbor in (_wheel_neighbor(anchor, -1), _wheel_neighbor(anchor, 1)):
+                if neighbor is None or neighbor in selected_set:
+                    continue
+                score = _estimate_block_candidate_score(neighbor, selected_set, score_map, pulled_counts)
+                neighbor_candidates.append((score, int(neighbor)))
+            neighbor_candidates.sort(key=lambda item: (-float(item[0]), int(item[1])))
+            for _, neighbor in neighbor_candidates:
+                if swap_in([neighbor], {anchor}):
+                    iteration_changed = True
+                    changed = True
+                    break
+            if iteration_changed:
+                break
+
+        if not iteration_changed:
+            break
+
+    ordered = sorted(selected_set, key=lambda n: (-float(score_map.get(n, 0.0)), int(n)))
+    return {
+        "list": ordered[:target_size],
+        "added": sorted(set(added_numbers)),
+        "removed": sorted(set(removed_numbers)),
+        "changed": changed,
+    }
+
+
 def build_final_suggestion(
     *,
     base_list: List[int],
@@ -611,6 +790,7 @@ def build_final_suggestion(
     pulled_counts: Dict[int, int],
     base_weight: float,
     optimized_weight: float,
+    block_bets_enabled: bool = False,
     inversion_enabled: bool = True,
     inversion_context_window: int = 15,
     inversion_penalty_factor: float = 0.3,
@@ -696,7 +876,22 @@ def build_final_suggestion(
         )
 
     ranked.sort(key=lambda item: (-float(item["score"]), int(item["number"])))
+    score_map = {int(item["number"]): float(item["score"]) for item in ranked}
     final_list = [int(item["number"]) for item in ranked[:target_size]]
+    block_compaction = {
+        "list": list(final_list),
+        "added": [],
+        "removed": [],
+        "changed": False,
+    }
+    if block_bets_enabled and len(final_list) > 1:
+        block_compaction = _compact_final_list_into_blocks(
+            initial_list=final_list,
+            score_map=dict(score_map),
+            pulled_counts=pulled_counts,
+            target_size=target_size,
+        )
+        final_list = [int(n) for n in block_compaction["list"][:target_size]]
     overlap_in_final = len([n for n in final_list if n in intersection])
     overlap_ratio = (overlap_in_final / len(final_list)) if final_list else 0.0
     intersection_bonus = _js_round(overlap_ratio * 12.0)
@@ -718,6 +913,8 @@ def build_final_suggestion(
         "available": True,
         "list": final_list,
         "protections": protections,
+        "blockBetsEnabled": bool(block_bets_enabled),
+        "blockCompaction": block_compaction,
         "invertedNumbers": sorted(inv_set),
         "invertedInFinal": inverted_in_final,
         "invertedRemoved": inverted_removed,
@@ -727,7 +924,14 @@ def build_final_suggestion(
             "score": merged_score,
             "label": confidence_label_from_score(merged_score),
         },
-        "explanation": f"Fusão {base_pct_text}/{opt_pct_text} com bônus de interseção ({overlap_in_final}/{len(final_list)}).",
+        "explanation": (
+            f"Fusão {base_pct_text}/{opt_pct_text} com bônus de interseção ({overlap_in_final}/{len(final_list)})."
+            + (
+                f" Compactação em blocos aplicada (+{len(block_compaction['added'])}/-{len(block_compaction['removed'])})."
+                if bool(block_bets_enabled) and bool(block_compaction["changed"])
+                else ""
+            )
+        ),
         "breakdown": {
             "base_weight": base_weight,
             "optimized_weight": optimized_weight,
@@ -735,6 +939,10 @@ def build_final_suggestion(
             "intersection_bonus": intersection_bonus,
             "inversion_penalized": len(inv_set),
             "pulled_bonus": len(pulled_in_final),
+            "block_bets_enabled": bool(block_bets_enabled),
+            "block_compaction_applied": bool(block_compaction["changed"]),
+            "block_numbers_added": len(block_compaction["added"]),
+            "block_numbers_removed": len(block_compaction["removed"]),
         },
     }
 
