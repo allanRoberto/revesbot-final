@@ -3111,8 +3111,6 @@ countContainers.forEach(({ selector, itemClass }) => {
     const finalSuggestionApiPending = new Map();
     const patternMetricsCache = new Map();
     const patternMetricsPending = new Map();
-    const finalConfidenceCache = new Map();
-    let finalConfidencePending = false;
     let lastRenderedHistoryKey = "";
     let historyRefreshTimer = null;
     const numberTooltip = document.createElement("div");
@@ -3343,74 +3341,6 @@ countContainers.forEach(({ selector, itemClass }) => {
         } finally {
           btnAutoTune.disabled = false;
           btnAutoTune.textContent = oldLabel;
-        }
-      });
-    }
-
-    // === FINAL CONFIDENCE BATCH ===
-    async function fetchFinalConfidenceBatch(sourceArr) {
-      if (finalConfidencePending || sourceArr.length < 2) return;
-      finalConfidencePending = true;
-      try {
-        const response = await fetch("/api/patterns/final-suggestion-batch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            history: sourceArr,
-            max_numbers: 18,
-            confidence_threshold: confidenceFlagThreshold,
-            base_weight: finalBaseWeight,
-            optimized_weight: finalOptimizedWeight,
-          }),
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const result = await response.json();
-        if (result.available && Array.isArray(result.results)) {
-          finalConfidenceCache.clear();
-          result.results.forEach((item) => {
-            finalConfidenceCache.set(item.position, {
-              finalConfidence: item.final_confidence,
-              optimizedConfidence: item.optimized_confidence,
-              legacyConfidence: item.legacy_confidence,
-              finalSuggestion: item.final_suggestion,
-              overlapRatio: item.overlap_ratio,
-            });
-          });
-          // Re-renderiza para aplicar os indicadores
-          renderHistoryIndicators();
-        }
-      } catch (err) {
-        console.error("Erro ao buscar confiança final batch:", err);
-      } finally {
-        finalConfidencePending = false;
-      }
-    }
-
-    function getFinalConfidenceForPosition(position) {
-      return finalConfidenceCache.get(position) || null;
-    }
-
-    function renderHistoryIndicators() {
-      // Atualiza os indicadores de confiança nas células já renderizadas
-      document.querySelectorAll("#history .cell").forEach((el) => {
-        const idx = parseInt(el.dataset.tooltipIdx, 10);
-        if (isNaN(idx)) return;
-        const cached = getFinalConfidenceForPosition(idx);
-        if (!cached) return;
-
-        // Remove indicador antigo se existir
-        const oldFlag = el.querySelector(".confidence-flag");
-        if (oldFlag) oldFlag.remove();
-
-        // Adiciona novo indicador se confiança >= threshold
-        if (cached.finalConfidence >= confidenceFlagThreshold) {
-          const flag = document.createElement("span");
-          flag.className = "confidence-flag confidence-high";
-          flag.textContent = "↑";
-          flag.title = `Confiança Final: ${cached.finalConfidence}% (Base: ${cached.legacyConfidence}% | Otimizada: ${cached.optimizedConfidence}%)`;
-          el.appendChild(flag);
         }
       });
     }

@@ -91,14 +91,6 @@ class FinalSuggestionRequest(BaseModel):
     weight_profile_id: str | None = None
 
 
-class FinalSuggestionBatchRequest(BaseModel):
-    history: List[int] = Field(default_factory=list)
-    max_numbers: int = 18
-    confidence_threshold: int = 70
-    base_weight: float = 0.4
-    optimized_weight: float = 0.6
-
-
 class ActiveSignalRequest(BaseModel):
     suggestion: List[int] = Field(default_factory=list)
     confidence_score: int = 0
@@ -1056,118 +1048,6 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
                 "block_bets_enabled": bool(result.get("blockBetsEnabled", payload.block_bets_enabled)),
             },
             "result": result,
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-@router.post("/api/patterns/final-suggestion-batch")
-async def get_final_suggestion_batch(payload: FinalSuggestionBatchRequest):
-    """
-    Retorna a confiança da sugestão final para cada posição do histórico.
-    Usado para destacar números com alta confiança no carregamento da página.
-    """
-    try:
-        normalized_history = [int(n) for n in payload.history if 0 <= int(n) <= 36]
-        if len(normalized_history) < 2:
-            return {
-                "engine_version": "v1",
-                "available": False,
-                "results": [],
-                "high_confidence_positions": [],
-            }
-
-        max_numbers = max(1, min(37, int(payload.max_numbers)))
-        threshold = max(0, min(100, int(payload.confidence_threshold)))
-        base_weight = max(0.0, min(1.0, float(payload.base_weight)))
-        optimized_weight = max(0.0, min(1.0, float(payload.optimized_weight)))
-
-        # Normaliza pesos
-        total_weight = base_weight + optimized_weight
-        if total_weight > 0:
-            base_weight = base_weight / total_weight
-            optimized_weight = optimized_weight / total_weight
-        else:
-            base_weight = 0.5
-            optimized_weight = 0.5
-
-        results: List[Dict] = []
-        high_confidence_positions: List[int] = []
-
-        # Limita a análise aos primeiros 100 números para performance
-        limit = min(len(normalized_history), 100)
-
-        for idx in range(limit):
-            focus_number = normalized_history[idx]
-
-            # Calcula sugestão otimizada
-            optimized_result = pattern_engine.evaluate(
-                history=normalized_history,
-                base_suggestion=[],
-                focus_number=focus_number,
-                from_index=idx,
-                max_numbers=max_numbers,
-            )
-
-            optimized_confidence = int(optimized_result.get("confidence", {}).get("score", 0) or 0)
-            optimized_list = optimized_result.get("suggestion", [])
-
-            # Calcula sugestão base (legada) - já vem no resultado
-            legacy_confidence = 0
-            legacy_list = []
-            for contrib in optimized_result.get("contributions", []):
-                if contrib.get("pattern_id") == "legacy_base_suggestion":
-                    legacy_list = contrib.get("numbers", [])
-                    break
-
-            # Se tiver meta com legacy_confidence_score, usa
-            legacy_meta = optimized_result.get("confidence_breakdown", {})
-            legacy_confidence = int(legacy_meta.get("legacy", 0) or 0)
-
-            # Calcula interseção
-            optimized_set = set(optimized_list)
-            legacy_set = set(legacy_list)
-            intersection = optimized_set.intersection(legacy_set)
-            overlap_ratio = len(intersection) / len(optimized_set) if optimized_set else 0
-
-            # Calcula confiança final mesclada
-            intersection_bonus = int(overlap_ratio * 12)
-            final_confidence = int(
-                (optimized_confidence * optimized_weight) +
-                (legacy_confidence * base_weight) +
-                intersection_bonus
-            )
-            final_confidence = max(0, min(100, final_confidence))
-
-            # Mescla as listas para sugestão final
-            all_numbers = list(optimized_set.union(legacy_set))
-            final_list = sorted(all_numbers)[:max_numbers]
-
-            result_item = {
-                "position": idx,
-                "number": focus_number,
-                "final_confidence": final_confidence,
-                "optimized_confidence": optimized_confidence,
-                "legacy_confidence": legacy_confidence,
-                "final_suggestion": final_list,
-                "optimized_suggestion": optimized_list,
-                "overlap_ratio": round(overlap_ratio, 3),
-            }
-            results.append(result_item)
-
-            if final_confidence >= threshold:
-                high_confidence_positions.append(idx)
-
-        return {
-            "engine_version": "v1",
-            "available": True,
-            "threshold": threshold,
-            "base_weight": round(base_weight, 3),
-            "optimized_weight": round(optimized_weight, 3),
-            "total_analyzed": len(results),
-            "high_confidence_count": len(high_confidence_positions),
-            "high_confidence_positions": high_confidence_positions,
-            "results": results,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

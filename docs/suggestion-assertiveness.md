@@ -8,14 +8,13 @@ Escopo: mapeamento da lógica real de sugestão da API e hipóteses de perda de 
 - O caminho de produção de `POST /api/patterns/final-suggestion` foi consolidado com preservação de ranking por score (baseline B).
 - A hipótese de perda por reordenação numérica prematura foi mitigada no endpoint single de `final-suggestion`.
 - A comparação A/B/C permanece em script experimental; não é branch ativa do caminho de produção.
-- A divergência do batch (`/final-suggestion-batch`) permanece como tema separado.
+- O endpoint antigo `final-suggestion-batch` foi removido; `final-suggestion` passou a ser o caminho único para leitura operacional.
 
 ## 1. Endpoints de sugestão e medição
 
 ### Sugestão (produção)
 - `POST /api/patterns/optimized-suggestion` (`apps/api/routes/patterns.py:151`)
 - `POST /api/patterns/final-suggestion` (`apps/api/routes/patterns.py:566`)
-- `POST /api/patterns/final-suggestion-batch` (`apps/api/routes/patterns.py:704`)
 
 ### Medição / tuning (suporte à assertividade)
 - `POST /api/patterns/metrics/backtest` (`apps/api/routes/patterns.py:240`)
@@ -91,10 +90,9 @@ Escopo: mapeamento da lógica real de sugestão da API e hipóteses de perda de 
 - Evidência: `apps/api/services/final_suggestion_frontend.py:641-642`.
 - Impacto provável: ranks deixam de refletir score real quando listas já vieram reordenadas por número.
 
-### H4) Batch final simplifica demais e descarta ranking
-- Observação: no batch final, junta sets (`optimized ∪ legacy`) e corta por ordenação numérica.
-- Evidência: `apps/api/routes/patterns.py:784` (`sorted(all_numbers)[:max_numbers]`).
-- Impacto provável: confiança e lista final batch podem divergir do comportamento do endpoint final single.
+### H4) Histórico: o batch final simplificava demais e descartava ranking
+- Observação: a versão antiga do batch juntava sets (`optimized ∪ legacy`) e cortava por ordenação numérica.
+- Impacto observado: confiança e lista batch podiam divergir do comportamento do endpoint final single.
 
 ### H5) Diferença entre o backtest atual e o pipeline real de `/final-suggestion`
 - Observação: rotinas de backtest usam majoritariamente `pattern_engine.evaluate`, não a fusão completa de `/final-suggestion`.
@@ -184,8 +182,6 @@ Executar replay com variações, mantendo dataset e janela iguais:
 
 ## 8. Próximos ajustes candidatos (futuros, sem aplicar agora)
 
-1. Harmonizar `final-suggestion-batch` com a lógica de ranking consolidada no endpoint single.
-2. Validar impacto dessa harmonização em `coverage` e `effective_hit@4` antes de promover para produção.
-3. Medir continuamente no pipeline real de produção (replay padronizado).
-4. Revisar papel do `legacy_processing_bridge` com experimento controlado.
-5. Validar se a correlação por matriz deve entrar no score por número (ou documentar claramente seu papel real).
+1. Medir continuamente no pipeline real de produção (replay padronizado).
+2. Revisar papel do `legacy_processing_bridge` com experimento controlado.
+3. Validar se a correlação por matriz deve entrar no score por número (ou documentar claramente seu papel real).

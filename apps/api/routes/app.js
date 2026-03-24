@@ -814,12 +814,11 @@ export default function Dashboard() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [subscriptionDays, setSubscriptionDays] = useState(null);
   const [showExpirationWarning, setShowExpirationWarning] = useState(false);
-  const [confidenceData, setConfidenceData] = useState(null);
-  const [isLoadingConfidence, setIsLoadingConfidence] = useState(false);
+  const confidenceData = null;
+  const isLoadingConfidence = false;
   const queryClient = useQueryClient();
 
   const historyCache = useRef([]);
-  const confidenceCache = useRef(null);
 
   // Iniciar proteção anti-debug
   useEffect(() => {
@@ -962,77 +961,6 @@ export default function Dashboard() {
     const interval = setInterval(fetchRouletteHistory, 10000);
     return () => clearInterval(interval);
   }, []);
-
-  // Buscar dados de confiança quando o histórico mudar
-  useEffect(() => {
-    const fetchConfidenceData = async () => {
-      if (rouletteHistory.length < 20) return;
-
-      // Verificar se o histórico mudou significativamente
-      const historyKey = rouletteHistory.slice(0, 20).join(',');
-      if (confidenceCache.current?.key === historyKey) {
-        return; // Cache ainda válido
-      }
-
-      setIsLoadingConfidence(true);
-
-      try {
-        const response = await fetch('/api/patterns/final-suggestion-batch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            history: rouletteHistory,
-            max_numbers: 18,
-            confidence_threshold: 70,
-            base_weight: 0.4,
-            optimized_weight: 0.6,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Erro na API de confiança: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.available && data.results) {
-          // Criar mapa de posição -> dados de confiança
-          const confidenceMap = {};
-          data.results.forEach(item => {
-            confidenceMap[item.position] = {
-              number: item.number,
-              finalConfidence: item.final_confidence,
-              optimizedConfidence: item.optimized_confidence,
-              legacyConfidence: item.legacy_confidence,
-              finalSuggestion: item.final_suggestion,
-              overlapRatio: item.overlap_ratio,
-              isHighConfidence: item.final_confidence >= 70,
-            };
-          });
-
-          const newConfidenceData = {
-            key: historyKey,
-            map: confidenceMap,
-            highConfidencePositions: data.high_confidence_positions || [],
-            totalAnalyzed: data.total_analyzed,
-            highConfidenceCount: data.high_confidence_count,
-          };
-
-          confidenceCache.current = newConfidenceData;
-          setConfidenceData(newConfidenceData);
-          console.log(`🎯 Confiança calculada: ${data.high_confidence_count}/${data.total_analyzed} posições com >= 70%`);
-        }
-      } catch (error) {
-        console.error('Erro ao buscar dados de confiança:', error);
-      } finally {
-        setIsLoadingConfidence(false);
-      }
-    };
-
-    fetchConfidenceData();
-  }, [rouletteHistory]);
 
   useEffect(() => {
     const checkPendingResults = async () => {
