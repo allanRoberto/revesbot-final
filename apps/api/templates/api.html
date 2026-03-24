@@ -4226,6 +4226,40 @@ countContainers.forEach(({ selector, itemClass }) => {
       ].join("|");
     }
 
+    function buildDefaultPolicyDecision(reason = "Calculando política de entrada...") {
+      return {
+        action: "wait",
+        label: "Esperar",
+        reason,
+        score: 0,
+        score_delta: 0,
+        confidence_delta: 0,
+        overlap_ratio: 0,
+        saved_steps_estimate: 0,
+      };
+    }
+
+    function normalizePolicyDecision(rawDecision, fallbackReason = "Sem decisão operacional disponível.") {
+      if (!rawDecision || typeof rawDecision !== "object") {
+        return buildDefaultPolicyDecision(fallbackReason);
+      }
+      return {
+        action: typeof rawDecision.action === "string" ? rawDecision.action : "wait",
+        label: typeof rawDecision.label === "string" && rawDecision.label ? rawDecision.label : "Esperar",
+        reason: typeof rawDecision.reason === "string" && rawDecision.reason ? rawDecision.reason : fallbackReason,
+        score: Number.isFinite(Number(rawDecision.score)) ? Number(rawDecision.score) : 0,
+        score_delta: Number.isFinite(Number(rawDecision.score_delta)) ? Number(rawDecision.score_delta) : 0,
+        confidence_delta: Number.isFinite(Number(rawDecision.confidence_delta)) ? Number(rawDecision.confidence_delta) : 0,
+        overlap_ratio: Number.isFinite(Number(rawDecision.overlap_ratio)) ? Number(rawDecision.overlap_ratio) : 0,
+        saved_steps_estimate: Number.isFinite(Number(rawDecision.saved_steps_estimate)) ? Number(rawDecision.saved_steps_estimate) : 0,
+        touch_exact: Number.isFinite(Number(rawDecision.touch_exact)) ? Number(rawDecision.touch_exact) : 0,
+        touch_near: Number.isFinite(Number(rawDecision.touch_near)) ? Number(rawDecision.touch_near) : 0,
+        touch_close: Number.isFinite(Number(rawDecision.touch_close)) ? Number(rawDecision.touch_close) : 0,
+        last_distance: Number.isFinite(Number(rawDecision.last_distance)) ? Number(rawDecision.last_distance) : 99,
+        region_alignment: Number.isFinite(Number(rawDecision.region_alignment)) ? Number(rawDecision.region_alignment) : 0,
+      };
+    }
+
     async function loadWeightProfiles() {
       if (!weightProfileSelect) return;
       try {
@@ -4272,7 +4306,7 @@ countContainers.forEach(({ selector, itemClass }) => {
         inversion_penalty_factor: inversionPenaltyFactor,
         weight_profile_id: selectedWeightProfileId || null,
       };
-      const response = await fetch("/api/patterns/final-suggestion", {
+      const response = await fetch("/api/patterns/final-suggestion/policy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -4281,24 +4315,32 @@ countContainers.forEach(({ selector, itemClass }) => {
         throw new Error(`HTTP ${response.status}`);
       }
       const data = await response.json();
-      const finalSuggestionRaw = Array.isArray(data.suggestion)
-        ? data.suggestion
-        : (Array.isArray(data.list) ? data.list : []);
+      const resultPayload = data.result && typeof data.result === "object" ? data.result : data;
+      const policyDecision = normalizePolicyDecision(
+        data.decision,
+        "Policy indisponível para esta sugestão."
+      );
+      const policyCandidate = data.candidate_signal && typeof data.candidate_signal === "object"
+        ? data.candidate_signal
+        : {};
+      const finalSuggestionRaw = Array.isArray(resultPayload.suggestion)
+        ? resultPayload.suggestion
+        : (Array.isArray(resultPayload.list) ? resultPayload.list : []);
       const finalSuggestionSorted = sortNumbersForDisplay(finalSuggestionRaw);
-      const optimizedPayload = data.optimized_payload && typeof data.optimized_payload === "object"
-        ? data.optimized_payload
+      const optimizedPayload = resultPayload.optimized_payload && typeof resultPayload.optimized_payload === "object"
+        ? resultPayload.optimized_payload
         : {};
       const optimizedSuggestionRaw = Array.isArray(optimizedPayload.suggestion)
         ? optimizedPayload.suggestion
-        : (Array.isArray(data.optimized_suggestion) ? data.optimized_suggestion : []);
+        : (Array.isArray(resultPayload.optimized_suggestion) ? resultPayload.optimized_suggestion : []);
       const optimizedSuggestionSorted = sortNumbersForDisplay(optimizedSuggestionRaw);
       const optimizedConfidenceRaw = optimizedPayload.confidence && typeof optimizedPayload.confidence === "object"
         ? optimizedPayload.confidence
-        : (data.optimized_confidence_obj && typeof data.optimized_confidence_obj === "object"
-          ? data.optimized_confidence_obj
+        : (resultPayload.optimized_confidence_obj && typeof resultPayload.optimized_confidence_obj === "object"
+          ? resultPayload.optimized_confidence_obj
           : null);
       const optimizedConfidenceScore = parseInt(
-        optimizedConfidenceRaw?.score ?? data.optimized_confidence ?? 0,
+        optimizedConfidenceRaw?.score ?? resultPayload.optimized_confidence ?? 0,
         10
       );
       const normalizedOptimizedConfidence = {
@@ -4306,51 +4348,53 @@ countContainers.forEach(({ selector, itemClass }) => {
         label: optimizedConfidenceRaw?.label || "Baixa",
       };
       const normalizedOptimized = {
-        available: typeof optimizedPayload.available === "boolean" ? optimizedPayload.available : !!data.optimized_available,
+        available: typeof optimizedPayload.available === "boolean" ? optimizedPayload.available : !!resultPayload.optimized_available,
         list: optimizedSuggestionSorted,
-        explanation: optimizedPayload.explanation || data.optimized_explanation || "Sugestão otimizada calculada pela API final.",
+        explanation: optimizedPayload.explanation || resultPayload.optimized_explanation || "Sugestão otimizada calculada pela API final.",
         confidence: normalizedOptimizedConfidence,
         confidence_breakdown: optimizedPayload.confidence_breakdown && typeof optimizedPayload.confidence_breakdown === "object"
           ? optimizedPayload.confidence_breakdown
-          : (data.optimized_breakdown && typeof data.optimized_breakdown === "object"
-            ? data.optimized_breakdown
+          : (resultPayload.optimized_breakdown && typeof resultPayload.optimized_breakdown === "object"
+            ? resultPayload.optimized_breakdown
             : { api_raw: 0, legacy: 0, merged: 0, overlap_ratio: 0 }),
         contributions: Array.isArray(optimizedPayload.contributions)
           ? optimizedPayload.contributions
-          : (Array.isArray(data.optimized_contributions) ? data.optimized_contributions : []),
+          : (Array.isArray(resultPayload.optimized_contributions) ? resultPayload.optimized_contributions : []),
         negative_contributions: Array.isArray(optimizedPayload.negative_contributions)
           ? optimizedPayload.negative_contributions
-          : (Array.isArray(data.optimized_negative_contributions) ? data.optimized_negative_contributions : []),
+          : (Array.isArray(resultPayload.optimized_negative_contributions) ? resultPayload.optimized_negative_contributions : []),
         pending_patterns: Array.isArray(optimizedPayload.pending_patterns)
           ? optimizedPayload.pending_patterns
-          : (Array.isArray(data.optimized_pending_patterns) ? data.optimized_pending_patterns : []),
+          : (Array.isArray(resultPayload.optimized_pending_patterns) ? resultPayload.optimized_pending_patterns : []),
         number_details: Array.isArray(optimizedPayload.number_details)
           ? optimizedPayload.number_details
-          : (Array.isArray(data.optimized_number_details) ? data.optimized_number_details : []),
+          : (Array.isArray(resultPayload.optimized_number_details) ? resultPayload.optimized_number_details : []),
         adaptive_weights: Array.isArray(optimizedPayload.adaptive_weights)
           ? optimizedPayload.adaptive_weights
-          : (Array.isArray(data.optimized_adaptive_weights) ? data.optimized_adaptive_weights : []),
+          : (Array.isArray(resultPayload.optimized_adaptive_weights) ? resultPayload.optimized_adaptive_weights : []),
       };
       return {
-        available: !!data.available,
+        available: typeof data.available === "boolean" ? !!data.available : !!resultPayload.available,
         list: finalSuggestionSorted,
-        confidence: data.confidence && typeof data.confidence === "object"
-          ? data.confidence
+        confidence: resultPayload.confidence && typeof resultPayload.confidence === "object"
+          ? resultPayload.confidence
           : { score: 0, label: "Baixa" },
-        explanation: data.explanation || "Sugestão final calculada pela API.",
-        breakdown: data.breakdown && typeof data.breakdown === "object" ? data.breakdown : {},
-        protections: Array.isArray(data.protections) ? data.protections : [],
-        invertedNumbers: Array.isArray(data.invertedNumbers) ? data.invertedNumbers : [],
-        invertedInFinal: Array.isArray(data.invertedInFinal) ? data.invertedInFinal : [],
-        invertedRemoved: Array.isArray(data.invertedRemoved) ? data.invertedRemoved : [],
-        pulledNumbers: Array.isArray(data.pulledNumbers) ? data.pulledNumbers : [],
-        pulledInFinal: Array.isArray(data.pulledInFinal) ? data.pulledInFinal : [],
-        base_suggestion: Array.isArray(data.base_suggestion) ? data.base_suggestion : [],
+        explanation: resultPayload.explanation || "Sugestão final calculada pela API.",
+        breakdown: resultPayload.breakdown && typeof resultPayload.breakdown === "object" ? resultPayload.breakdown : {},
+        protections: Array.isArray(resultPayload.protections) ? resultPayload.protections : [],
+        invertedNumbers: Array.isArray(resultPayload.invertedNumbers) ? resultPayload.invertedNumbers : [],
+        invertedInFinal: Array.isArray(resultPayload.invertedInFinal) ? resultPayload.invertedInFinal : [],
+        invertedRemoved: Array.isArray(resultPayload.invertedRemoved) ? resultPayload.invertedRemoved : [],
+        pulledNumbers: Array.isArray(resultPayload.pulledNumbers) ? resultPayload.pulledNumbers : [],
+        pulledInFinal: Array.isArray(resultPayload.pulledInFinal) ? resultPayload.pulledInFinal : [],
+        base_suggestion: Array.isArray(resultPayload.base_suggestion) ? resultPayload.base_suggestion : [],
         optimized_suggestion: optimizedSuggestionSorted,
         optimized_confidence: normalizedOptimizedConfidence.score,
         optimized_explanation: normalizedOptimized.explanation,
         optimized_breakdown: normalizedOptimized.confidence_breakdown,
         optimized: normalizedOptimized,
+        policyDecision,
+        policyCandidate,
       };
     }
 
@@ -4410,6 +4454,8 @@ countContainers.forEach(({ selector, itemClass }) => {
               number_details: [],
               adaptive_weights: [],
             },
+            policyDecision: buildDefaultPolicyDecision("Falha ao calcular política de entrada."),
+            policyCandidate: {},
           });
           if (fromIndex === 0 && Number.isInteger(focusNumber)) {
             scheduleHistoryRefresh();
@@ -4518,6 +4564,8 @@ countContainers.forEach(({ selector, itemClass }) => {
           number_details: [],
           adaptive_weights: [],
         },
+        policyDecision: buildDefaultPolicyDecision("Calculando política de entrada..."),
+        policyCandidate: {},
       };
       requestFinalSuggestionApi(sourceArr, num, startIdx, finalSuggestionCount);
       const optimizedSuggestion = finalSuggestionApi.optimized && typeof finalSuggestionApi.optimized === "object"
@@ -4850,33 +4898,60 @@ countContainers.forEach(({ selector, itemClass }) => {
       const confidenceV2Label = !isFinalApiReady
         ? "—"
         : (confidenceV2Score >= 75 ? "Alta" : (confidenceV2Score >= 50 ? "Media" : "Baixa"));
-      const shouldWait = !isFinalApiReady || confidenceScore < 50;
-      const waitAlertHtml = !isFinalApiReady
-        ? `<div class="tt-list" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
+      const policyDecision = normalizePolicyDecision(
+        finalSuggestionApi?.policyDecision,
+        "Sem decisão operacional disponível."
+      );
+      const policyAction = String(policyDecision.action || "wait").toLowerCase();
+      const hardBlockLowConfidence = confidenceScore < 40;
+      const cautionBand = confidenceScore >= 40 && confidenceScore < 50;
+      const policyEnterSuggested = policyAction === "enter" || policyAction === "switch";
+      const entryEnabled = isFinalApiReady && policyEnterSuggested && confidenceScore >= 50;
+      const policyBadgeHtml = isFinalApiReady
+        ? `<div class="tt-list">Policy: ${policyDecision.label} | score ${Math.round(policyDecision.score || 0)} | motivo: ${policyDecision.reason}</div>`
+        : "";
+      let waitAlertHtml = "";
+      if (!isFinalApiReady) {
+        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
             ⏳ CALCULANDO SUGESTÃO...
             <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
-              Aguarde enquanto analisamos os padrões.
+              Aguarde enquanto analisamos os padrões e a policy de entrada.
             </div>
-          </div>`
-        : shouldWait
-        ? `<div class="tt-list" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
+          </div>`;
+      } else if (hardBlockLowConfidence) {
+        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
+            ⛔ ENTRADA BLOQUEADA
+            <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
+              Confiança ${confidenceScore}% abaixo da faixa mínima operacional. ${policyDecision.reason}
+            </div>
+          </div>`;
+      } else if (entryEnabled) {
+        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
+            ✅ ${String(policyDecision.label || "Entrar Agora").toUpperCase()}
+            <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
+              ${policyDecision.reason}
+            </div>
+          </div>`;
+      } else if (cautionBand && policyEnterSuggested) {
+        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
+            ⚠️ FAIXA DE CAUTELA
+            <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
+              Policy vê potencial, mas a confiança ${confidenceScore}% ainda está entre 40 e 49. ${policyDecision.reason}
+            </div>
+          </div>`;
+      } else {
+        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
             ⏳ AGUARDE MOMENTO MAIS FAVORÁVEL
             <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
-              Confiança ${confidenceScore}% - Poucos padrões ativos. Espere consenso mais forte.
+              ${policyDecision.reason}
             </div>
-          </div>`
-        : confidenceScore >= 75
-          ? `<div class="tt-list" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
-              ✅ MOMENTO FAVORÁVEL PARA ENTRADA
-              <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
-                Confiança ${confidenceScore}% - Múltiplos padrões em consenso.
-              </div>
-            </div>`
-          : "";
+          </div>`;
+      }
       const confidenceSummaryHtml = `
         ${waitAlertHtml}
         ${isFinalApiReady ? `<div class="tt-list">Confiança final: ${confidenceLabel} (${confidenceScore}%)</div>` : ""}
         ${isFinalApiReady ? `<div class="tt-list">Confiança v2: ${confidenceV2Label} (${confidenceV2Score}%)</div>` : ""}
+        ${policyBadgeHtml}
       `;
       const occurrencesAccordionHtml = `
         <details class="tt-accordion">
@@ -4950,7 +5025,16 @@ countContainers.forEach(({ selector, itemClass }) => {
       `;
       const finalProgressDisplayHtml = isFinalApiReady ? `<div class="tt-list">${finalProgressHtml}</div>${protectionsHtml}${inversionHtml}` : "";
       const betNumbers = isFinalApiReady && Array.isArray(finalSuggestionApi?.list) ? finalSuggestionApi.list : [];
-      const betButtonDisabled = !isFinalApiReady || betNumbers.length === 0;
+      const betButtonDisabled = !isFinalApiReady || betNumbers.length === 0 || !entryEnabled;
+      const betButtonLabel = !isFinalApiReady
+        ? "Calculando..."
+        : entryEnabled
+          ? "Apostar"
+          : hardBlockLowConfidence
+            ? "Bloqueado"
+            : cautionBand && policyEnterSuggested
+              ? "Cautela"
+              : "Aguardar";
       const betSectionHtml = botAutomationEnabled ? `
         <div class="tt-bet-section">
           <div class="tt-bot-status checking" id="tt-bot-status">
@@ -4982,7 +5066,7 @@ countContainers.forEach(({ selector, itemClass }) => {
                 <circle cx="12" cy="12" r="10"/>
                 <path d="M12 6v12M6 12h12"/>
               </svg>
-              Apostar
+              ${betButtonLabel}
             </button>
           </div>
         </div>
