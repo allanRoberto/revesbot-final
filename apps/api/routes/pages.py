@@ -33,6 +33,12 @@ async def assertividade():
         return f.read()
 
 
+@router.get("/assertiveness-replay", response_class=HTMLResponse)
+async def assertiveness_replay_page():
+    with open(os.path.join(templates_dir, "assertiveness_replay.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/analizador", response_class=HTMLResponse)
 async def analizador_page():
     """
