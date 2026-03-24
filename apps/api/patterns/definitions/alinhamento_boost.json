@@ -3,7 +3,7 @@
   "name": "Alinhamento (Triangulação)",
   "kind": "positive",
   "version": "1.0.0",
-  "active": true,
+  "active": false,
   "priority": 88,
   "weight": 5.0,
   "evaluator": "alinhamento_boost",

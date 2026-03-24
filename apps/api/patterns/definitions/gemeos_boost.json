@@ -3,7 +3,7 @@
   "name": "Gemeos (11, 22, 33)",
   "kind": "positive",
   "version": "1.0.0",
-  "active": true,
+  "active": false,
   "priority": 95,
   "weight": 5.0,
   "evaluator": "gemeos_boost",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import defaultdict
 import json
 from pathlib import Path
@@ -8,12 +9,17 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from api.core.db import history_coll
 from api.patterns.engine import pattern_engine
 from api.services.pattern_telemetry import pattern_telemetry
 from api.services.pattern_correlation import correlation_matrix
 from api.services.backtesting import backtest_engine
 from api.services.suggestion_filter import suggestion_filter
 from api.services.pattern_decay import pattern_decay
+from api.services.pattern_training_service import pattern_training_service
+from api.services.pattern_training_jobs import pattern_training_jobs
+from api.services.pattern_weight_profiles import pattern_weight_profiles
+from api.services.final_suggestion_signal_policy import final_suggestion_signal_policy
 from api.services.final_suggestion_entry_intelligence import final_suggestion_entry_intelligence
 from api.patterns.final_suggestion import (
     build_base_suggestion,
@@ -82,6 +88,7 @@ class FinalSuggestionRequest(BaseModel):
     inversion_enabled: bool = True
     inversion_context_window: int = 15
     inversion_penalty_factor: float = 0.3
+    weight_profile_id: str | None = None
 
 
 class FinalSuggestionBatchRequest(BaseModel):
@@ -120,6 +127,7 @@ class FinalSuggestionPolicyRequest(BaseModel):
     inversion_enabled: bool = True
     inversion_context_window: int = 15
     inversion_penalty_factor: float = 0.3
+    weight_profile_id: str | None = None
     max_attempts: int = 4
     policy_observation_window: int = 2
     policy_switch_min_hold_spins: int = 1
@@ -128,6 +136,55 @@ class FinalSuggestionPolicyRequest(BaseModel):
     active_signal: ActiveSignalRequest | None = None
 
 
+class PatternTrainingRunRequest(BaseModel):
+    roulette_id: str
+    history_limit: int = 1000
+    max_attempts: int = 4
+    optimized_max_numbers: int = 18
+    use_adaptive_weights: bool = False
+    base_weight: float = 0.5
+    optimized_weight: float = 0.5
+    block_bets_enabled: bool = True
+    inversion_enabled: bool = False
+    inversion_context_window: int = 15
+    inversion_penalty_factor: float = 0.3
+    siege_window: int = 6
+    siege_min_occurrences: int = 3
+    siege_min_streak: int = 2
+    siege_veto_relief: float = 0.4
+    min_sample: int = 20
+    full_sample: int = 120
+    prior_strength: float = 24.0
+    weight_floor: float = 0.75
+    weight_ceil: float = 1.30
+    lift_alpha: float = 0.85
+    recent_window: int = 30
+    recent_decay_start: int = 2
+    recent_decay_per_miss: float = 0.05
+    recent_decay_cap: float = 0.25
+    policy_observation_window: int = 2
+    policy_pressure_window: int = 3
+    policy_min_block_touches: int = 1
+    policy_min_near_touches: int = 2
+    policy_confirm_window: int = 2
+    policy_switch_window: int = 3
+    policy_switch_min_score_delta: float = 6.0
+    policy_switch_min_confidence_delta: int = 4
+    policy_switch_min_hold_spins: int = 1
+
+
+class PatternTrainingSaveRequest(BaseModel):
+    name: str
+    roulette_id: str
+    history_size: int
+    max_attempts: int
+    optimized_max_numbers: int
+    use_adaptive_weights: bool = False
+    config: Dict[str, Any] = Field(default_factory=dict)
+    summary: Dict[str, Any] = Field(default_factory=dict)
+    patterns: List[Dict[str, Any]] = Field(default_factory=list)
+    weights: Dict[str, float] = Field(default_factory=dict)
+    effective_weights: Dict[str, float] = Field(default_factory=dict)
 def _event_from_result(
     *,
     source: str,
@@ -174,6 +231,158 @@ def _load_pattern_definition_files() -> Dict[str, Path]:
         if pid:
             mapping[pid] = path
     return mapping
+
+
+async def _load_history_for_training(roulette_id: str, history_limit: int) -> List[int]:
+    safe_limit = max(50, min(50000, int(history_limit)))
+    cursor = (
+        history_coll
+        .find({"roulette_id": roulette_id})
+        .sort("timestamp", -1)
+        .limit(safe_limit)
+    )
+    docs = await cursor.to_list(length=safe_limit)
+    return [int(doc["value"]) for doc in docs if 0 <= int(doc["value"]) <= 36]
+
+
+@router.get("/api/patterns/training/profiles")
+async def list_pattern_training_profiles():
+    try:
+        return {
+            "profiles": pattern_weight_profiles.list_profiles(),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/patterns/training/profiles/{profile_id}")
+async def get_pattern_training_profile(profile_id: str):
+    try:
+        profile = pattern_weight_profiles.load_profile(profile_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail="Perfil nao encontrado")
+        return profile
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/api/patterns/training/run")
+async def run_pattern_training(payload: PatternTrainingRunRequest):
+    try:
+        roulette_id = str(payload.roulette_id or "").strip()
+        if not roulette_id:
+            raise HTTPException(status_code=400, detail="roulette_id obrigatorio")
+
+        history = await _load_history_for_training(roulette_id, payload.history_limit)
+        job = pattern_training_jobs.create_job(
+            params={
+                "roulette_id": roulette_id,
+                "history_limit": max(50, min(50000, int(payload.history_limit))),
+                "max_attempts": max(1, min(50, int(payload.max_attempts))),
+                "optimized_max_numbers": max(1, min(37, int(payload.optimized_max_numbers))),
+                "use_adaptive_weights": bool(payload.use_adaptive_weights),
+                "block_bets_enabled": bool(payload.block_bets_enabled),
+            }
+        )
+
+        def _worker() -> Dict[str, Any]:
+            return pattern_training_service.run_training(
+                roulette_id=roulette_id,
+                history=history,
+                max_attempts=max(1, min(50, int(payload.max_attempts))),
+                optimized_max_numbers=max(1, min(37, int(payload.optimized_max_numbers))),
+                use_adaptive_weights=bool(payload.use_adaptive_weights),
+                base_weight=max(0.0, min(1.0, float(payload.base_weight))),
+                optimized_weight=max(0.0, min(1.0, float(payload.optimized_weight))),
+                block_bets_enabled=bool(payload.block_bets_enabled),
+                inversion_enabled=bool(payload.inversion_enabled),
+                inversion_context_window=max(1, min(50, int(payload.inversion_context_window))),
+                inversion_penalty_factor=max(0.0, min(1.0, float(payload.inversion_penalty_factor))),
+                siege_window=max(2, min(20, int(payload.siege_window))),
+                siege_min_occurrences=max(1, min(10, int(payload.siege_min_occurrences))),
+                siege_min_streak=max(1, min(10, int(payload.siege_min_streak))),
+                siege_veto_relief=max(0.0, min(1.0, float(payload.siege_veto_relief))),
+                min_sample=max(1, int(payload.min_sample)),
+                full_sample=max(int(payload.min_sample) + 1, int(payload.full_sample)),
+                prior_strength=max(1.0, float(payload.prior_strength)),
+                weight_floor=max(0.1, min(3.0, float(payload.weight_floor))),
+                weight_ceil=max(0.1, min(5.0, float(payload.weight_ceil))),
+                lift_alpha=max(0.0, min(2.0, float(payload.lift_alpha))),
+                recent_window=max(1, int(payload.recent_window)),
+                recent_decay_start=max(0, int(payload.recent_decay_start)),
+                recent_decay_per_miss=max(0.0, min(1.0, float(payload.recent_decay_per_miss))),
+                recent_decay_cap=max(0.0, min(1.0, float(payload.recent_decay_cap))),
+                policy_observation_window=max(1, min(10, int(payload.policy_observation_window))),
+                policy_pressure_window=max(1, min(10, int(payload.policy_pressure_window))),
+                policy_min_block_touches=max(1, min(10, int(payload.policy_min_block_touches))),
+                policy_min_near_touches=max(1, min(10, int(payload.policy_min_near_touches))),
+                policy_confirm_window=max(1, min(10, int(payload.policy_confirm_window))),
+                policy_switch_window=max(1, min(10, int(payload.policy_switch_window))),
+                policy_switch_min_score_delta=max(0.0, min(50.0, float(payload.policy_switch_min_score_delta))),
+                policy_switch_min_confidence_delta=max(0, min(50, int(payload.policy_switch_min_confidence_delta))),
+                policy_switch_min_hold_spins=max(1, min(10, int(payload.policy_switch_min_hold_spins))),
+                progress_callback=lambda info: pattern_training_jobs.update_progress(job["job_id"], info),
+            )
+
+        asyncio.create_task(
+            pattern_training_jobs.run_in_background(
+                job_id=job["job_id"],
+                worker=_worker,
+            )
+        )
+
+        return {
+            "accepted": True,
+            "job_id": job["job_id"],
+            "status": job["status"],
+            "progress": job["progress"],
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/patterns/training/jobs/{job_id}")
+async def get_pattern_training_job(job_id: str):
+    try:
+        job = pattern_training_jobs.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Treino nao encontrado")
+        return job
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/api/patterns/training/save")
+async def save_pattern_training_profile(payload: PatternTrainingSaveRequest):
+    try:
+        profile = pattern_weight_profiles.save_profile(
+            name=str(payload.name or "").strip() or "perfil-treinado",
+            roulette_id=str(payload.roulette_id or "").strip(),
+            history_size=max(0, int(payload.history_size)),
+            max_attempts=max(1, int(payload.max_attempts)),
+            optimized_max_numbers=max(1, min(37, int(payload.optimized_max_numbers))),
+            use_adaptive_weights=bool(payload.use_adaptive_weights),
+            config=dict(payload.config or {}),
+            summary=dict(payload.summary or {}),
+            patterns=list(payload.patterns or []),
+            weights={str(k): float(v) for k, v in dict(payload.weights or {}).items()},
+            effective_weights={str(k): float(v) for k, v in dict(payload.effective_weights or {}).items()},
+        )
+        return {
+            "saved": True,
+            "profile": {
+                "id": profile.get("id"),
+                "name": profile.get("name"),
+            },
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 def _parse_optimized_suggestion_sorted(optimized_result: Dict[str, Any]) -> List[int]:
@@ -309,6 +518,9 @@ async def _compute_final_suggestion(
         siege_min_occurrences=siege_min_occurrences,
         siege_min_streak=siege_min_streak,
     )
+    selected_profile_id = str(payload.weight_profile_id or "").strip() or None
+    selected_profile = pattern_weight_profiles.load_profile(selected_profile_id) if selected_profile_id else None
+    profile_weights = selected_profile.get("weights", {}) if isinstance(selected_profile, dict) else {}
 
     base_list_for_engine = sorted(base_list_ranked)
     optimized_result = pattern_engine.evaluate(
@@ -318,6 +530,8 @@ async def _compute_final_suggestion(
         from_index=from_index,
         max_numbers=optimized_max_numbers,
         runtime_overrides=runtime_overrides,
+        weight_profile_id=selected_profile_id,
+        weight_profile_weights=profile_weights if isinstance(profile_weights, dict) else {},
     )
 
     opt_list_sorted = _parse_optimized_suggestion_sorted(optimized_result)
@@ -355,6 +569,10 @@ async def _compute_final_suggestion(
         "pending_patterns": optimized_result.get("pending_patterns", []),
         "number_details": number_details if isinstance(number_details, list) else [],
         "adaptive_weights": optimized_result.get("adaptive_weights", []),
+        "weight_profile": {
+            "id": selected_profile.get("id"),
+            "name": selected_profile.get("name"),
+        } if isinstance(selected_profile, dict) else None,
     }
     return {
         **final_result,
@@ -365,6 +583,7 @@ async def _compute_final_suggestion(
         "optimized_max_numbers": optimized_max_numbers,
         "base_weight": final_base_weight,
         "optimized_weight": final_optimized_weight,
+        "block_bets_enabled": bool(payload.block_bets_enabled),
         # Mantém payload de resposta compatível com ordem antiga.
         "base_suggestion": base_list_for_engine,
         "base_confidence": base_confidence_score,
@@ -382,6 +601,7 @@ async def _compute_final_suggestion(
         "optimized_pending_patterns": optimized_result.get("pending_patterns", []),
         "optimized_number_details": number_details if isinstance(number_details, list) else [],
         "optimized_adaptive_weights": optimized_result.get("adaptive_weights", []),
+        "optimized_weight_profile": optimized_payload.get("weight_profile"),
     }
 
 
@@ -792,6 +1012,7 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
             inversion_enabled=payload.inversion_enabled,
             inversion_context_window=payload.inversion_context_window,
             inversion_penalty_factor=payload.inversion_penalty_factor,
+            weight_profile_id=payload.weight_profile_id,
         )
         result = await _compute_final_suggestion(suggestion_payload)
         candidate_list = [int(n) for n in (result.get("suggestion") or []) if 0 <= int(n) <= 36]

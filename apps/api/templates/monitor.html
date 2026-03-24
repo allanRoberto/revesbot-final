@@ -1526,7 +1526,10 @@
   function renderAttemptStakeInputs() {
     const maxAttempts = parseInt(maxAttemptsInput.value, 10) || 1;
     const fallbackValue = parseFloat(chipValueInput.value) || 1;
-    const currentValues = getAttemptStakeInputs().map((input) => parseFloat(input.value) || fallbackValue);
+    const currentValues = getAttemptStakeInputs().map((input) => {
+      const parsed = parseFloat(input.value);
+      return Number.isFinite(parsed) ? parsed : fallbackValue;
+    });
 
     attemptStakeGrid.innerHTML = '';
 
@@ -1541,7 +1544,7 @@
       const input = document.createElement('input');
       input.type = 'number';
       input.id = `attempt-stake-${attempt}`;
-      input.min = '0.01';
+      input.min = '0';
       input.step = '0.01';
       input.value = String(currentValues[attempt - 1] ?? fallbackValue);
       input.setAttribute('data-attempt-stake', String(attempt));
@@ -1563,7 +1566,8 @@
   function syncAttemptStakeBaseValue() {
     const fallbackValue = parseFloat(chipValueInput.value) || 1;
     getAttemptStakeInputs().forEach((input) => {
-      if (!input.value || Number(input.value) <= 0) {
+      const parsed = parseFloat(input.value);
+      if (input.value === '' || !Number.isFinite(parsed)) {
         input.value = String(fallbackValue);
       }
     });
@@ -1573,7 +1577,10 @@
   function getChipSchedule() {
     const maxAttempts = parseInt(maxAttemptsInput.value, 10) || 1;
     const fallbackValue = parseFloat(chipValueInput.value) || 1;
-    const rawValues = getAttemptStakeInputs().map((input) => parseFloat(input.value) || fallbackValue);
+    const rawValues = getAttemptStakeInputs().map((input) => {
+      const parsed = parseFloat(input.value);
+      return Number.isFinite(parsed) ? parsed : fallbackValue;
+    });
     const schedule = [];
 
     for (let index = 0; index < maxAttempts; index++) {
@@ -1589,12 +1596,18 @@
     let cumulativeCost = 0;
 
     inputs.forEach((input, index) => {
-      const chipValue = parseFloat(input.value) || (parseFloat(chipValueInput.value) || 1);
-      cumulativeCost += chipValue * suggestionSize;
-      const payout = 36 * chipValue;
-      const profit = payout - cumulativeCost;
+      const parsed = parseFloat(input.value);
+      const chipValue = Number.isFinite(parsed) ? parsed : (parseFloat(chipValueInput.value) || 1);
       const profitEl = document.getElementById(`attempt-stake-profit-${index + 1}`);
       if (profitEl) {
+        if (chipValue <= 0) {
+          profitEl.textContent = `Observação na ${index + 1}ª: sem custo e sem win/loss`;
+          profitEl.style.color = '#b45309';
+          return;
+        }
+        cumulativeCost += chipValue * suggestionSize;
+        const payout = 36 * chipValue;
+        const profit = payout - cumulativeCost;
         profitEl.textContent = `Lucro se bater na ${index + 1}ª: ${formatMoney(profit)}`;
         profitEl.style.color = profit >= 0 ? '#047857' : '#d63031';
       }
@@ -1604,6 +1617,18 @@
   function getChipValueForAttempt(attemptNumber) {
     const index = Math.max(0, attemptNumber - 1);
     return betState.chipSchedule[index] ?? betState.chipSchedule[betState.chipSchedule.length - 1] ?? betState.chipValue;
+  }
+
+  async function restartCycleWithoutSettlement(reason = '') {
+    resetBetState();
+    if (reason) {
+      updateSuggestionDisplay([], { score: 0, label: 'Baixa' }, { score: 0, label: 'Baixa' }, reason);
+      updatePolicyDisplay(buildOperationalPolicy('wait', 'Reavaliar', reason, {}));
+      updateAttemptsIndicator();
+    }
+    if (isMonitoring) {
+      await tryStartBetCycle();
+    }
   }
 
   // Connect WebSocket
@@ -2139,7 +2164,7 @@
             ? 'switch'
             : entry.type === 'pause-hit' || entry.type === 'alert-trigger'
               ? 'pause-hit'
-              : entry.type === 'pause' || entry.type === 'alert-wait' || entry.type === 'alert-start'
+              : entry.type === 'pause' || entry.type === 'alert-wait' || entry.type === 'alert-start' || entry.type === 'observation-hit' || entry.type === 'observation-miss'
                 ? 'pause'
                 : 'attempt';
           const colorClass = getColor(entry.number);
@@ -2377,11 +2402,84 @@
       return;
     }
 
-    // Check if we won
-    const won = betState.suggestion.includes(number);
     betState.attempts++;
     const attemptChipValue = getChipValueForAttempt(betState.attempts);
     const settledSuggestionSize = Array.isArray(betState.suggestion) ? betState.suggestion.length : 0;
+    const won = betState.suggestion.includes(number);
+    const isObservationAttempt = attemptChipValue <= 0;
+
+    if (isObservationAttempt) {
+      const hadNoInvestment = betState.totalInvested <= 0;
+      betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
+      betState.signalTimeline.push(buildCycleEvent(won ? 'observation-hit' : 'observation-miss', {
+        number,
+        suggestion: betState.suggestion,
+        confidence: betState.confidence?.score || 0,
+        policy: 'Observação',
+        reason: won
+          ? 'Número da sugestão saiu durante tentativa sem aposta.'
+          : 'Tentativa configurada com ficha zero: apenas observação.',
+        label: `Observação ${betState.attempts}`,
+      }));
+
+      if (won && hadNoInvestment) {
+        await restartCycleWithoutSettlement(`Número ${number} saiu durante observação. Cancelando a entrada e buscando nova sugestão.`);
+        return;
+      }
+
+      if (betState.attempts >= betState.maxAttempts) {
+        if (betState.totalInvested > 0) {
+          const loss = -betState.totalInvested;
+          const settledAt = new Date();
+
+          stats.rounds++;
+          stats.losses++;
+          stats.profit += loss;
+
+          addHistoryItem({
+            number,
+            suggestion: betState.suggestion,
+            won: false,
+            attempts: betState.attempts,
+            profit: loss,
+            confidence: betState.confidence,
+            confidenceV2: betState.confidenceV2,
+            openedAt: betState.openedAt,
+            openedAtLabel: betState.openedAtLabel,
+            settledAt,
+            settledAtLabel: formatDateTime(settledAt),
+            chipSchedule: [...betState.chipSchedule],
+            attemptChipValue,
+            betSize: settledSuggestionSize,
+            totalInvested: betState.totalInvested,
+            switchCount: betState.switches || 0,
+            signalTimeline: [...(betState.signalTimeline || [])],
+          });
+          resetBetState();
+          updateStats();
+          updateAttemptsIndicator();
+          if (isMonitoring) {
+            await tryStartBetCycle();
+          }
+          return;
+        }
+
+        await restartCycleWithoutSettlement('Ciclo de observação terminou sem entrada real. Reavaliando a mesa.');
+        return;
+      }
+
+      if (betState.rescueSpinsRemaining > 0) {
+        betState.rescueSpinsRemaining = Math.max(0, betState.rescueSpinsRemaining - 1);
+      }
+
+      const policy = await fetchPolicyDecision();
+      const transition = applyPolicyToNextSpin(policy);
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      updatePolicyDisplay(policy);
+      updateCycleLiveSummary();
+      updateAttemptsIndicator();
+      return;
+    }
 
     // Cada tentativa usa o valor de ficha configurado para aquela rodada.
     const attemptCost = attemptChipValue * settledSuggestionSize;

@@ -3,7 +3,7 @@
   "name": "Bridge Legacy Processing",
   "version": "1.0.0",
   "kind": "positive",
-  "active": true,
+  "active": false,
   "priority": 64,
   "weight": 1.0,
   "evaluator": "legacy_processing_bridge",

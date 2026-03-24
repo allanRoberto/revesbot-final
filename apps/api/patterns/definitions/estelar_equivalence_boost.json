@@ -3,7 +3,7 @@
   "name": "Estelar - Equivalencias",
   "kind": "positive",
   "version": "1.0.0",
-  "active": true,
+  "active": false,
   "priority": 92,
   "weight": 5.0,
   "evaluator": "estelar_equivalence_boost",

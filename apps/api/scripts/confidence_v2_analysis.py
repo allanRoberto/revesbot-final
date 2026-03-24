@@ -20,7 +20,7 @@ if str(APPS_ROOT) not in sys.path:
 
 from api.patterns.engine import pattern_engine
 
-ATTEMPTS = [1, 2, 3, 4]
+ATTEMPTS = [1, 2, 4, 8, 10]
 THRESHOLDS = [40, 50, 60, 70]
 
 
@@ -354,19 +354,90 @@ def _build_bucket_calibration_from_outcomes(
         if not outcome["available"]:
             continue
         label = _bucket(outcome["merged_raw_v2"])
-        row = rows.setdefault(label, {"signals": 0, "hits": 0})
+        row = rows.setdefault(
+            label,
+            {
+                "signals": 0,
+                "hits": {f"hit@{attempt}": 0 for attempt in ATTEMPTS},
+                "first_hit_counts": {
+                    "hit@1": 0,
+                    "hit@2": 0,
+                    "hit@4": 0,
+                    "hit@8": 0,
+                    "hit@10": 0,
+                },
+                "first_hit_attempts_sum": 0,
+                "first_hit_attempts_count": 0,
+            },
+        )
         row["signals"] += 1
-        if outcome["hit@4"]:
-            row["hits"] += 1
+        for attempt in ATTEMPTS:
+            if outcome[f"hit@{attempt}"]:
+                row["hits"][f"hit@{attempt}"] += 1
+        first_hit_attempt = None
+        if outcome["hit@1"]:
+            row["first_hit_counts"]["hit@1"] += 1
+            first_hit_attempt = 1
+        elif outcome["hit@2"]:
+            row["first_hit_counts"]["hit@2"] += 1
+            first_hit_attempt = 2
+        elif outcome["hit@4"]:
+            row["first_hit_counts"]["hit@4"] += 1
+            first_hit_attempt = 4
+        elif outcome["hit@8"]:
+            row["first_hit_counts"]["hit@8"] += 1
+            first_hit_attempt = 8
+        elif outcome["hit@10"]:
+            row["first_hit_counts"]["hit@10"] += 1
+            first_hit_attempt = 10
+        if first_hit_attempt is not None:
+            row["first_hit_attempts_sum"] += int(first_hit_attempt)
+            row["first_hit_attempts_count"] += 1
 
     buckets: Dict[str, Any] = {}
     for label, row in sorted(rows.items(), key=lambda kv: kv[0]):
         signals = int(row["signals"])
-        hit_rate = _safe_div(int(row["hits"]), signals)
+        hit_rates = {
+            f"hit@{attempt}": round(_safe_div(int(row["hits"][f"hit@{attempt}"]), signals), 6)
+            for attempt in ATTEMPTS
+        }
+        hit_rate = float(hit_rates["hit@4"])
         reliability = min(1.0, _safe_div(signals, bucket_signal_target))
+        first_hit_counts = row["first_hit_counts"]
+        first_hit_probs = {
+            "hit@1": _safe_div(int(first_hit_counts["hit@1"]), signals),
+            "hit@2": _safe_div(int(first_hit_counts["hit@2"]), signals),
+            "hit@4": _safe_div(int(first_hit_counts["hit@4"]), signals),
+            "hit@8": _safe_div(int(first_hit_counts["hit@8"]), signals),
+            "hit@10": _safe_div(int(first_hit_counts["hit@10"]), signals),
+        }
+        avg_first_hit_attempt = (
+            round(_safe_div(int(row["first_hit_attempts_sum"]), int(row["first_hit_attempts_count"])), 6)
+            if int(row["first_hit_attempts_count"]) > 0
+            else None
+        )
+        latency_health = 0.0
+        if avg_first_hit_attempt is not None:
+            latency_health = max(0.0, min(1.0, 1.0 - ((float(avg_first_hit_attempt) - 1.0) / 9.0)))
+        promptness_score = 100.0 * (
+            (first_hit_probs["hit@1"] * 1.00)
+            + (first_hit_probs["hit@2"] * 0.90)
+            + (first_hit_probs["hit@4"] * 0.68)
+            + (first_hit_probs["hit@8"] * 0.28)
+            + (first_hit_probs["hit@10"] * 0.12)
+        )
+        if avg_first_hit_attempt is not None:
+            promptness_score = (promptness_score * 0.82) + (latency_health * 18.0)
         buckets[label] = {
             "signals": signals,
             "hit_rate": round(hit_rate, 6),
+            "hit@1": hit_rates["hit@1"],
+            "hit@2": hit_rates["hit@2"],
+            "hit@4": hit_rates["hit@4"],
+            "hit@8": hit_rates["hit@8"],
+            "hit@10": hit_rates["hit@10"],
+            "avg_first_hit_attempt": avg_first_hit_attempt,
+            "promptness_score": round(max(0.0, min(100.0, promptness_score)), 6),
             "reliability": round(reliability, 6),
         }
     return buckets
@@ -376,14 +447,16 @@ def _apply_shadow_calibration(raw_score: int, buckets: Mapping[str, Any]) -> Dic
     label = _bucket(raw_score)
     row = buckets.get(label, {}) if isinstance(buckets, Mapping) else {}
     hit_rate = max(0.0, min(1.0, float(row.get("hit_rate", 0.0) or 0.0)))
+    promptness_score = max(0.0, min(100.0, float(row.get("promptness_score", hit_rate * 100.0) or (hit_rate * 100.0))))
     reliability = max(0.0, min(1.0, float(row.get("reliability", 0.0) or 0.0)))
     calibrated = float(raw_score)
     if reliability > 0.0:
-        calibrated = (float(raw_score) * (1.0 - reliability)) + ((hit_rate * 100.0) * reliability)
+        calibrated = (float(raw_score) * (1.0 - reliability)) + (promptness_score * reliability)
     return {
         "score": max(0, min(100, int(round(calibrated)))),
         "bucket": label,
         "hit_rate": round(hit_rate, 6),
+        "promptness_score": round(promptness_score, 6),
         "reliability": round(reliability, 6),
     }
 
@@ -453,6 +526,7 @@ def _write_markdown(path: Path, payload: Dict[str, Any]) -> None:
         "- `confidence_v2` permanece em shadow mode.",
         "- `confidence` atual continua sendo a score operacional de produção.",
         "- A calibracao v2 usa bucket de `merged_raw_v2` com shrinkage por volume do bucket.",
+        "- A pontuacao calibrada prioriza buckets com acerto mais cedo (`hit@1`, `hit@2`) e penaliza buckets com primeiro hit tardio.",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -467,7 +541,7 @@ def _build_calibration_config(
     return {
         "version": "1.0.0",
         "mode": "shadow",
-        "description": "Calibracao bucketizada da confidence_v2 baseada em replay hit@4.",
+        "description": "Calibracao bucketizada da confidence_v2 baseada em hit rapido e latencia do primeiro acerto.",
         "bucket_signal_target": bucket_signal_target,
         "source": {
             "type": source_mode,
