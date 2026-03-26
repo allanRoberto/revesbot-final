@@ -1,6 +1,5 @@
 import { Router, Response } from 'express';
 import axios from 'axios';
-import { getWebSocketUrlWithPuppeteer } from '../utils';
 
 const router = Router();
 
@@ -248,9 +247,7 @@ router.get('/start-game/:gameId', async (req, res) => {
             }
         );
 
-        console.log(gameResponse.data.link)
-
-        const wsUrl = await getWebSocketUrlWithPuppeteer(gameResponse.data.link);
+        console.log(gameResponse.data.link);
 
         // Captura cookies do header Set-Cookie (se houver)
         const setCookie = gameResponse.headers['set-cookie'];
@@ -258,7 +255,7 @@ router.get('/start-game/:gameId', async (req, res) => {
         return res.json({
             success: true,
             link: gameResponse.data.link,
-            urlGame : wsUrl,
+            urlGame: null,
             cookies: setCookie || [],
             message: gameResponse.data.message
         });

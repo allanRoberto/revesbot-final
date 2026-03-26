@@ -16,7 +16,12 @@ const fs = require("fs");
 // CONFIGURAÇÕES
 // =========================
 
-const AUTH_BASE_URL = process.env.AUTH_BASE_URL || "https://auth.revesbot.com.br";
+const DEPLOY_STAGE = String(process.env.DEPLOY_STAGE || "").trim().toLowerCase();
+const DEFAULT_AUTH_BASE_URL =
+  DEPLOY_STAGE === "develop" || DEPLOY_STAGE === "dev" || DEPLOY_STAGE === "development"
+    ? "https://auth-dev.revesbot.com.br"
+    : "https://auth.revesbot.com.br";
+const AUTH_BASE_URL = process.env.AUTH_BASE_URL || DEFAULT_AUTH_BASE_URL;
 const AUTH_EMAIL_FALLBACK = "romulogoncalves95@gmail.com";
 const AUTH_PASSWORD_FALLBACK = "497856Drs@";
 const AUTH_EMAIL = process.env.AUTH_EMAIL || AUTH_EMAIL_FALLBACK;
@@ -27,6 +32,22 @@ const PING_INTERVAL = 5000; // Ping a cada 5 segundos
 const RECONNECT_DELAY = 500; // Delay entre tentativas de reconexão (ms)
 const MAX_RECONNECT_BEFORE_TOKEN_REFRESH = 3; // Força renovação de token após N falhas
 const DEBUG_MODE = process.env.DEBUG_MODE === 'true';
+
+function readNumberEnv(name, fallback, minValue = 0) {
+  const raw = process.env[name];
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < minValue) {
+    return fallback;
+  }
+  return parsed;
+}
+
+const START_GAME_TIMEOUT = readNumberEnv("START_GAME_TIMEOUT", 60000, 15000);
+const AUTH_LOGIN_TIMEOUT = readNumberEnv("AUTH_LOGIN_TIMEOUT", 60000, 15000);
+const AUTH_LOGIN_RETRIES = readNumberEnv("AUTH_LOGIN_RETRIES", 2, 1);
+const AUTH_LOGIN_RETRY_DELAY_MS = readNumberEnv("AUTH_LOGIN_RETRY_DELAY_MS", 3000, 0);
+const TABLE_CONNECT_CONCURRENCY = readNumberEnv("TABLE_CONNECT_CONCURRENCY", 2, 1);
+const TABLE_CONNECT_STAGGER_MS = readNumberEnv("TABLE_CONNECT_STAGGER_MS", 1500, 0);
 
 if (!process.env.AUTH_EMAIL) {
   console.warn("[config] AUTH_EMAIL ausente; usando fallback hardcoded (deprecated).");
@@ -237,25 +258,46 @@ async function loginAndGetToken() {
   const payload = { email: AUTH_EMAIL, password: AUTH_PASSWORD };
 
   console.log("🔐 Fazendo login...");
-  const response = await axios.post(url, payload, {
-    timeout: 15000,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-  });
+  let lastError = null;
 
-  const cookieManager = new CookieManager();
-  cookieManager.extractCookies(response.headers["set-cookie"]);
-  const token = cookieManager.getCookie("bookmaker_token");
-  
-  if (!token) {
-    throw new Error("Token não encontrado na resposta do login");
+  for (let attempt = 1; attempt <= AUTH_LOGIN_RETRIES; attempt++) {
+    try {
+      const response = await axios.post(url, payload, {
+        timeout: AUTH_LOGIN_TIMEOUT,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      const cookieManager = new CookieManager();
+      cookieManager.extractCookies(response.headers["set-cookie"]);
+      const token = cookieManager.getCookie("bookmaker_token");
+      
+      if (!token) {
+        throw new Error("Token não encontrado na resposta do login");
+      }
+      
+      console.log("✅ Login realizado com sucesso\n");
+      tokenLastRenewal = Date.now();
+      return token;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= AUTH_LOGIN_RETRIES) {
+        break;
+      }
+
+      console.warn(
+        `⚠️ Login falhou (${error.message}). Nova tentativa em ${AUTH_LOGIN_RETRY_DELAY_MS}ms...`
+      );
+
+      if (AUTH_LOGIN_RETRY_DELAY_MS > 0) {
+        await new Promise((resolve) => setTimeout(resolve, AUTH_LOGIN_RETRY_DELAY_MS));
+      }
+    }
   }
-  
-  console.log("✅ Login realizado com sucesso\n");
-  tokenLastRenewal = Date.now();
-  return token;
+
+  throw lastError;
 }
 
 async function renewToken() {
@@ -369,7 +411,7 @@ async function getGameWebSocketUrl(gameId, token) {
 
   const { data } = await axios.get(url, {
     headers: { Cookie: `bookmaker_token=${token}` },
-    timeout: 15000,
+    timeout: START_GAME_TIMEOUT,
   });
 
   
@@ -1214,6 +1256,30 @@ async function connectTableInBackground(tableConfig) {
   }
 }
 
+function startTableConnectionsInBackground(tables) {
+  const queue = [...tables];
+  const workerCount = Math.min(TABLE_CONNECT_CONCURRENCY, queue.length);
+
+  for (let workerIndex = 0; workerIndex < workerCount; workerIndex++) {
+    (async () => {
+      while (queue.length > 0) {
+        const table = queue.shift();
+        if (!table) {
+          return;
+        }
+
+        if (TABLE_CONNECT_STAGGER_MS > 0) {
+          await new Promise((resolve) => setTimeout(resolve, TABLE_CONNECT_STAGGER_MS));
+        }
+
+        await connectTableInBackground(table);
+      }
+    })().catch((err) => {
+      console.error(`❌ Worker de conexão ${workerIndex + 1}: ${err.message}`);
+    });
+  }
+}
+
 async function initialize() {
   try {
     console.log("=================================");
@@ -1243,13 +1309,12 @@ async function initialize() {
       console.log(`⚠️  Mesas conectando em background...\n`);
     });
 
-    // 5. Conectar mesas em PARALELO (não bloqueia)
-    console.log(`🎰 Iniciando conexão de ${enabledTables.length} mesas em background...\n`);
+    // 5. Conectar mesas em background com concorrência limitada
+    console.log(
+      `🎰 Iniciando conexão de ${enabledTables.length} mesas em background (${TABLE_CONNECT_CONCURRENCY} por vez)...\n`
+    );
 
-    for (const table of enabledTables) {
-      // Cada mesa conecta de forma independente (fire-and-forget)
-      connectTableInBackground(table);
-    }
+    startTableConnectionsInBackground(enabledTables);
 
   } catch (err) {
     console.error("❌ Erro ao inicializar:", err.message);
