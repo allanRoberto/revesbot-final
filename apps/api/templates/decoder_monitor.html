@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decoder Monitor</title>
+    <style>
+        :root {
+            --bg: #08111f;
+            --panel: rgba(10, 20, 36, 0.84);
+            --panel-2: rgba(14, 26, 44, 0.92);
+            --line: rgba(148, 163, 184, 0.18);
+            --text: #e6eef9;
+            --muted: #a6b4cf;
+            --green: #22c55e;
+            --blue: #38bdf8;
+            --amber: #f59e0b;
+            --red: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: "Segoe UI", system-ui, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 32%),
+                radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 34%),
+                linear-gradient(180deg, #06101c 0%, #0b1528 45%, #0d1420 100%);
+        }
+
+        .shell {
+            max-width: 1540px;
+            margin: 0 auto;
+            padding: 28px 18px 54px;
+        }
+
+        .hero,
+        .panel,
+        .stat-card,
+        .signal-card,
+        .log-card {
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: var(--panel);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+        }
+
+        .hero {
+            padding: 28px;
+            margin-bottom: 18px;
+            background:
+                linear-gradient(135deg, rgba(8, 18, 31, 0.96), rgba(16, 30, 52, 0.92));
+        }
+
+        .hero h1,
+        .panel h2,
+        .panel h3 {
+            margin: 0 0 10px;
+        }
+
+        .hero p,
+        .muted,
+        li {
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .hero-grid,
+        .controls,
+        .summary,
+        .content,
+        .mini-grid,
+        .log-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .hero-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            margin-top: 20px;
+        }
+
+        .controls {
+            grid-template-columns: 1.25fr 1fr 1fr;
+            margin-bottom: 18px;
+        }
+
+        .summary {
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            margin-bottom: 18px;
+        }
+
+        .content {
+            grid-template-columns: 1.2fr 0.8fr;
+        }
+
+        .log-grid {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        }
+
+        .panel {
+            padding: 20px;
+        }
+
+        .method,
+        .signal-card,
+        .log-card {
+            padding: 16px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .stat-card {
+            padding: 16px;
+        }
+
+        .stat-card .label {
+            color: var(--muted);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-top: 10px;
+        }
+
+        .mini-grid {
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #c8d5eb;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 11px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: #08101c;
+            color: var(--text);
+            font-size: 0.98rem;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: rgba(56, 189, 248, 0.7);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .checkbox-row input {
+            width: auto;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+
+        .btn-primary {
+            color: #05110a;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        .btn-secondary {
+            color: white;
+            background: linear-gradient(135deg, #38bdf8, #2563eb);
+        }
+
+        .btn-tertiary {
+            color: #fff7ed;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .status {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            color: var(--muted);
+        }
+
+        .status.success { border-color: rgba(34, 197, 94, 0.35); color: #cff8db; }
+        .status.error { border-color: rgba(239, 68, 68, 0.35); color: #ffd0d0; }
+        .status.loading { border-color: rgba(56, 189, 248, 0.35); color: #d7f2ff; }
+
+        .pill-row,
+        .history-strip {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .number-pill,
+        .label-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            border-radius: 999px;
+            padding: 8px 11px;
+            font-weight: 800;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .number-pill.red { background: #821d31; color: #fff3f5; }
+        .number-pill.black { background: #1f2937; color: #f8fafc; }
+        .number-pill.green { background: #166534; color: #ebfff2; }
+        .number-pill.primary { box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.55); }
+        .number-pill.secondary { box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45); }
+        .number-pill.hit { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.6); }
+
+        .label-pill {
+            background: rgba(56, 189, 248, 0.12);
+            color: #c6eeff;
+            font-size: 0.84rem;
+        }
+
+        .signal-card.active { border-color: rgba(56, 189, 248, 0.35); }
+        .signal-card.win { border-color: rgba(34, 197, 94, 0.35); }
+        .signal-card.loss { border-color: rgba(239, 68, 68, 0.35); }
+
+        .signal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .signal-status {
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .signal-status.active { background: rgba(56, 189, 248, 0.16); color: #d5f4ff; }
+        .signal-status.win { background: rgba(34, 197, 94, 0.16); color: #dcffea; }
+        .signal-status.loss { background: rgba(239, 68, 68, 0.16); color: #ffd7d7; }
+        .signal-status.idle { background: rgba(148, 163, 184, 0.16); color: #d7deea; }
+
+        .history-strip {
+            margin-top: 10px;
+            min-height: 42px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+            text-align: left;
+            font-size: 0.93rem;
+            vertical-align: top;
+        }
+
+        th {
+            color: #d5e4ff;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.8rem;
+        }
+
+        .section-hidden { display: none; }
+
+        @media (max-width: 1080px) {
+            .controls,
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <section class="hero">
+            <h1>Decoder Monitor</h1>
+            <p>
+                Este monitor roda o decoder de estado automaticamente a cada novo resultado da roleta.
+                Ele usa o histórico local, conecta no websocket ao vivo, abre sinais só quando o estado passa nos filtros
+                e mede a assertividade do modelo em tempo real com placar semelhante ao monitor operacional.
+            </p>
+
+            <div class="hero-grid">
+                <div class="method">
+                    <h3>Feed ao vivo</h3>
+                    <p>Inicializa com o histórico detalhado da roleta e continua alimentando o estado pelo canal `/ws`.</p>
+                </div>
+                <div class="method">
+                    <h3>Filtro de emissão</h3>
+                    <p>O sinal só abre quando o decoder atinge confiança mínima e suporte suficiente em episódios parecidos.</p>
+                </div>
+                <div class="method">
+                    <h3>Resolução automática</h3>
+                    <p>Cada novo giro conta uma tentativa. Se bater nos números sugeridos dentro do horizonte, marca win. Caso contrário, loss.</p>
+                </div>
+                <div class="method">
+                    <h3>Placar persistente</h3>
+                    <p>O navegador guarda histórico e estatísticas locais para facilitar validação contínua sem tocar no engine oficial.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls">
+            <div class="panel">
+                <h2>Roleta e feed</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="rouletteSelect">Roleta</label>
+                        <select id="rouletteSelect"></select>
+                    </div>
+                    <div>
+                        <label for="historyLimit">Histórico inicial</label>
+                        <input id="historyLimit" type="number" min="200" max="12000" step="100" value="1800">
+                    </div>
+                    <div>
+                        <label for="stateWindow">Janela do estado</label>
+                        <input id="stateWindow" type="number" min="3" max="10" value="6">
+                    </div>
+                    <div>
+                        <label for="futureHorizon">Horizonte do sinal</label>
+                        <select id="futureHorizon">
+                            <option value="3">3</option>
+                            <option value="5" selected>5</option>
+                            <option value="8">8</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn-primary" id="startBtn">Iniciar monitor</button>
+                    <button class="btn-secondary" id="stopBtn">Parar monitor</button>
+                    <button class="btn-tertiary" id="resetBtn">Resetar placar</button>
+                </div>
+                <div class="status" id="statusBox">Monitor parado.</div>
+            </div>
+
+            <div class="panel">
+                <h2>Critérios do decoder</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="episodeLimit">Limite de episódios</label>
+                        <input id="episodeLimit" type="number" min="12" max="200" value="80">
+                    </div>
+                    <div>
+                        <label for="similarityThreshold">Threshold de similaridade</label>
+                        <input id="similarityThreshold" type="number" min="0.3" max="0.95" step="0.01" value="0.54">
+                    </div>
+                    <div>
+                        <label for="validationRatio">Holdout</label>
+                        <input id="validationRatio" type="number" min="0.05" max="0.45" step="0.05" value="0.25">
+                    </div>
+                    <div>
+                        <label for="minSupport">Suporte mínimo</label>
+                        <input id="minSupport" type="number" min="1" max="20" value="3">
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <input id="ignoreRecentEpisode" type="checkbox" checked>
+                    <label for="ignoreRecentEpisode" style="margin:0;text-transform:none;letter-spacing:0;">Excluir o episódio mais recente da base de comparação</label>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Gatilho do sinal</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="minConfidence">Confiança mínima</label>
+                        <input id="minConfidence" type="number" min="1" max="100" value="55">
+                    </div>
+                    <div>
+                        <label for="minMatchedEpisodes">Mínimo de episódios</label>
+                        <input id="minMatchedEpisodes" type="number" min="1" max="100" value="12">
+                    </div>
+                    <div>
+                        <label for="liveNumberCount">Qtd. de números</label>
+                        <input id="liveNumberCount" type="number" min="1" max="24" value="12">
+                    </div>
+                    <div>
+                        <label for="cooldownSpins">Cooldown após sinal</label>
+                        <input id="cooldownSpins" type="number" min="0" max="20" value="0">
+                    </div>
+                    <div>
+                        <label for="recentStripSize">Faixa de histórico</label>
+                        <input id="recentStripSize" type="number" min="10" max="80" value="24">
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <input id="includeSecondary" type="checkbox">
+                    <label for="includeSecondary" style="margin:0;text-transform:none;letter-spacing:0;">Incluir secundários no acerto do sinal</label>
+                </div>
+                <div class="checkbox-row">
+                    <input id="requireThresholdMode" type="checkbox">
+                    <label for="requireThresholdMode" style="margin:0;text-transform:none;letter-spacing:0;">Só emitir quando o decoder estiver no modo threshold</label>
+                </div>
+            </div>
+        </section>
+
+        <section class="summary" id="summarySection">
+            <div class="stat-card">
+                <div class="label">Conexão</div>
+                <div class="value" id="wsStatus">Offline</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Sinais emitidos</div>
+                <div class="value" id="totalSignals">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Wins</div>
+                <div class="value" id="winsCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Losses</div>
+                <div class="value" id="lossesCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Hit rate</div>
+                <div class="value" id="hitRate">0.0%</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Streak atual</div>
+                <div class="value" id="currentStreak">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Melhor streak</div>
+                <div class="value" id="bestStreak">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Confiança média</div>
+                <div class="value" id="avgConfidence">0.0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Similaridade média</div>
+                <div class="value" id="avgSimilarity">0.000</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Episódios médios</div>
+                <div class="value" id="avgEpisodes">0.0</div>
+            </div>
+        </section>
+
+        <section class="content">
+            <div class="panel">
+                <h2>Estado ao vivo</h2>
+                <p class="muted" id="liveStateMeta">Sem histórico carregado.</p>
+                <div class="history-strip" id="historyStrip"></div>
+                <div class="log-grid" style="margin-top:16px;">
+                    <div class="log-card">
+                        <h3>Último resultado</h3>
+                        <div class="pill-row" id="latestResultBox"></div>
+                        <p class="muted" id="latestTimestamp">-</p>
+                    </div>
+                    <div class="log-card">
+                        <h3>Última leitura do decoder</h3>
+                        <p class="muted" id="decoderMeta">Aguardando análise.</p>
+                        <div class="muted" id="decoderStateMeta" style="margin-bottom:10px;">Estado atual ao vivo: -</div>
+                        <div class="pill-row" id="decoderStateNumbers"></div>
+                        <div class="pill-row" id="decoderPrimary"></div>
+                        <div class="pill-row" id="decoderRegimes" style="margin-top:10px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Sinal ativo</h2>
+                <div id="activeSignalCard" class="signal-card">
+                    <div class="signal-head">
+                        <div>
+                            <strong id="activeSignalTitle">Nenhum sinal aberto</strong>
+                            <div class="muted" id="activeSignalMeta">O monitor abre um novo sinal quando o decoder passa nos filtros configurados.</div>
+                        </div>
+                        <span id="activeSignalStatus" class="signal-status idle">Idle</span>
+                    </div>
+                    <div class="pill-row" id="activeSignalNumbers"></div>
+                    <div class="pill-row" id="activeSignalRegimes" style="margin-top:10px;"></div>
+                    <div class="mini-grid" style="margin-top:14px;" id="activeSignalMetrics"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Últimos sinais resolvidos</h2>
+                <div style="overflow:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Horário</th>
+                                <th>Estado</th>
+                                <th>Números</th>
+                                <th>Confiança</th>
+                                <th>Episódios</th>
+                                <th>Resultado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="signalHistoryTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+        const STORAGE_KEY = 'decoder-monitor-state-v1';
+        const MAX_SIGNAL_HISTORY = 40;
+
+        const rouletteSelect = document.getElementById('rouletteSelect');
+        const historyLimitInput = document.getElementById('historyLimit');
+        const stateWindowInput = document.getElementById('stateWindow');
+        const futureHorizonInput = document.getElementById('futureHorizon');
+        const episodeLimitInput = document.getElementById('episodeLimit');
+        const similarityThresholdInput = document.getElementById('similarityThreshold');
+        const validationRatioInput = document.getElementById('validationRatio');
+        const minSupportInput = document.getElementById('minSupport');
+        const ignoreRecentEpisodeInput = document.getElementById('ignoreRecentEpisode');
+        const minConfidenceInput = document.getElementById('minConfidence');
+        const minMatchedEpisodesInput = document.getElementById('minMatchedEpisodes');
+        const liveNumberCountInput = document.getElementById('liveNumberCount');
+        const includeSecondaryInput = document.getElementById('includeSecondary');
+        const requireThresholdModeInput = document.getElementById('requireThresholdMode');
+        const cooldownSpinsInput = document.getElementById('cooldownSpins');
+        const recentStripSizeInput = document.getElementById('recentStripSize');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusBox = document.getElementById('statusBox');
+
+        const state = {
+            running: false,
+            wsConnected: false,
+            ws: null,
+            rouletteId: '',
+            historyEntries: [],
+            activeSignal: null,
+            signalHistory: [],
+            lastAnalysis: null,
+            lastResult: null,
+            cooldownRemaining: 0,
+            analyzing: false,
+            reconnectTimer: null,
+            stats: {
+                totalSignals: 0,
+                wins: 0,
+                losses: 0,
+                currentStreak: 0,
+                bestStreak: 0,
+                currentStreakType: '',
+                confidenceSum: 0,
+                similaritySum: 0,
+                matchedEpisodesSum: 0,
+            },
+        };
+
+        function colorClass(number) {
+            if (number === 0) return 'green';
+            return RED_NUMBERS.has(number) ? 'red' : 'black';
+        }
+
+        function numberPill(number, extra = '') {
+            return `<span class="number-pill ${colorClass(number)} ${extra}">${number}</span>`;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function setStatus(message, kind = 'neutral') {
+            statusBox.textContent = message;
+            statusBox.className = `status ${kind === 'neutral' ? '' : kind}`.trim();
+        }
+
+        function getConfig() {
+            return {
+                roulette_id: rouletteSelect.value,
+                state_window: Number(stateWindowInput.value || 6),
+                future_horizon: Number(futureHorizonInput.value || 5),
+                ignore_last_occurrence: ignoreRecentEpisodeInput.checked,
+                validation_ratio: Number(validationRatioInput.value || 0.25),
+                min_support: Number(minSupportInput.value || 3),
+                top_k: 12,
+                episode_limit: Number(episodeLimitInput.value || 80),
+                similarity_threshold: Number(similarityThresholdInput.value || 0.54),
+                live_min_confidence: Number(minConfidenceInput.value || 55),
+                live_min_matched_episodes: Number(minMatchedEpisodesInput.value || 12),
+                live_number_count: Number(liveNumberCountInput.value || 12),
+                live_include_secondary: includeSecondaryInput.checked,
+                live_require_threshold_mode: requireThresholdModeInput.checked,
+                history_limit: Number(historyLimitInput.value || 1800),
+                cooldown_spins: Number(cooldownSpinsInput.value || 0),
+                recent_strip_size: Number(recentStripSizeInput.value || 24),
+            };
+        }
+
+        function saveState() {
+            const snapshot = {
+                rouletteId: state.rouletteId,
+                activeSignal: state.activeSignal,
+                signalHistory: state.signalHistory,
+                stats: state.stats,
+                cooldownRemaining: state.cooldownRemaining,
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+        }
+
+        function restoreState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const snapshot = JSON.parse(raw);
+                state.rouletteId = snapshot.rouletteId || '';
+                state.activeSignal = snapshot.activeSignal || null;
+                state.signalHistory = Array.isArray(snapshot.signalHistory) ? snapshot.signalHistory.slice(0, MAX_SIGNAL_HISTORY) : [];
+                if (snapshot.stats && typeof snapshot.stats === 'object') {
+                    state.stats = {
+                        ...state.stats,
+                        ...snapshot.stats,
+                    };
+                }
+                state.cooldownRemaining = Number(snapshot.cooldownRemaining || 0);
+            } catch (error) {
+                console.warn('Falha ao restaurar estado do decoder monitor', error);
+            }
+        }
+
+        async function loadRoulettes() {
+            try {
+                const response = await fetch('/api/roulettes-list');
+                const data = await response.json();
+                rouletteSelect.innerHTML = data.map((roulette) => `
+                    <option value="${escapeHtml(roulette.id)}">${escapeHtml(roulette.name)} (${roulette.count})</option>
+                `).join('');
+                if (state.rouletteId && Array.from(rouletteSelect.options).some((option) => option.value === state.rouletteId)) {
+                    rouletteSelect.value = state.rouletteId;
+                }
+            } catch (error) {
+                setStatus(`Falha ao carregar roletas: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadHistory() {
+            const config = getConfig();
+            const response = await fetch(`/history-detailed/${encodeURIComponent(config.roulette_id)}?limit=${config.history_limit}`);
+            const data = await response.json();
+            if (!Array.isArray(data)) {
+                throw new Error('Histórico detalhado inválido.');
+            }
+            state.historyEntries = data
+                .slice()
+                .reverse()
+                .map((item) => ({
+                    value: Number(item.value),
+                    timestamp: item.timestamp || item.timestamp_br || new Date().toISOString(),
+                }));
+            state.rouletteId = config.roulette_id;
+            const lastItem = state.historyEntries[state.historyEntries.length - 1] || null;
+            state.lastResult = lastItem ? {value: lastItem.value, timestamp: lastItem.timestamp} : null;
+            saveState();
+        }
+
+        function renderStats() {
+            document.getElementById('wsStatus').textContent = state.wsConnected ? 'Online' : 'Offline';
+            document.getElementById('totalSignals').textContent = String(state.stats.totalSignals);
+            document.getElementById('winsCount').textContent = String(state.stats.wins);
+            document.getElementById('lossesCount').textContent = String(state.stats.losses);
+            const resolved = state.stats.wins + state.stats.losses;
+            const hitRate = resolved > 0 ? (state.stats.wins / resolved) * 100 : 0;
+            document.getElementById('hitRate').textContent = `${hitRate.toFixed(1)}%`;
+            document.getElementById('currentStreak').textContent = String(state.stats.currentStreak);
+            document.getElementById('bestStreak').textContent = String(state.stats.bestStreak);
+            document.getElementById('avgConfidence').textContent = state.stats.totalSignals > 0
+                ? (state.stats.confidenceSum / state.stats.totalSignals).toFixed(1)
+                : '0.0';
+            document.getElementById('avgSimilarity').textContent = state.stats.totalSignals > 0
+                ? (state.stats.similaritySum / state.stats.totalSignals).toFixed(3)
+                : '0.000';
+            document.getElementById('avgEpisodes').textContent = state.stats.totalSignals > 0
+                ? (state.stats.matchedEpisodesSum / state.stats.totalSignals).toFixed(1)
+                : '0.0';
+        }
+
+        function renderHistoryStrip() {
+            const limit = Number(recentStripSizeInput.value || 24);
+            const recent = state.historyEntries.slice(-limit);
+            document.getElementById('historyStrip').innerHTML = recent.map((entry) => numberPill(entry.value)).join('');
+            if (state.lastResult) {
+                document.getElementById('latestResultBox').innerHTML = numberPill(state.lastResult.value, 'hit');
+                document.getElementById('latestTimestamp').textContent = `Último update: ${new Date(state.lastResult.timestamp).toLocaleString('pt-BR')}`;
+            } else {
+                document.getElementById('latestResultBox').innerHTML = '<span class="muted">Sem resultados.</span>';
+                document.getElementById('latestTimestamp').textContent = '-';
+            }
+            document.getElementById('liveStateMeta').textContent =
+                `Roleta ${escapeHtml(state.rouletteId || '-')} | histórico local ${state.historyEntries.length} giros | cooldown ${state.cooldownRemaining}`;
+        }
+
+        function renderActiveSignal() {
+            const card = document.getElementById('activeSignalCard');
+            const title = document.getElementById('activeSignalTitle');
+            const meta = document.getElementById('activeSignalMeta');
+            const status = document.getElementById('activeSignalStatus');
+            const numbers = document.getElementById('activeSignalNumbers');
+            const regimes = document.getElementById('activeSignalRegimes');
+            const metrics = document.getElementById('activeSignalMetrics');
+
+            const signal = state.activeSignal;
+            card.className = 'signal-card';
+            if (!signal) {
+                title.textContent = 'Nenhum sinal aberto';
+                meta.textContent = 'O monitor abre um novo sinal quando o decoder passa nos filtros configurados.';
+                status.textContent = 'Idle';
+                status.className = 'signal-status idle';
+                numbers.innerHTML = '';
+                regimes.innerHTML = '';
+                metrics.innerHTML = '';
+                return;
+            }
+
+            card.classList.add(signal.status || 'active');
+                title.textContent = `Sinal ${signal.signal_id}`;
+            meta.textContent = `Emitido em ${new Date(signal.emitted_at).toLocaleString('pt-BR')} | estado âncora ${signal.state_numbers.join(', ')}`;
+            status.textContent = signal.status || 'active';
+            status.className = `signal-status ${signal.status || 'active'}`;
+
+            const primary = new Set(signal.primary_numbers || []);
+            const secondary = new Set(signal.secondary_numbers || []);
+            numbers.innerHTML = (signal.numbers || []).map((number) => {
+                let extra = '';
+                if (primary.has(number)) extra = 'primary';
+                else if (secondary.has(number)) extra = 'secondary';
+                if (signal.hit_number === number) extra = `${extra} hit`.trim();
+                return numberPill(number, extra);
+            }).join('');
+            regimes.innerHTML = (signal.regimes || []).map((label) => `<span class="label-pill">${escapeHtml(label)}</span>`).join('');
+
+            const metricsRows = [
+                ['Tentativas', `${signal.attempts || 0}/${signal.max_attempts || 0}`],
+                ['Confiança', `${signal.confidence_score || 0} (${signal.confidence_label || '-'})`],
+                ['Episódios', signal.matched_episodes || 0],
+                ['Qtd. números', (signal.numbers || []).length],
+                ['Similaridade', Number(signal.avg_similarity || 0).toFixed(3)],
+                ['Modo', signal.selection_mode || '-'],
+                ['Último número', signal.last_number == null ? '-' : signal.last_number],
+            ];
+            metrics.innerHTML = metricsRows.map(([label, value]) => `
+                <div class="stat-card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value" style="font-size:1.35rem;">${escapeHtml(value)}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderLastAnalysis() {
+            const analysis = state.lastAnalysis;
+            const meta = document.getElementById('decoderMeta');
+            const stateMeta = document.getElementById('decoderStateMeta');
+            const stateNumbers = document.getElementById('decoderStateNumbers');
+            const primary = document.getElementById('decoderPrimary');
+            const regimes = document.getElementById('decoderRegimes');
+
+            if (!analysis) {
+                meta.textContent = 'Aguardando análise.';
+                stateMeta.textContent = 'Estado atual ao vivo: -';
+                stateNumbers.innerHTML = '';
+                primary.innerHTML = '';
+                regimes.innerHTML = '';
+                return;
+            }
+
+            const summary = analysis.summary || {};
+            const suggestion = analysis.suggestion || {};
+            const candidate = analysis.live_signal_candidate || {};
+            const currentState = analysis.current_state || {};
+            meta.textContent =
+                `Modo ${summary.selection_mode || '-'} | episódios ${summary.matched_episodes || 0} | confiança ${(suggestion.confidence || {}).score || 0} | emissão ${candidate.emit ? 'sim' : 'não'}`;
+            stateMeta.textContent = `Estado atual ao vivo: ${(currentState.numbers || []).join(', ') || '-'}`;
+            stateNumbers.innerHTML = (currentState.numbers || []).map((number) => numberPill(number)).join('');
+            primary.innerHTML = (suggestion.primary_numbers || []).map((number) => numberPill(number, 'primary')).join('');
+            regimes.innerHTML = (currentState.active_regimes || []).map((label) => `
+                <span class="label-pill">${escapeHtml(label)}</span>
+            `).join('');
+        }
+
+        function renderSignalHistory() {
+            const tbody = document.getElementById('signalHistoryTable');
+            const rows = state.signalHistory.slice(0, MAX_SIGNAL_HISTORY).map((signal) => `
+                <tr>
+                    <td>${escapeHtml(new Date(signal.emitted_at).toLocaleString('pt-BR'))}</td>
+                    <td>${escapeHtml((signal.state_numbers || []).join(', '))}</td>
+                    <td>${(signal.numbers || []).map((number) => numberPill(number)).join('')}</td>
+                    <td>${signal.confidence_score || 0}</td>
+                    <td>${signal.matched_episodes || 0}</td>
+                    <td>
+                        <strong>${escapeHtml(signal.status || '-')}</strong><br>
+                        <span class="muted">
+                            ${signal.hit_number != null ? `bateu ${signal.hit_number} na tentativa ${signal.hit_attempt}` : `encerrou em ${signal.attempts || 0}/${signal.max_attempts || 0}`}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+            tbody.innerHTML = rows || '<tr><td colspan="6" class="muted">Sem sinais resolvidos.</td></tr>';
+        }
+
+        function renderAll() {
+            renderStats();
+            renderHistoryStrip();
+            renderActiveSignal();
+            renderLastAnalysis();
+            renderSignalHistory();
+        }
+
+        function resetScoreboard() {
+            state.activeSignal = null;
+            state.signalHistory = [];
+            state.lastAnalysis = null;
+            state.cooldownRemaining = 0;
+            state.stats = {
+                totalSignals: 0,
+                wins: 0,
+                losses: 0,
+                currentStreak: 0,
+                bestStreak: 0,
+                currentStreakType: '',
+                confidenceSum: 0,
+                similaritySum: 0,
+                matchedEpisodesSum: 0,
+            };
+            saveState();
+            renderAll();
+            setStatus('Placar resetado.', 'success');
+        }
+
+        function updateResolvedStats(signal) {
+            if (signal.status === 'win') {
+                state.stats.wins += 1;
+                if (state.stats.currentStreakType === 'win') {
+                    state.stats.currentStreak += 1;
+                } else {
+                    state.stats.currentStreak = 1;
+                    state.stats.currentStreakType = 'win';
+                }
+                state.stats.bestStreak = Math.max(state.stats.bestStreak, state.stats.currentStreak);
+            } else if (signal.status === 'loss') {
+                state.stats.losses += 1;
+                if (state.stats.currentStreakType === 'loss') {
+                    state.stats.currentStreak += 1;
+                } else {
+                    state.stats.currentStreak = 1;
+                    state.stats.currentStreakType = 'loss';
+                }
+            }
+        }
+
+        function pushResolvedSignal(signal) {
+            state.signalHistory.unshift(signal);
+            if (state.signalHistory.length > MAX_SIGNAL_HISTORY) {
+                state.signalHistory = state.signalHistory.slice(0, MAX_SIGNAL_HISTORY);
+            }
+        }
+
+        function openSignal(analysis) {
+            const decision = analysis.live_signal_candidate || {};
+            const emittedAt = state.lastResult?.timestamp || new Date().toISOString();
+            const configuredHorizon = Number(futureHorizonInput.value || 0);
+            const decisionHorizon = Number(decision.future_horizon || 0);
+            const maxAttempts = Math.max(
+                1,
+                Number.isFinite(configuredHorizon) && configuredHorizon > 0
+                    ? configuredHorizon
+                    : decisionHorizon
+            );
+            const signal = {
+                signal_id: `decoder-${state.rouletteId}-${emittedAt}`,
+                roulette_id: state.rouletteId,
+                emitted_at: emittedAt,
+                status: 'active',
+                attempts: 0,
+                max_attempts: maxAttempts,
+                numbers: [...(decision.numbers || [])],
+                primary_numbers: [...(decision.primary_numbers || [])],
+                secondary_numbers: [...(decision.secondary_numbers || [])],
+                confidence_score: Number(decision.confidence_score || 0),
+                confidence_label: decision.confidence_label || 'Muito baixa',
+                matched_episodes: Number(decision.matched_episodes || 0),
+                selection_mode: decision.selection_mode || 'none',
+                avg_similarity: Number(decision.avg_similarity || 0),
+                regimes: [...(decision.regimes || [])],
+                state_numbers: [...((analysis.current_state || {}).numbers || [])],
+                opened_history_size: state.historyEntries.length,
+                anchor_number: state.lastResult?.value ?? null,
+            };
+            state.activeSignal = signal;
+            state.stats.totalSignals += 1;
+            state.stats.confidenceSum += signal.confidence_score;
+            state.stats.similaritySum += signal.avg_similarity;
+            state.stats.matchedEpisodesSum += signal.matched_episodes;
+            saveState();
+            renderAll();
+            setStatus(`Novo sinal aberto com ${signal.numbers.length} números e confiança ${signal.confidence_score}.`, 'success');
+        }
+
+        function resolveSignalWithNumber(number) {
+            if (!state.activeSignal) return;
+            const signal = state.activeSignal;
+            const configuredHorizon = Number(futureHorizonInput.value || 0);
+            const currentMaxAttempts = Number(signal.max_attempts || 0);
+            signal.max_attempts = Math.max(
+                1,
+                Number.isFinite(currentMaxAttempts) && currentMaxAttempts > 0
+                    ? currentMaxAttempts
+                    : configuredHorizon
+            );
+            signal.attempts = Math.max(0, Number(signal.attempts || 0)) + 1;
+            signal.last_number = number;
+
+            if ((signal.numbers || []).includes(number)) {
+                signal.status = 'win';
+                signal.hit_number = number;
+                signal.hit_attempt = signal.attempts;
+            } else if (signal.attempts >= signal.max_attempts) {
+                signal.status = 'loss';
+            } else {
+                signal.status = 'active';
+            }
+
+            if (signal.status === 'active') {
+                state.activeSignal = signal;
+                saveState();
+                renderAll();
+                return;
+            }
+
+            updateResolvedStats(signal);
+            pushResolvedSignal({...signal});
+            state.activeSignal = null;
+            state.cooldownRemaining = Number(cooldownSpinsInput.value || 0);
+            saveState();
+            renderAll();
+            setStatus(
+                signal.status === 'win'
+                    ? `Sinal vencedor em ${signal.hit_attempt} tentativa(s). Número ${signal.hit_number}.`
+                    : `Sinal encerrado como loss após ${signal.attempts} tentativa(s).`,
+                signal.status === 'win' ? 'success' : 'error'
+            );
+        }
+
+        async function runDecoderAnalysis() {
+            if (state.analyzing || !state.running) return;
+            if (state.historyEntries.length < Number(stateWindowInput.value || 6) + 2) return;
+            if (state.activeSignal) return;
+            if (state.cooldownRemaining > 0) {
+                state.cooldownRemaining -= 1;
+                saveState();
+                renderAll();
+                return;
+            }
+
+            state.analyzing = true;
+            const config = getConfig();
+            const payload = {
+                roulette_id: config.roulette_id,
+                history_entries: state.historyEntries.slice(-config.history_limit),
+                state_window: config.state_window,
+                future_horizon: config.future_horizon,
+                ignore_last_occurrence: config.ignore_last_occurrence,
+                validation_ratio: config.validation_ratio,
+                min_support: config.min_support,
+                top_k: 12,
+                episode_limit: config.episode_limit,
+                similarity_threshold: config.similarity_threshold,
+                live_min_confidence: config.live_min_confidence,
+                live_min_matched_episodes: config.live_min_matched_episodes,
+                live_include_secondary: config.live_include_secondary,
+                live_require_threshold_mode: config.live_require_threshold_mode,
+            };
+
+            try {
+                const response = await fetch('/api/decoder-lab/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.detail || 'Falha ao analisar decoder.');
+                }
+                state.lastAnalysis = result;
+                renderLastAnalysis();
+                const candidate = result.live_signal_candidate || {};
+                if (candidate.emit) {
+                    openSignal(result);
+                } else {
+                    const reason = candidate.reason || 'Sem emissão.';
+                    setStatus(`Decoder analisado sem abrir sinal. ${reason}`, 'loading');
+                    saveState();
+                    renderAll();
+                }
+            } catch (error) {
+                setStatus(`Erro ao rodar decoder: ${error.message}`, 'error');
+            } finally {
+                state.analyzing = false;
+            }
+        }
+
+        function normalizeResultEvent(data) {
+            const number = Number(data.result ?? data.value ?? data.number);
+            if (Number.isNaN(number)) return null;
+            return {
+                slug: data.slug || data.roulette_id || '',
+                value: number,
+                timestamp: data.timestamp || data.timestamp_br || data.created_at || new Date().toISOString(),
+            };
+        }
+
+        function appendResult(entry) {
+            state.historyEntries.push({
+                value: Number(entry.value),
+                timestamp: entry.timestamp,
+            });
+            const limit = Math.max(Number(historyLimitInput.value || 1800), 200);
+            if (state.historyEntries.length > limit) {
+                state.historyEntries = state.historyEntries.slice(-limit);
+            }
+            state.lastResult = {value: Number(entry.value), timestamp: entry.timestamp};
+            saveState();
+            renderAll();
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            state.ws = ws;
+
+            ws.onopen = () => {
+                state.wsConnected = true;
+                renderStats();
+                setStatus(`WebSocket conectado para ${state.rouletteId}.`, 'success');
+            };
+
+            ws.onmessage = async (event) => {
+                if (!state.running) return;
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch (error) {
+                    return;
+                }
+                const normalized = normalizeResultEvent(data);
+                if (!normalized || normalized.slug !== state.rouletteId) return;
+
+                appendResult(normalized);
+                if (state.activeSignal) {
+                    resolveSignalWithNumber(normalized.value);
+                }
+                await runDecoderAnalysis();
+            };
+
+            ws.onclose = () => {
+                state.wsConnected = false;
+                renderStats();
+                if (state.running) {
+                    setStatus('WebSocket desconectado. Tentando reconectar...', 'loading');
+                    clearTimeout(state.reconnectTimer);
+                    state.reconnectTimer = setTimeout(connectWebSocket, 1500);
+                } else {
+                    setStatus('Monitor parado.', 'neutral');
+                }
+            };
+
+            ws.onerror = () => {
+                state.wsConnected = false;
+                renderStats();
+            };
+        }
+
+        function disconnectWebSocket() {
+            clearTimeout(state.reconnectTimer);
+            if (state.ws) {
+                try {
+                    state.ws.close();
+                } catch (error) {
+                    console.warn('Falha ao fechar websocket', error);
+                }
+            }
+            state.ws = null;
+            state.wsConnected = false;
+            renderStats();
+        }
+
+        async function startMonitoring() {
+            startBtn.disabled = true;
+            try {
+                const configuredHorizon = Math.max(1, Number(futureHorizonInput.value || 5));
+                if (state.activeSignal && state.activeSignal.roulette_id !== rouletteSelect.value) {
+                    state.activeSignal = null;
+                }
+                if (state.activeSignal) {
+                    state.activeSignal.max_attempts = configuredHorizon;
+                    state.activeSignal.attempts = Math.max(0, Number(state.activeSignal.attempts || 0));
+                }
+                await loadHistory();
+                state.running = true;
+                renderAll();
+                disconnectWebSocket();
+                connectWebSocket();
+                await runDecoderAnalysis();
+                setStatus(`Monitor iniciado para ${state.rouletteId} com ${state.historyEntries.length} giros no buffer.`, 'success');
+            } catch (error) {
+                state.running = false;
+                setStatus(`Falha ao iniciar monitor: ${error.message}`, 'error');
+            } finally {
+                startBtn.disabled = false;
+                saveState();
+                renderAll();
+            }
+        }
+
+        function stopMonitoring() {
+            state.running = false;
+            disconnectWebSocket();
+            saveState();
+            renderAll();
+            setStatus('Monitor parado.', 'neutral');
+        }
+
+        startBtn.addEventListener('click', startMonitoring);
+        stopBtn.addEventListener('click', stopMonitoring);
+        resetBtn.addEventListener('click', resetScoreboard);
+        rouletteSelect.addEventListener('change', () => {
+            state.rouletteId = rouletteSelect.value;
+            saveState();
+        });
+
+        restoreState();
+        loadRoulettes().then(() => {
+            if (!rouletteSelect.value && rouletteSelect.options.length) {
+                rouletteSelect.selectedIndex = 0;
+                state.rouletteId = rouletteSelect.value;
+            } else if (rouletteSelect.value) {
+                state.rouletteId = rouletteSelect.value;
+            }
+            renderAll();
+        });
+    </script>
+</body>
+</html>

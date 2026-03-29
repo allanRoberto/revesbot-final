@@ -89,6 +89,12 @@ class FinalSuggestionRequest(BaseModel):
     inversion_context_window: int = 15
     inversion_penalty_factor: float = 0.3
     weight_profile_id: str | None = None
+    entry_policy_enabled: bool = True
+    entry_policy_overlap_window: int = 3
+    entry_policy_high_confidence_cutoff: int = 60
+    final_gate_require_optimized: bool = True
+    final_gate_use_confidence_v2: bool = True
+    final_gate_min_confidence: int = 40
 
 
 class ActiveSignalRequest(BaseModel):
@@ -120,6 +126,12 @@ class FinalSuggestionPolicyRequest(BaseModel):
     inversion_context_window: int = 15
     inversion_penalty_factor: float = 0.3
     weight_profile_id: str | None = None
+    entry_policy_enabled: bool = True
+    entry_policy_overlap_window: int = 3
+    entry_policy_high_confidence_cutoff: int = 60
+    final_gate_require_optimized: bool = True
+    final_gate_use_confidence_v2: bool = True
+    final_gate_min_confidence: int = 40
     max_attempts: int = 4
     policy_observation_window: int = 2
     policy_switch_min_hold_spins: int = 1
@@ -180,6 +192,7 @@ class PatternTrainingSaveRequest(BaseModel):
 def _event_from_result(
     *,
     source: str,
+    roulette_id: str | None,
     focus_number: int | None,
     from_index: int,
     history: List[int],
@@ -194,6 +207,7 @@ def _event_from_result(
     )
     return {
         "source": source,
+        "roulette_id": str(roulette_id or "").strip() or None,
         "focus_number": int(focus_number) if isinstance(focus_number, int) else None,
         "from_index": max(0, int(from_index)),
         "confidence": result.get("confidence", {}),
@@ -417,8 +431,6 @@ def _build_ranked_optimized_list(number_details: Any, fallback: List[int]) -> Li
     if ranked:
         return ranked
     return list(fallback)
-
-
 async def _compute_final_suggestion(
     payload: FinalSuggestionRequest,
 ) -> Dict[str, Any]:
@@ -478,6 +490,12 @@ async def _compute_final_suggestion(
     inversion_enabled = bool(payload.inversion_enabled)
     inversion_context_window = max(1, min(50, int(payload.inversion_context_window)))
     inversion_penalty_factor = max(0.0, min(1.0, float(payload.inversion_penalty_factor)))
+    entry_policy_enabled = bool(payload.entry_policy_enabled)
+    entry_policy_overlap_window = max(1, min(10, int(payload.entry_policy_overlap_window)))
+    entry_policy_high_confidence_cutoff = max(0, min(100, int(payload.entry_policy_high_confidence_cutoff)))
+    final_gate_require_optimized = bool(payload.final_gate_require_optimized)
+    final_gate_use_confidence_v2 = bool(payload.final_gate_use_confidence_v2)
+    final_gate_min_confidence = max(0, min(100, int(payload.final_gate_min_confidence)))
 
     focus_context = build_focus_context(
         history=normalized_history,
@@ -528,6 +546,12 @@ async def _compute_final_suggestion(
 
     opt_list_sorted = _parse_optimized_suggestion_sorted(optimized_result)
     opt_confidence = int(optimized_result.get("confidence", {}).get("score", 0) or 0)
+    opt_confidence_v2 = int(
+        optimized_result.get("confidence_breakdown", {}).get("calibrated_confidence_v2", 0)
+        or 0
+    )
+    opt_confidence_effective = opt_confidence_v2 if (final_gate_use_confidence_v2 and opt_confidence_v2 > 0) else opt_confidence
+    opt_confidence_source = "confidence_v2_shadow" if (final_gate_use_confidence_v2 and opt_confidence_v2 > 0) else "optimized_confidence"
     number_details = optimized_result.get("number_details", [])
     opt_list_ranked = _build_ranked_optimized_list(number_details, opt_list_sorted)
 
@@ -535,6 +559,7 @@ async def _compute_final_suggestion(
         base_list=base_list_ranked,
         optimized_list=opt_list_ranked,
         optimized_confidence=opt_confidence,
+        optimized_confidence_effective=opt_confidence_effective,
         number_details=number_details if isinstance(number_details, list) else [],
         base_confidence_score=base_confidence_score,
         max_size=target_size,
@@ -549,13 +574,73 @@ async def _compute_final_suggestion(
         inversion_penalty_factor=inversion_penalty_factor,
     )
 
-    final_list = final_result.get("list", []) if isinstance(final_result, dict) else []
+    candidate_list = list(final_result.get("list", []) if isinstance(final_result, dict) else [])
+    candidate_protections = list(final_result.get("protections", []) if isinstance(final_result, dict) else [])
+    candidate_confidence_obj = dict(final_result.get("confidence", {}) if isinstance(final_result, dict) else {})
+    candidate_confidence_score = int(candidate_confidence_obj.get("score", 0) or 0)
+    candidate_policy_score = float(candidate_confidence_score - (len(candidate_list) * 1.5))
+    if bool(final_result.get("breakdown", {}).get("block_compaction_applied")):
+        candidate_policy_score += 3.0
+    entry_policy = final_suggestion_entry_intelligence.recommend(
+        active_signal=None,
+        candidate_signal={
+            "suggestion": candidate_list,
+            "confidence_score": candidate_confidence_score,
+            "suggestion_size": len(candidate_list),
+            "policy_score": round(candidate_policy_score, 4),
+            "block_compaction_applied": bool(final_result.get("breakdown", {}).get("block_compaction_applied")),
+        },
+        history=normalized_history,
+        from_index=from_index,
+        overlap_window=entry_policy_overlap_window,
+        high_confidence_cutoff=entry_policy_high_confidence_cutoff,
+    )
+    optimized_supported = bool(optimized_result.get("available", False)) and bool(opt_list_ranked)
+    gate_reasons: List[str] = []
+    if final_gate_require_optimized and not optimized_supported:
+        filter_reason = str(optimized_result.get("filter_reason", "") or "").strip()
+        if filter_reason:
+            gate_reasons.append(f"Motor otimizado bloqueou o sinal: {filter_reason}")
+        else:
+            gate_reasons.append("Motor otimizado sem suporte suficiente para emitir a sugestão final.")
+    if candidate_confidence_score < final_gate_min_confidence:
+        gate_reasons.append(
+            f"Confidence final abaixo do mínimo ({candidate_confidence_score}<{final_gate_min_confidence})."
+        )
+    if entry_policy_enabled and str(entry_policy.get("action", "")).lower() == "wait":
+        wait_spins = max(0, int(entry_policy.get("recommended_wait_spins", 0) or 0))
+        if wait_spins > 0:
+            gate_reasons.append(f"Política de entrada recomendou esperar {wait_spins} giro(s).")
+        else:
+            gate_reasons.append("Política de entrada recomendou aguardar antes de emitir.")
+    emission_gate_passed = bool(final_result.get("available", False)) and not gate_reasons
+    final_list = candidate_list if emission_gate_passed else []
+    final_protections = candidate_protections if emission_gate_passed else []
+    emission_gate = {
+        "passed": emission_gate_passed,
+        "reasons": gate_reasons,
+        "require_optimized_support": final_gate_require_optimized,
+        "optimized_supported": optimized_supported,
+        "optimized_available": bool(optimized_result.get("available", False)),
+        "min_confidence": final_gate_min_confidence,
+        "candidate_confidence": candidate_confidence_score,
+        "entry_policy_enabled": entry_policy_enabled,
+        "entry_policy_action": str(entry_policy.get("action", "")),
+        "entry_policy_wait_spins": int(entry_policy.get("recommended_wait_spins", 0) or 0),
+        "used_confidence_v2": bool(final_gate_use_confidence_v2 and opt_confidence_v2 > 0),
+    }
+    explanation = str(final_result.get("explanation", "") or "").strip()
+    if gate_reasons:
+        explanation = f"{explanation} Emissão bloqueada: {' '.join(gate_reasons)}".strip()
     optimized_payload = {
         "available": bool(optimized_result.get("available", False)),
         "suggestion": opt_list_sorted,
         "explanation": optimized_result.get("explanation", ""),
         "confidence": optimized_result.get("confidence", {"score": 0, "label": "Baixa"}),
         "confidence_breakdown": optimized_result.get("confidence_breakdown", {}),
+        "confidence_v2_score": opt_confidence_v2,
+        "confidence_effective_score": opt_confidence_effective,
+        "confidence_effective_source": opt_confidence_source,
         "contributions": optimized_result.get("contributions", []),
         "negative_contributions": optimized_result.get("negative_contributions", []),
         "pending_patterns": optimized_result.get("pending_patterns", []),
@@ -568,7 +653,10 @@ async def _compute_final_suggestion(
     }
     return {
         **final_result,
+        "available": emission_gate_passed,
+        "list": final_list,
         "suggestion": final_list,
+        "protections": final_protections,
         "focus_number": focus_number,
         "from_index": from_index,
         "block_bets_enabled": bool(payload.block_bets_enabled),
@@ -576,6 +664,17 @@ async def _compute_final_suggestion(
         "base_weight": final_base_weight,
         "optimized_weight": final_optimized_weight,
         "block_bets_enabled": bool(payload.block_bets_enabled),
+        "entry_policy_enabled": entry_policy_enabled,
+        "entry_policy": entry_policy,
+        "emission_gate": emission_gate,
+        "candidate_available": bool(final_result.get("available", False)),
+        "candidate_list": candidate_list,
+        "candidate_suggestion": candidate_list,
+        "candidate_protections": candidate_protections,
+        "candidate_confidence": candidate_confidence_obj,
+        "candidate_explanation": final_result.get("explanation", ""),
+        "confidence": candidate_confidence_obj,
+        "explanation": explanation,
         # Mantém payload de resposta compatível com ordem antiga.
         "base_suggestion": base_list_for_engine,
         "base_confidence": base_confidence_score,
@@ -584,6 +683,9 @@ async def _compute_final_suggestion(
         "optimized_payload": optimized_payload,
         "optimized_suggestion": opt_list_sorted,
         "optimized_confidence": opt_confidence,
+        "optimized_confidence_v2": opt_confidence_v2,
+        "optimized_confidence_effective": opt_confidence_effective,
+        "optimized_confidence_source": opt_confidence_source,
         "optimized_confidence_obj": optimized_result.get("confidence", {"score": 0, "label": "Baixa"}),
         "optimized_available": bool(optimized_result.get("available", False)),
         "optimized_explanation": optimized_result.get("explanation", ""),
@@ -615,6 +717,12 @@ async def get_optimized_suggestion(payload: OptimizedSuggestionRequest):
                 "adaptive_weights": [],
             }
 
+        runtime_overrides: Dict[str, Dict[str, Any]] = {
+            str(key): dict(value)
+            for key, value in dict(payload.runtime_overrides or {}).items()
+            if isinstance(value, dict)
+        }
+
         result = pattern_engine.evaluate(
             history=payload.history,
             base_suggestion=payload.base_suggestion,
@@ -622,11 +730,12 @@ async def get_optimized_suggestion(payload: OptimizedSuggestionRequest):
             legacy_confidence_score=payload.legacy_confidence_score,
             from_index=max(0, payload.from_index),
             max_numbers=max(1, min(37, payload.max_numbers)),
-            runtime_overrides=payload.runtime_overrides,
+            runtime_overrides=runtime_overrides,
         )
         if payload.log_event:
             event = _event_from_result(
                 source="optimized_suggestion",
+                roulette_id=None,
                 focus_number=payload.focus_number,
                 from_index=payload.from_index,
                 history=payload.history,
@@ -666,6 +775,7 @@ async def backtest_pattern_metrics(payload: PatternBacktestRequest):
             )
             event = _event_from_result(
                 source="backtest",
+                roulette_id=None,
                 focus_number=focus,
                 from_index=idx,
                 history=normalized_history,
@@ -757,6 +867,7 @@ async def apply_pattern_multipliers(payload: ApplyMultipliersRequest):
             )
             event = _event_from_result(
                 source="backtest_apply",
+                roulette_id=None,
                 focus_number=focus,
                 from_index=idx,
                 history=normalized_history,
@@ -879,6 +990,7 @@ async def auto_tune_patterns(payload: AutoTuneRequest):
             )
             event = _event_from_result(
                 source="auto_tune",
+                roulette_id=None,
                 focus_number=focus,
                 from_index=idx,
                 history=normalized_history,
@@ -1005,10 +1117,16 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
             inversion_context_window=payload.inversion_context_window,
             inversion_penalty_factor=payload.inversion_penalty_factor,
             weight_profile_id=payload.weight_profile_id,
+            entry_policy_enabled=payload.entry_policy_enabled,
+            entry_policy_overlap_window=payload.entry_policy_overlap_window,
+            entry_policy_high_confidence_cutoff=payload.entry_policy_high_confidence_cutoff,
+            final_gate_require_optimized=payload.final_gate_require_optimized,
+            final_gate_use_confidence_v2=payload.final_gate_use_confidence_v2,
+            final_gate_min_confidence=payload.final_gate_min_confidence,
         )
         result = await _compute_final_suggestion(suggestion_payload)
-        candidate_list = [int(n) for n in (result.get("suggestion") or []) if 0 <= int(n) <= 36]
-        candidate_confidence = int(result.get("confidence", {}).get("score", 0) or 0)
+        candidate_list = [int(n) for n in (result.get("candidate_suggestion") or result.get("candidate_list") or []) if 0 <= int(n) <= 36]
+        candidate_confidence = int(result.get("candidate_confidence", {}).get("score", 0) or result.get("confidence", {}).get("score", 0) or 0)
         candidate_policy_score = candidate_confidence - (len(candidate_list) * 1.5)
         if bool(result.get("breakdown", {}).get("block_compaction_applied")):
             candidate_policy_score += 3.0
@@ -1029,6 +1147,9 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
                 "block_compaction_applied": bool(result.get("breakdown", {}).get("block_compaction_applied")),
             },
             history=payload.history,
+            from_index=payload.from_index,
+            overlap_window=payload.entry_policy_overlap_window,
+            high_confidence_cutoff=payload.entry_policy_high_confidence_cutoff,
         )
         return {
             "available": bool(result.get("available", False)),
@@ -1036,7 +1157,7 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
             "candidate_signal": {
                 "focus_number": int(result.get("focus_number", payload.focus_number or 0) or 0),
                 "suggestion": candidate_list,
-                "confidence": result.get("confidence", {"score": 0, "label": "Baixa"}),
+                "confidence": result.get("candidate_confidence", result.get("confidence", {"score": 0, "label": "Baixa"})),
                 "confidence_v2_score": int(
                     result.get("optimized_payload", {}).get("confidence_breakdown", {}).get("calibrated_confidence_v2", 0)
                     or result.get("optimized_breakdown", {}).get("calibrated_confidence_v2", 0)

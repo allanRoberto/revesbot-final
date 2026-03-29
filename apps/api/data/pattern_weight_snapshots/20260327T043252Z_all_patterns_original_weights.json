@@ -1,0 +1,231 @@
+{
+  "created_at": "2026-03-27T04:32:52Z",
+  "kind": "definition_weight_snapshot",
+  "reason": "temporary_all_weights_equal_1_test",
+  "files": {
+    "apps/api/patterns/definitions/alinhamento_boost.json": {
+      "id": "alinhamento_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/alinhamento_final_boost.json": {
+      "id": "alinhamento_final_boost",
+      "weight": 4.5
+    },
+    "apps/api/patterns/definitions/alinhamento_total_boost.json": {
+      "id": "alinhamento_total_boost",
+      "weight": 4.5
+    },
+    "apps/api/patterns/definitions/anchor_return_target_neighbors_mirrors.json": {
+      "id": "anchor_return_target_neighbors_mirrors",
+      "weight": 4.8
+    },
+    "apps/api/patterns/definitions/blackhorse_boost.json": {
+      "id": "blackhorse_boost",
+      "weight": 4.5
+    },
+    "apps/api/patterns/definitions/cavalos_faltantes_boost.json": {
+      "id": "cavalos_faltantes_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/chain_behavior_boost.json": {
+      "id": "chain_behavior_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/cold_sector_penalty.json": {
+      "id": "cold_sector_penalty",
+      "weight": 2.2
+    },
+    "apps/api/patterns/definitions/color_neighbor_alternation_missing_entry.json": {
+      "id": "color_neighbor_alternation_missing_entry",
+      "weight": 3.8
+    },
+    "apps/api/patterns/definitions/color_streak_boost.json": {
+      "id": "color_streak_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/consecutive_gap_boost.json": {
+      "id": "consecutive_gap_boost",
+      "weight": 3.1125
+    },
+    "apps/api/patterns/definitions/context_history_boost.json": {
+      "id": "context_history_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/dozen_column_streak_boost.json": {
+      "id": "dozen_column_streak_boost",
+      "weight": 4.3575
+    },
+    "apps/api/patterns/definitions/estelar_equivalence_boost.json": {
+      "id": "estelar_equivalence_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/exact_alternation_delayed_entry.json": {
+      "id": "exact_alternation_delayed_entry",
+      "weight": 4.0
+    },
+    "apps/api/patterns/definitions/exact_repeat_delayed_entry.json": {
+      "id": "exact_repeat_delayed_entry",
+      "weight": 4.2
+    },
+    "apps/api/patterns/definitions/finals_pattern_boost.json": {
+      "id": "finals_pattern_boost",
+      "weight": 4.731
+    },
+    "apps/api/patterns/definitions/gemeos_boost.json": {
+      "id": "gemeos_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/high_low_streak_boost.json": {
+      "id": "high_low_streak_boost",
+      "weight": 3.735
+    },
+    "apps/api/patterns/definitions/hot_numbers_decay_boost.json": {
+      "id": "hot_numbers_decay_boost",
+      "weight": 4.98
+    },
+    "apps/api/patterns/definitions/legacy_base_suggestion.json": {
+      "id": "legacy_base_suggestion",
+      "weight": 2.5
+    },
+    "apps/api/patterns/definitions/legacy_processing_bridge.json": {
+      "id": "legacy_processing_bridge",
+      "weight": 1.0
+    },
+    "apps/api/patterns/definitions/local_transition_protection.json": {
+      "id": "local_transition_protection",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/master_pattern_boost.json": {
+      "id": "master_pattern_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/neighbor_repeat_delayed_entry.json": {
+      "id": "neighbor_repeat_delayed_entry",
+      "weight": 4.0
+    },
+    "apps/api/patterns/definitions/numero_quente_boost.json": {
+      "id": "numero_quente_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/numeros_puxando_boost.json": {
+      "id": "numeros_puxando_boost",
+      "weight": 4.5
+    },
+    "apps/api/patterns/definitions/parity_streak_boost.json": {
+      "id": "parity_streak_boost",
+      "weight": 3.735
+    },
+    "apps/api/patterns/definitions/patchoko_rep_boost.json": {
+      "id": "patchoko_rep_boost",
+      "weight": 5.5
+    },
+    "apps/api/patterns/definitions/patchoko_seq_boost.json": {
+      "id": "patchoko_seq_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/puxados_boost.json": {
+      "id": "puxados_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/puxou_cavalo_boost.json": {
+      "id": "puxou_cavalo_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/recent_numbers_penalty.json": {
+      "id": "recent_numbers_penalty",
+      "weight": 0.3
+    },
+    "apps/api/patterns/definitions/repeat_distance_boost.json": {
+      "id": "repeat_distance_boost",
+      "weight": 4.5
+    },
+    "apps/api/patterns/definitions/repeat_trend_next_projection_delayed_entry.json": {
+      "id": "repeat_trend_next_projection_delayed_entry",
+      "weight": 3.9
+    },
+    "apps/api/patterns/definitions/robust_multi_model.json": {
+      "id": "robust_multi_model",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/score_boost.json": {
+      "id": "score_boost",
+      "weight": 4.0
+    },
+    "apps/api/patterns/definitions/sector_alternation_boost.json": {
+      "id": "sector_alternation_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/sector_repeat_penalty.json": {
+      "id": "sector_repeat_penalty",
+      "weight": 2.0
+    },
+    "apps/api/patterns/definitions/sequencia_pulada_0369_boost.json": {
+      "id": "sequencia_pulada_0369_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/siege_number_boost.json": {
+      "id": "siege_number_boost",
+      "weight": 4.8051
+    },
+    "apps/api/patterns/definitions/skipped_sequence_target_neighbors.json": {
+      "id": "skipped_sequence_target_neighbors",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/sleeping_numbers_boost.json": {
+      "id": "sleeping_numbers_boost",
+      "weight": 4.3575
+    },
+    "apps/api/patterns/definitions/terminais_iguais_boost.json": {
+      "id": "terminais_iguais_boost",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/terminal_alternation_middle_entry.json": {
+      "id": "terminal_alternation_middle_entry",
+      "weight": 3.9
+    },
+    "apps/api/patterns/definitions/terminal_alternation_target_neighbors.json": {
+      "id": "terminal_alternation_target_neighbors",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/terminal_group_rotation_369_147_258.json": {
+      "id": "terminal_group_rotation_369_147_258",
+      "weight": 3.8
+    },
+    "apps/api/patterns/definitions/terminal_repeat_next_sum_wait_neighbors.json": {
+      "id": "terminal_repeat_next_sum_wait_neighbors",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/terminal_repeat_sum_delayed_entry.json": {
+      "id": "terminal_repeat_sum_delayed_entry",
+      "weight": 4.1
+    },
+    "apps/api/patterns/definitions/terminal_repeat_sum_neighbors.json": {
+      "id": "terminal_repeat_sum_neighbors",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/terminal_repeat_wait_target_neighbors.json": {
+      "id": "terminal_repeat_wait_target_neighbors",
+      "weight": 5.0
+    },
+    "apps/api/patterns/definitions/trend_alternation_middle_projection_entry.json": {
+      "id": "trend_alternation_middle_projection_entry",
+      "weight": 4.0
+    },
+    "apps/api/patterns/definitions/volatility_detector.json": {
+      "id": "volatility_detector",
+      "weight": 3.1125
+    },
+    "apps/api/patterns/definitions/wheel_cluster_penalty.json": {
+      "id": "wheel_cluster_penalty",
+      "weight": 1.8
+    },
+    "apps/api/patterns/definitions/wheel_neighbors_5.json": {
+      "id": "wheel_neighbors_5",
+      "weight": 6.0
+    },
+    "apps/api/patterns/definitions/wheel_sector_momentum.json": {
+      "id": "wheel_sector_momentum",
+      "weight": 3.486
+    }
+  }
+}

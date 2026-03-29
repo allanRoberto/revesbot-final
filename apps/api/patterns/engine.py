@@ -19,6 +19,15 @@ from api.helpers.utils.get_mirror import get_mirror
 from api.patterns.evaluators import build_evaluator_registry
 from api.services.base_suggestion import get_neighbors as get_wheel_neighbors
 from api.services.confidence_calibration import ConfidenceCalibrationStore
+from api.services.wheel_neighbors_5 import (
+    WHEEL_NEIGHBORS_5_BASE_WEIGHT,
+    WHEEL_NEIGHBORS_5_DEFAULT_HORIZON,
+    WHEEL_NEIGHBORS_5_FEEDBACK_ANCHOR_SIZE,
+    WHEEL_NEIGHBORS_5_RECENT_WINDOW,
+    build_wheel_neighbors_5_result,
+    get_wheel_neighbors_5_feedback_store,
+    resolve_wheel_neighbors_5_horizon,
+)
 
 if TYPE_CHECKING:
     from api.services.pattern_correlation import CorrelationMatrix
@@ -117,6 +126,9 @@ TERMINAL_GROUP_ROTATION_BY_FINAL: Dict[int, str] = {
     9: "A",
 }
 
+# Controle operacional para desligar a negativacao sem remover os patterns.
+NEGATIVE_PATTERNS_ENABLED = False
+
 
 @dataclass
 class PatternDefinition:
@@ -142,6 +154,8 @@ class PatternContribution:
     adaptive_multiplier: float
     numbers: List[int]
     explanation: str
+    dynamic_multiplier: float = 1.0
+    meta: Dict[str, Any] | None = None
 
 
 class PatternEngine:
@@ -222,6 +236,10 @@ class PatternEngine:
             from_index,
             max_numbers,
             focus_number,
+            base_suggestion=normalized_base,
+            runtime_overrides=runtime_overrides,
+            use_adaptive_weights=use_adaptive_weights,
+            use_fallback=use_fallback,
             profile_id=normalized_profile_id,
             profile_weights=normalized_profile_weights,
         )
@@ -268,6 +286,7 @@ class PatternEngine:
         enforce_groups: List[Dict[str, Any]] = []
         legacy_meta: Dict[str, Any] = {}
         definitions = self._load_patterns()
+        negative_patterns_enabled = bool(NEGATIVE_PATTERNS_ENABLED)
         if use_adaptive_weights:
             adaptive_multipliers, adaptive_details = self._compute_adaptive_weights(
                 definitions=definitions,
@@ -279,6 +298,8 @@ class PatternEngine:
             adaptive_multipliers, adaptive_details = ({}, [])
 
         for definition in definitions:
+            if definition.kind == "negative" and not negative_patterns_enabled:
+                continue
             # Skip patterns disabled by decay system
             if self.is_pattern_disabled_by_decay(definition.id):
                 continue
@@ -343,6 +364,7 @@ class PatternEngine:
             raw_meta = result.get("meta") if isinstance(result, dict) else None
             if isinstance(raw_meta, dict):
                 legacy_meta.update(raw_meta)
+            result_dynamic_multiplier = float(result.get("dynamic_multiplier", 1.0) or 1.0)
 
             explanation = str(result.get("explanation", "Pattern ativo.")).strip()
             raw_split = result.get("split_contributions") if isinstance(result, dict) else None
@@ -367,7 +389,9 @@ class PatternEngine:
                     item_pattern_name = str(item.get("pattern_name", "")).strip() or f"{definition.name} #{idx}"
                     item_base_weight = float(item.get("weight", effective_definition.weight)) * runtime_profile_multiplier
                     item_adaptive = adaptive_multipliers.get(definition.id, 1.0)
-                    item_weight = item_base_weight * item_adaptive
+                    item_dynamic = float(item.get("dynamic_multiplier", result_dynamic_multiplier) or 1.0)
+                    item_meta = item.get("meta") if isinstance(item.get("meta"), dict) else raw_meta
+                    item_weight = item_base_weight * item_adaptive * item_dynamic
 
                     contribution = PatternContribution(
                         pattern_id=item_pattern_id,
@@ -378,6 +402,8 @@ class PatternEngine:
                         adaptive_multiplier=item_adaptive,
                         numbers=sorted(set(item_numbers)),
                         explanation=item_explanation,
+                        dynamic_multiplier=item_dynamic,
+                        meta=dict(item_meta) if isinstance(item_meta, dict) else None,
                     )
                     if definition.kind == "negative":
                         negative_contributions.append(contribution)
@@ -406,6 +432,7 @@ class PatternEngine:
                         effective_weight = (
                             item_base_weight
                             * item_adaptive
+                            * item_dynamic
                             * correlation_boost
                             * decay_multiplier
                         )
@@ -426,11 +453,18 @@ class PatternEngine:
                 pattern_id=definition.id,
                 pattern_name=definition.name,
                 version=definition.version,
-                weight=(effective_definition.weight * adaptive_multipliers.get(definition.id, 1.0) * runtime_profile_multiplier),
+                weight=(
+                    effective_definition.weight
+                    * adaptive_multipliers.get(definition.id, 1.0)
+                    * runtime_profile_multiplier
+                    * result_dynamic_multiplier
+                ),
                 base_weight=(effective_definition.weight * runtime_profile_multiplier),
                 adaptive_multiplier=adaptive_multipliers.get(definition.id, 1.0),
                 numbers=sorted(set(numbers)),
                 explanation=explanation,
+                dynamic_multiplier=result_dynamic_multiplier,
+                meta=dict(raw_meta) if isinstance(raw_meta, dict) else None,
             )
             if definition.kind == "negative":
                 negative_contributions.append(contribution)
@@ -462,6 +496,7 @@ class PatternEngine:
                     effective_definition.weight
                     * adaptive_multipliers.get(definition.id, 1.0)
                     * runtime_profile_multiplier
+                    * result_dynamic_multiplier
                     * correlation_boost
                     * decay_multiplier
                 )
@@ -490,6 +525,7 @@ class PatternEngine:
                         adaptive_multiplier=1.0,
                         numbers=fallback_numbers,
                         explanation=fallback_result.get("explanation", "Fallback ativo"),
+                        dynamic_multiplier=1.0,
                     )
                 )
 
@@ -504,19 +540,7 @@ class PatternEngine:
                     "contributions": [],
                     "confidence": {"score": 0, "label": "Baixa"},
                     "confidence_breakdown": self._empty_confidence_breakdown(),
-                    "negative_contributions": [
-                        {
-                            "pattern_id": c.pattern_id,
-                            "pattern_name": c.pattern_name,
-                            "version": c.version,
-                            "weight": c.weight,
-                            "base_weight": c.base_weight,
-                            "adaptive_multiplier": c.adaptive_multiplier,
-                            "numbers": c.numbers,
-                            "explanation": c.explanation,
-                        }
-                        for c in negative_contributions
-                    ],
+                    "negative_contributions": [self._serialize_contribution(c) for c in negative_contributions],
                     "pending_patterns": pending_patterns,
                     "number_details": [],
                     "adaptive_weights": adaptive_details,
@@ -531,19 +555,7 @@ class PatternEngine:
                 "contributions": [],
                 "confidence": {"score": 0, "label": "Baixa"},
                 "confidence_breakdown": self._empty_confidence_breakdown(),
-                "negative_contributions": [
-                    {
-                        "pattern_id": c.pattern_id,
-                        "pattern_name": c.pattern_name,
-                        "version": c.version,
-                        "weight": c.weight,
-                        "base_weight": c.base_weight,
-                        "adaptive_multiplier": c.adaptive_multiplier,
-                        "numbers": c.numbers,
-                        "explanation": c.explanation,
-                    }
-                    for c in negative_contributions
-                ],
+                "negative_contributions": [self._serialize_contribution(c) for c in negative_contributions],
                 "pending_patterns": pending_patterns,
                 "number_details": [],
                 "adaptive_weights": adaptive_details,
@@ -610,8 +622,11 @@ class PatternEngine:
             normalized_positive = self.normalize_scores(dict(positive_scores))
             # Manter proporção mas em escala normalizada (multiplicar por fator para manter magnitude)
             scale_factor = max(positive_scores.values()) if positive_scores else 1.0
+            positive_floor = 0.05
             for n in positive_scores:
-                positive_scores[n] = normalized_positive.get(n, 0) * scale_factor
+                positive_scores[n] = (
+                    positive_floor + (normalized_positive.get(n, 0) * (1.0 - positive_floor))
+                ) * scale_factor
 
         if negative_scores:
             normalized_negative = self.normalize_scores(dict(negative_scores))
@@ -664,34 +679,10 @@ class PatternEngine:
                 "available": False,
                 "suggestion": [],
                 "explanation": "Todos os numeros candidatos foram negativados pelos filtros.",
-                "contributions": [
-                    {
-                        "pattern_id": c.pattern_id,
-                        "pattern_name": c.pattern_name,
-                        "version": c.version,
-                        "weight": c.weight,
-                        "base_weight": c.base_weight,
-                        "adaptive_multiplier": c.adaptive_multiplier,
-                        "numbers": c.numbers,
-                        "explanation": c.explanation,
-                    }
-                    for c in positive_contributions
-                ],
+                "contributions": [self._serialize_contribution(c) for c in positive_contributions],
                 "confidence": {"score": 0, "label": "Baixa"},
                 "confidence_breakdown": self._empty_confidence_breakdown(),
-                "negative_contributions": [
-                    {
-                        "pattern_id": c.pattern_id,
-                        "pattern_name": c.pattern_name,
-                        "version": c.version,
-                        "weight": c.weight,
-                        "base_weight": c.base_weight,
-                        "adaptive_multiplier": c.adaptive_multiplier,
-                        "numbers": c.numbers,
-                        "explanation": c.explanation,
-                    }
-                    for c in negative_contributions
-                ],
+                "negative_contributions": [self._serialize_contribution(c) for c in negative_contributions],
                 "pending_patterns": pending_patterns,
                 "number_details": [],
                 "adaptive_weights": adaptive_details,
@@ -729,6 +720,7 @@ class PatternEngine:
                         "weight": c.weight,
                         "base_weight": c.base_weight,
                         "adaptive_multiplier": c.adaptive_multiplier,
+                        "dynamic_multiplier": c.dynamic_multiplier,
                     }
                 )
         for c in negative_contributions:
@@ -740,6 +732,7 @@ class PatternEngine:
                         "weight": c.weight,
                         "base_weight": c.base_weight,
                         "adaptive_multiplier": c.adaptive_multiplier,
+                        "dynamic_multiplier": c.dynamic_multiplier,
                     }
                 )
         number_details = []
@@ -795,34 +788,10 @@ class PatternEngine:
                 "explanation": f"Sinal filtrado: {filter_reason}",
                 "filter_reason": filter_reason,
                 "filter_details": filter_result.get("filter_details", {}),
-                "contributions": [
-                    {
-                        "pattern_id": c.pattern_id,
-                        "pattern_name": c.pattern_name,
-                        "version": c.version,
-                        "weight": c.weight,
-                        "base_weight": c.base_weight,
-                        "adaptive_multiplier": c.adaptive_multiplier,
-                        "numbers": c.numbers,
-                        "explanation": c.explanation,
-                    }
-                    for c in positive_contributions
-                ],
+                "contributions": [self._serialize_contribution(c) for c in positive_contributions],
                 "confidence": confidence,
                 "confidence_breakdown": confidence_breakdown,
-                "negative_contributions": [
-                    {
-                        "pattern_id": c.pattern_id,
-                        "pattern_name": c.pattern_name,
-                        "version": c.version,
-                        "weight": c.weight,
-                        "base_weight": c.base_weight,
-                        "adaptive_multiplier": c.adaptive_multiplier,
-                        "numbers": c.numbers,
-                        "explanation": c.explanation,
-                    }
-                    for c in negative_contributions
-                ],
+                "negative_contributions": [self._serialize_contribution(c) for c in negative_contributions],
                 "pending_patterns": pending_patterns,
                 "number_details": number_details,
                 "adaptive_weights": adaptive_details,
@@ -841,32 +810,8 @@ class PatternEngine:
             ),
             "confidence": confidence,
             "confidence_breakdown": confidence_breakdown,
-            "contributions": [
-                {
-                    "pattern_id": c.pattern_id,
-                    "pattern_name": c.pattern_name,
-                    "version": c.version,
-                    "weight": c.weight,
-                    "base_weight": c.base_weight,
-                    "adaptive_multiplier": c.adaptive_multiplier,
-                    "numbers": c.numbers,
-                    "explanation": c.explanation,
-                }
-                for c in positive_contributions
-            ],
-            "negative_contributions": [
-                {
-                    "pattern_id": c.pattern_id,
-                    "pattern_name": c.pattern_name,
-                    "version": c.version,
-                    "weight": c.weight,
-                    "base_weight": c.base_weight,
-                    "adaptive_multiplier": c.adaptive_multiplier,
-                    "numbers": c.numbers,
-                    "explanation": c.explanation,
-                }
-                for c in negative_contributions
-            ],
+            "contributions": [self._serialize_contribution(c) for c in positive_contributions],
+            "negative_contributions": [self._serialize_contribution(c) for c in negative_contributions],
             "pending_patterns": pending_patterns,
             "number_details": number_details,
             "adaptive_weights": adaptive_details,
@@ -880,6 +825,10 @@ class PatternEngine:
         from_index: int,
         max_numbers: int,
         focus_number: int | None,
+        base_suggestion: List[int] | None = None,
+        runtime_overrides: Dict[str, Dict[str, Any]] | None = None,
+        use_adaptive_weights: bool = True,
+        use_fallback: bool = True,
         profile_id: str = "",
         profile_weights: Dict[str, float] | None = None,
     ) -> str:
@@ -887,13 +836,31 @@ class PatternEngine:
         # Usar apenas os últimos 20 números para a chave (suficiente para os padrões)
         relevant_history = history[from_index:from_index + 20]
         history_str = ",".join(str(n) for n in relevant_history)
+        base_signature = ",".join(str(int(n)) for n in (base_suggestion or []))
+        runtime_signature = ""
+        if isinstance(runtime_overrides, dict) and runtime_overrides:
+            runtime_items = []
+            for pattern_id, params in sorted(runtime_overrides.items(), key=lambda item: item[0]):
+                if not isinstance(params, dict):
+                    continue
+                param_signature = ",".join(
+                    f"{key}:{repr(params[key])}"
+                    for key in sorted(params.keys())
+                )
+                runtime_items.append(f"{pattern_id}=>{param_signature}")
+            runtime_signature = "|".join(runtime_items)
         profile_signature = profile_id.strip()
         if not profile_signature and profile_weights:
             profile_signature = ",".join(
                 f"{key}:{round(float(value), 6)}"
                 for key, value in sorted(profile_weights.items(), key=lambda item: item[0])
             )
-        return f"{history_str}|{from_index}|{max_numbers}|{focus_number}|{profile_signature}"
+        return (
+            f"{history_str}|{from_index}|{max_numbers}|{focus_number}|"
+            f"base:{base_signature}|runtime:{runtime_signature}|"
+            f"adaptive:{int(bool(use_adaptive_weights))}|fallback:{int(bool(use_fallback))}|"
+            f"profile:{profile_signature}|negative:{int(bool(NEGATIVE_PATTERNS_ENABLED))}"
+        )
 
     def _save_to_cache(self, key: str, result: Dict[str, Any]) -> None:
         """Salva resultado no cache com limite de tamanho."""
@@ -906,6 +873,23 @@ class PatternEngine:
     def clear_cache(self) -> None:
         """Limpa o cache de avaliações."""
         self._evaluation_cache.clear()
+
+    @staticmethod
+    def _serialize_contribution(contribution: PatternContribution) -> Dict[str, Any]:
+        payload = {
+            "pattern_id": contribution.pattern_id,
+            "pattern_name": contribution.pattern_name,
+            "version": contribution.version,
+            "weight": contribution.weight,
+            "base_weight": contribution.base_weight,
+            "adaptive_multiplier": contribution.adaptive_multiplier,
+            "dynamic_multiplier": contribution.dynamic_multiplier,
+            "numbers": contribution.numbers,
+            "explanation": contribution.explanation,
+        }
+        if isinstance(contribution.meta, dict) and contribution.meta:
+            payload["meta"] = contribution.meta
+        return payload
 
     @classmethod
     def _empty_confidence_breakdown(cls) -> Dict[str, Any]:
@@ -1457,6 +1441,85 @@ class PatternEngine:
     def _mirror_numbers(num: int) -> List[int]:
         mirrors = get_mirror(int(num))
         return [int(n) for n in mirrors if 1 <= int(n) <= 36]
+
+    def _eval_wheel_neighbors_5(
+        self,
+        history: List[int],
+        base_suggestion: List[int],
+        from_index: int,
+        definition: PatternDefinition,
+        focus_number: int | None = None,
+    ) -> Dict[str, Any]:
+        del base_suggestion
+
+        if from_index < 0 or from_index >= len(history):
+            return {"numbers": [], "explanation": "Historico insuficiente para wheel_neighbors_5."}
+
+        hist = [int(n) for n in history[from_index:] if self._is_valid_number(n)]
+        if not hist:
+            return {"numbers": [], "explanation": "Historico insuficiente para wheel_neighbors_5."}
+
+        if focus_number is not None and self._is_valid_number(focus_number):
+            base_number = int(focus_number)
+        else:
+            base_number = int(hist[0])
+
+        params = dict(definition.params or {})
+        feedback_storage_path = params.get("feedback_storage_path")
+        requested_horizon = params.get("horizon_spins", params.get("default_horizon_spins", WHEEL_NEIGHBORS_5_DEFAULT_HORIZON))
+        recent_window_size = max(1, int(params.get("recent_window_size", WHEEL_NEIGHBORS_5_RECENT_WINDOW)))
+        feedback_anchor_size = max(4, int(params.get("feedback_anchor_size", WHEEL_NEIGHBORS_5_FEEDBACK_ANCHOR_SIZE)))
+
+        resolved_feedback: List[Dict[str, Any]] = []
+        feedback_store = get_wheel_neighbors_5_feedback_store(feedback_storage_path)
+        if from_index == 0:
+            resolved_feedback = feedback_store.resolve_from_history(
+                history=[int(n) for n in history if self._is_valid_number(n)],
+            )
+
+        result = build_wheel_neighbors_5_result(
+            base_number=base_number,
+            requested_horizon=requested_horizon,
+            recent_window_size=recent_window_size,
+            base_weight=float(definition.weight or WHEEL_NEIGHBORS_5_BASE_WEIGHT),
+            feedback_storage_path=feedback_storage_path,
+            history=hist,
+        )
+
+        meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+        meta["feedback_mode"] = "global_live" if from_index == 0 else "disabled"
+        if resolved_feedback:
+            meta["resolved_feedback"] = resolved_feedback[:5]
+
+        activation_candidates = [
+            int(n)
+            for n in meta.get("ordered_candidates", result.get("numbers", []))
+            if self._is_valid_number(n)
+        ]
+        if from_index == 0 and activation_candidates:
+            horizon_meta = meta.get("horizon_config_used", {}) if isinstance(meta.get("horizon_config_used"), dict) else {}
+            activation = feedback_store.register_activation(
+                base_number=base_number,
+                ordered_candidates=activation_candidates,
+                candidate_positions=meta.get("candidate_positions", {}),
+                horizon_used=resolve_wheel_neighbors_5_horizon(
+                    horizon_meta.get("horizon_used", requested_horizon)
+                ),
+                expected_hit_rate=float(
+                    horizon_meta.get("expected_hit_rate", 0.0)
+                ),
+                history_anchor=[int(n) for n in history[:feedback_anchor_size] if self._is_valid_number(n)],
+                recent_snapshot=meta.get("recent_performance_snapshot", {}),
+            )
+            if activation:
+                meta["feedback_activation"] = {
+                    "activation_id": activation.get("activation_id"),
+                    "status": activation.get("status"),
+                    "created_at": activation.get("created_at"),
+                }
+
+        result["meta"] = meta
+        return result
 
     def _exact_repeat_delayed_counts_and_targets(self, repeated_number: int) -> tuple[List[int], List[int]]:
         repeated_number = int(repeated_number)

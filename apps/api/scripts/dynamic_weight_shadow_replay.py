@@ -255,6 +255,10 @@ def _compute_case_with_engine(
         base_list=base_list_ranked,
         optimized_list=opt_list_ranked,
         optimized_confidence=opt_confidence,
+        optimized_confidence_effective=int(
+            optimized_result.get("confidence_breakdown", {}).get("calibrated_confidence_v2", 0)
+            or opt_confidence
+        ),
         number_details=number_details if isinstance(number_details, list) else [],
         base_confidence_score=base_confidence_score,
         max_size=target_size,

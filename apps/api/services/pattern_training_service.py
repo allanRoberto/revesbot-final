@@ -375,6 +375,11 @@ class PatternTrainingService:
                 base_list=base_list_ranked,
                 optimized_list=opt_ranked,
                 optimized_confidence=int(engine_result.get("confidence", {}).get("score", 0) or 0),
+                optimized_confidence_effective=int(
+                    engine_result.get("confidence_breakdown", {}).get("calibrated_confidence_v2", 0)
+                    or engine_result.get("confidence", {}).get("score", 0)
+                    or 0
+                ),
                 number_details=engine_result.get("number_details", []) if isinstance(engine_result.get("number_details", []), list) else [],
                 base_confidence_score=base_confidence_score,
                 max_size=max(1, min(37, int(optimized_max_numbers))),

@@ -32,6 +32,7 @@ from . import hot_numbers_decay_boost as hot_numbers_decay_boost_module
 from . import high_low_streak_boost as high_low_streak_boost_module
 from . import sleeping_numbers_boost as sleeping_numbers_boost_module
 from . import wheel_sector_momentum as wheel_sector_momentum_module
+from . import wheel_neighbors_5 as wheel_neighbors_5_module
 from . import consecutive_gap_boost as consecutive_gap_boost_module
 from . import wheel_cluster_penalty as wheel_cluster_penalty_module
 from . import finals_pattern_boost as finals_pattern_boost_module
@@ -89,6 +90,7 @@ _EVALUATORS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "high_low_streak_boost": high_low_streak_boost_module.evaluate,
     "sleeping_numbers_boost": sleeping_numbers_boost_module.evaluate,
     "wheel_sector_momentum": wheel_sector_momentum_module.evaluate,
+    "wheel_neighbors_5": wheel_neighbors_5_module.evaluate,
     "consecutive_gap_boost": consecutive_gap_boost_module.evaluate,
     "wheel_cluster_penalty": wheel_cluster_penalty_module.evaluate,
     "finals_pattern_boost": finals_pattern_boost_module.evaluate,

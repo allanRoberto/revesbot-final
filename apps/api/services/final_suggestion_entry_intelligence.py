@@ -110,6 +110,48 @@ class FinalSuggestionEntryIntelligenceService:
         ratio = min(1.5, max(0.0, float(wait_spins) / float(max_wait)))
         return ratio * 18.0
 
+    @staticmethod
+    def _anchor_history(history: Sequence[int], from_index: int, size: int = 8) -> list[int]:
+        values = [int(n) for n in history if 0 <= int(n) <= 36]
+        safe_from_index = max(0, int(from_index))
+        if safe_from_index >= len(values):
+            return []
+        return values[safe_from_index:safe_from_index + max(1, int(size))]
+
+    def _entry_overlap_metrics(
+        self,
+        *,
+        suggestion: Sequence[int],
+        history: Sequence[int],
+        from_index: int,
+        lookback_window: int,
+    ) -> Dict[str, Any]:
+        anchor_history = self._anchor_history(history, from_index, size=max(2, int(lookback_window) + 1))
+        context = [int(n) for n in anchor_history[1:1 + max(1, int(lookback_window))] if 0 <= int(n) <= 36]
+        suggestion_set = {int(n) for n in suggestion if 0 <= int(n) <= 36}
+        overlap_unique = len(set(context).intersection(suggestion_set))
+        overlap_hits = sum(1 for value in context if value in suggestion_set)
+        overlap_ratio = (overlap_unique / max(1, len(suggestion_set))) if suggestion_set else 0.0
+        if overlap_unique <= 0:
+            overlap_group = "0"
+        elif overlap_unique == 1:
+            overlap_group = "1"
+        elif overlap_unique == 2:
+            overlap_group = "2"
+        else:
+            overlap_group = "3+"
+        return {
+            "context": context,
+            "overlap_unique": int(overlap_unique),
+            "overlap_hits": int(overlap_hits),
+            "overlap_ratio": round(overlap_ratio, 4),
+            "overlap_group": overlap_group,
+        }
+
+    @staticmethod
+    def _confidence_segment(confidence_score: int, high_cutoff: int) -> str:
+        return "high" if int(confidence_score) >= max(0, int(high_cutoff)) else "low"
+
     def _build_signal_metrics(
         self,
         *,
@@ -162,12 +204,22 @@ class FinalSuggestionEntryIntelligenceService:
         active_signal: Mapping[str, Any] | None,
         candidate_signal: Mapping[str, Any] | None,
         history: Sequence[int] | None = None,
+        from_index: int = 0,
+        overlap_window: int = 3,
+        high_confidence_cutoff: int = 60,
     ) -> Dict[str, Any]:
-        recent_history = [int(n) for n in (history or []) if 0 <= int(n) <= 36]
+        recent_history = self._anchor_history(history or [], from_index, size=8)
         candidate = dict(candidate_signal or {})
         candidate_list = [int(n) for n in (candidate.get("suggestion") or []) if 0 <= int(n) <= 36]
         candidate_confidence = int(candidate.get("confidence_score", 0) or 0)
         candidate_base_score = float(candidate.get("policy_score", candidate_confidence - (len(candidate_list) * 1.5)))
+        entry_overlap = self._entry_overlap_metrics(
+            suggestion=candidate_list,
+            history=history or [],
+            from_index=from_index,
+            lookback_window=overlap_window,
+        )
+        confidence_segment = self._confidence_segment(candidate_confidence, high_confidence_cutoff)
         candidate_metrics = self._build_signal_metrics(
             suggestion=candidate_list,
             confidence_score=candidate_confidence,
@@ -184,42 +236,63 @@ class FinalSuggestionEntryIntelligenceService:
                 "reason": "Sem sugestão candidata válida.",
                 "score_delta": 0.0,
                 "confidence_delta": 0,
-                "overlap_ratio": 0.0,
+                "overlap_ratio": entry_overlap["overlap_ratio"],
                 "saved_steps_estimate": 0,
+                "recommended_wait_spins": 0,
+                "entry_overlap_unique": entry_overlap["overlap_unique"],
+                "entry_overlap_hits": entry_overlap["overlap_hits"],
+                "entry_overlap_group": entry_overlap["overlap_group"],
+                "entry_confidence_segment": confidence_segment,
                 **candidate_metrics,
             }
 
         if not active_signal:
-            if candidate_metrics["touch_exact"] > 0 or candidate_metrics["touch_near"] > 0 or candidate_metrics["last_distance"] <= 1:
+            overlap_unique = int(entry_overlap["overlap_unique"])
+            if confidence_segment != "high" and overlap_unique >= 3:
                 return {
-                    "action": "enter",
-                    "label": "Entrar Agora",
-                    "reason": "Região da sugestão já foi tocada recentemente e a mesa está alinhada.",
+                    "action": "wait",
+                    "label": "Esperar",
+                    "reason": "Overlap alto com contexto recente antes do gatilho. Melhor aguardar 2 giros.",
                     "score_delta": round(candidate_metrics["score"], 4),
                     "confidence_delta": int(candidate_confidence),
-                    "overlap_ratio": 0.0,
+                    "overlap_ratio": entry_overlap["overlap_ratio"],
                     "saved_steps_estimate": 0,
+                    "recommended_wait_spins": 2,
+                    "entry_overlap_unique": entry_overlap["overlap_unique"],
+                    "entry_overlap_hits": entry_overlap["overlap_hits"],
+                    "entry_overlap_group": entry_overlap["overlap_group"],
+                    "entry_confidence_segment": confidence_segment,
                     **candidate_metrics,
                 }
-            if candidate_metrics["alternating_regions"] and candidate_metrics["region_alignment"] >= 0.35:
+            if confidence_segment != "high" and overlap_unique == 2:
                 return {
-                    "action": "enter",
-                    "label": "Entrar Agora",
-                    "reason": "Mesa alternando entre regiões compatíveis com a sugestão.",
+                    "action": "wait",
+                    "label": "Esperar",
+                    "reason": "Overlap moderado com confidence baixa/média. Melhor aguardar 1 giro.",
                     "score_delta": round(candidate_metrics["score"], 4),
                     "confidence_delta": int(candidate_confidence),
-                    "overlap_ratio": 0.0,
+                    "overlap_ratio": entry_overlap["overlap_ratio"],
                     "saved_steps_estimate": 0,
+                    "recommended_wait_spins": 1,
+                    "entry_overlap_unique": entry_overlap["overlap_unique"],
+                    "entry_overlap_hits": entry_overlap["overlap_hits"],
+                    "entry_overlap_group": entry_overlap["overlap_group"],
+                    "entry_confidence_segment": confidence_segment,
                     **candidate_metrics,
                 }
             return {
-                "action": "wait",
-                "label": "Esperar",
-                "reason": "Mesa ainda não tocou a região da sugestão com força suficiente.",
+                "action": "enter",
+                "label": "Entrar Agora",
+                "reason": "Sugestão liberada pela política de overlap para entrada imediata.",
                 "score_delta": round(candidate_metrics["score"], 4),
                 "confidence_delta": int(candidate_confidence),
-                "overlap_ratio": 0.0,
+                "overlap_ratio": entry_overlap["overlap_ratio"],
                 "saved_steps_estimate": 0,
+                "recommended_wait_spins": 0,
+                "entry_overlap_unique": entry_overlap["overlap_unique"],
+                "entry_overlap_hits": entry_overlap["overlap_hits"],
+                "entry_overlap_group": entry_overlap["overlap_group"],
+                "entry_confidence_segment": confidence_segment,
                 **candidate_metrics,
             }
 
@@ -268,6 +341,11 @@ class FinalSuggestionEntryIntelligenceService:
                 "confidence_delta": int(confidence_delta),
                 "overlap_ratio": round(overlap_ratio, 4),
                 "saved_steps_estimate": 0,
+                "recommended_wait_spins": 0,
+                "entry_overlap_unique": entry_overlap["overlap_unique"],
+                "entry_overlap_hits": entry_overlap["overlap_hits"],
+                "entry_overlap_group": entry_overlap["overlap_group"],
+                "entry_confidence_segment": confidence_segment,
                 **active_metrics,
                 "candidate_last_distance": candidate_metrics["last_distance"],
             }
@@ -281,6 +359,11 @@ class FinalSuggestionEntryIntelligenceService:
                 "confidence_delta": int(confidence_delta),
                 "overlap_ratio": round(overlap_ratio, 4),
                 "saved_steps_estimate": 0,
+                "recommended_wait_spins": 1,
+                "entry_overlap_unique": entry_overlap["overlap_unique"],
+                "entry_overlap_hits": entry_overlap["overlap_hits"],
+                "entry_overlap_group": entry_overlap["overlap_group"],
+                "entry_confidence_segment": confidence_segment,
                 **active_metrics,
                 "candidate_last_distance": candidate_metrics["last_distance"],
             }
@@ -295,6 +378,11 @@ class FinalSuggestionEntryIntelligenceService:
                 "confidence_delta": int(confidence_delta),
                 "overlap_ratio": round(overlap_ratio, 4),
                 "saved_steps_estimate": int(saved_steps),
+                "recommended_wait_spins": 0,
+                "entry_overlap_unique": entry_overlap["overlap_unique"],
+                "entry_overlap_hits": entry_overlap["overlap_hits"],
+                "entry_overlap_group": entry_overlap["overlap_group"],
+                "entry_confidence_segment": confidence_segment,
                 **active_metrics,
                 "candidate_last_distance": candidate_metrics["last_distance"],
                 "candidate_region_alignment": candidate_metrics["region_alignment"],
@@ -309,6 +397,11 @@ class FinalSuggestionEntryIntelligenceService:
                 "confidence_delta": int(confidence_delta),
                 "overlap_ratio": round(overlap_ratio, 4),
                 "saved_steps_estimate": 0,
+                "recommended_wait_spins": 1,
+                "entry_overlap_unique": entry_overlap["overlap_unique"],
+                "entry_overlap_hits": entry_overlap["overlap_hits"],
+                "entry_overlap_group": entry_overlap["overlap_group"],
+                "entry_confidence_segment": confidence_segment,
                 **active_metrics,
                 "candidate_last_distance": candidate_metrics["last_distance"],
             }
@@ -322,6 +415,11 @@ class FinalSuggestionEntryIntelligenceService:
                 "confidence_delta": int(confidence_delta),
                 "overlap_ratio": round(overlap_ratio, 4),
                 "saved_steps_estimate": 1,
+                "recommended_wait_spins": 0,
+                "entry_overlap_unique": entry_overlap["overlap_unique"],
+                "entry_overlap_hits": entry_overlap["overlap_hits"],
+                "entry_overlap_group": entry_overlap["overlap_group"],
+                "entry_confidence_segment": confidence_segment,
                 **active_metrics,
                 "candidate_last_distance": candidate_metrics["last_distance"],
                 "candidate_region_alignment": candidate_metrics["region_alignment"],
@@ -335,6 +433,11 @@ class FinalSuggestionEntryIntelligenceService:
             "confidence_delta": int(confidence_delta),
             "overlap_ratio": round(overlap_ratio, 4),
             "saved_steps_estimate": 0,
+            "recommended_wait_spins": 0,
+            "entry_overlap_unique": entry_overlap["overlap_unique"],
+            "entry_overlap_hits": entry_overlap["overlap_hits"],
+            "entry_overlap_group": entry_overlap["overlap_group"],
+            "entry_confidence_segment": confidence_segment,
             **active_metrics,
             "candidate_last_distance": candidate_metrics["last_distance"],
         }

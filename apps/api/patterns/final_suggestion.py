@@ -190,6 +190,32 @@ def confidence_label_from_score(score: int) -> str:
     return "Baixa"
 
 
+def _resolve_assertive_target_size(
+    requested_target_size: int,
+    effective_optimized_confidence: int,
+    intersection_count: int,
+) -> tuple[int, List[str]]:
+    target_size = max(1, int(requested_target_size))
+    reasons: List[str] = []
+
+    if target_size <= 9:
+        return target_size, reasons
+
+    resolved = target_size
+    if effective_optimized_confidence < 50:
+        resolved = min(resolved, 8)
+        reasons.append("confidence_lt_50")
+    elif effective_optimized_confidence < 60:
+        resolved = min(resolved, 9)
+        reasons.append("confidence_lt_60")
+
+    if intersection_count <= 3 and effective_optimized_confidence < 70:
+        resolved = min(resolved, max(6, target_size - 2))
+        reasons.append("low_intersection")
+
+    return max(1, resolved), reasons
+
+
 def _circular_distance_on_wheel(a_idx: int, b_idx: int) -> int:
     wheel_len = len(ROULETTE_EUROPEAN_NUMBERS)
     raw = abs(a_idx - b_idx)
@@ -782,6 +808,7 @@ def build_final_suggestion(
     base_list: List[int],
     optimized_list: List[int],
     optimized_confidence: int,
+    optimized_confidence_effective: int | None = None,
     number_details: List[Dict[str, Any]],
     base_confidence_score: int,
     max_size: int,
@@ -797,7 +824,7 @@ def build_final_suggestion(
 ) -> Dict[str, Any]:
     base_numbers = [int(n) for n in base_list if isinstance(n, int)]
     opt_numbers = [int(n) for n in optimized_list if isinstance(n, int)]
-    target_size = max(1, min(37, int(max_size)))
+    requested_target_size = max(1, min(37, int(max_size)))
     all_numbers = set(base_numbers).union(opt_numbers)
     if not all_numbers:
         return {
@@ -837,6 +864,16 @@ def build_final_suggestion(
     opt_range = (max_opt_score - min_opt_score) or 1.0
     intersection = {n for n in base_numbers if n in opt_pos}
     inv_set: Set[int] = inversion_analysis["inverted_numbers"]
+    effective_optimized_confidence = int(
+        optimized_confidence
+        if optimized_confidence_effective is None
+        else optimized_confidence_effective
+    )
+    target_size, assertiveness_reasons = _resolve_assertive_target_size(
+        requested_target_size=requested_target_size,
+        effective_optimized_confidence=effective_optimized_confidence,
+        intersection_count=len(intersection),
+    )
 
     ranked: List[Dict[str, Any]] = []
     for n in all_numbers:
@@ -896,7 +933,7 @@ def build_final_suggestion(
     overlap_ratio = (overlap_in_final / len(final_list)) if final_list else 0.0
     intersection_bonus = _js_round(overlap_ratio * 12.0)
     merged_raw = (
-        (float(optimized_confidence) * optimized_weight)
+        (float(effective_optimized_confidence) * optimized_weight)
         + (float(base_confidence_score) * base_weight)
         + float(intersection_bonus)
     )
@@ -927,6 +964,11 @@ def build_final_suggestion(
         "explanation": (
             f"Fusão {base_pct_text}/{opt_pct_text} com bônus de interseção ({overlap_in_final}/{len(final_list)})."
             + (
+                f" Compactação por assertividade: {requested_target_size}->{target_size}."
+                if target_size != requested_target_size
+                else ""
+            )
+            + (
                 f" Compactação em blocos aplicada (+{len(block_compaction['added'])}/-{len(block_compaction['removed'])})."
                 if bool(block_bets_enabled) and bool(block_compaction["changed"])
                 else ""
@@ -935,8 +977,15 @@ def build_final_suggestion(
         "breakdown": {
             "base_weight": base_weight,
             "optimized_weight": optimized_weight,
+            "optimized_confidence_raw": int(optimized_confidence),
+            "optimized_confidence_effective": int(effective_optimized_confidence),
+            "confidence_source": "optimized_confidence_effective" if optimized_confidence_effective is not None else "optimized_confidence_raw",
             "overlap_ratio": round(overlap_ratio, 3),
             "intersection_bonus": intersection_bonus,
+            "requested_target_size": requested_target_size,
+            "effective_target_size": target_size,
+            "assertiveness_compaction_applied": bool(target_size != requested_target_size),
+            "assertiveness_reasons": list(assertiveness_reasons),
             "inversion_penalized": len(inv_set),
             "pulled_bonus": len(pulled_in_final),
             "block_bets_enabled": bool(block_bets_enabled),

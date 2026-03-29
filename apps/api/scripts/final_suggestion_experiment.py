@@ -67,6 +67,9 @@ VARIANT_C = VariantConfig(
     keep_base_ranking_for_engine=True,
 )
 
+DEFAULT_DATASET_PATH = REPO_ROOT / "apps" / "signals" / "helpers" / "results.json"
+DEFAULT_SNAPSHOT_DIR = REPO_ROOT / "apps" / "api" / "data" / "confidence_history_snapshots"
+
 
 def _safe_div(num: float, den: float) -> float:
     if den <= 0:
@@ -89,6 +92,24 @@ def _sanitize_history(raw: Any) -> List[int]:
 
 
 def _load_histories(dataset_path: Path) -> List[List[int]]:
+    if not dataset_path.exists() and dataset_path == DEFAULT_DATASET_PATH and DEFAULT_SNAPSHOT_DIR.exists():
+        dataset_path = DEFAULT_SNAPSHOT_DIR
+
+    if dataset_path.is_dir():
+        histories: List[List[int]] = []
+        for path in sorted(dataset_path.glob("*.json")):
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if isinstance(raw, dict):
+                history = _sanitize_history(raw.get("history"))
+                if not history:
+                    history = _sanitize_history(raw.get("results"))
+                if history:
+                    histories.append(history)
+        return histories
+
     raw = json.loads(dataset_path.read_text(encoding="utf-8"))
     histories: List[List[int]] = []
 
@@ -270,6 +291,10 @@ async def _compute_variant_final_suggestion(
         base_list=base_list_ranked if preserve_score_ranking else base_list_for_engine,
         optimized_list=opt_list_ranked if preserve_score_ranking else opt_list_sorted,
         optimized_confidence=opt_confidence,
+        optimized_confidence_effective=int(
+            optimized_result.get("confidence_breakdown", {}).get("calibrated_confidence_v2", 0)
+            or opt_confidence
+        ),
         number_details=number_details if isinstance(number_details, list) else [],
         base_confidence_score=base_confidence_score,
         max_size=target_size,
@@ -583,7 +608,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=REPO_ROOT / "apps" / "signals" / "helpers" / "results.json",
+        default=DEFAULT_DATASET_PATH,
         help="Arquivo JSON com histórico(s) para replay.",
     )
     parser.add_argument("--min-history", type=int, default=12)

@@ -1,0 +1,25 @@
+{
+  "id": "wheel_neighbors_5",
+  "name": "Wheel Neighbors 5",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 74,
+  "weight": 8.0,
+  "evaluator": "wheel_neighbors_5",
+  "max_numbers": 11,
+  "params": {
+    "wheel_window": 5,
+    "default_horizon_spins": 8,
+    "horizon_spins": 8,
+    "recent_window_size": 100,
+    "feedback_anchor_size": 12,
+    "dynamic_weight_min": 0.85,
+    "dynamic_weight_max": 2.1,
+    "prior_strength": 25,
+    "historical_early_index": 0.504969,
+    "adaptive": {
+      "enabled": false
+    }
+  }
+}

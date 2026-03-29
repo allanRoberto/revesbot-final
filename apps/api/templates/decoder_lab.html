@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decoder Lab</title>
+    <style>
+        :root {
+            --bg: #08111f;
+            --panel: rgba(10, 20, 36, 0.84);
+            --panel-2: rgba(14, 26, 44, 0.92);
+            --line: rgba(148, 163, 184, 0.18);
+            --text: #e6eef9;
+            --muted: #a6b4cf;
+            --green: #22c55e;
+            --blue: #38bdf8;
+            --amber: #f59e0b;
+            --red: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: "Segoe UI", system-ui, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 32%),
+                radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 34%),
+                linear-gradient(180deg, #06101c 0%, #0b1528 45%, #0d1420 100%);
+        }
+
+        .shell {
+            max-width: 1480px;
+            margin: 0 auto;
+            padding: 28px 18px 54px;
+        }
+
+        .hero,
+        .panel,
+        .stat-card {
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: var(--panel);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+        }
+
+        .hero {
+            padding: 28px;
+            margin-bottom: 18px;
+            background:
+                linear-gradient(135deg, rgba(8, 18, 31, 0.96), rgba(16, 30, 52, 0.92));
+        }
+
+        .hero h1 {
+            margin: 0 0 10px;
+            font-size: 2.2rem;
+        }
+
+        .hero p,
+        .muted,
+        li {
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .hero-grid,
+        .controls,
+        .summary,
+        .content,
+        .mini-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .hero-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            margin-top: 20px;
+        }
+
+        .method {
+            padding: 16px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .method h3,
+        .panel h2,
+        .panel h3 {
+            margin: 0 0 8px;
+        }
+
+        .controls {
+            grid-template-columns: 1.25fr 1fr 1fr;
+            margin-bottom: 18px;
+        }
+
+        .content {
+            grid-template-columns: 1.2fr 0.8fr;
+        }
+
+        .panel {
+            padding: 20px;
+        }
+
+        .summary {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            margin-bottom: 18px;
+        }
+
+        .stat-card {
+            padding: 16px;
+        }
+
+        .stat-card .label {
+            color: var(--muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-top: 10px;
+        }
+
+        .mini-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #c8d5eb;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 11px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: #08101c;
+            color: var(--text);
+            font-size: 0.98rem;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: rgba(56, 189, 248, 0.7);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .checkbox-row input {
+            width: auto;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            color: #05110a;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        .btn-secondary {
+            color: white;
+            background: linear-gradient(135deg, #38bdf8, #2563eb);
+        }
+
+        .status {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            color: var(--muted);
+        }
+
+        .pill-row,
+        .wheel-strip {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .number-pill,
+        .label-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            border-radius: 999px;
+            padding: 8px 11px;
+            font-weight: 800;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .number-pill.red { background: #821d31; color: #fff3f5; }
+        .number-pill.black { background: #1f2937; color: #f8fafc; }
+        .number-pill.green { background: #166534; color: #ebfff2; }
+        .number-pill.primary { box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.55); }
+        .number-pill.hot { box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.55); }
+
+        .label-pill {
+            background: rgba(56, 189, 248, 0.12);
+            color: #c6eeff;
+            font-size: 0.84rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+            text-align: left;
+            font-size: 0.93rem;
+        }
+
+        th {
+            color: #d5e4ff;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.8rem;
+        }
+
+        .score-bar {
+            min-width: 120px;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        .score-bar span {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8, #22c55e);
+        }
+
+        .episode-card {
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .section-hidden { display: none; }
+
+        @media (max-width: 980px) {
+            .controls,
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <section class="hero">
+            <h1>Decoder Lab</h1>
+            <p>
+                Este laboratório tenta inferir o estado interno da roleta, em vez de procurar uma sequência fixa.
+                A previsão parte do estado atual, procura episódios históricos parecidos, identifica regimes recorrentes
+                e projeta os próximos horizontes por similaridade, lift e concentração na roda.
+            </p>
+
+            <div class="hero-grid">
+                <div class="method">
+                    <h3>State Fingerprint</h3>
+                    <p>Transforma os últimos números em uma assinatura com deltas na roda, direção, setores, terminais e atributos.</p>
+                </div>
+                <div class="method">
+                    <h3>Nearest Episodes</h3>
+                    <p>Busca episódios antigos com estado semelhante e usa o futuro deles como memória operacional.</p>
+                </div>
+                <div class="method">
+                    <h3>Regime Decoder</h3>
+                    <p>Classifica o momento atual em regimes como cluster de setor, wide jumps, short hops e rotação de cor.</p>
+                </div>
+                <div class="method">
+                    <h3>Forecast por horizonte</h3>
+                    <p>Gera ranking para 1, 3, 5 e 8 giros, e só sugere quando o conjunto atual mostra concentração suficiente.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls">
+            <div class="panel">
+                <h2>Estado atual</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="rouletteSelect">Roleta</label>
+                        <select id="rouletteSelect"></select>
+                    </div>
+                    <div>
+                        <label for="stateNumbers">Estado manual opcional</label>
+                        <input id="stateNumbers" placeholder="Ex.: 19, 36, 15, 4, 13, 29" />
+                    </div>
+                    <div>
+                        <label for="stateWindow">Janela do estado</label>
+                        <input id="stateWindow" type="number" min="3" max="10" value="6" />
+                    </div>
+                    <div>
+                        <label for="futureHorizon">Horizonte principal</label>
+                        <select id="futureHorizon">
+                            <option value="3">3</option>
+                            <option value="5" selected>5</option>
+                            <option value="8">8</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <input id="ignoreRecentEpisode" type="checkbox" checked />
+                    <label for="ignoreRecentEpisode" style="margin:0;text-transform:none;letter-spacing:0;">Excluir o episódio histórico mais recente do banco de comparação</label>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Motor de busca</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="episodeLimit">Máximo de episódios</label>
+                        <input id="episodeLimit" type="number" min="12" max="200" value="80" />
+                    </div>
+                    <div>
+                        <label for="similarityThreshold">Threshold de similaridade</label>
+                        <input id="similarityThreshold" type="number" min="0.3" max="0.9" step="0.01" value="0.54" />
+                    </div>
+                    <div>
+                        <label for="validationRatio">Holdout</label>
+                        <input id="validationRatio" type="number" min="0.05" max="0.45" step="0.05" value="0.25" />
+                    </div>
+                    <div>
+                        <label for="minSupport">Suporte mínimo</label>
+                        <input id="minSupport" type="number" min="1" max="20" value="3" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Escopo</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="daysBack">Dias para trás</label>
+                        <input id="daysBack" type="number" min="1" max="365" value="45" />
+                    </div>
+                    <div>
+                        <label for="maxRecords">Máximo de giros</label>
+                        <input id="maxRecords" type="number" min="300" max="25000" step="100" value="6000" />
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn-primary" id="analyzeBtn">Decodificar estado</button>
+                    <button class="btn-secondary" id="sampleBtn">Carregar exemplo</button>
+                </div>
+                <div class="status" id="statusBox">Aguardando execução.</div>
+            </div>
+        </section>
+
+        <section class="summary section-hidden" id="summarySection"></section>
+
+        <section class="content section-hidden" id="contentSection">
+            <div class="panel">
+                <h2>Leitura do estado atual</h2>
+                <p class="muted" id="stateMeta"></p>
+                <h3>Números do estado</h3>
+                <div class="pill-row" id="stateNumbersPills"></div>
+                <div class="mini-grid" style="margin-top:16px;" id="stateMetrics"></div>
+                <h3 style="margin-top:16px;">Regimes ativos</h3>
+                <div class="pill-row" id="regimePills"></div>
+                <h3 style="margin-top:16px;">Hotspot da roda</h3>
+                <p class="muted" id="hotspotMeta"></p>
+                <div class="wheel-strip" id="wheelStrip"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Sugestão experimental</h2>
+                <p class="muted" id="suggestionMeta"></p>
+                <h3>Primários</h3>
+                <div class="pill-row" id="primaryNumbers"></div>
+                <h3 style="margin-top:16px;">Secundários</h3>
+                <div class="pill-row" id="secondaryNumbers"></div>
+                <div class="panel" style="margin-top:16px;background:rgba(255,255,255,0.03);padding:14px;">
+                    <h3>Racional</h3>
+                    <ul id="rationaleList"></ul>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Forecast por horizonte</h2>
+                <div class="mini-grid" id="horizonCards"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Top candidatos do horizonte principal</h2>
+                <div style="overflow:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Score</th>
+                                <th>Similaridade</th>
+                                <th>Cobertura</th>
+                                <th>Lift</th>
+                                <th>Holdout</th>
+                            </tr>
+                        </thead>
+                        <tbody id="candidateTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Episódios mais parecidos</h2>
+                <div class="mini-grid" id="episodeList"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Viés temporal</h2>
+                <div style="overflow:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Episódios</th>
+                                <th>Lift</th>
+                                <th>Share</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hourTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Transições do último número</h2>
+                <div class="pill-row" id="transitionPills"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Distribuição de regimes nos episódios parecidos</h2>
+                <div class="pill-row" id="regimeDistribution"></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+        const EURO_WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+
+        const rouletteSelect = document.getElementById('rouletteSelect');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const sampleBtn = document.getElementById('sampleBtn');
+        const statusBox = document.getElementById('statusBox');
+
+        function colorClass(number) {
+            if (number === 0) return 'green';
+            return RED_NUMBERS.has(number) ? 'red' : 'black';
+        }
+
+        function numberPill(number, extraClass = '') {
+            return `<span class="number-pill ${colorClass(number)} ${extraClass}">${number}</span>`;
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function setStatus(text, tone = 'default') {
+            const background = {
+                default: 'rgba(255,255,255,0.03)',
+                loading: 'rgba(56,189,248,0.12)',
+                success: 'rgba(34,197,94,0.12)',
+                error: 'rgba(239,68,68,0.12)',
+            };
+            statusBox.style.background = background[tone] || background.default;
+            statusBox.textContent = text;
+        }
+
+        async function loadRoulettes() {
+            rouletteSelect.innerHTML = '<option>Carregando...</option>';
+            try {
+                const response = await fetch('/api/roulettes-list');
+                const data = await response.json();
+                rouletteSelect.innerHTML = '';
+                for (const roulette of data) {
+                    const option = document.createElement('option');
+                    option.value = roulette.id;
+                    option.textContent = `${roulette.id} (${roulette.count})`;
+                    if (roulette.id === 'pragmatic-brazilian-roulette') {
+                        option.selected = true;
+                    }
+                    rouletteSelect.appendChild(option);
+                }
+            } catch (error) {
+                rouletteSelect.innerHTML = '<option value="pragmatic-brazilian-roulette">pragmatic-brazilian-roulette</option>';
+                setStatus(`Falha ao carregar roletas: ${error.message}`, 'error');
+            }
+        }
+
+        function buildPayload() {
+            const rawState = document.getElementById('stateNumbers').value
+                .split(',')
+                .map((value) => value.trim())
+                .filter(Boolean)
+                .map((value) => Number(value));
+
+            return {
+                roulette_id: rouletteSelect.value,
+                state_numbers: rawState,
+                state_window: Number(document.getElementById('stateWindow').value),
+                future_horizon: Number(document.getElementById('futureHorizon').value),
+                ignore_last_occurrence: document.getElementById('ignoreRecentEpisode').checked,
+                days_back: Number(document.getElementById('daysBack').value),
+                max_records: Number(document.getElementById('maxRecords').value),
+                validation_ratio: Number(document.getElementById('validationRatio').value),
+                min_support: Number(document.getElementById('minSupport').value),
+                top_k: 12,
+                episode_limit: Number(document.getElementById('episodeLimit').value),
+                similarity_threshold: Number(document.getElementById('similarityThreshold').value),
+            };
+        }
+
+        function renderSummary(result) {
+            const summary = result.summary;
+            const cards = [
+                ['Episódios no banco', summary.total_episodes],
+                ['Episódios parecidos', summary.matched_episodes],
+                ['Holdout', summary.holdout_episodes],
+                ['Confiança', `${result.suggestion.confidence.score} / ${result.suggestion.confidence.label}`],
+                ['Modo', summary.selection_mode],
+                ['Horizonte', `${summary.future_horizon} giros`],
+            ];
+            document.getElementById('summarySection').innerHTML = cards.map(([label, value]) => `
+                <div class="stat-card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(value)}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderCurrentState(result) {
+            const state = result.current_state;
+            document.getElementById('stateMeta').textContent =
+                `Fonte do estado: ${state.source} | janela ${state.numbers.length} | regimes ${state.active_regimes.join(', ') || 'nenhum'}`;
+            document.getElementById('stateNumbersPills').innerHTML = state.numbers.map((number) => numberPill(number)).join('');
+
+            const metricCards = [
+                ['Delta médio', state.mean_abs_delta ?? 0],
+                ['Span na roda', state.sector_span ?? 0],
+                ['Mudança de direção', `${((state.direction_change_rate || 0) * 100).toFixed(1)}%`],
+                ['Alternância de cor', `${((state.color_alternation_rate || 0) * 100).toFixed(1)}%`],
+                ['Gap médio', state.avg_gap_sec == null ? 'n/a' : `${state.avg_gap_sec}s`],
+                ['Hora', state.hour == null ? 'n/a' : `${String(state.hour).padStart(2, '0')}:00`],
+            ];
+            document.getElementById('stateMetrics').innerHTML = metricCards.map(([label, value]) => `
+                <div class="stat-card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value" style="font-size:1.5rem;">${escapeHtml(value)}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('regimePills').innerHTML = (state.active_regimes || []).map((label) => `
+                <span class="label-pill">${escapeHtml(label)}</span>
+            `).join('');
+
+            const hotspot = state.hotspot || {};
+            document.getElementById('hotspotMeta').textContent =
+                hotspot.center == null
+                    ? 'Sem hotspot nítido no estado atual.'
+                    : `Centro ${hotspot.center} | setor ${hotspot.numbers.join(', ')} | massa ${hotspot.sector_sum}`;
+            const primarySet = new Set(result.suggestion.primary_numbers || []);
+            const hotSet = new Set(hotspot.numbers || []);
+            document.getElementById('wheelStrip').innerHTML = EURO_WHEEL.map((number) => {
+                const classes = [];
+                if (primarySet.has(number)) classes.push('primary');
+                if (hotSet.has(number)) classes.push('hot');
+                return numberPill(number, classes.join(' '));
+            }).join('');
+        }
+
+        function renderSuggestion(result) {
+            document.getElementById('suggestionMeta').textContent =
+                `Roleta ${result.summary.roulette_id} | threshold ${result.summary.similarity_threshold} | episódio limite ${result.summary.episode_limit}`;
+            document.getElementById('primaryNumbers').innerHTML = (result.suggestion.primary_numbers || []).map((number) => numberPill(number, 'primary')).join('');
+            document.getElementById('secondaryNumbers').innerHTML = (result.suggestion.secondary_numbers || []).map((number) => numberPill(number)).join('');
+            document.getElementById('rationaleList').innerHTML = (result.suggestion.rationale || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+        }
+
+        function renderHorizonCards(result) {
+            const entries = Object.values(result.horizon_rankings || {});
+            document.getElementById('horizonCards').innerHTML = entries.map((entry) => {
+                const top = (entry.candidates || []).slice(0, 4).map((candidate) => candidate.number).join(', ');
+                const center = entry.hotspot?.center == null ? 'n/a' : entry.hotspot.center;
+                return `
+                    <div class="stat-card">
+                        <div class="label">Horizonte ${entry.horizon}</div>
+                        <div class="value" style="font-size:1.45rem;">${escapeHtml(top || 'sem sinal')}</div>
+                        <div class="muted">Hotspot ${escapeHtml(center)}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCandidates(result) {
+            const rows = (result.top_candidates || []).map((candidate) => `
+                <tr>
+                    <td>${numberPill(candidate.number)}</td>
+                    <td>
+                        <div class="score-bar"><span style="width:${Math.max(4, candidate.final_score * 100)}%"></span></div>
+                        <div class="muted">${candidate.final_score.toFixed(4)}</div>
+                    </td>
+                    <td>${(candidate.similarity_support * 100).toFixed(1)}%</td>
+                    <td>${(candidate.coverage * 100).toFixed(1)}%</td>
+                    <td>${candidate.lift_ratio.toFixed(2)}</td>
+                    <td>${(candidate.holdout_hit_rate * 100).toFixed(1)}%</td>
+                </tr>
+            `).join('');
+            document.getElementById('candidateTable').innerHTML = rows;
+        }
+
+        function renderEpisodes(result) {
+            document.getElementById('episodeList').innerHTML = (result.similar_episodes || []).map((episode) => `
+                <div class="episode-card">
+                    <div class="muted">${escapeHtml(episode.end_timestamp)} | similaridade ${(episode.similarity * 100).toFixed(1)}%</div>
+                    <div style="margin-top:10px;">
+                        <div class="muted">Estado</div>
+                        <div class="pill-row">${episode.state_numbers.map((number) => numberPill(number)).join('')}</div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <div class="muted">Futuro</div>
+                        <div class="pill-row">${episode.future_numbers.map((number) => numberPill(number)).join('')}</div>
+                    </div>
+                    <div style="margin-top:10px;" class="pill-row">
+                        ${(episode.active_regimes || []).map((label) => `<span class="label-pill">${escapeHtml(label)}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderHours(result) {
+            document.getElementById('hourTable').innerHTML = (result.time_leakage?.top_hours || []).map((row) => `
+                <tr>
+                    <td>${String(row.hour).padStart(2, '0')}:00</td>
+                    <td>${row.matched_episodes}</td>
+                    <td>${row.lift.toFixed(2)}</td>
+                    <td>${(row.selected_share * 100).toFixed(1)}%</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderTransitions(result) {
+            document.getElementById('transitionPills').innerHTML = (result.transition_snapshot?.top_transitions || []).map((entry) => `
+                <span class="number-pill ${colorClass(entry.number)}">
+                    ${entry.number} (${(entry.rate * 100).toFixed(1)}%)
+                </span>
+            `).join('');
+        }
+
+        function renderRegimeDistribution(result) {
+            document.getElementById('regimeDistribution').innerHTML = (result.regime_snapshot?.matched_distribution || []).map((item) => `
+                <span class="label-pill">${escapeHtml(item.label)} ${(item.share * 100).toFixed(1)}%</span>
+            `).join('');
+        }
+
+        async function runAnalysis() {
+            const payload = buildPayload();
+            if (payload.state_numbers.some((value) => Number.isNaN(value))) {
+                setStatus('Estado manual inválido. Use números separados por vírgula.', 'error');
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            setStatus('Construindo estado atual e buscando episódios parecidos...', 'loading');
+
+            try {
+                const response = await fetch('/api/decoder-lab/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.detail || 'Falha ao executar análise.');
+                }
+
+                document.getElementById('summarySection').classList.remove('section-hidden');
+                document.getElementById('contentSection').classList.remove('section-hidden');
+
+                renderSummary(result);
+                renderCurrentState(result);
+                renderSuggestion(result);
+                renderHorizonCards(result);
+                renderCandidates(result);
+                renderEpisodes(result);
+                renderHours(result);
+                renderTransitions(result);
+                renderRegimeDistribution(result);
+
+                const validation = result.validation_snapshot || {};
+                setStatus(
+                    `Decodificação concluída com ${result.summary.matched_episodes} episódios parecidos. Holdout similar: ${validation.holdout_matches || 0}.`,
+                    'success'
+                );
+            } catch (error) {
+                setStatus(`Erro: ${error.message}`, 'error');
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        analyzeBtn.addEventListener('click', runAnalysis);
+        sampleBtn.addEventListener('click', () => {
+            document.getElementById('stateNumbers').value = '19, 36, 15, 4, 13, 29';
+            document.getElementById('stateWindow').value = '6';
+            document.getElementById('futureHorizon').value = '5';
+            document.getElementById('episodeLimit').value = '80';
+            document.getElementById('similarityThreshold').value = '0.54';
+            document.getElementById('validationRatio').value = '0.25';
+            document.getElementById('daysBack').value = '45';
+            document.getElementById('maxRecords').value = '6000';
+            document.getElementById('minSupport').value = '3';
+            document.getElementById('ignoreRecentEpisode').checked = true;
+        });
+
+        loadRoulettes();
+    </script>
+</body>
+</html>

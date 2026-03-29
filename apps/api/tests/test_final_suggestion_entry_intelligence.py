@@ -71,3 +71,25 @@ def test_switches_when_candidate_aligns_better_after_wait() -> None:
 
     assert decision["action"] == "switch"
     assert decision["candidate_last_distance"] <= decision["last_distance"]
+
+
+def test_waits_on_overlap_policy_for_low_confidence_candidate() -> None:
+    service = FinalSuggestionEntryIntelligenceService()
+
+    decision = service.recommend(
+        active_signal=None,
+        candidate_signal={
+            "suggestion": [4, 9, 15, 22],
+            "confidence_score": 58,
+            "suggestion_size": 4,
+            "policy_score": 52.0,
+        },
+        history=[4, 15, 22, 9, 31, 18, 7],
+        from_index=0,
+        overlap_window=3,
+        high_confidence_cutoff=60,
+    )
+
+    assert decision["action"] == "wait"
+    assert decision["recommended_wait_spins"] == 2
+    assert decision["entry_overlap_group"] == "3+"

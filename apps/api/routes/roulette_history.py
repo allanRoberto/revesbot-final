@@ -117,7 +117,7 @@ async def get_history_detailed(
                 continue
 
             processed_results.append({
-                "_id": doc["_id"],
+                "_id": str(doc["_id"]) if doc.get("_id") is not None else None,
                 "roulette_id": doc["roulette_id"],
                 "roulette_name": doc["roulette_name"],
                 "value": doc["value"],

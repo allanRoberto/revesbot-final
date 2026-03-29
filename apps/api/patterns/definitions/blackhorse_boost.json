@@ -9,8 +9,19 @@
   "evaluator": "blackhorse_boost",
   "max_numbers": 14,
   "params": {
-    "triggers": [10, 20, 30],
-    "noise_values": [11, 22, 33, 10, 20, 30],
+    "triggers": [
+      10,
+      20,
+      30
+    ],
+    "noise_values": [
+      11,
+      22,
+      33,
+      10,
+      20,
+      30
+    ],
     "include_zero": true,
     "include_protection": true,
     "adaptive": {

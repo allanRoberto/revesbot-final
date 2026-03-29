@@ -61,3 +61,51 @@ def test_adds_neighbor_for_isolated_number_and_removes_lower_ranked_number() -> 
     assert any(n in result["list"] for n in (23, 30))
     assert 31 not in result["list"]
     assert result["breakdown"]["block_compaction_applied"] is True
+
+
+def test_uses_effective_optimized_confidence_when_provided() -> None:
+    result = build_final_suggestion(
+        base_list=[4, 2, 30, 14],
+        optimized_list=[4, 2, 30, 14],
+        optimized_confidence=92,
+        optimized_confidence_effective=61,
+        number_details=[],
+        base_confidence_score=68,
+        max_size=4,
+        history_arr=[],
+        from_index=0,
+        pulled_counts={},
+        base_weight=0.5,
+        optimized_weight=0.5,
+        block_bets_enabled=False,
+        inversion_enabled=False,
+    )
+
+    assert result["confidence"]["score"] == 77
+    assert result["breakdown"]["optimized_confidence_raw"] == 92
+    assert result["breakdown"]["optimized_confidence_effective"] == 61
+
+
+def test_applies_assertiveness_compaction_on_low_effective_confidence() -> None:
+    result = build_final_suggestion(
+        base_list=[1, 2, 3, 4, 5, 6],
+        optimized_list=[7, 8, 9, 10, 11, 12],
+        optimized_confidence=92,
+        optimized_confidence_effective=48,
+        number_details=[],
+        base_confidence_score=52,
+        max_size=12,
+        history_arr=[],
+        from_index=0,
+        pulled_counts={},
+        base_weight=0.5,
+        optimized_weight=0.5,
+        block_bets_enabled=False,
+        inversion_enabled=False,
+    )
+
+    assert len(result["list"]) == 8
+    assert result["breakdown"]["requested_target_size"] == 12
+    assert result["breakdown"]["effective_target_size"] == 8
+    assert result["breakdown"]["assertiveness_compaction_applied"] is True
+    assert "confidence_lt_50" in result["breakdown"]["assertiveness_reasons"]

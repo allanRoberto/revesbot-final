@@ -31,6 +31,12 @@ class AssertivenessReplayRequest(BaseModel):
     inversion_enabled: bool = True
     inversion_context_window: int = 15
     inversion_penalty_factor: float = 0.3
+    entry_policy_enabled: bool = True
+    entry_policy_overlap_window: int = 3
+    entry_policy_high_confidence_cutoff: int = 60
+    final_gate_require_optimized: bool = True
+    final_gate_use_confidence_v2: bool = True
+    final_gate_min_confidence: int = 40
 
 
 @router.post("/api/assertiveness/replay")
@@ -56,6 +62,12 @@ async def replay_assertiveness(payload: AssertivenessReplayRequest) -> Dict:
                 inversion_enabled=payload.inversion_enabled,
                 inversion_context_window=payload.inversion_context_window,
                 inversion_penalty_factor=payload.inversion_penalty_factor,
+                entry_policy_enabled=payload.entry_policy_enabled,
+                entry_policy_overlap_window=payload.entry_policy_overlap_window,
+                entry_policy_high_confidence_cutoff=payload.entry_policy_high_confidence_cutoff,
+                final_gate_require_optimized=payload.final_gate_require_optimized,
+                final_gate_use_confidence_v2=payload.final_gate_use_confidence_v2,
+                final_gate_min_confidence=payload.final_gate_min_confidence,
             )
             return await _compute_final_suggestion(request_payload)
 

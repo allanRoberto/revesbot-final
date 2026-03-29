@@ -100,3 +100,15 @@ async def monitor_page(request: Request):
 async def pattern_training_page():
     with open(os.path.join(templates_dir, "pattern_training.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/decoder-lab", response_class=HTMLResponse)
+async def decoder_lab_page():
+    with open(os.path.join(templates_dir, "decoder_lab.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/decoder-monitor", response_class=HTMLResponse)
+async def decoder_monitor_page():
+    with open(os.path.join(templates_dir, "decoder_monitor.html"), "r", encoding="utf-8") as f:
+        return f.read()

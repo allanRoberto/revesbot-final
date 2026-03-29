@@ -305,6 +305,7 @@
     font-weight: 600;
     color: white;
     font-size: 0.9rem;
+    cursor: help;
   }
 
   .suggestion-cell.red { background: var(--roulette-red); }
@@ -2096,7 +2097,7 @@
     const displayList = [...suggestion].sort((a, b) => a - b);
 
     suggestionGrid.innerHTML = displayList
-      .map(n => `<div class="suggestion-cell ${getColor(n)}">${n}</div>`)
+      .map((n) => `<div class="suggestion-cell ${getColor(n)}">${n}</div>`)
       .join('');
 
     const labelClass = (confidence.label || 'baixa').toLowerCase().replace(/\s+/g, '-');
@@ -2281,7 +2282,7 @@
       history_head: rouletteHistory.slice(0, 10),
     });
 
-    updateSuggestionDisplay(suggestion.list, suggestion.confidence, suggestion.confidenceV2);
+    updateSuggestionDisplay(suggestion.list, suggestion.confidence, suggestion.confidenceV2, '');
     updatePolicyDisplay(policy);
     updateCycleLiveSummary();
     updateAttemptsIndicator();

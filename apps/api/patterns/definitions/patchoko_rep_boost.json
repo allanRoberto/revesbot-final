@@ -1,6 +1,6 @@
 {
   "id": "patchoko_rep_boost",
-  "name": "Patchoko Repetição",
+  "name": "Patchoko Repeti\u00e7\u00e3o",
   "kind": "positive",
   "version": "1.0.0",
   "active": true,
@@ -9,7 +9,23 @@
   "evaluator": "patchoko_rep_boost",
   "max_numbers": 15,
   "params": {
-    "cavalo_0369": [0, 3, 6, 9, 10, 13, 16, 19, 20, 23, 26, 29, 30, 33, 36],
+    "cavalo_0369": [
+      0,
+      3,
+      6,
+      9,
+      10,
+      13,
+      16,
+      19,
+      20,
+      23,
+      26,
+      29,
+      30,
+      33,
+      36
+    ],
     "include_neighbors": false,
     "enforce_presence": true,
     "min_keep": 5,
