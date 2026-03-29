@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Shadow Monitor</title>
+    <style>
+        :root {
+            --bg: #08111f;
+            --panel: rgba(10, 20, 36, 0.84);
+            --line: rgba(148, 163, 184, 0.18);
+            --text: #e6eef9;
+            --muted: #a6b4cf;
+            --green: #22c55e;
+            --blue: #38bdf8;
+            --amber: #f59e0b;
+            --red: #ef4444;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: "Segoe UI", system-ui, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 32%),
+                radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 34%),
+                linear-gradient(180deg, #06101c 0%, #0b1528 45%, #0d1420 100%);
+        }
+        .shell { max-width: 1540px; margin: 0 auto; padding: 28px 18px 54px; }
+        .hero, .panel, .stat-card, .card {
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: var(--panel);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+        }
+        .hero { padding: 28px; margin-bottom: 18px; background: linear-gradient(135deg, rgba(8, 18, 31, 0.96), rgba(16, 30, 52, 0.92)); }
+        .hero h1, .panel h2, .panel h3 { margin: 0 0 10px; }
+        .hero p, .muted, li { color: var(--muted); line-height: 1.55; }
+        .grid, .controls, .summary, .content, .mini-grid { display: grid; gap: 16px; }
+        .grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 20px; }
+        .controls { grid-template-columns: 1.15fr 1fr 1fr; margin-bottom: 18px; }
+        .summary { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 18px; }
+        .content { grid-template-columns: 1.15fr 0.85fr; }
+        .mini-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+        .panel { padding: 20px; }
+        .card { padding: 16px; background: rgba(255,255,255,0.03); border-radius: 18px; }
+        .stat-card { padding: 16px; }
+        .stat-card .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; }
+        .stat-card .value { font-size: 2rem; font-weight: 800; margin-top: 10px; }
+        label { display: block; margin-bottom: 8px; color: #c8d5eb; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
+        input, select {
+            width: 100%; padding: 11px 12px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.2);
+            background: #08101c; color: var(--text); font-size: 0.98rem;
+        }
+        .actions, .pill-row, .history-strip { display: flex; gap: 10px; flex-wrap: wrap; }
+        .checkbox-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+        .checkbox-row input { width: auto; }
+        button {
+            border: none; border-radius: 12px; padding: 12px 18px; font-weight: 700; cursor: pointer;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+        button:hover { transform: translateY(-1px); }
+        button:disabled { cursor: not-allowed; opacity: 0.65; }
+        .btn-primary { color: #05110a; background: linear-gradient(135deg, #22c55e, #16a34a); }
+        .btn-secondary { color: white; background: linear-gradient(135deg, #38bdf8, #2563eb); }
+        .btn-tertiary { color: #fff7ed; background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .status {
+            margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(148,163,184,0.15); color: var(--muted);
+        }
+        .status.success { border-color: rgba(34,197,94,0.35); color: #cff8db; }
+        .status.error { border-color: rgba(239,68,68,0.35); color: #ffd0d0; }
+        .status.loading { border-color: rgba(56,189,248,0.35); color: #d7f2ff; }
+        .number-pill, .label-pill {
+            display: inline-flex; align-items: center; justify-content: center; min-width: 44px; border-radius: 999px;
+            padding: 8px 11px; font-weight: 800; border: 1px solid rgba(255,255,255,0.06);
+        }
+        .number-pill.red { background: #821d31; color: #fff3f5; }
+        .number-pill.black { background: #1f2937; color: #f8fafc; }
+        .number-pill.green { background: #166534; color: #ebfff2; }
+        .number-pill.primary { box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.55); }
+        .number-pill.decoder { box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.55); }
+        .number-pill.hit { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.60); }
+        .label-pill { background: rgba(56, 189, 248, 0.12); color: #c6eeff; font-size: 0.84rem; }
+        .signal-status {
+            border-radius: 999px; padding: 6px 10px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .signal-status.active { background: rgba(56,189,248,0.16); color: #d5f4ff; }
+        .signal-status.win { background: rgba(34,197,94,0.16); color: #dcffea; }
+        .signal-status.loss { background: rgba(239,68,68,0.16); color: #ffd7d7; }
+        .signal-status.idle { background: rgba(148,163,184,0.16); color: #d7deea; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid rgba(148,163,184,0.12); text-align: left; font-size: 0.93rem; vertical-align: top; }
+        th { color: #d5e4ff; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; }
+        @media (max-width: 1080px) {
+            .controls, .content { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <section class="hero">
+            <h1>AI Shadow Monitor</h1>
+            <p>
+                Este monitor compara o decoder baseline com uma camada de IA shadow. A IA não altera a sugestão oficial:
+                ela reranqueia candidatos, aprende com os sinais resolvidos e ajusta pesos por roleta em tempo real.
+            </p>
+            <div class="grid">
+                <div class="card">
+                    <h3>Baseline existente</h3>
+                    <p>O decoder atual continua sendo a referência de contexto e episódios parecidos.</p>
+                </div>
+                <div class="card">
+                    <h3>IA shadow</h3>
+                    <p>Um modelo linear online reordena os candidatos usando contexto, transições, hotspot e pending pressure.</p>
+                </div>
+                <div class="card">
+                    <h3>Aprendizado seguro</h3>
+                    <p>O perfil aprende com win/loss em shadow mode, sem tocar na estratégia oficial de produção.</p>
+                </div>
+                <div class="card">
+                    <h3>Monitorável</h3>
+                    <p>O frontend mostra placar, candidatos atuais, pesos do perfil e comparação com o baseline.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls">
+            <div class="panel">
+                <h2>Roleta e feed</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="rouletteSelect">Roleta</label>
+                        <select id="rouletteSelect"></select>
+                    </div>
+                    <div>
+                        <label for="historyLimit">Histórico inicial</label>
+                        <input id="historyLimit" type="number" min="200" max="12000" step="100" value="1800">
+                    </div>
+                    <div>
+                        <label for="stateWindow">Janela do estado</label>
+                        <input id="stateWindow" type="number" min="3" max="10" value="6">
+                    </div>
+                    <div>
+                        <label for="futureHorizon">Horizonte do sinal</label>
+                        <select id="futureHorizon">
+                            <option value="3">3</option>
+                            <option value="5" selected>5</option>
+                            <option value="8">8</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn-primary" id="startBtn">Iniciar shadow</button>
+                    <button class="btn-secondary" id="stopBtn">Parar</button>
+                    <button class="btn-tertiary" id="resetBtn">Resetar placar</button>
+                </div>
+                <div class="status" id="statusBox">Monitor parado.</div>
+            </div>
+
+            <div class="panel">
+                <h2>Configuração do modelo</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="shadowTopK">Qtd. números IA</label>
+                        <input id="shadowTopK" type="number" min="1" max="24" value="12">
+                    </div>
+                    <div>
+                        <label for="decoderTopK">Pool do decoder</label>
+                        <input id="decoderTopK" type="number" min="6" max="36" value="18">
+                    </div>
+                    <div>
+                        <label for="episodeLimit">Limite de episódios</label>
+                        <input id="episodeLimit" type="number" min="12" max="200" value="80">
+                    </div>
+                    <div>
+                        <label for="similarityThreshold">Threshold</label>
+                        <input id="similarityThreshold" type="number" min="0.3" max="0.95" step="0.01" value="0.54">
+                    </div>
+                    <div>
+                        <label for="minConfidence">Confiança mínima</label>
+                        <input id="minConfidence" type="number" min="1" max="100" value="56">
+                    </div>
+                    <div>
+                        <label for="minMatchedEpisodes">Mín. episódios</label>
+                        <input id="minMatchedEpisodes" type="number" min="1" max="100" value="12">
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <input id="ignoreRecentEpisode" type="checkbox" checked>
+                    <label for="ignoreRecentEpisode" style="margin:0;text-transform:none;letter-spacing:0;">Excluir o episódio histórico mais recente da comparação</label>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Escopo do decoder</h2>
+                <div class="mini-grid">
+                    <div>
+                        <label for="validationRatio">Holdout</label>
+                        <input id="validationRatio" type="number" min="0.05" max="0.45" step="0.05" value="0.25">
+                    </div>
+                    <div>
+                        <label for="minSupport">Suporte mínimo</label>
+                        <input id="minSupport" type="number" min="1" max="20" value="3">
+                    </div>
+                    <div>
+                        <label for="cooldownSpins">Cooldown</label>
+                        <input id="cooldownSpins" type="number" min="0" max="20" value="0">
+                    </div>
+                    <div>
+                        <label for="recentStripSize">Faixa visual</label>
+                        <input id="recentStripSize" type="number" min="10" max="80" value="24">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="summary">
+            <div class="stat-card"><div class="label">Conexão</div><div class="value" id="wsStatus">Offline</div></div>
+            <div class="stat-card"><div class="label">Sinais IA</div><div class="value" id="totalSignals">0</div></div>
+            <div class="stat-card"><div class="label">Wins</div><div class="value" id="winsCount">0</div></div>
+            <div class="stat-card"><div class="label">Losses</div><div class="value" id="lossesCount">0</div></div>
+            <div class="stat-card"><div class="label">Hit rate</div><div class="value" id="hitRate">0.0%</div></div>
+            <div class="stat-card"><div class="label">Confiança média</div><div class="value" id="avgConfidence">0.0</div></div>
+            <div class="stat-card"><div class="label">Prob. média</div><div class="value" id="avgProbability">0.000</div></div>
+            <div class="stat-card"><div class="label">Perfil hit rate</div><div class="value" id="profileHitRate">0.0%</div></div>
+        </section>
+
+        <section class="content">
+            <div class="panel">
+                <h2>Estado ao vivo</h2>
+                <p class="muted" id="liveMeta">Sem histórico carregado.</p>
+                <div class="history-strip" id="historyStrip"></div>
+                <div class="mini-grid" style="margin-top:16px;">
+                    <div class="card">
+                        <h3>Baseline do decoder</h3>
+                        <p class="muted" id="decoderMeta">Aguardando leitura.</p>
+                        <div class="pill-row" id="decoderPrimary"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Sinal IA ativo</h3>
+                        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+                            <div>
+                                <strong id="signalTitle">Nenhum sinal aberto</strong>
+                                <div class="muted" id="signalMeta">O shadow abre sinal quando a confiança e o suporte passam no filtro.</div>
+                            </div>
+                            <span class="signal-status idle" id="signalStatus">Idle</span>
+                        </div>
+                        <div class="pill-row" id="signalNumbers" style="margin-top:12px;"></div>
+                        <div class="pill-row" id="signalRegimes" style="margin-top:10px;"></div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:16px;">
+                    <h3>Candidatos da IA</h3>
+                    <div style="overflow:auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Score</th>
+                                    <th>Decoder</th>
+                                    <th>Pending</th>
+                                    <th>Transição</th>
+                                    <th>Sono</th>
+                                </tr>
+                            </thead>
+                            <tbody id="candidateTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:16px;">
+                    <h3>Sinais resolvidos</h3>
+                    <div style="overflow:auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Horário</th>
+                                    <th>Números</th>
+                                    <th>Resultado</th>
+                                    <th>Tent.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="signalHistoryTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Perfil adaptativo</h2>
+                <p class="muted" id="profileMeta">Sem feedback acumulado.</p>
+                <div class="card">
+                    <h3>Pesos mais fortes</h3>
+                    <div style="overflow:auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Feature</th>
+                                    <th>Peso</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weightsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:16px;">
+                    <h3>Última leitura da IA</h3>
+                    <p class="muted" id="shadowMeta">Aguardando análise.</p>
+                    <div class="pill-row" id="shadowNumbers"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+        const STORAGE_KEY = 'ai-shadow-monitor-state-v1';
+        const MAX_SIGNAL_HISTORY = 40;
+
+        const rouletteSelect = document.getElementById('rouletteSelect');
+        const historyLimitInput = document.getElementById('historyLimit');
+        const stateWindowInput = document.getElementById('stateWindow');
+        const futureHorizonInput = document.getElementById('futureHorizon');
+        const shadowTopKInput = document.getElementById('shadowTopK');
+        const decoderTopKInput = document.getElementById('decoderTopK');
+        const episodeLimitInput = document.getElementById('episodeLimit');
+        const similarityThresholdInput = document.getElementById('similarityThreshold');
+        const minConfidenceInput = document.getElementById('minConfidence');
+        const minMatchedEpisodesInput = document.getElementById('minMatchedEpisodes');
+        const validationRatioInput = document.getElementById('validationRatio');
+        const minSupportInput = document.getElementById('minSupport');
+        const cooldownSpinsInput = document.getElementById('cooldownSpins');
+        const recentStripSizeInput = document.getElementById('recentStripSize');
+        const ignoreRecentEpisodeInput = document.getElementById('ignoreRecentEpisode');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusBox = document.getElementById('statusBox');
+
+        const state = {
+            running: false,
+            wsConnected: false,
+            ws: null,
+            rouletteId: '',
+            historyEntries: [],
+            activeSignal: null,
+            signalHistory: [],
+            lastAnalysis: null,
+            lastResult: null,
+            cooldownRemaining: 0,
+            analyzing: false,
+            reconnectTimer: null,
+            stats: {
+                totalSignals: 0,
+                wins: 0,
+                losses: 0,
+                confidenceSum: 0,
+                probabilitySum: 0,
+            },
+            profile: null,
+        };
+
+        function colorClass(number) {
+            if (number === 0) return 'green';
+            return RED_NUMBERS.has(number) ? 'red' : 'black';
+        }
+
+        function numberPill(number, extra = '') {
+            return `<span class="number-pill ${colorClass(number)} ${extra}">${number}</span>`;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function setStatus(message, kind = 'neutral') {
+            statusBox.textContent = message;
+            statusBox.className = `status ${kind === 'neutral' ? '' : kind}`.trim();
+        }
+
+        function getConfig() {
+            return {
+                roulette_id: rouletteSelect.value,
+                history_limit: Number(historyLimitInput.value || 1800),
+                state_window: Number(stateWindowInput.value || 6),
+                future_horizon: Number(futureHorizonInput.value || 5),
+                shadow_top_k: Number(shadowTopKInput.value || 12),
+                decoder_top_k: Number(decoderTopKInput.value || 18),
+                episode_limit: Number(episodeLimitInput.value || 80),
+                similarity_threshold: Number(similarityThresholdInput.value || 0.54),
+                min_confidence: Number(minConfidenceInput.value || 56),
+                min_matched_episodes: Number(minMatchedEpisodesInput.value || 12),
+                validation_ratio: Number(validationRatioInput.value || 0.25),
+                min_support: Number(minSupportInput.value || 3),
+                cooldown_spins: Number(cooldownSpinsInput.value || 0),
+                recent_strip_size: Number(recentStripSizeInput.value || 24),
+                ignore_last_occurrence: ignoreRecentEpisodeInput.checked,
+            };
+        }
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                rouletteId: state.rouletteId,
+                activeSignal: state.activeSignal,
+                signalHistory: state.signalHistory,
+                stats: state.stats,
+                cooldownRemaining: state.cooldownRemaining,
+                profile: state.profile,
+            }));
+        }
+
+        function restoreState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const snapshot = JSON.parse(raw);
+                state.rouletteId = snapshot.rouletteId || '';
+                state.activeSignal = snapshot.activeSignal || null;
+                state.signalHistory = Array.isArray(snapshot.signalHistory) ? snapshot.signalHistory.slice(0, MAX_SIGNAL_HISTORY) : [];
+                state.cooldownRemaining = Number(snapshot.cooldownRemaining || 0);
+                if (snapshot.stats) state.stats = {...state.stats, ...snapshot.stats};
+                state.profile = snapshot.profile || null;
+            } catch (error) {
+                console.warn('Falha ao restaurar estado do AI shadow monitor', error);
+            }
+        }
+
+        async function loadRoulettes() {
+            const response = await fetch('/api/roulettes-list');
+            const data = await response.json();
+            rouletteSelect.innerHTML = data.map((roulette) => `
+                <option value="${escapeHtml(roulette.id)}">${escapeHtml(roulette.name)} (${roulette.count})</option>
+            `).join('');
+            if (state.rouletteId && Array.from(rouletteSelect.options).some((option) => option.value === state.rouletteId)) {
+                rouletteSelect.value = state.rouletteId;
+            }
+        }
+
+        async function loadHistory() {
+            const config = getConfig();
+            const response = await fetch(`/history-detailed/${encodeURIComponent(config.roulette_id)}?limit=${config.history_limit}`);
+            const data = await response.json();
+            state.historyEntries = (Array.isArray(data) ? data : [])
+                .slice()
+                .reverse()
+                .map((item) => ({value: Number(item.value), timestamp: item.timestamp}));
+            state.rouletteId = config.roulette_id;
+            const last = state.historyEntries[state.historyEntries.length - 1] || null;
+            state.lastResult = last ? {value: last.value, timestamp: last.timestamp} : null;
+            saveState();
+        }
+
+        function renderStats() {
+            document.getElementById('wsStatus').textContent = state.wsConnected ? 'Online' : 'Offline';
+            document.getElementById('totalSignals').textContent = String(state.stats.totalSignals);
+            document.getElementById('winsCount').textContent = String(state.stats.wins);
+            document.getElementById('lossesCount').textContent = String(state.stats.losses);
+            const resolved = state.stats.wins + state.stats.losses;
+            document.getElementById('hitRate').textContent = `${(resolved > 0 ? (state.stats.wins / resolved) * 100 : 0).toFixed(1)}%`;
+            document.getElementById('avgConfidence').textContent = state.stats.totalSignals > 0 ? (state.stats.confidenceSum / state.stats.totalSignals).toFixed(1) : '0.0';
+            document.getElementById('avgProbability').textContent = state.stats.totalSignals > 0 ? (state.stats.probabilitySum / state.stats.totalSignals).toFixed(3) : '0.000';
+            const profileHitRate = state.profile?.hit_rate ? `${(state.profile.hit_rate * 100).toFixed(1)}%` : '0.0%';
+            document.getElementById('profileHitRate').textContent = profileHitRate;
+        }
+
+        function renderCurrent() {
+            document.getElementById('liveMeta').textContent =
+                `Roleta ${escapeHtml(state.rouletteId || '-')} | histórico ${state.historyEntries.length} giros | cooldown ${state.cooldownRemaining}`;
+            const recent = state.historyEntries.slice(-Number(recentStripSizeInput.value || 24));
+            document.getElementById('historyStrip').innerHTML = recent.map((entry) => numberPill(entry.value)).join('');
+
+            const analysis = state.lastAnalysis;
+            if (!analysis) {
+                document.getElementById('decoderMeta').textContent = 'Aguardando leitura.';
+                document.getElementById('decoderPrimary').innerHTML = '';
+                document.getElementById('shadowMeta').textContent = 'Aguardando análise.';
+                document.getElementById('shadowNumbers').innerHTML = '';
+            } else {
+                const decoderSuggestion = analysis.decoder?.suggestion || {};
+                const shadowSignal = analysis.shadow_signal_candidate || {};
+                document.getElementById('decoderMeta').textContent =
+                    `Baseline: ${analysis.decoder?.summary?.matched_episodes || 0} episódios | confiança ${(decoderSuggestion.confidence || {}).score || 0}`;
+                document.getElementById('decoderPrimary').innerHTML = (decoderSuggestion.primary_numbers || []).map((number) => numberPill(number, 'decoder')).join('');
+                document.getElementById('shadowMeta').textContent =
+                    `IA: ${shadowSignal.matched_episodes || 0} episódios | confiança ${shadowSignal.confidence_score || 0} | prob média ${(shadowSignal.avg_probability || 0).toFixed(3)}`;
+                document.getElementById('shadowNumbers').innerHTML = (shadowSignal.numbers || []).map((number) => numberPill(number, 'primary')).join('');
+            }
+
+            const signal = state.activeSignal;
+            const status = document.getElementById('signalStatus');
+            if (!signal) {
+                document.getElementById('signalTitle').textContent = 'Nenhum sinal aberto';
+                document.getElementById('signalMeta').textContent = 'O shadow abre sinal quando a confiança e o suporte passam no filtro.';
+                status.textContent = 'Idle';
+                status.className = 'signal-status idle';
+                document.getElementById('signalNumbers').innerHTML = '';
+                document.getElementById('signalRegimes').innerHTML = '';
+            } else {
+                document.getElementById('signalTitle').textContent = `Sinal ${signal.signal_id}`;
+                document.getElementById('signalMeta').textContent =
+                    `Estado ${signal.state_numbers.join(', ')} | tentativas ${signal.attempts}/${signal.max_attempts}`;
+                status.textContent = signal.status;
+                status.className = `signal-status ${signal.status}`;
+                document.getElementById('signalNumbers').innerHTML = (signal.numbers || []).map((number) => {
+                    const extra = signal.hit_number === number ? 'primary hit' : 'primary';
+                    return numberPill(number, extra);
+                }).join('');
+                document.getElementById('signalRegimes').innerHTML = (signal.regimes || []).map((label) => `<span class="label-pill">${escapeHtml(label)}</span>`).join('');
+            }
+        }
+
+        function renderCandidates() {
+            const tbody = document.getElementById('candidateTable');
+            const rows = (state.lastAnalysis?.shadow_candidates || []).map((candidate) => `
+                <tr>
+                    <td>${numberPill(candidate.number)}</td>
+                    <td>${Number(candidate.final_score || 0).toFixed(3)}</td>
+                    <td>${Number(candidate.features?.decoder_score || 0).toFixed(3)}</td>
+                    <td>${Number(candidate.features?.pending_pressure || 0).toFixed(3)}</td>
+                    <td>${Number(candidate.features?.transition_rate || 0).toFixed(3)}</td>
+                    <td>${Number(candidate.features?.sleep_score || 0).toFixed(3)}</td>
+                </tr>
+            `).join('');
+            tbody.innerHTML = rows || '<tr><td colspan="6" class="muted">Sem candidatos.</td></tr>';
+        }
+
+        function renderProfile() {
+            const profile = state.profile;
+            document.getElementById('profileMeta').textContent = profile
+                ? `Sinais ${profile.signals} | wins ${profile.wins} | losses ${profile.losses} | atualizado ${new Date(profile.updated_at).toLocaleString('pt-BR')}`
+                : 'Sem feedback acumulado.';
+            document.getElementById('weightsTable').innerHTML = (profile?.top_weights || []).map((item) => `
+                <tr>
+                    <td>${escapeHtml(item.feature)}</td>
+                    <td>${Number(item.weight || 0).toFixed(4)}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="2" class="muted">Sem pesos.</td></tr>';
+        }
+
+        function renderSignalHistory() {
+            document.getElementById('signalHistoryTable').innerHTML = state.signalHistory.map((signal) => `
+                <tr>
+                    <td>${escapeHtml(new Date(signal.emitted_at).toLocaleString('pt-BR'))}</td>
+                    <td>${(signal.numbers || []).map((number) => numberPill(number)).join('')}</td>
+                    <td>${escapeHtml(signal.status)} ${signal.hit_number != null ? `| ${signal.hit_number}` : ''}</td>
+                    <td>${signal.attempts}/${signal.max_attempts}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="4" class="muted">Sem sinais resolvidos.</td></tr>';
+        }
+
+        function renderAll() {
+            renderStats();
+            renderCurrent();
+            renderCandidates();
+            renderProfile();
+            renderSignalHistory();
+        }
+
+        function resetScoreboard() {
+            state.activeSignal = null;
+            state.signalHistory = [];
+            state.lastAnalysis = null;
+            state.cooldownRemaining = 0;
+            state.stats = {totalSignals: 0, wins: 0, losses: 0, confidenceSum: 0, probabilitySum: 0};
+            saveState();
+            renderAll();
+            setStatus('Placar resetado.', 'success');
+        }
+
+        async function sendFeedback(signal) {
+            try {
+                const response = await fetch('/api/ai-shadow/feedback', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        roulette_id: state.rouletteId,
+                        signal_id: signal.signal_id,
+                        numbers: signal.numbers,
+                        feature_map: signal.feature_map || {},
+                        status: signal.status,
+                        hit_number: signal.hit_number ?? null,
+                        confidence_score: signal.confidence_score || 0,
+                        matched_episodes: signal.matched_episodes || 0,
+                        avg_probability: signal.avg_probability || 0,
+                        attempts: signal.attempts || 0,
+                        max_attempts: signal.max_attempts || 0,
+                    }),
+                });
+                const result = await response.json();
+                if (response.ok && result.profile) {
+                    state.profile = result.profile;
+                    saveState();
+                    renderAll();
+                }
+            } catch (error) {
+                console.warn('Falha ao enviar feedback do AI shadow', error);
+            }
+        }
+
+        function openSignal(analysis) {
+            const candidate = analysis.shadow_signal_candidate || {};
+            const emittedAt = state.lastResult?.timestamp || new Date().toISOString();
+            const signal = {
+                signal_id: `ai-shadow-${state.rouletteId}-${emittedAt}`,
+                emitted_at: emittedAt,
+                status: 'active',
+                attempts: 0,
+                max_attempts: Number(futureHorizonInput.value || candidate.future_horizon || 5),
+                numbers: [...(candidate.numbers || [])],
+                state_numbers: [...((analysis.current_state || {}).numbers || [])],
+                regimes: [...((analysis.current_state || {}).active_regimes || [])],
+                feature_map: {...(candidate.feature_map || {})},
+                confidence_score: candidate.confidence_score || 0,
+                matched_episodes: candidate.matched_episodes || 0,
+                avg_probability: candidate.avg_probability || 0,
+            };
+            state.activeSignal = signal;
+            state.stats.totalSignals += 1;
+            state.stats.confidenceSum += signal.confidence_score;
+            state.stats.probabilitySum += signal.avg_probability;
+            saveState();
+            renderAll();
+            setStatus(`Sinal IA aberto com ${signal.numbers.length} números.`, 'success');
+        }
+
+        async function resolveSignalWithNumber(number) {
+            if (!state.activeSignal) return;
+            const signal = state.activeSignal;
+            signal.attempts += 1;
+            if ((signal.numbers || []).includes(number)) {
+                signal.status = 'win';
+                signal.hit_number = number;
+            } else if (signal.attempts >= signal.max_attempts) {
+                signal.status = 'loss';
+            } else {
+                signal.status = 'active';
+            }
+
+            if (signal.status === 'active') {
+                saveState();
+                renderAll();
+                return;
+            }
+
+            if (signal.status === 'win') state.stats.wins += 1;
+            if (signal.status === 'loss') state.stats.losses += 1;
+            state.signalHistory.unshift({...signal});
+            state.signalHistory = state.signalHistory.slice(0, MAX_SIGNAL_HISTORY);
+            state.activeSignal = null;
+            state.cooldownRemaining = Number(cooldownSpinsInput.value || 0);
+            saveState();
+            renderAll();
+            await sendFeedback(signal);
+        }
+
+        async function runAnalysis() {
+            if (state.analyzing || !state.running) return;
+            if (state.historyEntries.length < Number(stateWindowInput.value || 6) + 2) return;
+            if (state.activeSignal) return;
+            if (state.cooldownRemaining > 0) {
+                state.cooldownRemaining -= 1;
+                saveState();
+                renderAll();
+                return;
+            }
+
+            state.analyzing = true;
+            const config = getConfig();
+            try {
+                const response = await fetch('/api/ai-shadow/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        roulette_id: config.roulette_id,
+                        history_entries: state.historyEntries.slice(-config.history_limit),
+                        state_window: config.state_window,
+                        future_horizon: config.future_horizon,
+                        ignore_last_occurrence: config.ignore_last_occurrence,
+                        validation_ratio: config.validation_ratio,
+                        min_support: config.min_support,
+                        decoder_top_k: config.decoder_top_k,
+                        shadow_top_k: config.shadow_top_k,
+                        episode_limit: config.episode_limit,
+                        similarity_threshold: config.similarity_threshold,
+                        min_confidence: config.min_confidence,
+                        min_matched_episodes: config.min_matched_episodes,
+                    }),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Falha ao rodar shadow.');
+                state.lastAnalysis = result;
+                state.profile = result.profile || state.profile;
+                if (result.shadow_signal_candidate?.emit) {
+                    openSignal(result);
+                } else {
+                    setStatus(`Leitura da IA sem emissão. ${result.shadow_signal_candidate?.reason || ''}`.trim(), 'loading');
+                    saveState();
+                    renderAll();
+                }
+            } catch (error) {
+                setStatus(`Erro ao rodar AI shadow: ${error.message}`, 'error');
+            } finally {
+                state.analyzing = false;
+            }
+        }
+
+        function appendResult(entry) {
+            state.historyEntries.push(entry);
+            const limit = Math.max(Number(historyLimitInput.value || 1800), 200);
+            if (state.historyEntries.length > limit) {
+                state.historyEntries = state.historyEntries.slice(-limit);
+            }
+            state.lastResult = entry;
+            saveState();
+            renderAll();
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            state.ws = ws;
+            ws.onopen = () => {
+                state.wsConnected = true;
+                renderStats();
+                setStatus(`WebSocket conectado para ${state.rouletteId}.`, 'success');
+            };
+            ws.onmessage = async (event) => {
+                if (!state.running) return;
+                let data;
+                try { data = JSON.parse(event.data); } catch { return; }
+                const slug = data.slug || data.roulette_id || '';
+                const value = Number(data.result ?? data.value ?? data.number);
+                if (slug !== state.rouletteId || Number.isNaN(value)) return;
+                const entry = {value, timestamp: data.timestamp || data.timestamp_br || data.created_at || new Date().toISOString()};
+                appendResult(entry);
+                if (state.activeSignal) await resolveSignalWithNumber(value);
+                await runAnalysis();
+            };
+            ws.onclose = () => {
+                state.wsConnected = false;
+                renderStats();
+                if (state.running) {
+                    clearTimeout(state.reconnectTimer);
+                    state.reconnectTimer = setTimeout(connectWebSocket, 1500);
+                    setStatus('WebSocket desconectado. Tentando reconectar...', 'loading');
+                }
+            };
+            ws.onerror = () => {
+                state.wsConnected = false;
+                renderStats();
+            };
+        }
+
+        function disconnectWebSocket() {
+            clearTimeout(state.reconnectTimer);
+            if (state.ws) {
+                try { state.ws.close(); } catch {}
+            }
+            state.ws = null;
+            state.wsConnected = false;
+            renderStats();
+        }
+
+        async function startMonitoring() {
+            startBtn.disabled = true;
+            try {
+                await loadHistory();
+                state.running = true;
+                if (state.activeSignal && state.activeSignal.roulette_id !== rouletteSelect.value) {
+                    state.activeSignal = null;
+                }
+                disconnectWebSocket();
+                connectWebSocket();
+                renderAll();
+                await runAnalysis();
+                setStatus(`AI shadow iniciado para ${state.rouletteId}.`, 'success');
+            } catch (error) {
+                state.running = false;
+                setStatus(`Falha ao iniciar AI shadow: ${error.message}`, 'error');
+            } finally {
+                startBtn.disabled = false;
+                saveState();
+                renderAll();
+            }
+        }
+
+        function stopMonitoring() {
+            state.running = false;
+            disconnectWebSocket();
+            saveState();
+            renderAll();
+            setStatus('Monitor parado.', 'neutral');
+        }
+
+        startBtn.addEventListener('click', startMonitoring);
+        stopBtn.addEventListener('click', stopMonitoring);
+        resetBtn.addEventListener('click', resetScoreboard);
+        rouletteSelect.addEventListener('change', () => {
+            state.rouletteId = rouletteSelect.value;
+            saveState();
+        });
+
+        restoreState();
+        loadRoulettes().then(() => {
+            if (!rouletteSelect.value && rouletteSelect.options.length) {
+                rouletteSelect.selectedIndex = 0;
+                state.rouletteId = rouletteSelect.value;
+            } else if (rouletteSelect.value) {
+                state.rouletteId = rouletteSelect.value;
+            }
+            renderAll();
+        });
+    </script>
+</body>
+</html>

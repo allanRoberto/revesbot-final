@@ -66,6 +66,7 @@ from api.routes.agent import router as agent_router
 from api.routes.patterns import router as patterns_router
 from api.routes.assertiveness_replay import router as assertiveness_replay_router
 from api.routes.decoder_lab import router as decoder_lab_router
+from api.routes.ai_shadow import router as ai_shadow_router
 
 
 
@@ -99,6 +100,7 @@ app.include_router(agent_router)
 app.include_router(patterns_router)
 app.include_router(assertiveness_replay_router)
 app.include_router(decoder_lab_router)
+app.include_router(ai_shadow_router)
 
  
 

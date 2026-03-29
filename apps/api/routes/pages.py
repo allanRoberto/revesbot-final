@@ -112,3 +112,9 @@ async def decoder_lab_page():
 async def decoder_monitor_page():
     with open(os.path.join(templates_dir, "decoder_monitor.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/ai-shadow-monitor", response_class=HTMLResponse)
+async def ai_shadow_monitor_page():
+    with open(os.path.join(templates_dir, "ai_shadow_monitor.html"), "r", encoding="utf-8") as f:
+        return f.read()
