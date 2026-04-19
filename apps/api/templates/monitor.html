@@ -319,6 +319,59 @@
     opacity: 0.8;
   }
 
+  .protected-cold-panel {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 12px;
+    background: rgba(214, 48, 49, 0.08);
+    border: 1px solid rgba(214, 48, 49, 0.16);
+  }
+
+  .protected-cold-title {
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--danger);
+    opacity: 0.88;
+  }
+
+  .protected-cold-values {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .protected-cold-pill {
+    min-width: 44px;
+    height: 44px;
+    padding: 0 12px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: white;
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    box-shadow: 0 10px 24px rgba(185, 28, 28, 0.22);
+  }
+
+  .protected-cold-empty {
+    font-size: 0.84rem;
+    color: #64748b;
+    opacity: 0.9;
+  }
+
+  .protected-cold-note {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #7f1d1d;
+    text-align: center;
+  }
+
   .bet-status {
     text-align: center;
     padding: 15px;
@@ -398,6 +451,17 @@
     border-left: 4px solid var(--danger);
   }
 
+  .history-item.defense-save {
+    border-left: 4px solid #0f766e;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(253, 230, 138, 0.18));
+    box-shadow: inset 0 0 0 1px rgba(13, 148, 136, 0.16);
+  }
+
+  body.dark-mode .history-item.defense-save {
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.22), rgba(180, 83, 9, 0.2));
+    box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.16);
+  }
+
   .history-number {
     width: 35px;
     height: 35px;
@@ -434,6 +498,34 @@
     margin-top: 4px;
     font-size: 0.78rem;
     opacity: 0.78;
+    line-height: 1.45;
+  }
+
+  .history-defense-banner {
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(13, 148, 136, 0.14), rgba(16, 185, 129, 0.2));
+    border: 1px solid rgba(13, 148, 136, 0.2);
+    color: #065f46;
+  }
+
+  body.dark-mode .history-defense-banner {
+    background: linear-gradient(135deg, rgba(13, 148, 136, 0.24), rgba(16, 185, 129, 0.16));
+    border-color: rgba(94, 234, 212, 0.22);
+    color: #ccfbf1;
+  }
+
+  .history-defense-title {
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .history-defense-summary {
+    margin-top: 4px;
+    font-size: 0.82rem;
     line-height: 1.45;
   }
 
@@ -543,12 +635,48 @@
     border-color: rgba(0, 184, 148, 0.24);
   }
 
+  .recovery-panel {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+  }
+
+  .recovery-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .recovery-pill {
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+    background: rgba(148, 163, 184, 0.12);
+    color: #64748b;
+  }
+
+  .recovery-pill.active {
+    background: rgba(214, 48, 49, 0.14);
+    color: var(--danger);
+    border-color: rgba(214, 48, 49, 0.24);
+  }
+
+  .recovery-pill.ready {
+    background: rgba(0, 184, 148, 0.16);
+    color: #047857;
+    border-color: rgba(0, 184, 148, 0.24);
+  }
+
   .history-result {
     font-weight: 600;
   }
 
   .history-result.win { color: var(--success); }
   .history-result.loss { color: var(--danger); }
+  .history-item.defense-save .history-result.win { color: #0f766e; }
 
   .attempts-indicator {
     display: flex;
@@ -740,7 +868,7 @@
       </div>
       <div class="config-item">
         <label>Qtd. Fichas / Números</label>
-        <input type="number" id="bet-size" value="8" min="1" max="37">
+        <input type="number" id="bet-size" value="20" min="1" max="37">
       </div>
       <div class="config-item">
         <label>Confiança Mínima (%)</label>
@@ -755,6 +883,21 @@
         </select>
       </div>
       <div class="config-item">
+        <label>Fonte dos resultados</label>
+        <select id="result-source-mode">
+          <option value="live" selected>Tempo real</option>
+          <option value="simulation">Simulação</option>
+        </select>
+      </div>
+      <div class="config-item">
+        <label>Replay da simulação</label>
+        <input type="number" id="simulation-history-limit" value="2000" min="100" max="10000" step="100">
+      </div>
+      <div class="config-item">
+        <label>Delay do replay (ms)</label>
+        <input type="number" id="simulation-delay-ms" value="10" min="0" max="5000" step="5">
+      </div>
+      <div class="config-item">
         <label>Máx. trocas por ciclo</label>
         <input type="number" id="max-switches-per-cycle" value="1" min="0" max="10" step="1">
       </div>
@@ -765,8 +908,47 @@
     <div class="config-subpanel">
       <h3>Valor da Ficha por Tentativa</h3>
       <div class="attempt-stake-grid" id="attempt-stake-grid"></div>
-      <div class="attempt-stake-help">
+      <div class="attempt-stake-help" id="attempt-stake-help">
         Cada tentativa usa o valor configurado aqui. O lucro/prejuízo passa a considerar o investimento acumulado real por tentativa.
+      </div>
+    </div>
+    <div class="config-subpanel">
+      <h3>Recuperação de Prejuízo</h3>
+      <div class="config-grid">
+        <div class="config-item">
+          <label>Recuperação automática</label>
+          <select id="recovery-enabled">
+            <option value="false" selected>Desligada</option>
+            <option value="true">Ligada</option>
+          </select>
+        </div>
+        <div class="config-item">
+          <label>Modo de recuperação</label>
+          <select id="recovery-mode">
+            <option value="target_cycles" selected>Recuperar em X vitórias</option>
+            <option value="fixed_chip">Ficha fixa</option>
+            <option value="manual_ladder">Escada manual</option>
+          </select>
+        </div>
+        <div class="config-item">
+          <label>Vitórias alvo</label>
+          <input type="number" id="recovery-target-wins" value="4" min="1" max="50" step="1">
+        </div>
+        <div class="config-item">
+          <label>Ficha fixa</label>
+          <input type="number" id="recovery-fixed-chip" value="2" min="0.01" step="0.01">
+        </div>
+        <div class="config-item">
+          <label>Escada manual</label>
+          <input type="text" id="recovery-ladder" value="2,4,8" placeholder="Ex: 2,4,8,10">
+        </div>
+        <div class="config-item">
+          <label>Ficha máxima</label>
+          <input type="number" id="recovery-max-chip" value="8" min="0.01" step="0.01">
+        </div>
+      </div>
+      <div class="attempt-stake-help">
+        Quando ligada, a recuperação força 1 tentativa por ciclo e usa a dívida acumulada dos reds para calcular a ficha dos próximos ciclos até zerar o prejuízo.
       </div>
     </div>
     <div class="config-actions">
@@ -820,6 +1002,13 @@
         <div style="opacity: 0.5;">Aguardando...</div>
       </div>
       <div class="suggestion-info" id="suggestion-info"></div>
+      <div class="protected-cold-panel">
+        <div class="protected-cold-title">Frios Fora Da Jogada</div>
+        <div class="protected-cold-values" id="protected-cold-values">
+          <span class="protected-cold-empty">Modo protegido desligado.</span>
+        </div>
+        <div class="protected-cold-note" id="protected-cold-note"></div>
+      </div>
     </div>
   </div>
 
@@ -854,6 +1043,32 @@
     </div>
   </div>
 
+  <div class="display-card" style="margin-bottom: 20px;">
+    <h3>Recuperação</h3>
+    <div id="recovery-status" class="bet-status waiting">Recuperação desligada.</div>
+    <div class="config-grid" style="margin-top: 15px;">
+      <div class="config-item">
+        <label>Dívida atual</label>
+        <div id="recovery-debt" style="font-weight: 700; min-height: 24px;">R$ 0,00</div>
+      </div>
+      <div class="config-item">
+        <label>Ficha atual</label>
+        <div id="recovery-chip" style="font-weight: 700; min-height: 24px;">R$ 1,00</div>
+      </div>
+      <div class="config-item">
+        <label>Modo</label>
+        <div id="recovery-mode-label" style="min-height: 24px;">Desligado</div>
+      </div>
+      <div class="config-item">
+        <label>Vitórias estimadas</label>
+        <div id="recovery-estimate" style="min-height: 24px;">—</div>
+      </div>
+    </div>
+    <div class="recovery-panel">
+      <div id="recovery-summary" class="recovery-summary"></div>
+    </div>
+  </div>
+
   <div class="history-panel">
     <h3>Histórico de Apostas</h3>
     <div id="history-list">
@@ -875,11 +1090,33 @@
       <div class="config-grid">
         <div class="config-item">
           <label>Histórico analisado</label>
-          <input type="number" id="api-history-limit" value="1000" min="50" max="5000" step="50">
+          <input type="number" id="api-history-limit" value="2000" min="50" max="5000" step="50">
         </div>
         <div class="config-item">
           <label>Máx. números sugeridos</label>
-          <input type="number" id="api-max-numbers" value="8" min="1" max="37" step="1">
+          <input type="number" id="api-max-numbers" value="20" min="1" max="37" step="1">
+        </div>
+        <div class="config-item">
+          <label>Modo protegido</label>
+          <select id="api-protected-mode-enabled">
+            <option value="false" selected>Desligado</option>
+            <option value="true">Ligado</option>
+          </select>
+        </div>
+        <div class="config-item">
+          <label>Qtd. números protegidos</label>
+          <input type="number" id="api-protected-suggestion-size" value="26" min="26" max="35" step="1">
+        </div>
+        <div class="config-item">
+          <label>Salvar aposta protegida</label>
+          <select id="api-protected-swap-enabled" disabled>
+            <option value="false" selected>Desligado</option>
+            <option value="true">Ligado</option>
+          </select>
+        </div>
+        <div class="config-item">
+          <label>Qtd. números frios</label>
+          <input type="number" id="api-cold-count" value="6" min="1" max="36" step="1">
         </div>
         <div class="config-item">
           <label>Máx. números otimizados</label>
@@ -901,7 +1138,7 @@
         </div>
         <div class="config-item">
           <label>Siege window</label>
-          <input type="number" id="api-siege-window" value="6" min="2" max="20" step="1">
+          <input type="number" id="api-siege-window" value="5" min="2" max="20" step="1">
         </div>
         <div class="config-item">
           <label>Siege min occurrences</label>
@@ -924,7 +1161,7 @@
         </div>
         <div class="config-item">
           <label>Janela da inversão</label>
-          <input type="number" id="api-inversion-context-window" value="15" min="1" max="50" step="1">
+          <input type="number" id="api-inversion-context-window" value="5" min="1" max="50" step="1">
         </div>
         <div class="config-item">
           <label>Penalty da inversão</label>
@@ -934,7 +1171,7 @@
           <label>Apostas em bloco</label>
           <select id="api-block-bets-enabled">
             <option value="false">Desligadas</option>
-            <option value="true">Ligadas</option>
+            <option value="true" selected>Ligadas</option>
           </select>
         </div>
       </div>
@@ -999,6 +1236,7 @@
   // Roulette colors
   const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
   const BLACK_NUMBERS = new Set([2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]);
+  const MIN_MONITOR_HISTORY = 200;
 
   function getColor(n) {
     if (n === 0) return 'green';
@@ -1029,6 +1267,25 @@
     return 'Baixa';
   }
 
+  function buildSimpleSuggestionConfidence(payload = {}) {
+    const patternCount = Number.isFinite(Number(payload.pattern_count)) ? Number(payload.pattern_count) : 0;
+    const topSupportCount = Number.isFinite(Number(payload.top_support_count)) ? Number(payload.top_support_count) : 0;
+    const avgSupportCount = Number.isFinite(Number(payload.avg_support_count)) ? Number(payload.avg_support_count) : 0;
+
+    if (patternCount <= 0) {
+      return { score: 0, label: 'Baixa' };
+    }
+
+    const topSupportRatio = Math.max(0, Math.min(1, topSupportCount / patternCount));
+    const avgSupportRatio = Math.max(0, Math.min(1, avgSupportCount / patternCount));
+    const score = Math.max(0, Math.min(100, Math.round(((topSupportRatio * 0.7) + (avgSupportRatio * 0.3)) * 100)));
+
+    return {
+      score,
+      label: getConfidenceLabel(score),
+    };
+  }
+
   function setDebugContent(element, value) {
     if (!element) return;
     if (typeof value === 'string') {
@@ -1040,6 +1297,49 @@
     } catch (error) {
       element.textContent = String(value);
     }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function cloneForAudit(value, fallback = null) {
+    if (value == null) return fallback;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function sanitizePolicyForAudit(policy) {
+    if (!policy) return null;
+    return {
+      action: policy.action || 'wait',
+      label: policy.label || 'Esperar',
+      reason: policy.reason || '',
+      metrics: cloneForAudit(policy.metrics, {}),
+      current: cloneForAudit(policy.current, null),
+      candidate: cloneForAudit(policy.candidate, null),
+    };
+  }
+
+  function formatPolicyMetricsInline(metrics = {}) {
+    if (!metrics || typeof metrics !== 'object') return '—';
+    const parts = [];
+    if (metrics.score_delta != null) parts.push(`Δscore ${Number(metrics.score_delta).toFixed(2)}`);
+    if (metrics.confidence_delta != null) parts.push(`Δconf ${metrics.confidence_delta}`);
+    if (metrics.overlap_ratio != null) parts.push(`overlap ${((metrics.overlap_ratio || 0) * 100).toFixed(0)}%`);
+    if (metrics.saved_steps_estimate != null) parts.push(`passos ${metrics.saved_steps_estimate}`);
+    if (metrics.wait_spins != null && metrics.max_wait_allowed != null) {
+      parts.push(`wait ${metrics.wait_spins}/${metrics.max_wait_allowed}`);
+    }
+    return parts.length ? parts.join(' | ') : '—';
   }
 
   function openAdvancedConfigModal() {
@@ -1129,6 +1429,310 @@
     return `api:selectedWeightProfile:${slug || ''}`;
   }
 
+  function isProtectedModeEnabled() {
+    return apiProtectedModeEnabledSelect?.value === 'true';
+  }
+
+  function getProtectedSuggestionSize() {
+    return toBoundedInteger(apiProtectedSuggestionSizeInput?.value, 35, 26, 35);
+  }
+
+  function isProtectedSwapEnabled() {
+    return apiProtectedSwapEnabledSelect?.value === 'true';
+  }
+
+  function getColdCount() {
+    return toBoundedInteger(apiColdCountInput?.value, 18, 1, 36);
+  }
+
+  function getEffectiveConfiguredSuggestionSize() {
+    if (isProtectedModeEnabled()) {
+      return getProtectedSuggestionSize();
+    }
+    return toBoundedInteger(apiMaxNumbersInput.value, parseInt(betSizeInput.value, 10) || 8, 1, 37);
+  }
+
+  function roundUpToCent(value) {
+    const safe = Number.isFinite(Number(value)) ? Number(value) : 0;
+    return Math.ceil(Math.max(0, safe) * 100) / 100;
+  }
+
+  function roundToCent(value) {
+    const safe = Number.isFinite(Number(value)) ? Number(value) : 0;
+    return Math.round(safe * 100) / 100;
+  }
+
+  function isRecoveryEnabled() {
+    return recoveryEnabledSelect?.value === 'true';
+  }
+
+  function getRecoveryMode() {
+    return recoveryModeSelect?.value || 'target_cycles';
+  }
+
+  function getRecoveryTargetWins() {
+    return toBoundedInteger(recoveryTargetWinsInput?.value, 4, 1, 50);
+  }
+
+  function getRecoveryFixedChip() {
+    return Math.max(0.01, toFiniteNumber(recoveryFixedChipInput?.value, 2));
+  }
+
+  function getRecoveryMaxChip() {
+    return Math.max(0.01, toFiniteNumber(recoveryMaxChipInput?.value, 8));
+  }
+
+  function parseRecoveryLadder() {
+    const raw = String(recoveryLadderInput?.value || '').trim();
+    return raw
+      .split(',')
+      .map((part) => parseFloat(part.trim()))
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .map((value) => roundToCent(value));
+  }
+
+  function getRecoveryModeLabel(mode = getRecoveryMode()) {
+    if (mode === 'fixed_chip') return 'Ficha fixa';
+    if (mode === 'manual_ladder') return 'Escada manual';
+    return 'Recuperar em X vitórias';
+  }
+
+  function getEffectiveMaxAttempts() {
+    if (isRecoveryEnabled()) return 1;
+    return parseInt(maxAttemptsInput.value, 10) || 3;
+  }
+
+  function getNetWinPerUnitForSuggestionSize(suggestionSize) {
+    return Math.max(0, 36 - Math.max(1, Math.min(37, suggestionSize || 0)));
+  }
+
+  function estimateWinsToRecover(debt, chip, suggestionSize) {
+    const netPerUnit = getNetWinPerUnitForSuggestionSize(suggestionSize);
+    if (debt <= 0 || chip <= 0 || netPerUnit <= 0) return 0;
+    return Math.ceil(debt / (netPerUnit * chip));
+  }
+
+  function buildRecoveryPlan(suggestionSize, baseChip) {
+    const enabled = isRecoveryEnabled();
+    const safeBaseChip = Math.max(0.01, roundToCent(baseChip));
+    const maxChip = getRecoveryMaxChip();
+    const mode = getRecoveryMode();
+    const debt = Math.max(0, roundToCent(recoveryState.debt));
+    const netPerUnit = getNetWinPerUnitForSuggestionSize(suggestionSize);
+    const result = {
+      enabled,
+      active: enabled && debt > 0,
+      cycleChip: safeBaseChip,
+      mode,
+      modeLabel: getRecoveryModeLabel(mode),
+      debt,
+      estimatedWins: 0,
+      netPerUnit,
+      capped: false,
+      note: enabled ? 'Recuperação pronta.' : 'Recuperação desligada.',
+    };
+
+    if (!enabled) {
+      result.note = 'Recuperação desligada.';
+      return result;
+    }
+    if (netPerUnit <= 0) {
+      result.note = 'Quantidade de números impede recuperação líquida por acerto.';
+      return result;
+    }
+    if (debt <= 0) {
+      result.note = 'Sem dívida acumulada. Usando ficha base.';
+      return result;
+    }
+
+    let cycleChip = safeBaseChip;
+    if (mode === 'fixed_chip') {
+      cycleChip = Math.max(safeBaseChip, getRecoveryFixedChip());
+    } else if (mode === 'manual_ladder') {
+      const ladder = parseRecoveryLadder();
+      cycleChip = ladder[Math.min(recoveryState.ladderIndex, Math.max(0, ladder.length - 1))] ?? safeBaseChip;
+      cycleChip = Math.max(safeBaseChip, cycleChip);
+    } else {
+      const targetWins = getRecoveryTargetWins();
+      cycleChip = roundUpToCent(debt / (netPerUnit * targetWins));
+      cycleChip = Math.max(safeBaseChip, cycleChip);
+    }
+
+    if (cycleChip > maxChip) {
+      cycleChip = maxChip;
+      result.capped = true;
+    }
+
+    result.cycleChip = roundToCent(cycleChip);
+    result.estimatedWins = estimateWinsToRecover(debt, result.cycleChip, suggestionSize);
+    result.note = result.active
+      ? `Recuperação ativa com dívida de ${formatMoney(debt)}.`
+      : 'Usando ficha base.';
+    return result;
+  }
+
+  function registerRecoveryLoss(lossAmount) {
+    const normalizedLoss = Math.max(0, roundToCent(lossAmount));
+    if (!isRecoveryEnabled() || normalizedLoss <= 0) return;
+    recoveryState.debt = roundToCent(recoveryState.debt + normalizedLoss);
+    recoveryState.active = recoveryState.debt > 0;
+    recoveryState.lastCycleNet = -normalizedLoss;
+    recoveryState.lastResult = 'loss';
+    recoveryState.mode = getRecoveryMode();
+    if (recoveryState.mode === 'manual_ladder') {
+      recoveryState.ladderIndex = recoveryState.active ? recoveryState.ladderIndex + 1 : 0;
+    }
+  }
+
+  function registerRecoveryWin(netProfit) {
+    const normalizedProfit = Math.max(0, roundToCent(netProfit));
+    if (!isRecoveryEnabled()) return;
+    recoveryState.lastCycleNet = normalizedProfit;
+    recoveryState.lastResult = 'win';
+    if (recoveryState.debt <= 0 || normalizedProfit <= 0) return;
+    recoveryState.debt = roundToCent(Math.max(0, recoveryState.debt - normalizedProfit));
+    recoveryState.active = recoveryState.debt > 0;
+    if (!recoveryState.active) {
+      recoveryState.ladderIndex = 0;
+    }
+  }
+
+  function resetRecoveryState() {
+    recoveryState.debt = 0;
+    recoveryState.active = false;
+    recoveryState.currentChip = 0;
+    recoveryState.ladderIndex = 0;
+    recoveryState.mode = getRecoveryMode();
+    recoveryState.lastCycleNet = 0;
+    recoveryState.lastResult = 'idle';
+  }
+
+  function updateRecoveryDisplay(previewPlan = null) {
+    const enabled = isRecoveryEnabled();
+    const baseChip = Math.max(0.01, toFiniteNumber(chipValueInput?.value, 1));
+    const suggestionSize = Math.max(1, (betState.betSize || getEffectiveConfiguredSuggestionSize()));
+    const plan = previewPlan || buildRecoveryPlan(suggestionSize, baseChip);
+    recoveryState.currentChip = roundToCent(plan.cycleChip || baseChip);
+    recoveryState.mode = plan.mode || getRecoveryMode();
+
+    if (!recoveryStatusEl) return;
+
+    if (maxAttemptsInput) {
+      maxAttemptsInput.disabled = enabled;
+      maxAttemptsInput.title = enabled
+        ? 'A recuperação força 1 tentativa por ciclo.'
+        : 'Quantidade máxima de tentativas por ciclo.';
+    }
+
+    if (!enabled) {
+      recoveryStatusEl.className = 'bet-status waiting';
+      recoveryStatusEl.textContent = 'Recuperação desligada.';
+    } else if (plan.active) {
+      recoveryStatusEl.className = 'bet-status loss';
+      recoveryStatusEl.textContent = `Recuperação ativa. Próxima ficha: ${formatMoney(plan.cycleChip)}.`;
+    } else {
+      recoveryStatusEl.className = 'bet-status win';
+      recoveryStatusEl.textContent = 'Sem dívida em aberto. Operando com ficha base.';
+    }
+
+    if (recoveryDebtEl) recoveryDebtEl.textContent = formatMoney(recoveryState.debt || 0);
+    if (recoveryChipEl) recoveryChipEl.textContent = formatMoney(plan.cycleChip || baseChip);
+    if (recoveryModeLabelEl) recoveryModeLabelEl.textContent = `${plan.modeLabel}${enabled ? ' | 1 tentativa' : ''}`;
+    if (recoveryEstimateEl) {
+      recoveryEstimateEl.textContent = plan.active
+        ? `${plan.estimatedWins || 0} vitória(s) com ${formatMoney(plan.cycleChip)}`
+        : '—';
+    }
+    if (recoverySummaryEl) {
+      const pills = [];
+      pills.push(`<span class="recovery-pill ${enabled ? 'ready' : ''}">${enabled ? 'Ligada' : 'Desligada'}</span>`);
+      if (plan.active) {
+        pills.push(`<span class="recovery-pill active">Dívida ${formatMoney(recoveryState.debt)}</span>`);
+        pills.push(`<span class="recovery-pill active">Ficha ${formatMoney(plan.cycleChip)}</span>`);
+        pills.push(`<span class="recovery-pill active">${plan.estimatedWins || 0} vitória(s) p/ zerar</span>`);
+      } else if (enabled) {
+        pills.push('<span class="recovery-pill ready">Sem dívida acumulada</span>');
+      }
+      if (plan.capped) {
+        pills.push(`<span class="recovery-pill active">Limitada em ${formatMoney(getRecoveryMaxChip())}</span>`);
+      }
+      pills.push(`<span class="recovery-pill">${plan.note}</span>`);
+      recoverySummaryEl.innerHTML = pills.join('');
+    }
+    if (attemptStakeHelpEl) {
+      attemptStakeHelpEl.textContent = enabled
+        ? 'Recuperação ligada: o monitor força 1 tentativa por ciclo e ajusta a ficha dos próximos ciclos para zerar a dívida.'
+        : 'Cada tentativa usa o valor configurado aqui. O lucro/prejuízo passa a considerar o investimento acumulado real por tentativa.';
+    }
+  }
+
+  function clearColdWaitState() {
+    coldWaitState.active = false;
+    coldWaitState.mode = '';
+    coldWaitState.remainingSpins = 0;
+    coldWaitState.baseNumber = null;
+    coldWaitState.suggestionPreview = [];
+    coldWaitState.confidence = { score: 0, label: 'Baixa' };
+    coldWaitState.confidenceV2 = { score: 0, label: 'Baixa' };
+    coldWaitState.rankingLocked = false;
+    coldWaitState.protectedModeEnabled = false;
+    coldWaitState.protectedSuggestionSize = null;
+    coldWaitState.protectedExcludedNumbers = [];
+    coldWaitState.protectedOriginalExcludedNumbers = [];
+    coldWaitState.protectedGuardNumbers = [];
+    coldWaitState.protectedGuardDetails = {};
+    coldWaitState.protectedSwapApplied = false;
+    coldWaitState.protectedSwapSummary = '';
+    coldWaitState.protectedSwapDetails = [];
+    coldWaitState.waitReason = '';
+  }
+
+  function getActiveSuggestionMeta() {
+    return {
+      rankingLocked: !!betState.rankingLocked,
+      protectedModeEnabled: !!betState.protectedModeEnabled,
+      protectedSuggestionSize: betState.protectedSuggestionSize,
+      protectedExcludedNumbers: Array.isArray(betState.protectedExcludedNumbers) ? [...betState.protectedExcludedNumbers] : [],
+      protectedOriginalExcludedNumbers: Array.isArray(betState.protectedOriginalExcludedNumbers) ? [...betState.protectedOriginalExcludedNumbers] : [],
+      protectedSwapApplied: !!betState.protectedSwapApplied,
+      protectedSwapSummary: betState.protectedSwapSummary || '',
+    };
+  }
+
+  function updateProtectedColdDisplay(meta = {}) {
+    if (!protectedColdValuesEl) return;
+
+    const protectedModeEnabled = !!meta?.protectedModeEnabled;
+    const excludedNumbers = Array.isArray(meta?.protectedExcludedNumbers)
+      ? meta.protectedExcludedNumbers
+          .map((value) => parseInt(value, 10))
+          .filter((value) => Number.isInteger(value) && value >= 0 && value <= 36)
+      : [];
+    const swapApplied = !!meta?.protectedSwapApplied;
+    const swapSummary = String(meta?.protectedSwapSummary || '').trim();
+
+    if (!protectedModeEnabled) {
+      protectedColdValuesEl.innerHTML = '<span class="protected-cold-empty">Modo protegido desligado.</span>';
+      if (protectedColdNoteEl) protectedColdNoteEl.textContent = '';
+      return;
+    }
+
+    if (!excludedNumbers.length) {
+      protectedColdValuesEl.innerHTML = '<span class="protected-cold-empty">Nenhum número frio excluído no momento.</span>';
+      if (protectedColdNoteEl) protectedColdNoteEl.textContent = '';
+      return;
+    }
+
+    protectedColdValuesEl.innerHTML = excludedNumbers
+      .map((number) => `<span class="protected-cold-pill">${number}</span>`)
+      .join('');
+    if (protectedColdNoteEl) {
+      protectedColdNoteEl.textContent = swapApplied
+        ? (swapSummary || 'Aposta salva por troca automática dos frios excluídos.')
+        : '';
+    }
+  }
+
   function getFinalSuggestionPayload(sourceArr, focusNumber, maxNumbers) {
     const weightConfig = normalizeBlendWeights(
       apiBaseWeightInput.value,
@@ -1144,6 +1748,10 @@
     const blockBetsEnabled = apiBlockBetsEnabledSelect.value === 'true';
     const optimizedMaxNumbers = toBoundedInteger(apiOptimizedMaxNumbersInput.value, 37, 1, 37);
     const selectedWeightProfileId = apiWeightProfileSelect.value || null;
+    const protectedModeEnabled = isProtectedModeEnabled();
+    const protectedSuggestionSize = getProtectedSuggestionSize();
+    const protectedSwapEnabled = isProtectedSwapEnabled();
+    const coldCount = getColdCount();
 
     return {
       history: sourceArr || [],
@@ -1163,28 +1771,10 @@
       inversion_context_window: inversionContextWindow,
       inversion_penalty_factor: inversionPenaltyFactor,
       weight_profile_id: selectedWeightProfileId,
-    };
-  }
-
-  function getPolicyPayload(sourceArr, focusNumber, maxNumbers) {
-    const payload = getFinalSuggestionPayload(sourceArr, focusNumber, maxNumbers);
-    return {
-      ...payload,
-      max_attempts: parseInt(maxAttemptsInput.value, 10) || 3,
-      policy_observation_window: toBoundedInteger(policyObservationWindowInput.value, 2, 1, 10),
-      policy_switch_min_hold_spins: toBoundedInteger(policySwitchMinHoldSpinsInput.value, 1, 1, 10),
-      policy_switch_min_score_delta: Math.max(0, toFiniteNumber(policySwitchMinScoreDeltaInput.value, 6)),
-      policy_switch_min_confidence_delta: toBoundedInteger(policySwitchMinConfidenceDeltaInput.value, 4, 0, 50),
-      active_signal: betState.active ? {
-        suggestion: Array.isArray(betState.suggestion) ? betState.suggestion : [],
-        confidence_score: betState.confidence?.score || 0,
-        suggestion_size: Array.isArray(betState.suggestion) ? betState.suggestion.length : 0,
-        policy_score: betState.policyScore ?? null,
-        block_compaction_applied: !!betState.blockCompactionApplied,
-        attempts_used: betState.attempts || 0,
-        max_attempts: betState.maxAttempts || 1,
-        wait_spins: betState.waitSpins || 0,
-      } : null,
+      protected_mode_enabled: protectedModeEnabled,
+      protected_suggestion_size: protectedSuggestionSize,
+      protected_swap_enabled: protectedSwapEnabled,
+      cold_count: coldCount,
     };
   }
 
@@ -1219,6 +1809,48 @@
       } : null,
       candidate: null,
     };
+  }
+
+  function getPolicyDecisionDisabled(reason = 'Política desativada. O monitor não bloqueia sinais por policy.') {
+    return buildOperationalPolicy('enter', 'Política desativada', reason, {
+      policy_disabled: true,
+    });
+  }
+
+  function getProtectedRelationLabel(relation) {
+    const labels = {
+      excluded: 'numero excluido',
+      sequence: 'sequencia numerica',
+      sequence_mirror: 'espelho da sequencia',
+      sequence_neighbor: 'vizinho da sequencia',
+      wheel_neighbor: 'vizinho de roleta',
+      neighbor_sequence: 'sequencia do vizinho',
+      mirror: 'espelho',
+      mirror_neighbor: 'vizinho do espelho',
+      neighbor_mirror: 'espelho do vizinho',
+      same_terminal: 'mesmo terminal',
+    };
+    return labels[relation] || relation || 'relacao protegida';
+  }
+
+  function buildProtectedWaitReason(number, excludedNumbers = [], guardDetails = {}) {
+    const details = Array.isArray(guardDetails?.[String(number)]) ? guardDetails[String(number)] : [];
+    const detailLabel = details
+      .map((item) => {
+        const source = Number.isFinite(Number(item?.source)) ? Number(item.source) : null;
+        const via = Number.isFinite(Number(item?.via)) ? Number(item.via) : null;
+        const relationLabel = getProtectedRelationLabel(item?.relation);
+        if (source === null) return relationLabel;
+        if (via !== null && ['mirror', 'sequence_mirror', 'sequence_neighbor', 'neighbor_sequence', 'mirror_neighbor', 'neighbor_mirror'].includes(item?.relation)) {
+          return `${relationLabel} ${via} de ${source}`;
+        }
+        return `${relationLabel} de ${source}`;
+      })
+      .join(', ');
+    const excludedLabel = Array.isArray(excludedNumbers) && excludedNumbers.length
+      ? excludedNumbers.join(', ')
+      : 'n/a';
+    return `Numero ${number} tocou a zona protegida dos excluidos ${excludedLabel}${detailLabel ? ` (${detailLabel})` : ''}. Aguarde 3 giros.`;
   }
 
   function shouldActivateAlertMode() {
@@ -1270,6 +1902,7 @@
   // State
   let isMonitoring = false;
   let ws = null;
+  let currentResultChannel = 'new_result';
   let currentBet = null;
   let history = [];
   let rouletteHistory = [];
@@ -1282,6 +1915,16 @@
     profit: 0,
     initialBankroll: 1000,
     skippedSignals: 0
+  };
+
+  let recoveryState = {
+    debt: 0,
+    active: false,
+    currentChip: 0,
+    ladderIndex: 0,
+    mode: 'target_cycles',
+    lastCycleNet: 0,
+    lastResult: 'idle',
   };
 
   // Current bet state
@@ -1307,7 +1950,48 @@
     alertUsed: false,
     rescueSpinsRemaining: 0,
     switches: 0,
-    signalTimeline: []
+    signalTimeline: [],
+    lastPolicySnapshot: null,
+    suggestionReason: '',
+    focusNumber: null,
+    openedHistoryHead: [],
+    rankingLocked: false,
+    protectedModeEnabled: false,
+    protectedSuggestionSize: null,
+    protectedExcludedNumbers: [],
+    protectedOriginalExcludedNumbers: [],
+    protectedGuardNumbers: [],
+    protectedGuardDetails: {},
+    protectedSwapApplied: false,
+    protectedSwapSummary: '',
+    protectedSwapDetails: [],
+    recoveryActive: false,
+    recoveryDebtBefore: 0,
+    recoveryDebtAfter: 0,
+    recoveryChipUsed: 0,
+    recoveryEstimatedWins: null,
+    recoveryModeLabel: 'Desligado'
+  };
+
+  let coldWaitState = {
+    active: false,
+    mode: '',
+    remainingSpins: 0,
+    baseNumber: null,
+    suggestionPreview: [],
+    confidence: { score: 0, label: 'Baixa' },
+    confidenceV2: { score: 0, label: 'Baixa' },
+    rankingLocked: false,
+    protectedModeEnabled: false,
+    protectedSuggestionSize: null,
+    protectedExcludedNumbers: [],
+    protectedOriginalExcludedNumbers: [],
+    protectedGuardNumbers: [],
+    protectedGuardDetails: {},
+    protectedSwapApplied: false,
+    protectedSwapSummary: '',
+    protectedSwapDetails: [],
+    waitReason: '',
   };
 
   // DOM elements
@@ -1316,14 +2000,28 @@
   const initialBankrollInput = document.getElementById('initial-bankroll');
   const maxAttemptsInput = document.getElementById('max-attempts');
   const betSizeInput = document.getElementById('bet-size');
+  const attemptStakeHelpEl = document.getElementById('attempt-stake-help');
   const minConfidenceInput = document.getElementById('min-confidence');
+  const recoveryEnabledSelect = document.getElementById('recovery-enabled');
+  const recoveryModeSelect = document.getElementById('recovery-mode');
+  const recoveryTargetWinsInput = document.getElementById('recovery-target-wins');
+  const recoveryFixedChipInput = document.getElementById('recovery-fixed-chip');
+  const recoveryLadderInput = document.getElementById('recovery-ladder');
+  const recoveryMaxChipInput = document.getElementById('recovery-max-chip');
   const executionModeSelect = document.getElementById('execution-mode');
+  const resultSourceModeSelect = document.getElementById('result-source-mode');
+  const simulationHistoryLimitInput = document.getElementById('simulation-history-limit');
+  const simulationDelayMsInput = document.getElementById('simulation-delay-ms');
   const maxSwitchesPerCycleInput = document.getElementById('max-switches-per-cycle');
   const btnOpenAdvancedConfig = document.getElementById('btn-open-advanced-config');
   const advancedConfigModal = document.getElementById('advanced-config-modal');
   const btnCloseAdvancedConfig = document.getElementById('btn-close-advanced-config');
   const apiHistoryLimitInput = document.getElementById('api-history-limit');
   const apiMaxNumbersInput = document.getElementById('api-max-numbers');
+  const apiProtectedModeEnabledSelect = document.getElementById('api-protected-mode-enabled');
+  const apiProtectedSuggestionSizeInput = document.getElementById('api-protected-suggestion-size');
+  const apiProtectedSwapEnabledSelect = document.getElementById('api-protected-swap-enabled');
+  const apiColdCountInput = document.getElementById('api-cold-count');
   const apiOptimizedMaxNumbersInput = document.getElementById('api-optimized-max-numbers');
   const apiWeightProfileSelect = document.getElementById('api-weight-profile');
   const apiBaseWeightInput = document.getElementById('api-base-weight');
@@ -1353,6 +2051,8 @@
   const currentNumberEl = document.getElementById('current-number');
   const suggestionGrid = document.getElementById('suggestion-grid');
   const suggestionInfo = document.getElementById('suggestion-info');
+  const protectedColdValuesEl = document.getElementById('protected-cold-values');
+  const protectedColdNoteEl = document.getElementById('protected-cold-note');
   const policyDecisionEl = document.getElementById('policy-decision');
   const policySummaryEl = document.getElementById('policy-summary');
   const policyTagsEl = document.getElementById('policy-tags');
@@ -1360,6 +2060,12 @@
   const policyCandidateEl = document.getElementById('policy-candidate');
   const policyReasonEl = document.getElementById('policy-reason');
   const policyMetricsEl = document.getElementById('policy-metrics');
+  const recoveryStatusEl = document.getElementById('recovery-status');
+  const recoveryDebtEl = document.getElementById('recovery-debt');
+  const recoveryChipEl = document.getElementById('recovery-chip');
+  const recoveryModeLabelEl = document.getElementById('recovery-mode-label');
+  const recoveryEstimateEl = document.getElementById('recovery-estimate');
+  const recoverySummaryEl = document.getElementById('recovery-summary');
   const cycleLiveStripEl = document.getElementById('cycle-live-strip');
   const attemptsIndicator = document.getElementById('attempts-indicator');
   const historyList = document.getElementById('history-list');
@@ -1399,6 +2105,8 @@
     { slug: "pragmatic-vietnamese-roulette", name: "Vietnamese Roulette" },
   ];
 
+  const MONITOR_DEFAULT_WEIGHT_PROFILE_ID = '20260318T115735Z-oficial';
+
   // Load roulettes
   function loadRoulettes() {
     rouletteSelect.innerHTML = '<option value="">Selecione uma roleta</option>';
@@ -1410,20 +2118,46 @@
     });
   }
 
+  function isSimulationMode() {
+    return (resultSourceModeSelect?.value || 'live') === 'simulation';
+  }
+
+  function getReplayHistoryLimit() {
+    return toBoundedInteger(simulationHistoryLimitInput?.value, 2000, 100, 10000);
+  }
+
+  function getReplayDelayMs() {
+    return toBoundedInteger(simulationDelayMsInput?.value, 10, 0, 5000);
+  }
+
+  function getDesiredResultChannel() {
+    return isSimulationMode() ? 'new_result_simulate' : 'new_result';
+  }
+
   function hydrateSuggestionConfig() {
-    const storedMaxNumbers = toBoundedInteger(loadStoredConfig('finalSuggestionCount', String(betSizeInput.value || 8)), 8, 1, 37);
-    const storedHistoryLimit = toBoundedInteger(loadStoredConfig('monitorHistoryLimit', '1000'), 1000, 50, 5000);
-    const storedOptimizedMaxNumbers = toBoundedInteger(loadStoredConfig('monitorOptimizedMaxNumbers', '37'), 37, 1, 37);
-    const storedBaseWeight = toFiniteNumber(loadStoredConfig('finalBaseWeight', '0.5'), 0.5);
-    const storedOptimizedWeight = toFiniteNumber(loadStoredConfig('finalOptimizedWeight', '0.5'), 0.5);
-    const storedSiegeWindow = toBoundedInteger(loadStoredConfig('siegeWindow', '6'), 6, 2, 20);
-    const storedSiegeMinOccurrences = toBoundedInteger(loadStoredConfig('siegeMinOccurrences', '3'), 3, 1, 10);
-    const storedSiegeMinStreak = toBoundedInteger(loadStoredConfig('siegeMinStreak', '2'), 2, 1, 10);
-    const storedSiegeVetoRelief = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('siegeVetoRelief', '0.4'), 0.4)));
-    const storedInversionEnabled = String(loadStoredConfig('inversionEnabled', 'false')) === 'true';
-    const storedInversionContextWindow = toBoundedInteger(loadStoredConfig('inversionContextWindow', '15'), 15, 1, 50);
-    const storedInversionPenaltyFactor = Math.min(1, Math.max(0, toFiniteNumber(loadStoredConfig('inversionPenaltyFactor', '0.3'), 0.3)));
-    const storedBlockBetsEnabled = String(loadStoredConfig('blockBetsEnabled', 'false')) === 'true';
+    const storedMaxNumbers = 20;
+    const storedProtectedModeEnabled = false;
+    const storedProtectedSuggestionSize = 26;
+    const storedProtectedSwapEnabled = false;
+    const storedColdCount = 6;
+    const storedRecoveryEnabled = String(loadStoredConfig('recoveryEnabled', 'false')) === 'true';
+    const storedRecoveryMode = String(loadStoredConfig('recoveryMode', 'target_cycles'));
+    const storedRecoveryTargetWins = toBoundedInteger(loadStoredConfig('recoveryTargetWins', '4'), 4, 1, 50);
+    const storedRecoveryFixedChip = Math.max(0.01, toFiniteNumber(loadStoredConfig('recoveryFixedChip', '2'), 2));
+    const storedRecoveryLadder = String(loadStoredConfig('recoveryLadder', '2,4,8'));
+    const storedRecoveryMaxChip = Math.max(0.01, toFiniteNumber(loadStoredConfig('recoveryMaxChip', '8'), 8));
+    const storedHistoryLimit = 2000;
+    const storedOptimizedMaxNumbers = 37;
+    const storedBaseWeight = 0.5;
+    const storedOptimizedWeight = 0.5;
+    const storedSiegeWindow = 5;
+    const storedSiegeMinOccurrences = 3;
+    const storedSiegeMinStreak = 2;
+    const storedSiegeVetoRelief = 0.4;
+    const storedInversionEnabled = false;
+    const storedInversionContextWindow = 5;
+    const storedInversionPenaltyFactor = 0.3;
+    const storedBlockBetsEnabled = true;
     const storedPolicyObservationWindow = toBoundedInteger(loadStoredConfig('policyObservationWindow', '2'), 2, 1, 10);
     const storedPolicySwitchMinHoldSpins = toBoundedInteger(loadStoredConfig('policySwitchMinHoldSpins', '1'), 1, 1, 10);
     const storedPolicySwitchMinScoreDelta = Math.max(0, toFiniteNumber(loadStoredConfig('policySwitchMinScoreDelta', '6'), 6));
@@ -1435,10 +2169,28 @@
     const storedPolicyAlertMinRemaining = toBoundedInteger(loadStoredConfig('policyAlertMinRemaining', '2'), 2, 1, 10);
     const storedPolicyAlertRescueWindow = toBoundedInteger(loadStoredConfig('policyAlertRescueWindow', '2'), 2, 1, 5);
     const storedExecutionMode = String(loadStoredConfig('monitorExecutionMode', 'manual'));
+    const storedResultSourceMode = String(loadStoredConfig('monitorResultSourceMode', 'live'));
+    const storedReplayHistoryLimit = toBoundedInteger(loadStoredConfig('monitorReplayHistoryLimit', '2000'), 2000, 100, 10000);
+    const storedReplayDelayMs = toBoundedInteger(loadStoredConfig('monitorReplayDelayMs', '10'), 10, 0, 5000);
     const storedMaxSwitchesPerCycle = toBoundedInteger(loadStoredConfig('maxSwitchesPerCycle', '1'), 1, 0, 10);
 
     betSizeInput.value = String(storedMaxNumbers);
     apiMaxNumbersInput.value = String(storedMaxNumbers);
+    apiProtectedModeEnabledSelect.value = storedProtectedModeEnabled ? 'true' : 'false';
+    apiProtectedSuggestionSizeInput.value = String(storedProtectedSuggestionSize);
+    if (apiProtectedSwapEnabledSelect) {
+      apiProtectedSwapEnabledSelect.value = storedProtectedSwapEnabled ? 'true' : 'false';
+      apiProtectedSwapEnabledSelect.disabled = true;
+    }
+    apiColdCountInput.value = String(storedColdCount);
+    recoveryEnabledSelect.value = storedRecoveryEnabled ? 'true' : 'false';
+    recoveryModeSelect.value = ['target_cycles', 'fixed_chip', 'manual_ladder'].includes(storedRecoveryMode)
+      ? storedRecoveryMode
+      : 'target_cycles';
+    recoveryTargetWinsInput.value = String(storedRecoveryTargetWins);
+    recoveryFixedChipInput.value = String(storedRecoveryFixedChip);
+    recoveryLadderInput.value = storedRecoveryLadder;
+    recoveryMaxChipInput.value = String(storedRecoveryMaxChip);
     apiHistoryLimitInput.value = String(storedHistoryLimit);
     apiOptimizedMaxNumbersInput.value = String(storedOptimizedMaxNumbers);
     apiBaseWeightInput.value = String(storedBaseWeight);
@@ -1462,11 +2214,24 @@
     policyAlertMinRemainingInput.value = String(storedPolicyAlertMinRemaining);
     policyAlertRescueWindowInput.value = String(storedPolicyAlertRescueWindow);
     executionModeSelect.value = ['manual', 'conservative', 'aggressive'].includes(storedExecutionMode) ? storedExecutionMode : 'manual';
+    resultSourceModeSelect.value = ['live', 'simulation'].includes(storedResultSourceMode) ? storedResultSourceMode : 'live';
+    simulationHistoryLimitInput.value = String(storedReplayHistoryLimit);
+    simulationDelayMsInput.value = String(storedReplayDelayMs);
     maxSwitchesPerCycleInput.value = String(storedMaxSwitchesPerCycle);
   }
 
   function persistSuggestionConfig() {
     saveStoredConfig('finalSuggestionCount', toBoundedInteger(apiMaxNumbersInput.value, 8, 1, 37));
+    saveStoredConfig('protectedModeEnabled', apiProtectedModeEnabledSelect.value === 'true' ? 'true' : 'false');
+    saveStoredConfig('protectedSuggestionSize', getProtectedSuggestionSize());
+    saveStoredConfig('protectedSwapEnabled', isProtectedSwapEnabled() ? 'true' : 'false');
+    saveStoredConfig('monitorColdCount', getColdCount());
+    saveStoredConfig('recoveryEnabled', recoveryEnabledSelect.value === 'true' ? 'true' : 'false');
+    saveStoredConfig('recoveryMode', getRecoveryMode());
+    saveStoredConfig('recoveryTargetWins', getRecoveryTargetWins());
+    saveStoredConfig('recoveryFixedChip', getRecoveryFixedChip());
+    saveStoredConfig('recoveryLadder', String(recoveryLadderInput.value || '').trim());
+    saveStoredConfig('recoveryMaxChip', getRecoveryMaxChip());
     saveStoredConfig('monitorHistoryLimit', toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000));
     saveStoredConfig('monitorOptimizedMaxNumbers', toBoundedInteger(apiOptimizedMaxNumbersInput.value, 37, 1, 37));
     saveStoredConfig('finalBaseWeight', Math.max(0, toFiniteNumber(apiBaseWeightInput.value, 0.5)));
@@ -1490,13 +2255,16 @@
     saveStoredConfig('policyAlertMinRemaining', toBoundedInteger(policyAlertMinRemainingInput.value, 2, 1, 10));
     saveStoredConfig('policyAlertRescueWindow', toBoundedInteger(policyAlertRescueWindowInput.value, 2, 1, 5));
     saveStoredConfig('monitorExecutionMode', executionModeSelect.value || 'manual');
+    saveStoredConfig('monitorResultSourceMode', resultSourceModeSelect.value || 'live');
+    saveStoredConfig('monitorReplayHistoryLimit', getReplayHistoryLimit());
+    saveStoredConfig('monitorReplayDelayMs', getReplayDelayMs());
     saveStoredConfig('maxSwitchesPerCycle', toBoundedInteger(maxSwitchesPerCycleInput.value, 1, 0, 10));
   }
 
   async function loadWeightProfilesForMonitor() {
     if (!apiWeightProfileSelect) return;
     const slug = rouletteSelect.value;
-    const selectedProfileId = loadStoredConfig(getWeightProfileStorageKey(slug), '');
+    const storedProfileId = loadStoredConfig(getWeightProfileStorageKey(slug), '');
     try {
       const response = await fetch('/api/patterns/training/profiles');
       const data = await response.json();
@@ -1504,6 +2272,9 @@
         const rouletteId = String(item?.roulette_id || '').trim();
         return !rouletteId || rouletteId === slug;
       });
+      const selectedProfileId = profiles.some((item) => item.id === MONITOR_DEFAULT_WEIGHT_PROFILE_ID)
+        ? MONITOR_DEFAULT_WEIGHT_PROFILE_ID
+        : storedProfileId;
       const options = ['<option value="">Peso padrão</option>'];
       profiles.forEach((item) => {
         const selected = item.id === selectedProfileId ? 'selected' : '';
@@ -1513,6 +2284,9 @@
       if (selectedProfileId && !profiles.some((item) => item.id === selectedProfileId)) {
         saveStoredConfig(getWeightProfileStorageKey(slug), '');
         apiWeightProfileSelect.value = '';
+      } else {
+        apiWeightProfileSelect.value = selectedProfileId || '';
+        saveStoredConfig(getWeightProfileStorageKey(slug), apiWeightProfileSelect.value || '');
       }
     } catch (error) {
       console.error('Erro ao carregar perfis de treino para o monitor:', error);
@@ -1525,7 +2299,7 @@
   }
 
   function renderAttemptStakeInputs() {
-    const maxAttempts = parseInt(maxAttemptsInput.value, 10) || 1;
+    const maxAttempts = getEffectiveMaxAttempts();
     const fallbackValue = parseFloat(chipValueInput.value) || 1;
     const currentValues = getAttemptStakeInputs().map((input) => {
       const parsed = parseFloat(input.value);
@@ -1576,7 +2350,7 @@
   }
 
   function getChipSchedule() {
-    const maxAttempts = parseInt(maxAttemptsInput.value, 10) || 1;
+    const maxAttempts = getEffectiveMaxAttempts();
     const fallbackValue = parseFloat(chipValueInput.value) || 1;
     const rawValues = getAttemptStakeInputs().map((input) => {
       const parsed = parseFloat(input.value);
@@ -1592,7 +2366,7 @@
   }
 
   function updateAttemptStakeProfits() {
-    const suggestionSize = Math.max(1, toBoundedInteger(betSizeInput.value, 8, 1, 37));
+    const suggestionSize = getEffectiveConfiguredSuggestionSize();
     const inputs = getAttemptStakeInputs();
     let cumulativeCost = 0;
 
@@ -1622,6 +2396,7 @@
 
   async function restartCycleWithoutSettlement(reason = '') {
     resetBetState();
+    clearColdWaitState();
     if (reason) {
       updateSuggestionDisplay([], { score: 0, label: 'Baixa' }, { score: 0, label: 'Baixa' }, reason);
       updatePolicyDisplay(buildOperationalPolicy('wait', 'Reavaliar', reason, {}));
@@ -1632,40 +2407,88 @@
     }
   }
 
+  async function startSimulationReplay(slug) {
+    const response = await fetch('/api/monitor/replay/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roulette_id: slug,
+        limit: getReplayHistoryLimit(),
+        delay_ms: getReplayDelayMs(),
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.detail || 'Falha ao iniciar replay.');
+    }
+    return data;
+  }
+
+  async function stopSimulationReplay(slug) {
+    if (!slug) return;
+    try {
+      await fetch('/api/monitor/replay/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roulette_id: slug,
+        }),
+      });
+    } catch (error) {
+      console.error('Erro ao interromper replay:', error);
+    }
+  }
+
   // Connect WebSocket
-  function connectWebSocket() {
+  function connectWebSocket(channelOverride = null) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    currentResultChannel = channelOverride || getDesiredResultChannel();
+    ws = new WebSocket(`${protocol}//${window.location.host}/ws?channel=${encodeURIComponent(currentResultChannel)}`);
 
-    ws.onopen = () => {
-      wsIndicator.classList.add('connected');
-      wsIndicator.classList.remove('disconnected');
-      wsStatusText.textContent = 'Conectado';
-    };
+    return new Promise((resolve) => {
+      let settled = false;
 
-    ws.onclose = () => {
-      wsIndicator.classList.remove('connected');
-      wsIndicator.classList.add('disconnected');
-      wsStatusText.textContent = 'Desconectado';
-      if (isMonitoring) {
-        setTimeout(connectWebSocket, 3000);
-      }
-    };
+      const settle = () => {
+        if (!settled) {
+          settled = true;
+          resolve(true);
+        }
+      };
 
-    ws.onerror = () => {
-      wsIndicator.classList.remove('connected');
-      wsIndicator.classList.add('disconnected');
-      wsStatusText.textContent = 'Erro';
-    };
+      ws.onopen = () => {
+        const modeLabel = currentResultChannel === 'new_result_simulate' ? 'Conectado (Simulação)' : 'Conectado';
+        wsIndicator.classList.add('connected');
+        wsIndicator.classList.remove('disconnected');
+        wsStatusText.textContent = modeLabel;
+        settle();
+      };
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        handleNewNumber(data);
-      } catch (e) {
-        console.error('Erro ao processar mensagem:', e);
-      }
-    };
+      ws.onclose = () => {
+        wsIndicator.classList.remove('connected');
+        wsIndicator.classList.add('disconnected');
+        wsStatusText.textContent = 'Desconectado';
+        settle();
+        if (isMonitoring) {
+          setTimeout(() => connectWebSocket(currentResultChannel), 3000);
+        }
+      };
+
+      ws.onerror = () => {
+        wsIndicator.classList.remove('connected');
+        wsIndicator.classList.add('disconnected');
+        wsStatusText.textContent = 'Erro';
+        settle();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleNewNumber(data);
+        } catch (e) {
+          console.error('Erro ao processar mensagem:', e);
+        }
+      };
+    });
   }
 
   // Handle new number from WebSocket
@@ -1704,26 +2527,26 @@
   }
 
   // Fetch suggestion from API
-  // Usa o endpoint final-suggestion que já faz a fusão com a sugestão base
+  // Usa simple-suggestion para abrir o ciclo a partir do número recém-saído
   async function fetchSuggestion() {
-    const betSize = toBoundedInteger(apiMaxNumbersInput.value, parseInt(betSizeInput.value, 10) || 8, 1, 37);
+    const betSize = getEffectiveConfiguredSuggestionSize();
     const minConfidence = parseInt(minConfidenceInput.value, 10) || 0;
     const historyLimit = toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000);
 
-    if (rouletteHistory.length < 50) {
+    if (rouletteHistory.length < MIN_MONITOR_HISTORY) {
       console.log('[Monitor] Histórico insuficiente para sugestão:', rouletteHistory.length);
       return {
         list: [],
         confidence: { score: 0, label: 'Baixa' },
         confidenceV2: { score: 0, label: 'Baixa' },
-        reason: `Histórico insuficiente (${rouletteHistory.length}/50).`,
+        reason: `Histórico insuficiente (${rouletteHistory.length}/${MIN_MONITOR_HISTORY}).`,
       };
     }
 
     const focusNumber = rouletteHistory[0];
     const payload = getFinalSuggestionPayload(rouletteHistory.slice(0, historyLimit), focusNumber, betSize);
 
-    console.log('[Monitor] Enviando para API final-suggestion:', {
+    console.log('[Monitor] Enviando para API simple-suggestion:', {
       historyLength: payload.history.length,
       focus_number: focusNumber,
       max_numbers: betSize,
@@ -1737,13 +2560,13 @@
         primeiros5: payload.history.slice(0, 5)
       });
     setDebugContent(debugPayloadEl, {
-      endpoint: '/api/patterns/final-suggestion',
+      endpoint: '/api/patterns/simple-suggestion',
       roulette: rouletteSelect.value,
       payload,
     });
 
     try {
-      const response = await fetch('/api/patterns/final-suggestion', {
+      const response = await fetch('/api/patterns/simple-suggestion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1756,65 +2579,68 @@
 
       const data = await response.json();
       setDebugContent(debugResponseEl, data);
-      console.log('[Monitor] Resposta da API:', {
+      const fallbackConfidence = buildSimpleSuggestionConfidence(data);
+      const confidence = data.confidence && typeof data.confidence === 'object'
+        ? data.confidence
+        : fallbackConfidence;
+      const confidenceV2 = data.confidenceV2 && typeof data.confidenceV2 === 'object'
+        ? data.confidenceV2
+        : fallbackConfidence;
+      console.log('[Monitor] Resposta da API simple-suggestion:', {
         available: data.available,
-        suggestion: data.suggestion,
-        confidence: data.confidence,
-        optimized_suggestion: data.optimized_suggestion,
-        base_suggestion: data.base_suggestion,
-        base_analysis: data.base_analysis
+        suggestion: data.suggestion || data.list,
+        confidence,
+        pattern_count: data.pattern_count,
+        top_support_count: data.top_support_count,
+        avg_support_count: data.avg_support_count
       });
 
       if (!data.available) {
         console.log('[Monitor] Sugestão não disponível:', data.explanation);
         return {
           list: [],
-          confidence: data.confidence || { score: 0, label: 'Baixa' },
-          confidenceV2: {
-            score: parseInt(
-              data.optimized_payload?.confidence_breakdown?.calibrated_confidence_v2
-                ?? data.optimized_breakdown?.calibrated_confidence_v2
-                ?? 0,
-              10
-            ) || 0,
-            label: getConfidenceLabel(
-              parseInt(
-                data.optimized_payload?.confidence_breakdown?.calibrated_confidence_v2
-                  ?? data.optimized_breakdown?.calibrated_confidence_v2
-                  ?? 0,
-                10
-              ) || 0
-            ),
-          },
+          confidence,
+          confidenceV2,
           reason: data.explanation || 'Sugestão indisponível.',
+          rankingLocked: data.ranking_locked !== false,
+          protectedModeEnabled: !!data.protected_mode_enabled,
+          protectedSuggestionSize: Number.isFinite(Number(data.protected_suggestion_size)) ? Number(data.protected_suggestion_size) : null,
+          protectedExcludedNumbers: Array.isArray(data.protected_excluded_numbers) ? data.protected_excluded_numbers : [],
+          protectedOriginalExcludedNumbers: Array.isArray(data.protected_original_excluded_numbers) ? data.protected_original_excluded_numbers : [],
+          protectedGuardNumbers: Array.isArray(data.protected_guard_numbers) ? data.protected_guard_numbers : [],
+          protectedGuardDetails: data.protected_guard_details && typeof data.protected_guard_details === 'object' ? data.protected_guard_details : {},
+          protectedSwapApplied: !!data.protected_swap_applied,
+          protectedSwapSummary: String(data.protected_swap_summary || ''),
+          protectedSwapDetails: Array.isArray(data.protected_swap_details) ? data.protected_swap_details : [],
+          protectedWaitTriggered: !!data.protected_wait_triggered,
+          protectedWaitRecommendedSpins: Number.isFinite(Number(data.protected_wait_recommended_spins)) ? Number(data.protected_wait_recommended_spins) : 0,
+          protectedWaitReason: String(data.protected_wait_reason || ''),
+          baseIsCold: !!data.base_is_cold,
+          baseColdRank: Number.isFinite(Number(data.base_cold_rank)) ? Number(data.base_cold_rank) : null,
+          coldNumbersConsidered: Array.isArray(data.cold_numbers_considered) ? data.cold_numbers_considered : [],
+          coldWaitRecommendedSpins: Number.isFinite(Number(data.cold_wait_recommended_spins)) ? Number(data.cold_wait_recommended_spins) : 0,
         };
       }
 
-      // Usa a sugestão final já rankeada corretamente
-      const suggestionList = Array.isArray(data.suggestion) ? data.suggestion : [];
+      const suggestionList = Array.isArray(data.suggestion)
+        ? data.suggestion
+        : (Array.isArray(data.list) ? data.list : []);
 
       // Validar que os números são válidos (0-36)
-      const validSuggestion = suggestionList.filter(n =>
-        Number.isInteger(n) && n >= 0 && n <= 36
-      );
+      const validSuggestion = suggestionList
+        .map((value) => parseInt(value, 10))
+        .filter((value) => Number.isInteger(value) && value >= 0 && value <= 36);
 
       if (validSuggestion.length !== suggestionList.length) {
         console.warn('[Monitor] Alguns números inválidos foram filtrados:', suggestionList);
       }
 
-      const confidence = data.confidence || { score: 0, label: 'Baixa' };
-      const confidenceV2Score = parseInt(
-        data.optimized_payload?.confidence_breakdown?.calibrated_confidence_v2
-          ?? data.optimized_breakdown?.calibrated_confidence_v2
-          ?? 0,
-        10
-      ) || 0;
-      const confidenceV2 = {
-        score: confidenceV2Score,
-        label: getConfidenceLabel(confidenceV2Score),
-      };
+      const hasNativeConfidence = !!(
+        (data.confidence && typeof data.confidence === 'object')
+        || (data.confidenceV2 && typeof data.confidenceV2 === 'object')
+      );
 
-      if ((confidenceV2.score || 0) < minConfidence) {
+      if (hasNativeConfidence && !data.protected_mode_enabled && (confidenceV2.score || 0) < minConfidence) {
         return {
           list: [],
           confidence,
@@ -1827,7 +2653,30 @@
         list: validSuggestion,
         confidence,
         confidenceV2,
-        reason: '',
+        reason: String(data.explanation || ''),
+        rankingLocked: data.ranking_locked !== false,
+        protectedModeEnabled: !!data.protected_mode_enabled,
+        protectedSuggestionSize: Number.isFinite(Number(data.protected_suggestion_size))
+          ? Number(data.protected_suggestion_size)
+          : (isProtectedModeEnabled() ? getProtectedSuggestionSize() : null),
+        protectedExcludedNumbers: Array.isArray(data.protected_excluded_numbers) ? data.protected_excluded_numbers : [],
+        protectedOriginalExcludedNumbers: Array.isArray(data.protected_original_excluded_numbers) ? data.protected_original_excluded_numbers : [],
+        protectedGuardNumbers: Array.isArray(data.protected_guard_numbers) ? data.protected_guard_numbers : [],
+        protectedGuardDetails: data.protected_guard_details && typeof data.protected_guard_details === 'object'
+          ? data.protected_guard_details
+          : {},
+        protectedSwapApplied: !!data.protected_swap_applied,
+        protectedSwapSummary: String(data.protected_swap_summary || ''),
+        protectedSwapDetails: Array.isArray(data.protected_swap_details) ? data.protected_swap_details : [],
+        protectedWaitTriggered: !!data.protected_wait_triggered,
+        protectedWaitRecommendedSpins: Number.isFinite(Number(data.protected_wait_recommended_spins))
+          ? Number(data.protected_wait_recommended_spins)
+          : 0,
+        protectedWaitReason: String(data.protected_wait_reason || ''),
+        baseIsCold: !!data.base_is_cold,
+        baseColdRank: Number.isFinite(Number(data.base_cold_rank)) ? Number(data.base_cold_rank) : null,
+        coldNumbersConsidered: Array.isArray(data.cold_numbers_considered) ? data.cold_numbers_considered : [],
+        coldWaitRecommendedSpins: Number.isFinite(Number(data.cold_wait_recommended_spins)) ? Number(data.cold_wait_recommended_spins) : 0,
       };
     } catch (error) {
       console.error('Erro ao buscar sugestão:', error);
@@ -1840,54 +2689,23 @@
         confidence: { score: 0, label: 'Baixa' },
         confidenceV2: { score: 0, label: 'Baixa' },
         reason: 'Falha ao consultar a sugestão da API.',
-      };
-    }
-  }
-
-  async function fetchPolicyDecision() {
-    const betSize = toBoundedInteger(apiMaxNumbersInput.value, parseInt(betSizeInput.value, 10) || 8, 1, 37);
-    const historyLimit = toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000);
-
-    if (rouletteHistory.length < 50) {
-      return {
-        action: 'wait',
-        label: 'Esperar',
-        reason: `Histórico insuficiente (${rouletteHistory.length}/50).`,
-        metrics: {},
-        current: null,
-        candidate: null,
-      };
-    }
-
-    const focusNumber = rouletteHistory[0];
-    const payload = getPolicyPayload(rouletteHistory.slice(0, historyLimit), focusNumber, betSize);
-    try {
-      const response = await fetch('/api/patterns/final-suggestion/policy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.detail || `HTTP ${response.status}`);
-      }
-      return {
-        action: data?.decision?.action || 'wait',
-        label: data?.decision?.label || 'Esperar',
-        reason: data?.decision?.reason || 'Sem decisão.',
-        metrics: data?.decision || {},
-        candidate: data?.candidate_signal || null,
-        current: payload.active_signal || null,
-      };
-    } catch (error) {
-      console.error('Erro ao avaliar política do sinal:', error);
-      return {
-        action: 'wait',
-        label: 'Esperar',
-        reason: 'Falha ao consultar política do sinal.',
-        metrics: {},
-        current: null,
-        candidate: null,
+        rankingLocked: false,
+        protectedModeEnabled: false,
+        protectedSuggestionSize: null,
+        protectedExcludedNumbers: [],
+        protectedOriginalExcludedNumbers: [],
+        protectedGuardNumbers: [],
+        protectedGuardDetails: {},
+        protectedSwapApplied: false,
+        protectedSwapSummary: '',
+        protectedSwapDetails: [],
+        protectedWaitTriggered: false,
+        protectedWaitRecommendedSpins: 0,
+        protectedWaitReason: '',
+        baseIsCold: false,
+        baseColdRank: null,
+        coldNumbersConsidered: [],
+        coldWaitRecommendedSpins: 0,
       };
     }
   }
@@ -1906,6 +2724,8 @@
     const waitingLimit = Number(metrics.max_wait_allowed || getDynamicMaxWaitSpins());
     const alertMode = !!metrics.alert_mode;
     const rescueMode = !!metrics.rescue_mode;
+
+    betState.lastPolicySnapshot = sanitizePolicyForAudit(policy);
 
     policyDecisionEl.className = `bet-status ${tone}`;
     policyDecisionEl.innerHTML = `
@@ -1959,14 +2779,24 @@
     return executionModeSelect.value || 'manual';
   }
 
+  function isProtectedPolicyCandidate(policy) {
+    return !!(
+      policy?.candidate?.protected_mode_enabled
+      || policy?.current?.protected_mode_enabled
+      || betState.protectedModeEnabled
+    );
+  }
+
   function shouldAutoEnterFromPolicy(policy) {
     if (!policy) return false;
+    if (isProtectedPolicyCandidate(policy)) return true;
     return policy.action !== 'wait';
   }
 
   function shouldAutoSwitchFromPolicy(policy) {
     const mode = getExecutionMode();
     if (mode === 'manual') return false;
+    if (isProtectedPolicyCandidate(policy)) return false;
     if (!policy || policy.action !== 'switch') return false;
     if ((betState.attempts || 0) < 2) return false;
 
@@ -1982,6 +2812,7 @@
 
   function shouldPauseFromPolicy(policy) {
     if (!policy) return false;
+    if (isProtectedPolicyCandidate(policy)) return false;
     return policy.action === 'wait';
   }
 
@@ -2009,6 +2840,28 @@
     betState.betSize = candidate.suggestion.length;
     betState.policyScore = candidate.policy_score ?? ((betState.confidence.score || 0) - (betState.betSize * 1.5));
     betState.blockCompactionApplied = !!candidate.block_compaction_applied;
+    betState.rankingLocked = !!candidate.ranking_locked;
+    betState.protectedModeEnabled = !!candidate.protected_mode_enabled;
+    betState.protectedSuggestionSize = Number.isFinite(Number(candidate.protected_suggestion_size))
+      ? Number(candidate.protected_suggestion_size)
+      : null;
+    betState.protectedExcludedNumbers = Array.isArray(candidate.protected_excluded_numbers)
+      ? [...candidate.protected_excluded_numbers]
+      : [];
+    betState.protectedOriginalExcludedNumbers = Array.isArray(candidate.protected_original_excluded_numbers)
+      ? [...candidate.protected_original_excluded_numbers]
+      : [];
+    betState.protectedGuardNumbers = Array.isArray(candidate.protected_guard_numbers)
+      ? [...candidate.protected_guard_numbers]
+      : [];
+    betState.protectedGuardDetails = candidate.protected_guard_details && typeof candidate.protected_guard_details === 'object'
+      ? candidate.protected_guard_details
+      : {};
+    betState.protectedSwapApplied = !!candidate.protected_swap_applied;
+    betState.protectedSwapSummary = String(candidate.protected_swap_summary || '');
+    betState.protectedSwapDetails = Array.isArray(candidate.protected_swap_details)
+      ? candidate.protected_swap_details
+      : [];
     betState.switches = (betState.switches || 0) + 1;
     betState.betOnTable = true;
     betState.alertMode = false;
@@ -2058,7 +2911,112 @@
     betState.rescueSpinsRemaining = 0;
     betState.switches = 0;
     betState.signalTimeline = [];
+    betState.lastPolicySnapshot = null;
+    betState.suggestionReason = '';
+    betState.focusNumber = null;
+    betState.openedHistoryHead = [];
+    betState.rankingLocked = false;
+    betState.protectedModeEnabled = false;
+    betState.protectedSuggestionSize = null;
+    betState.protectedExcludedNumbers = [];
+    betState.protectedOriginalExcludedNumbers = [];
+    betState.protectedGuardNumbers = [];
+    betState.protectedGuardDetails = {};
+    betState.protectedSwapApplied = false;
+    betState.protectedSwapSummary = '';
+    betState.protectedSwapDetails = [];
+    betState.recoveryActive = false;
+    betState.recoveryDebtBefore = 0;
+    betState.recoveryDebtAfter = 0;
+    betState.recoveryChipUsed = 0;
+    betState.recoveryEstimatedWins = null;
+    betState.recoveryModeLabel = getRecoveryModeLabel();
     updateCycleLiveSummary();
+    updateRecoveryDisplay();
+  }
+
+  function getHistoryAuditPayload({
+    attemptChipValue,
+    betSize,
+    hitRank = null,
+    defenseMechanismSaved = false,
+    defenseMechanismHitDetail = null,
+    defenseMechanismSummary = '',
+  }) {
+    return {
+      rouletteSlug: rouletteSelect?.value || '',
+      suggestionNumbers: Array.isArray(betState.suggestion) ? [...betState.suggestion] : [],
+      policyScore: betState.policyScore,
+      policySnapshot: cloneForAudit(betState.lastPolicySnapshot, null),
+      policyMetricsSummary: formatPolicyMetricsInline(betState.lastPolicySnapshot?.metrics || {}),
+      suggestionReason: betState.suggestionReason || '',
+      focusNumber: Number.isInteger(betState.focusNumber) ? betState.focusNumber : null,
+      openedHistoryHead: Array.isArray(betState.openedHistoryHead) ? [...betState.openedHistoryHead] : [],
+      executionMode: getExecutionMode(),
+      minConfidence: betState.minConfidence,
+      blockCompactionApplied: !!betState.blockCompactionApplied,
+      protectedSwapApplied: !!betState.protectedSwapApplied,
+      protectedSwapSummary: betState.protectedSwapSummary || '',
+      protectedSwapDetails: cloneForAudit(betState.protectedSwapDetails, []),
+      protectedExcludedNumbers: Array.isArray(betState.protectedExcludedNumbers) ? [...betState.protectedExcludedNumbers] : [],
+      protectedOriginalExcludedNumbers: Array.isArray(betState.protectedOriginalExcludedNumbers) ? [...betState.protectedOriginalExcludedNumbers] : [],
+      chipValueAtOpen: betState.chipValue,
+      chipScheduleAtOpen: Array.isArray(betState.chipSchedule) ? [...betState.chipSchedule] : [],
+      defenseMechanismSaved: !!defenseMechanismSaved,
+      defenseMechanismHitDetail: cloneForAudit(defenseMechanismHitDetail, null),
+      defenseMechanismSummary: defenseMechanismSummary || '',
+      hitRank,
+      attemptChipValue,
+      betSize,
+    };
+  }
+
+  function getDefenseMechanismHitDetail(resultNumber, protectedSwapDetails = []) {
+    if (!Number.isInteger(resultNumber) || !Array.isArray(protectedSwapDetails)) {
+      return null;
+    }
+
+    for (const rawDetail of protectedSwapDetails) {
+      if (!rawDetail || typeof rawDetail !== 'object') continue;
+      const replacementNumber = parseInt(rawDetail.replacement_number, 10);
+      if (!Number.isInteger(replacementNumber) || replacementNumber !== resultNumber) continue;
+
+      const replacedNumber = parseInt(rawDetail.replaced_number, 10);
+      const triggerNumbers = Array.isArray(rawDetail.trigger_numbers)
+        ? rawDetail.trigger_numbers
+            .map((value) => parseInt(value, 10))
+            .filter((value) => Number.isInteger(value) && value >= 0 && value <= 36)
+        : [];
+
+      return {
+        replacedNumber: Number.isInteger(replacedNumber) ? replacedNumber : null,
+        replacementNumber,
+        triggerNumbers,
+        triggerReason: String(rawDetail.trigger_reason || '').trim(),
+        triggerMatches: cloneForAudit(rawDetail.trigger_matches, []),
+      };
+    }
+
+    return null;
+  }
+
+  function buildDefenseMechanismSummary(defenseHitDetail) {
+    if (!defenseHitDetail) return '';
+
+    const replacedLabel = Number.isInteger(defenseHitDetail.replacedNumber)
+      ? defenseHitDetail.replacedNumber
+      : 'n/a';
+    const replacementLabel = Number.isInteger(defenseHitDetail.replacementNumber)
+      ? defenseHitDetail.replacementNumber
+      : 'n/a';
+    const triggerLabel = Array.isArray(defenseHitDetail.triggerNumbers) && defenseHitDetail.triggerNumbers.length
+      ? ` Gatilhos: ${defenseHitDetail.triggerNumbers.join(', ')}.`
+      : '';
+    const reasonLabel = defenseHitDetail.triggerReason
+      ? ` Motivo: ${defenseHitDetail.triggerReason}.`
+      : '';
+
+    return `Mecanismo de defesa salvou a aposta: ${replacedLabel} saiu da exclusao, ${replacementLabel} entrou no lugar e foi o numero que bateu.${triggerLabel}${reasonLabel}`.trim();
   }
 
   function applyPolicyToNextSpin(policy) {
@@ -2084,7 +3042,9 @@
   }
 
   // Update suggestion display
-  function updateSuggestionDisplay(suggestion, confidence, confidenceV2, reason = '') {
+  function updateSuggestionDisplay(suggestion, confidence, confidenceV2, reason = '', meta = {}) {
+    updateProtectedColdDisplay(meta);
+
     if (!suggestion || !suggestion.length) {
       suggestionGrid.innerHTML = '<div style="opacity: 0.5;">⏳ Calculando sugestão...</div>';
       suggestionInfo.innerHTML = reason
@@ -2093,11 +3053,16 @@
       return;
     }
 
-    // Ordenar numericamente para exibição (a ordem de relevância já foi aplicada no servidor)
-    const displayList = [...suggestion].sort((a, b) => a - b);
+    const displayList = Array.isArray(suggestion)
+      ? suggestion
+          .map((value) => parseInt(value, 10))
+          .filter((value) => Number.isInteger(value) && value >= 0 && value <= 36)
+      : [];
+    const rankingLocked = !!meta?.rankingLocked;
+    const orderedDisplayList = rankingLocked ? displayList : [...displayList].sort((a, b) => a - b);
 
-    suggestionGrid.innerHTML = displayList
-      .map((n) => `<div class="suggestion-cell ${getColor(n)}">${n}</div>`)
+    suggestionGrid.innerHTML = orderedDisplayList
+      .map((n, index) => `<div class="suggestion-cell ${getColor(n)}" title="${rankingLocked ? `#${index + 1} no ranking` : `Número ${n}`}">${n}</div>`)
       .join('');
 
     const labelClass = (confidence.label || 'baixa').toLowerCase().replace(/\s+/g, '-');
@@ -2109,11 +3074,32 @@
     const warningHtml = confV2Score < 50
       ? '<div style="color: #fdcb6e; font-size: 0.75rem; margin-top: 5px;">⚠️ Aguarde melhor momento</div>'
       : '';
+    const rankingHtml = rankingLocked
+      ? `<div style="margin-top: 5px; font-size: 0.78rem; opacity: 0.82;">Ordem protegida: ranking preservado para medir posição do hit.</div>`
+      : '';
+    const excludedLabel = Array.isArray(meta?.protectedExcludedNumbers) && meta.protectedExcludedNumbers.length
+      ? ` Fora: ${meta.protectedExcludedNumbers.join(', ')}.`
+      : '';
+    const protectedHtml = meta?.protectedModeEnabled
+      ? `<div style="margin-top: 5px; font-size: 0.78rem; opacity: 0.82;">Cobertura protegida ${meta?.protectedSuggestionSize || displayList.length} números.${excludedLabel}</div>`
+      : '';
+    const saveHtml = meta?.protectedSwapApplied
+      ? `<div style="margin-top: 5px; font-size: 0.78rem; color: #047857;">${meta?.protectedSwapSummary || 'Aposta salva por troca automática dos frios excluídos.'}</div>`
+      : '';
+    const waitHtml = meta?.waitReason
+      ? `<div style="margin-top: 5px; font-size: 0.78rem; color: #fdcb6e;">${meta.waitReason}</div>`
+      : meta?.baseIsCold
+        ? `<div style="margin-top: 5px; font-size: 0.78rem; color: #fdcb6e;">Base fria: aguardando ${meta?.coldWaitRecommendedSpins || meta?.coldWaitRemaining || 2} giro(s).</div>`
+      : '';
 
     suggestionInfo.innerHTML = `
       <span class="confidence-badge ${labelClass}">${confidence.label} (${confScore}%)</span>
-      <div style="margin-top: 5px;">${suggestion.length} números</div>
+      <div style="margin-top: 5px;">${displayList.length} números</div>
       <div style="margin-top: 5px; font-size: 0.8rem; opacity: 0.8;">Confiança v2: ${confV2Label} (${confV2Score}%)</div>
+      ${rankingHtml}
+      ${protectedHtml}
+      ${saveHtml}
+      ${waitHtml}
       ${warningHtml}
     `;
   }
@@ -2197,6 +3183,11 @@
     let label = policy?.label || 'Esperar';
     const reason = policy?.reason || 'Sem avaliação.';
 
+    if (isProtectedPolicyCandidate(policy) && action === 'wait') {
+      action = 'enter';
+      label = 'Cobertura protegida';
+    }
+
     if (action === 'switch' && !shouldAutoSwitchFromPolicy(policy)) {
       action = 'hold';
       label = 'Segurar';
@@ -2215,7 +3206,6 @@
   // Process bet
   async function tryStartBetCycle() {
     const suggestion = await fetchSuggestion();
-    const policy = await fetchPolicyDecision();
     if (!suggestion.list.length) {
       stats.skippedSignals++;
       updateStats();
@@ -2228,11 +3218,144 @@
         history_head: rouletteHistory.slice(0, 10),
       });
       updateSuggestionDisplay([], suggestion.confidence, suggestion.confidenceV2, suggestion.reason || 'Aguardando sugestão válida...');
-      updatePolicyDisplay(policy);
+      updatePolicyDisplay(buildOperationalPolicy('wait', 'Sem sugestão', suggestion.reason || 'Aguardando sugestão válida.', {}));
       updateCycleLiveSummary();
       updateAttemptsIndicator();
       return false;
     }
+
+    const policy = getPolicyDecisionDisabled();
+
+    if (suggestion.protectedModeEnabled && suggestion.protectedWaitTriggered && (suggestion.protectedWaitRecommendedSpins || 0) > 0) {
+      clearColdWaitState();
+      coldWaitState.active = true;
+      coldWaitState.mode = 'protected';
+      coldWaitState.remainingSpins = suggestion.protectedWaitRecommendedSpins;
+      coldWaitState.baseNumber = Array.isArray(rouletteHistory) && rouletteHistory.length ? rouletteHistory[0] : null;
+      coldWaitState.suggestionPreview = Array.isArray(suggestion.list) ? [...suggestion.list] : [];
+      coldWaitState.confidence = suggestion.confidence || { score: 0, label: 'Baixa' };
+      coldWaitState.confidenceV2 = suggestion.confidenceV2 || { score: 0, label: 'Baixa' };
+      coldWaitState.rankingLocked = !!suggestion.rankingLocked;
+      coldWaitState.protectedModeEnabled = !!suggestion.protectedModeEnabled;
+      coldWaitState.protectedSuggestionSize = suggestion.protectedSuggestionSize;
+      coldWaitState.protectedExcludedNumbers = Array.isArray(suggestion.protectedExcludedNumbers)
+        ? [...suggestion.protectedExcludedNumbers]
+        : [];
+      coldWaitState.protectedOriginalExcludedNumbers = Array.isArray(suggestion.protectedOriginalExcludedNumbers)
+        ? [...suggestion.protectedOriginalExcludedNumbers]
+        : [];
+      coldWaitState.protectedGuardNumbers = Array.isArray(suggestion.protectedGuardNumbers)
+        ? [...suggestion.protectedGuardNumbers]
+        : [];
+      coldWaitState.protectedGuardDetails = suggestion.protectedGuardDetails && typeof suggestion.protectedGuardDetails === 'object'
+        ? suggestion.protectedGuardDetails
+        : {};
+      coldWaitState.protectedSwapApplied = !!suggestion.protectedSwapApplied;
+      coldWaitState.protectedSwapSummary = String(suggestion.protectedSwapSummary || '');
+      coldWaitState.protectedSwapDetails = Array.isArray(suggestion.protectedSwapDetails)
+        ? suggestion.protectedSwapDetails
+        : [];
+      coldWaitState.waitReason = suggestion.protectedWaitReason || buildProtectedWaitReason(
+        coldWaitState.baseNumber,
+        coldWaitState.protectedExcludedNumbers,
+        coldWaitState.protectedGuardDetails,
+      );
+
+      updateSuggestionDisplay(
+        coldWaitState.suggestionPreview,
+        coldWaitState.confidence,
+        coldWaitState.confidenceV2,
+        coldWaitState.waitReason,
+        {
+          rankingLocked: coldWaitState.rankingLocked,
+          protectedModeEnabled: coldWaitState.protectedModeEnabled,
+          protectedSuggestionSize: coldWaitState.protectedSuggestionSize,
+          protectedExcludedNumbers: coldWaitState.protectedExcludedNumbers,
+          protectedOriginalExcludedNumbers: coldWaitState.protectedOriginalExcludedNumbers,
+          protectedSwapApplied: coldWaitState.protectedSwapApplied,
+          protectedSwapSummary: coldWaitState.protectedSwapSummary,
+          waitReason: coldWaitState.waitReason,
+        }
+      );
+      updatePolicyDisplay(buildOperationalPolicy(
+        'wait',
+        'Proteção 35 números',
+        coldWaitState.waitReason,
+        {
+          protected_wait: true,
+          protected_excluded_numbers: coldWaitState.protectedExcludedNumbers,
+          wait_spins: 0,
+          max_wait_allowed: coldWaitState.remainingSpins,
+        }
+      ));
+      updateCycleLiveSummary();
+      updateAttemptsIndicator();
+      return false;
+    }
+
+    if (suggestion.baseIsCold && (suggestion.coldWaitRecommendedSpins || 0) > 0) {
+      clearColdWaitState();
+      coldWaitState.active = true;
+      coldWaitState.mode = 'cold';
+      coldWaitState.remainingSpins = suggestion.coldWaitRecommendedSpins;
+      coldWaitState.baseNumber = Array.isArray(rouletteHistory) && rouletteHistory.length ? rouletteHistory[0] : null;
+      coldWaitState.suggestionPreview = Array.isArray(suggestion.list) ? [...suggestion.list] : [];
+      coldWaitState.confidence = suggestion.confidence || { score: 0, label: 'Baixa' };
+      coldWaitState.confidenceV2 = suggestion.confidenceV2 || { score: 0, label: 'Baixa' };
+      coldWaitState.rankingLocked = !!suggestion.rankingLocked;
+      coldWaitState.protectedModeEnabled = !!suggestion.protectedModeEnabled;
+      coldWaitState.protectedSuggestionSize = suggestion.protectedSuggestionSize;
+      coldWaitState.protectedExcludedNumbers = Array.isArray(suggestion.protectedExcludedNumbers)
+        ? [...suggestion.protectedExcludedNumbers]
+        : [];
+      coldWaitState.protectedOriginalExcludedNumbers = Array.isArray(suggestion.protectedOriginalExcludedNumbers)
+        ? [...suggestion.protectedOriginalExcludedNumbers]
+        : [];
+      coldWaitState.protectedSwapApplied = !!suggestion.protectedSwapApplied;
+      coldWaitState.protectedSwapSummary = String(suggestion.protectedSwapSummary || '');
+      coldWaitState.protectedSwapDetails = Array.isArray(suggestion.protectedSwapDetails)
+        ? suggestion.protectedSwapDetails
+        : [];
+      coldWaitState.waitReason = `Base ${coldWaitState.baseNumber} está fria. Observando ${coldWaitState.remainingSpins} giro(s) antes da entrada.`;
+
+      updateSuggestionDisplay(
+        coldWaitState.suggestionPreview,
+        coldWaitState.confidence,
+        coldWaitState.confidenceV2,
+        coldWaitState.waitReason,
+        {
+          rankingLocked: coldWaitState.rankingLocked,
+          protectedModeEnabled: coldWaitState.protectedModeEnabled,
+          protectedSuggestionSize: coldWaitState.protectedSuggestionSize,
+          protectedExcludedNumbers: coldWaitState.protectedExcludedNumbers,
+          protectedOriginalExcludedNumbers: coldWaitState.protectedOriginalExcludedNumbers,
+          protectedSwapApplied: coldWaitState.protectedSwapApplied,
+          protectedSwapSummary: coldWaitState.protectedSwapSummary,
+          baseIsCold: true,
+          coldWaitRemaining: coldWaitState.remainingSpins,
+          coldWaitRecommendedSpins: coldWaitState.remainingSpins,
+        }
+      );
+      updatePolicyDisplay(buildOperationalPolicy(
+        'wait',
+        'Número frio',
+        `Base ${coldWaitState.baseNumber} está entre os números frios monitorados. Aguardando ${coldWaitState.remainingSpins} giro(s).`,
+        {
+          cold_base: true,
+          cold_rank: suggestion.baseColdRank || 0,
+          cold_count: Array.isArray(suggestion.coldNumbersConsidered) ? suggestion.coldNumbersConsidered.length : 0,
+          wait_spins: 0,
+          max_wait_allowed: coldWaitState.remainingSpins,
+        }
+      ));
+      updateCycleLiveSummary();
+      updateAttemptsIndicator();
+      return false;
+    }
+
+    const baseChipValue = Math.max(0.01, toFiniteNumber(chipValueInput.value, 1));
+    const baseChipSchedule = getChipSchedule();
+    const recoveryPlan = buildRecoveryPlan(suggestion.list.length, baseChipValue);
 
     betState.active = true;
     betState.suggestion = suggestion.list;
@@ -2240,14 +3363,19 @@
     betState.confidenceV2 = suggestion.confidenceV2;
     betState.attempts = 0;
     betState.totalInvested = 0;
-    betState.chipValue = parseFloat(chipValueInput.value) || 1;
-    betState.maxAttempts = parseInt(maxAttemptsInput.value, 10) || 3;
-    betState.chipSchedule = getChipSchedule();
+    betState.chipValue = recoveryPlan.cycleChip;
+    betState.maxAttempts = getEffectiveMaxAttempts();
+    betState.chipSchedule = recoveryPlan.active
+      ? [recoveryPlan.cycleChip, ...baseChipSchedule.slice(1, betState.maxAttempts)]
+      : baseChipSchedule.slice(0, betState.maxAttempts);
     betState.betSize = suggestion.list.length;
     betState.minConfidence = parseInt(minConfidenceInput.value, 10) || 0;
     betState.openedAt = new Date();
     betState.openedAtLabel = formatDateTime(betState.openedAt);
     betState.policyScore = (suggestion.confidence?.score || 0) - (suggestion.list.length * 1.5);
+    betState.suggestionReason = suggestion.reason || '';
+    betState.focusNumber = Array.isArray(rouletteHistory) && rouletteHistory.length ? rouletteHistory[0] : null;
+    betState.openedHistoryHead = rouletteHistory.slice(0, 20);
     betState.blockCompactionApplied = !!policy?.candidate?.block_compaction_applied;
     betState.betOnTable = shouldAutoEnterFromPolicy(policy);
     betState.waitSpins = 0;
@@ -2255,6 +3383,32 @@
     betState.alertUsed = false;
     betState.rescueSpinsRemaining = 0;
     betState.switches = 0;
+    betState.rankingLocked = !!suggestion.rankingLocked;
+    betState.protectedModeEnabled = !!suggestion.protectedModeEnabled;
+    betState.protectedSuggestionSize = suggestion.protectedSuggestionSize;
+    betState.protectedExcludedNumbers = Array.isArray(suggestion.protectedExcludedNumbers)
+      ? [...suggestion.protectedExcludedNumbers]
+      : [];
+    betState.protectedOriginalExcludedNumbers = Array.isArray(suggestion.protectedOriginalExcludedNumbers)
+      ? [...suggestion.protectedOriginalExcludedNumbers]
+      : [];
+    betState.protectedGuardNumbers = Array.isArray(suggestion.protectedGuardNumbers)
+      ? [...suggestion.protectedGuardNumbers]
+      : [];
+    betState.protectedGuardDetails = suggestion.protectedGuardDetails && typeof suggestion.protectedGuardDetails === 'object'
+      ? suggestion.protectedGuardDetails
+      : {};
+    betState.protectedSwapApplied = !!suggestion.protectedSwapApplied;
+    betState.protectedSwapSummary = String(suggestion.protectedSwapSummary || '');
+    betState.protectedSwapDetails = Array.isArray(suggestion.protectedSwapDetails)
+      ? suggestion.protectedSwapDetails
+      : [];
+    betState.recoveryActive = !!recoveryPlan.active;
+    betState.recoveryDebtBefore = recoveryPlan.debt;
+    betState.recoveryDebtAfter = recoveryPlan.debt;
+    betState.recoveryChipUsed = recoveryPlan.cycleChip;
+    betState.recoveryEstimatedWins = recoveryPlan.estimatedWins;
+    betState.recoveryModeLabel = recoveryPlan.modeLabel;
     betState.signalTimeline = [{
       ...buildCycleEvent('start', {
         number: Array.isArray(rouletteHistory) && rouletteHistory.length ? rouletteHistory[0] : null,
@@ -2276,21 +3430,92 @@
       chip_value: betState.chipValue,
       chip_schedule: betState.chipSchedule,
       bet_size: betState.betSize,
+      recovery: recoveryPlan,
       min_confidence: betState.minConfidence,
       opened_at: betState.openedAtLabel,
       execution_mode: getExecutionMode(),
       history_head: rouletteHistory.slice(0, 10),
     });
 
-    updateSuggestionDisplay(suggestion.list, suggestion.confidence, suggestion.confidenceV2, '');
+    updateSuggestionDisplay(suggestion.list, suggestion.confidence, suggestion.confidenceV2, '', {
+      rankingLocked: betState.rankingLocked,
+      protectedModeEnabled: betState.protectedModeEnabled,
+      protectedSuggestionSize: betState.protectedSuggestionSize,
+      protectedExcludedNumbers: betState.protectedExcludedNumbers,
+      protectedOriginalExcludedNumbers: betState.protectedOriginalExcludedNumbers,
+      protectedSwapApplied: betState.protectedSwapApplied,
+      protectedSwapSummary: betState.protectedSwapSummary,
+    });
     updatePolicyDisplay(policy);
     updateCycleLiveSummary();
     updateAttemptsIndicator();
+    updateRecoveryDisplay(recoveryPlan);
     return true;
   }
 
   async function processBet(number) {
     if (!betState.active) {
+      if (coldWaitState.active) {
+        const protectedGuardHit = coldWaitState.mode === 'protected'
+          && Array.isArray(coldWaitState.protectedGuardNumbers)
+          && coldWaitState.protectedGuardNumbers.includes(number);
+
+        if (protectedGuardHit) {
+          coldWaitState.remainingSpins = 3;
+          coldWaitState.waitReason = buildProtectedWaitReason(
+            number,
+            coldWaitState.protectedExcludedNumbers,
+            coldWaitState.protectedGuardDetails,
+          );
+        } else {
+          coldWaitState.remainingSpins = Math.max(0, (coldWaitState.remainingSpins || 0) - 1);
+        }
+
+        if (coldWaitState.remainingSpins > 0) {
+          const currentWaitReason = coldWaitState.mode === 'protected'
+            ? (coldWaitState.waitReason || buildProtectedWaitReason(
+                number,
+                coldWaitState.protectedExcludedNumbers,
+                coldWaitState.protectedGuardDetails,
+              ))
+            : `Base ${coldWaitState.baseNumber} ainda está em observação. Restam ${coldWaitState.remainingSpins} giro(s).`;
+          updateSuggestionDisplay(
+            coldWaitState.suggestionPreview,
+            coldWaitState.confidence,
+            coldWaitState.confidenceV2,
+            currentWaitReason,
+            {
+              rankingLocked: coldWaitState.rankingLocked,
+              protectedModeEnabled: coldWaitState.protectedModeEnabled,
+              protectedSuggestionSize: coldWaitState.protectedSuggestionSize,
+              protectedExcludedNumbers: coldWaitState.protectedExcludedNumbers,
+              protectedOriginalExcludedNumbers: coldWaitState.protectedOriginalExcludedNumbers,
+              protectedSwapApplied: coldWaitState.protectedSwapApplied,
+              protectedSwapSummary: coldWaitState.protectedSwapSummary,
+              waitReason: currentWaitReason,
+              baseIsCold: coldWaitState.mode === 'cold',
+              coldWaitRemaining: coldWaitState.mode === 'cold' ? coldWaitState.remainingSpins : 0,
+              coldWaitRecommendedSpins: coldWaitState.mode === 'cold' ? coldWaitState.remainingSpins : 0,
+            }
+          );
+          updatePolicyDisplay(buildOperationalPolicy(
+            'wait',
+            coldWaitState.mode === 'protected' ? 'Proteção 35 números' : 'Número frio',
+            coldWaitState.mode === 'protected'
+              ? currentWaitReason
+              : `Observando ${coldWaitState.remainingSpins} giro(s) restantes antes de reavaliar a mesa.`,
+            {
+              cold_base: coldWaitState.mode === 'cold',
+              protected_wait: coldWaitState.mode === 'protected',
+              wait_spins: 0,
+              max_wait_allowed: coldWaitState.remainingSpins,
+            }
+          ));
+          updateAttemptsIndicator();
+          return;
+        }
+        clearColdWaitState();
+      }
       await tryStartBetCycle();
       return;
     }
@@ -2308,7 +3533,7 @@
             alert_mode: false,
           }
         );
-        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2, '', getActiveSuggestionMeta());
         updatePolicyDisplay(rescuePolicy);
         updateCycleLiveSummary();
         updateAttemptsIndicator();
@@ -2338,7 +3563,7 @@
         return;
       }
 
-      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2, '', getActiveSuggestionMeta());
       updatePolicyDisplay(buildOperationalPolicy(
         'wait',
         'Modo Alerta',
@@ -2356,7 +3581,7 @@
 
     if (!betState.betOnTable) {
       const passiveHit = Array.isArray(betState.suggestion) && betState.suggestion.includes(number);
-      const policy = await fetchPolicyDecision();
+      const policy = getPolicyDecisionDisabled();
       const transition = applyPolicyToNextSpin(policy);
       if (!transition.switched) {
         betState.signalTimeline = Array.isArray(betState.signalTimeline) ? betState.signalTimeline : [];
@@ -2396,7 +3621,7 @@
         }
         return;
       }
-      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2, '', getActiveSuggestionMeta());
       updatePolicyDisplay(policy);
       updateCycleLiveSummary();
       updateAttemptsIndicator();
@@ -2407,6 +3632,14 @@
     const attemptChipValue = getChipValueForAttempt(betState.attempts);
     const settledSuggestionSize = Array.isArray(betState.suggestion) ? betState.suggestion.length : 0;
     const won = betState.suggestion.includes(number);
+    const hitRank = won ? (betState.suggestion.indexOf(number) + 1) : null;
+    const defenseMechanismHitDetail = won
+      ? getDefenseMechanismHitDetail(number, betState.protectedSwapDetails)
+      : null;
+    const defenseMechanismSaved = !!defenseMechanismHitDetail;
+    const defenseMechanismSummary = defenseMechanismSaved
+      ? buildDefenseMechanismSummary(defenseMechanismHitDetail)
+      : '';
     const isObservationAttempt = attemptChipValue <= 0;
 
     if (isObservationAttempt) {
@@ -2452,9 +3685,32 @@
             chipSchedule: [...betState.chipSchedule],
             attemptChipValue,
             betSize: settledSuggestionSize,
+            hitRank,
+            rankingLocked: !!betState.rankingLocked,
+            protectedModeEnabled: !!betState.protectedModeEnabled,
+            protectedSuggestionSize: betState.protectedSuggestionSize,
+            protectedSwapApplied: !!betState.protectedSwapApplied,
+            protectedSwapSummary: betState.protectedSwapSummary,
+            recoveryActive: !!betState.recoveryActive,
+            recoveryModeLabel: betState.recoveryModeLabel,
+            recoveryDebtBefore: betState.recoveryDebtBefore,
+            recoveryDebtAfter: betState.recoveryDebtAfter,
+            recoveryChipUsed: betState.recoveryChipUsed,
+            recoveryEstimatedWins: betState.recoveryEstimatedWins,
             totalInvested: betState.totalInvested,
             switchCount: betState.switches || 0,
+            defenseMechanismSaved: false,
+            defenseMechanismHitDetail: null,
+            defenseMechanismSummary: '',
             signalTimeline: [...(betState.signalTimeline || [])],
+            audit: getHistoryAuditPayload({
+              attemptChipValue,
+              betSize: settledSuggestionSize,
+              hitRank,
+              defenseMechanismSaved: false,
+              defenseMechanismHitDetail: null,
+              defenseMechanismSummary: '',
+            }),
           });
           resetBetState();
           updateStats();
@@ -2473,9 +3729,9 @@
         betState.rescueSpinsRemaining = Math.max(0, betState.rescueSpinsRemaining - 1);
       }
 
-      const policy = await fetchPolicyDecision();
+      const policy = getPolicyDecisionDisabled();
       const transition = applyPolicyToNextSpin(policy);
-      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2, '', getActiveSuggestionMeta());
       updatePolicyDisplay(policy);
       updateCycleLiveSummary();
       updateAttemptsIndicator();
@@ -2499,6 +3755,8 @@
       const payout = 36 * attemptChipValue;
       const profit = payout - betState.totalInvested;
       const settledAt = new Date();
+      registerRecoveryWin(profit);
+      betState.recoveryDebtAfter = recoveryState.debt;
 
       stats.rounds++;
       stats.wins++;
@@ -2519,15 +3777,39 @@
         chipSchedule: [...betState.chipSchedule],
         attemptChipValue,
         betSize: settledSuggestionSize,
+        hitRank,
+        rankingLocked: !!betState.rankingLocked,
+        protectedModeEnabled: !!betState.protectedModeEnabled,
+        protectedSuggestionSize: betState.protectedSuggestionSize,
+        protectedSwapApplied: !!betState.protectedSwapApplied,
+        protectedSwapSummary: betState.protectedSwapSummary,
+        recoveryActive: !!betState.recoveryActive,
+        recoveryModeLabel: betState.recoveryModeLabel,
+        recoveryDebtBefore: betState.recoveryDebtBefore,
+        recoveryDebtAfter: betState.recoveryDebtAfter,
+        recoveryChipUsed: betState.recoveryChipUsed,
+        recoveryEstimatedWins: betState.recoveryEstimatedWins,
         totalInvested: betState.totalInvested,
         switchCount: betState.switches || 0,
+        defenseMechanismSaved,
+        defenseMechanismHitDetail: cloneForAudit(defenseMechanismHitDetail, null),
+        defenseMechanismSummary,
         signalTimeline: [...(betState.signalTimeline || [])],
+        audit: getHistoryAuditPayload({
+          attemptChipValue,
+          betSize: settledSuggestionSize,
+          hitRank,
+          defenseMechanismSaved,
+          defenseMechanismHitDetail,
+          defenseMechanismSummary,
+        }),
       });
       triggerWinCelebration();
       resetBetState();
 
       updateStats();
       updateAttemptsIndicator();
+      updateRecoveryDisplay();
 
       if (isMonitoring) {
         await tryStartBetCycle();
@@ -2536,6 +3818,8 @@
     } else if (betState.attempts >= betState.maxAttempts) {
       const loss = -betState.totalInvested;
       const settledAt = new Date();
+      registerRecoveryLoss(Math.abs(loss));
+      betState.recoveryDebtAfter = recoveryState.debt;
 
       stats.rounds++;
       stats.losses++;
@@ -2556,14 +3840,38 @@
         chipSchedule: [...betState.chipSchedule],
         attemptChipValue,
         betSize: settledSuggestionSize,
+        hitRank: null,
+        rankingLocked: !!betState.rankingLocked,
+        protectedModeEnabled: !!betState.protectedModeEnabled,
+        protectedSuggestionSize: betState.protectedSuggestionSize,
+        protectedSwapApplied: !!betState.protectedSwapApplied,
+        protectedSwapSummary: betState.protectedSwapSummary,
+        recoveryActive: !!betState.recoveryActive,
+        recoveryModeLabel: betState.recoveryModeLabel,
+        recoveryDebtBefore: betState.recoveryDebtBefore,
+        recoveryDebtAfter: betState.recoveryDebtAfter,
+        recoveryChipUsed: betState.recoveryChipUsed,
+        recoveryEstimatedWins: betState.recoveryEstimatedWins,
         totalInvested: betState.totalInvested,
         switchCount: betState.switches || 0,
+        defenseMechanismSaved: false,
+        defenseMechanismHitDetail: null,
+        defenseMechanismSummary: '',
         signalTimeline: [...(betState.signalTimeline || [])],
+        audit: getHistoryAuditPayload({
+          attemptChipValue,
+          betSize: settledSuggestionSize,
+          hitRank: null,
+          defenseMechanismSaved: false,
+          defenseMechanismHitDetail: null,
+          defenseMechanismSummary: '',
+        }),
       });
       resetBetState();
 
       updateStats();
       updateAttemptsIndicator();
+      updateRecoveryDisplay();
 
       if (isMonitoring) {
         await tryStartBetCycle();
@@ -2576,7 +3884,7 @@
 
       if (shouldActivateAlertMode()) {
         activateAlertMode(`Sinal demorou ${betState.attempts} tentativa(s). Entrando em alerta para aguardar confirmação.`);
-        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2, '', getActiveSuggestionMeta());
         updatePolicyDisplay(buildOperationalPolicy(
           'wait',
           'Modo Alerta',
@@ -2594,7 +3902,7 @@
 
       if (betState.rescueSpinsRemaining > 0) {
         betState.betOnTable = true;
-        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+        updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2, '', getActiveSuggestionMeta());
         updatePolicyDisplay(buildOperationalPolicy(
           'enter',
           'Resgate',
@@ -2609,9 +3917,9 @@
         return;
       }
 
-      const policy = await fetchPolicyDecision();
+      const policy = getPolicyDecisionDisabled();
       const transition = applyPolicyToNextSpin(policy);
-      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2);
+      updateSuggestionDisplay(betState.suggestion, betState.confidence, betState.confidenceV2, '', getActiveSuggestionMeta());
       updatePolicyDisplay(policy);
       updateCycleLiveSummary();
       updateAttemptsIndicator();
@@ -2632,20 +3940,53 @@
       return;
     }
 
-    historyList.innerHTML = history.map(item => `
-      <div class="history-item ${item.won ? 'win' : 'loss'}">
+    historyList.innerHTML = history.map(item => {
+      const defenseSaved = !!item.defenseMechanismSaved;
+      const itemClass = [
+        'history-item',
+        item.won ? 'win' : 'loss',
+        defenseSaved ? 'defense-save' : '',
+      ].filter(Boolean).join(' ');
+      const defenseBannerHtml = defenseSaved
+        ? `
+          <div class="history-defense-banner">
+            <div class="history-defense-title">Mecanismo De Defesa</div>
+            <div class="history-defense-summary">${escapeHtml(item.defenseMechanismSummary || 'A defesa trocou um numero excluido e o numero inserido foi o que bateu.')}</div>
+          </div>
+        `
+        : '';
+      const swapInfoHtml = defenseSaved
+        ? `<div>Defesa confirmou o acerto: ${escapeHtml(item.defenseMechanismSummary || item.audit?.defenseMechanismSummary || 'Numero trocado pelo mecanismo de defesa foi o vencedor.')}</div>`
+        : item.protectedSwapApplied
+          ? `<div>Salvamento: ${escapeHtml(item.protectedSwapSummary || item.audit?.protectedSwapSummary || 'Troca automática aplicada nos frios excluídos.')}</div>`
+          : '';
+      return `
+      <div class="${itemClass}">
         <div class="history-number ${getColor(item.number)}">${item.number}</div>
         <div class="history-details">
-          <div>Aposta: ${item.suggestion.slice(0, 5).join(', ')}${item.suggestion.length > 5 ? '...' : ''}</div>
+          ${defenseBannerHtml}
+          <div>Aposta (${item.betSize || item.suggestion.length} números): ${item.suggestion.join(', ') || '—'}</div>
           <div>Tentativas: ${item.attempts}</div>
           <div class="history-meta">
             <div>Confianca: ${item.confidence?.label || 'Baixa'} (${item.confidence?.score || 0}%) | v2: ${item.confidenceV2?.label || 'Baixa'} (${item.confidenceV2?.score || 0}%)</div>
             <div>Aberta: ${item.openedAtLabel || formatDateTime(item.openedAt)} | Fechada: ${item.settledAtLabel || formatDateTime(item.settledAt)}</div>
-            <div>Início do ciclo: ${item.signalTimeline?.[0]?.number ?? '—'} | Números vistos no ciclo: ${(Array.isArray(item.signalTimeline) ? item.signalTimeline.filter((entry) => Number.isInteger(entry?.number)).length : 0)}</div>
+            <div>Score do sinal: ${item.audit?.policyScore != null ? Number(item.audit.policyScore).toFixed(2) : '—'} | Execução: ${item.audit?.executionMode || '—'} | Mín. confiança: ${item.audit?.minConfidence ?? '—'}%</div>
+            <div>Policy: ${item.audit?.policySnapshot?.label || '—'} | ${item.audit?.policySnapshot?.reason || 'Sem motivo salvo.'}</div>
+            <div>Métricas: ${item.audit?.policyMetricsSummary || '—'}</div>
+            <div>Ranking: ${item.rankingLocked ? 'preservado' : 'normal'}${item.hitRank ? ` | Hit na posição ${item.hitRank}/${item.betSize || item.suggestion.length}` : ''}${item.protectedModeEnabled ? ` | Cobertura protegida ${item.protectedSuggestionSize || item.betSize || item.suggestion.length}` : ''}${item.protectedSwapApplied ? ` | Aposta salva` : ''}${defenseSaved ? ' | Defesa confirmou' : ''}</div>
+            ${swapInfoHtml}
+            <div>Recuperação: ${item.recoveryActive ? `${item.recoveryModeLabel || 'Ativa'} | dívida ${formatMoney(item.recoveryDebtBefore || 0)} -> ${formatMoney(item.recoveryDebtAfter || 0)} | ficha ${formatMoney(item.recoveryChipUsed || item.attemptChipValue || 0)}` : 'Ciclo normal'}</div>
+            <div>Início do ciclo: ${item.signalTimeline?.[0]?.number ?? '—'} | Base: ${item.audit?.focusNumber ?? '—'} | Números vistos no ciclo: ${(Array.isArray(item.signalTimeline) ? item.signalTimeline.filter((entry) => Number.isInteger(entry?.number)).length : 0)}</div>
             <div>Numeros apostados: ${item.betSize || item.suggestion.length}</div>
             <div>Trocas no ciclo: ${item.switchCount || 0}</div>
             <div>Fichas: ${(item.chipSchedule || []).map((value) => formatMoney(value)).join(' | ')}</div>
             <div>Investido: ${formatMoney(item.totalInvested)}${item.won ? ` | Ficha vencedora: ${formatMoney(item.attemptChipValue)}` : ''}</div>
+            ${item.audit ? `
+              <details style="margin-top: 8px;">
+                <summary style="cursor: pointer; font-weight: 700;">Auditoria completa</summary>
+                <pre style="margin-top: 8px; white-space: pre-wrap; word-break: break-word; font-size: 0.78rem; background: rgba(15, 23, 42, 0.04); padding: 10px; border-radius: 10px;">${escapeHtml(JSON.stringify(item.audit, null, 2))}</pre>
+              </details>
+            ` : ''}
             ${renderCycleNumbers(item.signalTimeline)}
             ${renderSwitchLogs(item.signalTimeline)}
           </div>
@@ -2654,7 +3995,8 @@
           ${item.won ? '+' : ''}R$ ${item.profit.toFixed(2)}
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   // Update stats display
@@ -2671,10 +4013,18 @@
 
     const winRate = stats.rounds > 0 ? Math.round((stats.wins / stats.rounds) * 100) : 0;
     document.getElementById('win-rate').textContent = `${winRate}%`;
+    updateRecoveryDisplay();
   }
 
   // Load initial history from API (limite configuravel)
   async function loadInitialHistory(slug) {
+    if (isSimulationMode()) {
+      rouletteHistory = [];
+      updateCurrentNumber('—');
+      console.log(`[Monitor] Simulação ativada para ${slug}: histórico inicial limpo para evitar vazamento do futuro.`);
+      return;
+    }
+
     try {
       const historyLimit = toBoundedInteger(apiHistoryLimitInput.value, 1000, 50, 5000);
       const response = await fetch(`/history/${slug}?limit=${historyLimit}`, {
@@ -2697,14 +4047,21 @@
   async function toggleMonitoring() {
     if (isMonitoring) {
       // Stop
+      const activeRoulette = rouletteSelect.value;
+      const simulationModeActive = currentResultChannel === 'new_result_simulate';
       isMonitoring = false;
       if (ws) {
         ws.close();
         ws = null;
       }
+      if (simulationModeActive && activeRoulette) {
+        await stopSimulationReplay(activeRoulette);
+      }
       btnToggle.textContent = 'Iniciar Monitoramento';
       btnToggle.classList.remove('btn-stop');
       resetBetState();
+      clearColdWaitState();
+      resetRecoveryState();
       updatePolicyDisplay(null);
     } else {
       // Start
@@ -2723,6 +4080,8 @@
       stats.losses = 0;
       stats.skippedSignals = 0;
       history = [];
+      clearColdWaitState();
+      resetRecoveryState();
       renderHistory();
       updateStats();
 
@@ -2730,10 +4089,25 @@
       await loadInitialHistory(rouletteSelect.value);
 
       isMonitoring = true;
-      await tryStartBetCycle();
-      connectWebSocket();
+      await connectWebSocket();
+      if (isSimulationMode()) {
+        try {
+          const replay = await startSimulationReplay(rouletteSelect.value);
+          console.log('[Monitor] Replay iniciado:', replay);
+        } catch (error) {
+          console.error('Erro ao iniciar replay do monitor:', error);
+          isMonitoring = false;
+          btnToggle.disabled = false;
+          btnToggle.textContent = 'Iniciar Monitoramento';
+          btnToggle.classList.remove('btn-stop');
+          updatePolicyDisplay(buildOperationalPolicy('wait', 'Simulação', 'Falha ao iniciar o replay da simulação.', {}));
+          return;
+        }
+      } else {
+        await tryStartBetCycle();
+      }
       btnToggle.disabled = false;
-      btnToggle.textContent = 'Parar Monitoramento';
+      btnToggle.textContent = isSimulationMode() ? 'Parar Simulação' : 'Parar Monitoramento';
       btnToggle.classList.add('btn-stop');
     }
   }
@@ -2758,16 +4132,54 @@
       }
     });
     maxAttemptsInput.addEventListener('input', renderAttemptStakeInputs);
-    chipValueInput.addEventListener('input', syncAttemptStakeBaseValue);
+    chipValueInput.addEventListener('input', () => {
+      syncAttemptStakeBaseValue();
+      updateRecoveryDisplay();
+    });
     betSizeInput.addEventListener('input', () => {
       apiMaxNumbersInput.value = String(toBoundedInteger(betSizeInput.value, 8, 1, 37));
       persistSuggestionConfig();
       updateAttemptStakeProfits();
+      updateRecoveryDisplay();
     });
     apiMaxNumbersInput.addEventListener('input', () => {
       betSizeInput.value = String(toBoundedInteger(apiMaxNumbersInput.value, 8, 1, 37));
       persistSuggestionConfig();
       updateAttemptStakeProfits();
+      updateRecoveryDisplay();
+    });
+    [apiProtectedModeEnabledSelect, apiProtectedSuggestionSizeInput, apiProtectedSwapEnabledSelect].forEach((element) => {
+      if (!element) return;
+      element.addEventListener('change', () => {
+        updateAttemptStakeProfits();
+        updateRecoveryDisplay();
+      });
+      element.addEventListener('input', () => {
+        updateAttemptStakeProfits();
+        updateRecoveryDisplay();
+      });
+    });
+    [
+      recoveryEnabledSelect,
+      recoveryModeSelect,
+      recoveryTargetWinsInput,
+      recoveryFixedChipInput,
+      recoveryLadderInput,
+      recoveryMaxChipInput,
+    ].forEach((element) => {
+      if (!element) return;
+      element.addEventListener('change', () => {
+        persistSuggestionConfig();
+        renderAttemptStakeInputs();
+        updateAttemptStakeProfits();
+        updateRecoveryDisplay();
+      });
+      element.addEventListener('input', () => {
+        persistSuggestionConfig();
+        renderAttemptStakeInputs();
+        updateAttemptStakeProfits();
+        updateRecoveryDisplay();
+      });
     });
     attemptStakeGrid.addEventListener('input', (event) => {
       if (event.target && event.target.matches('[data-attempt-stake]')) {
@@ -2776,6 +4188,10 @@
     });
     [
       apiHistoryLimitInput,
+      apiProtectedModeEnabledSelect,
+      apiProtectedSuggestionSizeInput,
+      apiProtectedSwapEnabledSelect,
+      apiColdCountInput,
       apiOptimizedMaxNumbersInput,
       apiBaseWeightInput,
       apiOptimizedWeightInput,
@@ -2814,6 +4230,7 @@
     updateCycleLiveSummary();
     updateAttemptsIndicator();
     updateStats();
+    updateRecoveryDisplay();
   });
 </script>
 {% endblock %}

@@ -1,8 +1,12 @@
 """
-Processor de Monitoramento de Sinais - SIMPLIFICADO
+Processor de Monitoramento de Sinais.
 
-Processa todos os sinais de forma unificada.
-Suporta o fluxo PAI/FILHO do pattern NUMEROS_PUXANDO.
+Nesta etapa o monitoring processa exclusivamente o pattern de subtracao,
+replicando a ordem operacional do script legado:
+- forma o sinal no gatilho
+- arma a entrada antes do proximo giro
+- usa o giro seguinte para resolver a entrada armada
+- aplica pausa por turbulencia quando necessario
 """
 
 import json, os
@@ -11,7 +15,6 @@ import time
 import asyncio
 from datetime import datetime
 import aiohttp
-from datetime import datetime
 from typing import Optional
 
 import redis.asyncio as aioredis
@@ -50,16 +53,26 @@ logger = logging.getLogger(__name__)
 class SignalProcessor:
     """Processador de sinais."""
     PRE_WINDOW_SIZE = 4
+    FINAL_STATUSES = {"win", "lost", "cancelled", "completed", "monitoring_win", "monitoring_lost"}
+
     def __init__(self):
         self.redis_client = None
         self.results_redis_client = None
         self.result_channel = settings.result_channel
         self.bet_api_url = os.getenv("BET_API_URL", "http://localhost:3000/api/bet")
+        self.auto_bet_enabled = os.getenv("MONITORING_AUTO_BET_ENABLED", "false").lower() == "true"
         self.monitoring_window = int(os.getenv("MONITORING_ASSERTIVITY_WINDOW", "20"))
         self.monitoring_min_assertivity = float(os.getenv("MONITORING_ASSERTIVITY_MIN", "20"))
         self.monitoring_min_samples = int(os.getenv("MONITORING_ASSERTIVITY_MIN_SAMPLES", "8"))
         # Valor padrão da ficha (pode ser configurado via env ou signal)
         self.default_bet_value = float(os.getenv("DEFAULT_BET_VALUE", "0.50"))
+        self.subtracao_pause_spins = int(os.getenv("SUBTRACAO_PAUSE_SPINS", "2"))
+        self.subtracao_entry_values = [
+            float(os.getenv("SUBTRACAO_FICHA_E1", "1.0")),
+            float(os.getenv("SUBTRACAO_FICHA_E2", "1.0")),
+            float(os.getenv("SUBTRACAO_FICHA_E3", "1.5")),
+            float(os.getenv("SUBTRACAO_FICHA_E4", "2.5")),
+        ]
 
     async def _get_redis(self):
         if self.redis_client is None:
@@ -116,11 +129,11 @@ class SignalProcessor:
 
         pubsub = redis.pubsub()
         await pubsub.subscribe(self.result_channel)
-        
-        signal = Signal.model_validate(signal_data)
-        
-        
+
         try:
+            signal = Signal.model_validate(signal_data)
+            await self._initialize_signal(signal)
+
             while True:
                 message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=5)
                 
@@ -162,6 +175,7 @@ class SignalProcessor:
         """Monitora um sinal recebendo resultados via fila."""
         try:
             signal = Signal.model_validate(signal_data)
+            await self._initialize_signal(signal)
         except Exception as exc:
             if startup_future is not None and not startup_future.done():
                 startup_future.set_exception(exc)
@@ -190,285 +204,237 @@ class SignalProcessor:
     # ══════════════════════════════════════════════════════════════════════════
     # PROCESSAMENTO DO SPIN
     # ══════════════════════════════════════════════════════════════════════════
-    
+
     async def _process_spin(self, signal: Signal, number: int) -> bool:
         """
         Processa um spin para o sinal.
-        
+
         Returns:
             True se o sinal deve parar de ser monitorado
         """
-    
-        status = signal.status
 
-        await self._persist_and_publish(signal)
-        # ══════════════════════════════════════════════════════════════════
-        # STATUS: WAITING (PAI esperando gatilho)
-        # ══════════════════════════════════════════════════════════════════
-        if status == "waiting":
-            return await self._process_waiting(signal, number)
-        
-        # ══════════════════════════════════════════════════════════════════
-        # STATUS: PROCESSING (FILHO apostando)
-        # ══════════════════════════════════════════════════════════════════
-        elif status == "processing":
-            return await self._process_processing(signal, number)
-        
-        # ══════════════════════════════════════════════════════════════════
-        # STATUS: MONITORING (FILHO apostando)
-        # ══════════════════════════════════════════════════════════════════
-        elif status == "monitoring":
-            return await self._process_monitoring(signal, number)
-        
-
-        # ══════════════════════════════════════════════════════════════════
-        # STATUS: COMPLETED / WIN / LOST / MONITORING (finalizado)
-        # ══════════════════════════════════════════════════════════════════
-       # Sinais finalizados - continua monitorando para coletar dados
-        if signal.status in ("win", "lost", "cancelled", "monitoring_win", "monitoring_lost"):
-            
-            # Se ACABOU de mudar neste spin, pula
-            if status not in ("win", "lost", "cancelled", "monitoring_win", "monitoring_lost"):
-                return False
-            
-            # Tratamento para monitoring_win e monitoring_lost
-            if signal.status in ("monitoring_win", "monitoring_lost"):
-                # Finaliza imediatamente - não precisa monitorar após
-                return True
-
-            if signal.status == "lost":
-
-                signal.spins_after_lost += 1
-                signal.passed_spins -= 1
-
-                #if activation_num <= 1 :
-                   # if signal.attempts >= 6 : 
-                        #await self._create_child(signal, number, temp_state, "RECICLAGEM", "processing")
-                        
-
-                if signal.greens_after_lost == 0 :
-                    signal.attempts += 1
-
-                if number in (signal.bets or []):
-                    signal.greens_after_lost += 1
-                    signal.greens_after_lost_at.append(signal.spins_after_lost)  # NOVO
-                    signal.log.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ BATEU APÓS LOSS! Número: {number} (spin #{signal.spins_after_lost})")
-                    signal.message = f"⚠️ Bateu {signal.greens_after_lost}x após LOSS nos spins {signal.greens_after_lost_at} - {signal.message} \n\n\n"
-                    await self._persist_and_publish(signal)
-                    return False
-                
-                if signal.spins_after_lost >= 15:
-                    return True
-
-            elif signal.status == "win":
-                signal.spins_after_win += 1
-                signal.passed_spins -= 1
-                
-                if number in (signal.bets or []):
-                    signal.greens_after_win += 1
-                    signal.greens_after_win_at.append(signal.spins_after_win)  # NOVO
-                    signal.log.append(f"[{datetime.now().strftime('%H:%M:%S')}] 🔥 BATEU APÓS WIN! Número: {number} (spin #{signal.spins_after_win})")
-                    signal.message = f"🔥 Bateu {signal.greens_after_win}x após WIN nos spins {signal.greens_after_win_at} - {signal.message} \n\n\n"
-                    await self._persist_and_publish(signal)
-                    return False
-                
-                if signal.spins_after_win >= 15:
-                    return True
-
-            elif signal.status == "cancelled":
-                signal.spins_after_cancelled += 1
-                signal.passed_spins -= 1
-
-                
-                if number in (signal.bets or []):
-                    signal.greens_after_cancelled += 1
-                    signal.greens_after_cancelled_at.append(signal.spins_after_cancelled)  # NOVO
-                    signal.log.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❄️ BATEU APÓS CANCEL! Número: {number} (spin #{signal.spins_after_cancelled})")
-                    signal.message = f"❄️ Bateu {signal.greens_after_cancelled}x após CANCEL nos spins {signal.greens_after_cancelled_at} - {signal.message} \n\n\n"
-                    await self._persist_and_publish(signal)
-                    return False
-                
-                if signal.spins_after_cancelled >= 15:
-                    return True
-            
-            return False
-
-        else:
+        if signal.status in self.FINAL_STATUSES:
             return True
-            
-    
-    # ══════════════════════════════════════════════════════════════════════════
-    # WAITING - PAI ESPERANDO GATILHO
-    # ══════════════════════════════════════════════════════════════════════════
-    
-    async def _process_waiting(self, signal: Signal, number: int) -> bool:
-        
-        # ══════════════════════════════════════════════════════════════════
-        # Verificar se é gatilho
-        # ══════════════════════════════════════════════════════════════════
-        triggers = signal.triggers or []
-        
-        if number in triggers:
+
+        if signal.status != "processing":
             signal.status = "processing"
+
+        return await self._process_processing(signal, number)
+
+    async def _initialize_signal(self, signal: Signal) -> None:
+        """Prepara o sinal para o fluxo da subtracao antes do primeiro spin."""
+        state = self._ensure_subtracao_state(signal)
+
+        if signal.status in self.FINAL_STATUSES:
             await self._persist_and_publish(signal)
-            return False
-     # ══════════════════════════════════════════════════════════════════
-     # ══════════════════════════════════════════════════════════════════════════
-    
-    # ══════════════════════════════════════════════════════════════════════════
-    # PROCESSING - FILHO APOSTANDO
-    # ══════════════════════════════════════════════════════════════════════════
+            return
+
+        signal.status = "processing"
+
+        if state["pausa_restante"] > 0:
+            signal.message = self._build_pause_message(state)
+            await self._persist_and_publish(signal)
+            return
+
+        if state["entry_armed"]:
+            await self._persist_and_publish(signal)
+            return
+
+        await self._arm_current_entry(signal, "Sinal iniciado")
+
     async def _process_processing(self, signal: Signal, number: int) -> bool:
         """
-        Processa FILHO no status PROCESSING.
+        Processa o ciclo operacional da subtracao.
 
-        - Incrementa attempts
-        - Se número em bets → WIN
-        - Se attempts >= gales → LOST
-        - Envia aposta INDIVIDUALMENTE a cada tentativa (não todos os gales de uma vez)
-        - NÃO envia aposta durante espera (spins_required)
+        O giro atual sempre resolve uma entrada previamente armada.
+        Quando necessario, o processor abre pausa por turbulencia antes de
+        armar a proxima entrada.
         """
+        state = self._ensure_subtracao_state(signal)
+        results_history = state["resultados_girados"]
+        results_history.append(number)
 
-        bets = signal.bets or []
-        temp_state = signal.temp_state or {}
+        if state["pausa_restante"] > 0 and not state["entry_armed"]:
+            return await self._process_pause_spin(signal, number, state)
 
-        # Inicializa temp_state se necessário
-        if signal.temp_state is None:
-            signal.temp_state = {}
-            temp_state = signal.temp_state
+        if not state["entry_armed"]:
+            await self._arm_current_entry(signal, f"Retomada sem entrada armada (numero {number})")
+            return False
 
-        # Obtém o valor da ficha (pode vir do signal.temp_state ou usar o padrão)
-        bet_value = float(temp_state.get("bet_value", self.default_bet_value))
+        max_entries = signal.gales or len(state["entry_bet_values"])
+        current_entry = int(state.get("current_entry") or (state["entradas_feitas"] + 1))
 
-        # ══════════════════════════════════════════════════════════════════
-        # ESPERA POR SPINS REQUIRED - NÃO aposta durante espera
-        # ══════════════════════════════════════════════════════════════════
-        if signal.spins_required >= 1:
-            # Se pagaria durante a espera, cancela o sinal para evitar entrada encavalada.
-            if number in bets:
-                signal.status = "cancelled"
-                signal.paid_waiting = True
-                signal.spins_required = max(0, signal.spins_required - 1)
-                self._log(signal, f"❄️ CANCELADO NA ESPERA - Número {number} pagaria durante spin de espera")
-                signal.message = (
-                    f"❄️ CANCELADO NA ESPERA - Número {number} já pagaria durante aguardando entrada - "
-                    f"{signal.message} \n\n\n"
-                )
-                await self._persist_and_publish(signal)
-                return False
+        state["entry_armed"] = False
+        state["entradas_feitas"] = current_entry
+        signal.attempts = current_entry
 
-            signal.spins_required -= 1
-            self._log(signal, f"⏳ [ESPERA] Aguardando... Restam {signal.spins_required} spins - Número: {number}")
-            signal.message = f"⏳ AGUARDANDO - Restam {signal.spins_required} spins para apostar - {signal.message}"
+        self._log(signal, f"🎲 Resultado da E{current_entry}/{max_entries}: {number}")
+
+        if number in (signal.bets or []):
+            signal.status = "win"
+            signal.broadcasted = True
+            signal.message = self._build_final_message(
+                state=state,
+                result="WIN",
+                hit_number=number,
+                current_entry=current_entry,
+            )
+            self._log(signal, f"✅ WIN | numero {number} | entrada E{current_entry}")
+            await self._persist_and_publish(signal)
+            return True
+
+        if current_entry >= max_entries:
+            signal.status = "lost"
+            signal.broadcasted = True
+            signal.message = self._build_final_message(
+                state=state,
+                result="LOST",
+                hit_number=None,
+                current_entry=current_entry,
+            )
+            self._log(signal, f"❌ LOST | esgotou E{current_entry}/{max_entries}")
+            await self._persist_and_publish(signal)
+            return True
+
+        if self._verificar_turbulencia(number, state["ref_escada"]):
+            state["pausa_restante"] = self.subtracao_pause_spins
+            pause_message = f"Iniciou pausa no {number} (Entrada {current_entry})"
+            state["historico_pausas"].append(pause_message)
+            state["ref_escada"] = number
+            self._log(signal, f"⏸ {pause_message}")
+            signal.message = self._build_pause_message(state)
             await self._persist_and_publish(signal)
             return False
 
-        # ══════════════════════════════════════════════════════════════════
-        # FLUXO NORMAL - Pronto para apostar!
-        # ══════════════════════════════════════════════════════════════════
+        state["ref_escada"] = number
+        await self._arm_current_entry(signal, f"Após RED no numero {number}")
+        return False
 
-        signal.attempts += 1
-        gales = signal.gales or 3
-        current_gale = signal.attempts
+    async def _process_pause_spin(self, signal: Signal, number: int, state: dict) -> bool:
+        if self._verificar_turbulencia(number, state["ref_escada"]):
+            state["pausa_restante"] = self.subtracao_pause_spins
+            renewal_message = f"Renovou pausa no {number} (Turbulencia continua)"
+            state["historico_pausas"].append(renewal_message)
+            self._log(signal, f"⏸ {renewal_message}")
+        else:
+            state["pausa_restante"] = max(0, int(state["pausa_restante"]) - 1)
 
-        self._log(signal, f"🎲 Gale {current_gale}/{gales} - Número: {number}")
+        state["ref_escada"] = number
 
-        # ══════════════════════════════════════════════════════════════════
-        # ENVIO DA APOSTA PARA O BOT AUTOMÁTICO (a cada tentativa individual)
-        # ══════════════════════════════════════════════════════════════════
-        self._log(signal, f"🤖 Enviando aposta para bot automático - Gale {current_gale}/{gales} - Valor: R${bet_value:.2f}")
+        if state["pausa_restante"] == 0:
+            resume_message = f"Pausa acabou no {number}. Voltando a apostar."
+            state["historico_pausas"].append(resume_message)
+            self._log(signal, f"▶ {resume_message}")
+            await self._arm_current_entry(signal, f"Pausa encerrada no numero {number}")
+            return False
 
-        # Envia a aposta individual em background (fire and forget - não bloqueia)
-        self._send_single_bet_fire_and_forget(signal, current_gale, bet_value)
+        signal.message = self._build_pause_message(state)
+        await self._persist_and_publish(signal)
+        return False
 
-        signal.message = f"🎰 Aposta enviada (Gale {current_gale}/{gales}, R${bet_value:.2f}) - {signal.message}"
+    async def _arm_current_entry(self, signal: Signal, reason: str) -> None:
+        state = self._ensure_subtracao_state(signal)
+        max_entries = signal.gales or len(state["entry_bet_values"])
+        next_entry = int(state["entradas_feitas"]) + 1
+
+        if next_entry > max_entries:
+            return
+
+        bet_value = self._get_entry_bet_value(state, next_entry)
+        state["entry_armed"] = True
+        state["current_entry"] = next_entry
+        state["current_bet_value"] = bet_value
+        signal.message = (
+            f"🎰 Aposta armada E{next_entry}/{max_entries} | "
+            f"valor R$ {bet_value:.2f} | aguardando proximo giro"
+        )
+        self._log(signal, f"🎰 E{next_entry}/{max_entries} armada | valor R$ {bet_value:.2f} | {reason}")
+        self._send_single_bet_fire_and_forget(signal, next_entry, bet_value)
         await self._persist_and_publish(signal)
 
-        if number in bets:
-            # ✅ WIN!
-            signal.status = "win"
-            signal.message = f"✅ WIN! Número {number} (Gale {current_gale}) - {signal.message} \n\n\n"
-            self._log(signal, f"✅ WIN! Número {number}")
+    def _ensure_subtracao_state(self, signal: Signal) -> dict:
+        if signal.history is None:
+            signal.history = []
+        if signal.snapshot is None:
+            signal.snapshot = []
+        if signal.log is None:
+            signal.log = []
+        if signal.temp_state is None or not isinstance(signal.temp_state, dict):
+            signal.temp_state = {}
 
-            await self._persist_and_publish(signal)
-            return False
+        state = signal.temp_state
+        state.setdefault("gatilho", (signal.triggers or [None])[0])
+        state.setdefault("n_prev", None)
+        state.setdefault("grupo", "")
+        state.setdefault("alvo_sub", "")
+        state.setdefault("entradas_feitas", 0)
+        state.setdefault("pausa_restante", 0)
+        state.setdefault("ref_escada", state.get("gatilho"))
+        state.setdefault("historico_pausas", [])
+        state.setdefault("resultados_girados", [])
+        state.setdefault("entry_armed", False)
+        state.setdefault("current_entry", None)
+        state.setdefault("current_bet_value", None)
 
+        entry_values = state.get("entry_bet_values")
+        if not isinstance(entry_values, list) or not entry_values:
+            entry_values = self.subtracao_entry_values.copy()
         else:
-            if signal.attempts >= gales:
-                # LOST - Acabaram os gales
-                signal.status = "lost"
-                signal.broadcasted = True
-                signal.message = f"❌ LOST! Não bateu em {gales} gales - {signal.message} \n\n\n"
-                self._log(signal, f"❌ LOST!")
+            normalized_values = []
+            for value in entry_values:
+                try:
+                    normalized_values.append(float(value))
+                except (TypeError, ValueError):
+                    continue
+            entry_values = normalized_values or self.subtracao_entry_values.copy()
 
-                await self._persist_and_publish(signal)
-                return False
+        max_entries = signal.gales or len(self.subtracao_entry_values)
+        while len(entry_values) < max_entries:
+            entry_values.append(entry_values[-1] if entry_values else self.default_bet_value)
+        state["entry_bet_values"] = entry_values[:max_entries]
 
-            else:
-                # Ainda tem gales restantes
-                next_gale = signal.attempts + 1
-                self._log(signal, f"🔄 Próximo: Gale {next_gale}/{gales}")
+        signal.attempts = int(state["entradas_feitas"])
+        return state
 
-                # Continua tentando
-                signal.message = f"🔄 Gale {current_gale}/{gales} - RED - Número {number} - {signal.message} \n\n\n"
-                await self._persist_and_publish(signal)
-                return False
-    
+    def _get_entry_bet_value(self, state: dict, entry_number: int) -> float:
+        values = state.get("entry_bet_values") or self.subtracao_entry_values
+        index = max(0, entry_number - 1)
+        if index >= len(values):
+            return float(values[-1])
+        return float(values[index])
 
-     # ══════════════════════════════════════════════════════════════════════════
-    # PROCESSING - MONITOR
-    # ══════════════════════════════════════════════════════════════════════════
-    
-    async def _process_monitoring(self, signal: Signal, number: int) -> bool:
-        """
-        Processa sinal no status MONITORING.
-        
-        Não aposta de verdade, apenas observa para coletar dados da tendência.
-        
-        - Incrementa attempts
-        - Se número em bets → monitoring_win
-        - Se attempts >= gales → monitoring_lost
-        """
-        
-       
-        bets = signal.bets or []
-
-
-        signal.attempts += 1
-        gales = signal.gales or 3
-        
-        
-        self._log(signal, f"👁️ [MONITORING] Gale {signal.attempts}/{gales} - Número: {number}")
-        
-        if number in bets:
-            # ✅ WIN (monitorado, não apostou)
-            signal.status = "monitoring_win"
-            signal.message = f"👁️ MONITORING WIN! Número {number} (Gale {signal.attempts}) - Teria ganho! - {signal.message}"
-            self._log(signal, f"👁️ MONITORING WIN! Número {number}")
-            
-            await self._persist_and_publish(signal)
-
+    @staticmethod
+    def _verificar_turbulencia(atual: int, referencia: int | None) -> bool:
+        if not isinstance(atual, int) or not isinstance(referencia, int):
             return False
-            
-        
-        else:
-            if signal.attempts >= gales:
-                # ❌ LOST (monitorado, não apostou)
-                signal.status = "monitoring_lost"
-                signal.message = f"👁️ MONITORING LOST! Não bateu em {gales} gales - {signal.message}"
-                self._log(signal, f"👁️ MONITORING LOST!")
-                
-                await self._persist_and_publish(signal)
-               
-                return False
-            
-            else:
-                # Continua monitorando
-                signal.message = f"👁️ [MONITORING] Gale {signal.attempts}/{gales} - Número {number} - {signal.message}"
-                await self._persist_and_publish(signal)
-                return False
-    
-    
+        if atual == 0 or referencia == 0:
+            return False
+        return abs(atual - referencia) <= 3 or (atual % 10 == referencia % 10)
+
+    def _build_pause_message(self, state: dict) -> str:
+        return (
+            f"⏸ Em pausa por turbulencia | "
+            f"restam {state['pausa_restante']} giro(s) | "
+            f"gatilho {state.get('gatilho')} | alvo {state.get('alvo_sub')}"
+        )
+
+    def _build_final_message(
+        self,
+        *,
+        state: dict,
+        result: str,
+        hit_number: int | None,
+        current_entry: int,
+    ) -> str:
+        base = (
+            f"{result} | gatilho {state.get('gatilho')} | anterior {state.get('n_prev')} | "
+            f"{state.get('grupo')} -> {state.get('alvo_sub')}"
+        )
+        if hit_number is not None:
+            return f"{base} | numero {hit_number} | entrada E{current_entry}"
+        return f"{base} | esgotou E{current_entry}"
+
+
     def _send_single_bet_fire_and_forget(self, signal: Signal, gale_number: int, bet_value: float):
         """
         Envia UMA aposta individual para o bot automático de forma não-bloqueante.
@@ -482,6 +448,14 @@ class SignalProcessor:
             gale_number: Número do gale atual (1, 2, 3...)
             bet_value: Valor da ficha a ser apostada
         """
+        if not self.auto_bet_enabled:
+            logger.warning(
+                "[AUTO BOT] envio desativado | signal_id=%s | gale=%s | valor=%.2f",
+                signal.id,
+                gale_number,
+                bet_value,
+            )
+            return
         # Cria task em background para não bloquear
         asyncio.create_task(self._do_send_single_bet(signal, gale_number, bet_value))
 
@@ -546,6 +520,14 @@ class SignalProcessor:
     async def _do_send_bet_to_auto_bot(self, signal: Signal, gales: int):
         """[DEPRECATED] Executa o envio da aposta em background (todos os gales)."""
 
+        if not self.auto_bet_enabled:
+            logger.warning(
+                "[AUTO BOT] envio legado desativado | signal_id=%s | gales=%s",
+                signal.id,
+                gales,
+            )
+            return
+
         payload = {
             "bets": signal.bets or [],
             "roulette_url": signal.roulette_url,
@@ -589,6 +571,15 @@ class SignalProcessor:
             signal: Objeto Signal com os dados da aposta
             gale_number: Número do gale (1, 2, 3...)
         """
+        if not self.auto_bet_enabled:
+            logger.warning(
+                "[BET API] envio desativado | signal_id=%s | gale=%s | valor=%.2f",
+                signal.id,
+                gale_number,
+                valor,
+            )
+            return {"success": False, "skipped": True, "reason": "auto_bet_disabled"}
+
         # Aguarda 2 segundos antes de enviar a aposta
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -693,6 +684,7 @@ class SignalProcessor:
                 "history": signal.history,
                 "snapshot": signal.snapshot,
                 "passed_spins": signal.passed_spins,
+                "spins_required": signal.spins_required,
                 "gales": signal.gales,
                 "score": signal.score,
                 "attempts": signal.attempts,
@@ -731,7 +723,7 @@ class SignalProcessor:
             )
             
             # Gerenciar índice de ativos
-            if signal.status in ("win", "lost", "cancelled", "completed", "monitoring_win", "monitoring_lost"):
+            if signal.status in self.FINAL_STATUSES:
                 await redis.hdel("signals:active", str(signal.id))
             else:
                 await redis.hset("signals:active", str(signal.id), payload)

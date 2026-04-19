@@ -67,6 +67,8 @@ from api.routes.patterns import router as patterns_router
 from api.routes.assertiveness_replay import router as assertiveness_replay_router
 from api.routes.decoder_lab import router as decoder_lab_router
 from api.routes.ai_shadow import router as ai_shadow_router
+from api.routes.monitor_replay import router as monitor_replay_router
+from api.routes.suggestion_monitor import router as suggestion_monitor_router
 
 
 
@@ -101,6 +103,8 @@ app.include_router(patterns_router)
 app.include_router(assertiveness_replay_router)
 app.include_router(decoder_lab_router)
 app.include_router(ai_shadow_router)
+app.include_router(monitor_replay_router)
+app.include_router(suggestion_monitor_router)
 
  
 

@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suggestion Monitor</title>
+  <style>
+    :root {
+      --bg: #eef2f6;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --text: #152033;
+      --muted: #5f6c80;
+      --accent: #0d9488;
+      --accent-strong: #115e59;
+      --danger: #b42318;
+      --warning: #b54708;
+      --success: #067647;
+      --border: #d8e0ea;
+      --shadow: 0 18px 48px rgba(17, 24, 39, 0.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(13, 148, 136, 0.12), transparent 34%),
+        linear-gradient(180deg, #f7fafc 0%, #ebf1f5 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0f766e 0%, #164e63 100%);
+      color: white;
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 2.2rem;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 880px;
+      color: rgba(255,255,255,0.86);
+      line-height: 1.5;
+    }
+
+    .toolbar,
+    .card,
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .field input, .field select {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      background: var(--surface-alt);
+      color: var(--text);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #d9f3ef;
+      color: var(--accent-strong);
+    }
+
+    .btn-danger {
+      background: #fee4e2;
+      color: var(--danger);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      padding: 18px;
+    }
+
+    .metric-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+    }
+
+    .metric-value {
+      margin-top: 10px;
+      font-size: 2rem;
+      font-weight: 800;
+    }
+
+    .metric-subtext {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .chart-wrap {
+      padding: 20px;
+      min-height: 420px;
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .heatmap-cell {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 14px;
+      min-height: 112px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .heatmap-cell:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .heatmap-hour {
+      font-weight: 800;
+      font-size: 1rem;
+    }
+
+    .heatmap-rate {
+      font-size: 1.55rem;
+      font-weight: 800;
+    }
+
+    .heatmap-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .timeline-card {
+      padding: 20px;
+    }
+
+    .timeline-meta {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 8px;
+    }
+
+    .timeline-legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .timeline-chart-wrap {
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f4f8fb 100%);
+      overflow-x: auto;
+      padding: 12px;
+    }
+
+    .timeline-chart {
+      min-width: 960px;
+    }
+
+    .timeline-empty {
+      color: var(--muted);
+      font-size: 0.95rem;
+      padding: 18px 8px;
+    }
+
+    .timeline-axis-label {
+      fill: #5f6c80;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .timeline-grid-line {
+      stroke: #d8e0ea;
+      stroke-width: 1;
+      stroke-dasharray: 4 6;
+    }
+
+    .timeline-line {
+      fill: none;
+      stroke: #94a3b8;
+      stroke-width: 2;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+
+    .timeline-point {
+      stroke: #ffffff;
+      stroke-width: 2;
+    }
+
+    .timeline-point.first {
+      fill: #16a34a;
+    }
+
+    .timeline-point.second {
+      fill: #f59e0b;
+    }
+
+    .timeline-point.late {
+      fill: #dc2626;
+    }
+
+    .timeline-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .rank-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .rank-row {
+      display: grid;
+      grid-template-columns: 64px 1fr 92px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .rank-label {
+      font-weight: 800;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .rank-track {
+      width: 100%;
+      height: 18px;
+      background: #e7edf5;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .rank-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0d9488 0%, #164e63 100%);
+      min-width: 0;
+      transition: width 0.2s ease;
+    }
+
+    .rank-meta {
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status-line {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 0.92rem;
+      display: none;
+    }
+
+    .status-line.success {
+      display: block;
+      background: #ecfdf3;
+      border-color: #abefc6;
+      color: var(--success);
+    }
+
+    .status-line.error {
+      display: block;
+      background: #fef3f2;
+      border-color: #fecdca;
+      color: var(--danger);
+    }
+
+    .card h2, .table-card h2 {
+      margin: 0 0 14px;
+      font-size: 1.05rem;
+    }
+
+    .table-card {
+      padding: 20px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .pagination-meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .pagination-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.76rem;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge-success { background: #d1fadf; color: var(--success); }
+    .badge-warning { background: #fef0c7; color: var(--warning); }
+    .badge-danger { background: #fee4e2; color: var(--danger); }
+    .badge-muted { background: #e9eef5; color: var(--muted); }
+    .badge-accent { background: #d9f3ef; color: var(--accent-strong); }
+
+    .suggestion-numbers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .ball {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+      color: white;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .muted { color: var(--muted); }
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .summary {
+      max-width: 420px;
+      line-height: 1.45;
+    }
+
+    .meta-inline {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 1080px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Suggestion Monitor Dashboard</h1>
+      <p>
+        Visão operacional das sugestões monitoradas da <strong>pragmatic-auto-roulette</strong>:
+        acerto por tentativa, horário mais forte, streaks de primeiro tiro, últimos eventos e patterns com melhor cobertura.
+      </p>
+    </section>
+
+    <section class="toolbar">
+      <div class="field">
+        <label for="rouletteId">Roleta</label>
+        <input id="rouletteId" value="pragmatic-auto-roulette" />
+      </div>
+      <div class="field">
+        <label for="configKey">Config Key</label>
+        <input id="configKey" placeholder="Opcional" />
+      </div>
+      <div class="field">
+        <label for="attemptFilter">Tentativa</label>
+        <select id="attemptFilter">
+          <option value="">Todas as sugestões</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="shadowAction">Orientação</label>
+        <select id="shadowAction">
+          <option value="">Todas</option>
+          <option value="enter">Entrar</option>
+          <option value="wait">Esperar</option>
+          <option value="skip">Não entrar</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="startDate">Data Inicial</label>
+        <input id="startDate" type="date" />
+      </div>
+      <div class="field">
+        <label for="endDate">Data Final</label>
+        <input id="endDate" type="date" />
+      </div>
+      <div class="field">
+        <label for="startHour">Hora Inicial</label>
+        <select id="startHour"></select>
+      </div>
+      <div class="field">
+        <label for="endHour">Hora Final</label>
+        <select id="endHour"></select>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn btn-primary" id="refreshBtn">Atualizar</button>
+        <button class="btn btn-secondary" id="toggleAutoBtn">Auto refresh: desligado</button>
+        <button class="btn btn-danger" id="resetBtn">Zerar Base</button>
+      </div>
+    </section>
+
+    <div class="status-line" id="statusLine"></div>
+
+    <section class="grid" id="overviewGrid">
+      <div class="card">
+        <div class="metric-label">Total de Eventos</div>
+        <div class="metric-value" id="metricTotal">0</div>
+        <div class="metric-subtext" id="metricUnavailable">0 indisponíveis</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Pendentes</div>
+        <div class="metric-value" id="metricPending">0</div>
+        <div class="metric-subtext" id="metricResolved">0 resolvidos</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Hit de Primeira Bruto</div>
+        <div class="metric-value" id="metricFirstHitRate">0%</div>
+        <div class="metric-subtext" id="metricFirstHitLabel">Base canônica</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Hit de Primeira Otimizado</div>
+        <div class="metric-value" id="metricOptimizedFirstHitRate">0%</div>
+        <div class="metric-subtext" id="metricOptimizedFirstHitLabel">Oscillation v1</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Rank Médio Bruto</div>
+        <div class="metric-value" id="metricBaseRankAverage">0.00</div>
+        <div class="metric-subtext">Posição média da timeline</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Rank Médio Otimizado</div>
+        <div class="metric-value" id="metricOptimizedRankAverage">0.00</div>
+        <div class="metric-subtext">Posição média da timeline</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Hit de Primeira Agressivo</div>
+        <div class="metric-value" id="metricAggressiveFirstHitRate">0%</div>
+        <div class="metric-subtext" id="metricAggressiveFirstHitLabel">Oscillation v2 aggressive</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Rank Médio Agressivo</div>
+        <div class="metric-value" id="metricAggressiveRankAverage">0.00</div>
+        <div class="metric-subtext">Posição média da timeline</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Hit de Primeira Seletivo</div>
+        <div class="metric-value" id="metricSelectiveFirstHitRate">0%</div>
+        <div class="metric-subtext" id="metricSelectiveFirstHitLabel">Oscillation v3 selective</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Rank Médio Seletivo</div>
+        <div class="metric-value" id="metricSelectiveRankAverage">0.00</div>
+        <div class="metric-subtext">Posição média da timeline</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Hit de Primeira Seletivo com Proteção</div>
+        <div class="metric-value" id="metricSelectiveProtectedFirstHitRate">0%</div>
+        <div class="metric-subtext" id="metricSelectiveProtectedFirstHitLabel">Oscillation v3 selective protected</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Rank Médio Seletivo com Proteção</div>
+        <div class="metric-value" id="metricSelectiveProtectedRankAverage">0.00</div>
+        <div class="metric-subtext">Posição média da timeline</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Hit de Primeira Temporal Blend</div>
+        <div class="metric-value" id="metricTemporalBlendFirstHitRate">0%</div>
+        <div class="metric-subtext" id="metricTemporalBlendFirstHitLabel">Temporal blend v1</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Rank Médio Temporal Blend</div>
+        <div class="metric-value" id="metricTemporalBlendRankAverage">0.00</div>
+        <div class="metric-subtext">Posição média da timeline</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Hit em 3 Rodadas Compacto</div>
+        <div class="metric-value" id="metricCompactHitRate">0%</div>
+        <div class="metric-subtext" id="metricCompactHitLabel">Oscillation v4 selective compact</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Finalizados Compacto</div>
+        <div class="metric-value" id="metricCompactFinalized">0</div>
+        <div class="metric-subtext">Janela de 3 rodadas</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Streak Atual</div>
+        <div class="metric-value" id="metricCurrentStreak">0</div>
+        <div class="metric-subtext" id="metricMaxStreak">Máxima histórica: 0</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Streak Não Pago</div>
+        <div class="metric-value" id="metricCurrentUnpaidStreak">0</div>
+        <div class="metric-subtext" id="metricMaxUnpaidStreak">Máxima histórica: 0</div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="table-card chart-wrap">
+        <h2>Heatmap Operacional por Hora</h2>
+        <div class="heatmap-grid" id="hourlyHeatmap"></div>
+      </div>
+      <div class="table-card">
+        <h2>Resumo de Streaks</h2>
+        <div class="stack">
+          <div>
+            <div class="metric-label">Streak Atual de Hit@1</div>
+            <div class="metric-value" id="streakCurrent">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Melhor Streak de Hit@1</div>
+            <div class="metric-value" id="streakMax">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Ocorrências do Maior Streak Pago</div>
+            <div class="metric-value" id="streakMaxPaidOccurrences">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Streak Atual Sem Pagamento</div>
+            <div class="metric-value" id="streakCurrentUnpaid">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Maior Streak Sem Pagamento</div>
+            <div class="metric-value" id="streakMaxUnpaid">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Ocorrências do Maior Streak</div>
+            <div class="metric-value" id="streakMaxUnpaidOccurrences">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Eventos Resolvidos Analisados</div>
+            <div class="metric-value" id="streakAnalyzed">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Distribuição de Streaks Pagos</div>
+            <div class="suggestion-numbers" id="paidStreakDistribution"></div>
+          </div>
+          <div>
+            <div class="metric-label">Distribuição de Streaks Sem Pagamento</div>
+            <div class="suggestion-numbers" id="unpaidStreakDistribution"></div>
+          </div>
+          <div>
+            <div class="metric-label">Sequência Recente</div>
+            <div class="suggestion-numbers" id="streakSequence"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Timeline de Posição do Acerto Ranking Bruto</h2>
+      <div class="timeline-meta">
+        <span id="rankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="rankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="rankTimelineAverageMeta">posição média 0.00</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>2º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="rankTimelineChart"></div>
+      </div>
+      <div class="timeline-note">
+        A linha segue a ordem cronológica dos sinais resolvidos da base canônica. Esse é o gráfico de referência que preserva o zigzag original do ranking bruto.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Timeline de Posição do Acerto Ranking Otimizado</h2>
+      <div class="timeline-meta">
+        <span id="optimizedRankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="optimizedRankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="optimizedRankTimelineAverageMeta">posição média 0.00</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>2º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="optimizedRankTimelineChart"></div>
+      </div>
+      <div class="timeline-note">
+        Esta linha mostra o `oscillation_v1`, derivado apenas do histórico do ranking bruto resolvido, sem retroalimentar a própria otimização.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Timeline de Posição do Acerto Ranking Agressivo</h2>
+      <div class="timeline-meta">
+        <span id="aggressiveRankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="aggressiveRankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="aggressiveRankTimelineAverageMeta">posição média 0.00</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>2º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="aggressiveRankTimelineChart"></div>
+      </div>
+      <div class="timeline-note">
+        Esta linha mostra o `oscillation_v2_aggressive`, com viés mais forte por blocos, deslocamento maior e menor preservação da ordem original para comparação visual.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Timeline de Posição do Acerto Ranking Seletivo</h2>
+      <div class="timeline-meta">
+        <span id="selectiveRankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="selectiveRankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="selectiveRankTimelineAverageMeta">posição média 0.00</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>2º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="selectiveRankTimelineChart"></div>
+      </div>
+      <div class="timeline-note">
+        Esta linha mostra o `oscillation_v3_selective`: ele só sugere quando detecta extremidade e tendência confiáveis no ranking bruto; fora disso, fica sem entrada.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Timeline de Posição do Acerto Ranking Seletivo com Proteção</h2>
+      <div class="timeline-meta">
+        <span id="selectiveProtectedRankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="selectiveProtectedRankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="selectiveProtectedRankTimelineAverageMeta">posição média 0.00</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>2º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="selectiveProtectedRankTimelineChart"></div>
+      </div>
+      <div class="timeline-note">
+        Esta linha mostra o `oscillation_v3_selective_protected`: mantém a leitura seletiva de reversão, mas preserva alguns números de proteção no mesmo lado quando o bruto tende a travar na extremidade.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Timeline de Posição do Acerto Ranking Temporal Blend</h2>
+      <div class="timeline-meta">
+        <span id="temporalBlendRankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="temporalBlendRankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="temporalBlendRankTimelineAverageMeta">posição média 0.00</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>2º tiro</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="temporalBlendRankTimelineChart"></div>
+      </div>
+      <div class="timeline-note">
+        Esta linha mostra o `temporal_blend_v1`: ele mistura score atual da API, memória das sugestões anteriores resolvidas, memória dos resultados recentes da roleta por distância na roda e um termo de estabilidade para reduzir mudanças bruscas de ordenação.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Timeline de Hit ou Miss Compacto em 3 Rodadas</h2>
+      <div class="timeline-meta">
+        <span id="compactOutcomeFinalizedMeta">0 finalizados</span>
+        <span id="compactOutcomeDisplayedMeta">0 pontos exibidos</span>
+        <span id="compactOutcomeHitRateMeta">taxa de hit 0.00%</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>Hit até 3 rodadas</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>Miss na janela de 3 rodadas</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="compactOutcomeTimelineChart"></div>
+      </div>
+      <div class="timeline-note">
+        Aqui não importa a posição do ranking. O gráfico mostra apenas se a `oscillation_v4_selective_compact` acertou ou não dentro da janela fixa de 3 rodadas usando 18 números.
+      </div>
+    </section>
+
+    <section class="table-card">
+      <h2>Últimos Eventos Monitorados</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Âncora</th>
+              <th>Desfecho</th>
+              <th>Shadow</th>
+              <th>Sugestão Base</th>
+              <th>Sugestão Otimizada</th>
+              <th>Resumo</th>
+            </tr>
+          </thead>
+          <tbody id="latestEventsBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination-bar">
+        <div class="pagination-meta" id="paginationMeta">Página 1 de 1</div>
+        <div class="pagination-actions">
+          <button class="btn btn-secondary" id="prevPageBtn">Anterior</button>
+          <button class="btn btn-secondary" id="nextPageBtn">Próxima</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="table-card">
+      <h2>Patterns Mais Promissores</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>Sinais</th>
+              <th>Hits Cobertos</th>
+              <th>Taxa de Cobertura</th>
+              <th>Hit@1</th>
+              <th>Tentativa Média</th>
+            </tr>
+          </thead>
+          <tbody id="patternsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      autoRefresh: false,
+      timerId: null,
+      currentPage: 1,
+      totalPages: 1,
+    };
+
+    function qs(id) {
+      return document.getElementById(id);
+    }
+
+    async function deleteJson(path, extraParams = {}) {
+      const response = await fetch(buildUrl(path, extraParams), { method: "DELETE" });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`${response.status} ${text}`);
+      }
+      return response.json();
+    }
+
+    function formatPct(value) {
+      return `${(Number(value || 0) * 100).toFixed(1)}%`;
+    }
+
+    function badgeClass(status) {
+      if (status === "resolved" || status === "enter") return "badge-success";
+      if (status === "pending" || status === "wait") return "badge-warning";
+      if (status === "generation_error" || status === "skip") return "badge-danger";
+      return "badge-muted";
+    }
+
+    function setStatus(message, tone = "success") {
+      const node = qs("statusLine");
+      node.textContent = message;
+      node.className = `status-line ${tone}`;
+    }
+
+    function clearStatus() {
+      const node = qs("statusLine");
+      node.textContent = "";
+      node.className = "status-line";
+    }
+
+    function buildFilterParams() {
+      return {
+        attempt_filter: qs("attemptFilter").value || "",
+        shadow_action: qs("shadowAction").value || "",
+        start_date: qs("startDate").value || "",
+        end_date: qs("endDate").value || "",
+        start_hour: qs("startHour").value || "",
+        end_hour: qs("endHour").value || "",
+      };
+    }
+
+    function populateHourSelect(selectId) {
+      const select = qs(selectId);
+      const options = ['<option value="">Todas</option>'];
+      for (let hour = 0; hour < 24; hour += 1) {
+        options.push(`<option value="${hour}">${String(hour).padStart(2, "0")}:00</option>`);
+      }
+      select.innerHTML = options.join("");
+    }
+
+    function syncAttemptOptions(options) {
+      const select = qs("attemptFilter");
+      const currentValue = select.value;
+      const rows = Array.isArray(options) && options.length
+        ? options
+        : [{ value: "", label: "Todas as sugestões", count: 0 }];
+      select.innerHTML = rows.map((item) => {
+        const value = String(item.value ?? "");
+        const selected = value === currentValue ? "selected" : "";
+        return `<option value="${value}" ${selected}>${item.label} (${Number(item.count || 0)})</option>`;
+      }).join("");
+      if (![...select.options].some((option) => option.value === currentValue)) {
+        select.value = "";
+      }
+    }
+
+    function buildAttemptOptions(overview, latest) {
+      if (Array.isArray(overview?.attempt_options) && overview.attempt_options.length) {
+        return overview.attempt_options;
+      }
+      if (Array.isArray(latest?.attempt_options) && latest.attempt_options.length) {
+        return latest.attempt_options;
+      }
+
+      const totalEvents = Number(
+        overview?.total_events
+        ?? latest?.total_count
+        ?? latest?.count
+        ?? 0
+      );
+      const pendingEvents = Number(overview?.pending_events ?? 0);
+      const unavailableEvents = Number(overview?.unavailable_events ?? 0);
+      const resolvedByAttempt = overview?.resolved_by_attempt && typeof overview.resolved_by_attempt === "object"
+        ? overview.resolved_by_attempt
+        : {};
+
+      const options = [{ value: "", label: "Todas as sugestões", count: totalEvents }];
+
+      if (pendingEvents > 0) {
+        options.push({ value: "pending", label: "Pendentes", count: pendingEvents });
+      }
+
+      Object.keys(resolvedByAttempt)
+        .map((key) => Number(key))
+        .filter((attempt) => Number.isInteger(attempt) && attempt > 0)
+        .sort((a, b) => a - b)
+        .forEach((attempt) => {
+          options.push({
+            value: String(attempt),
+            label: `${attempt}ª tentativa`,
+            count: Number(resolvedByAttempt[String(attempt)] ?? 0),
+          });
+        });
+
+      if (unavailableEvents > 0) {
+        options.push({ value: "unavailable", label: "Sem sugestão", count: unavailableEvents });
+      }
+
+      return options;
+    }
+
+    function renderPagination(meta) {
+      state.currentPage = Number(meta.page || 1);
+      state.totalPages = Number(meta.total_pages || 1);
+      const totalCount = Number(meta.total_count ?? meta.count ?? 0);
+      qs("paginationMeta").textContent = `Página ${state.currentPage} de ${state.totalPages} | ${totalCount} sugestões filtradas`;
+      qs("prevPageBtn").disabled = Boolean(meta.total_pages) ? !meta.has_prev : state.currentPage <= 1;
+      qs("nextPageBtn").disabled = Boolean(meta.total_pages) ? !meta.has_next : state.currentPage >= state.totalPages;
+    }
+
+    function buildUrl(path, extraParams = {}) {
+      const params = new URLSearchParams();
+      params.set("roulette_id", qs("rouletteId").value.trim() || "pragmatic-auto-roulette");
+      const configKey = qs("configKey").value.trim();
+      if (configKey) params.set("config_key", configKey);
+      Object.entries(extraParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") params.set(key, value);
+      });
+      return `${path}?${params.toString()}`;
+    }
+
+    async function fetchJson(path, extraParams = {}) {
+      const response = await fetch(buildUrl(path, extraParams));
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`${response.status} ${text}`);
+      }
+      return response.json();
+    }
+
+    function renderOverview(baseOverview, baseStreaks, baseTimeline, optimizedOverview, optimizedTimeline, aggressiveOverview, aggressiveTimeline, selectiveOverview, selectiveTimeline, selectiveProtectedOverview, selectiveProtectedTimeline, temporalBlendOverview, temporalBlendTimeline, compactOutcomeTimeline) {
+      qs("metricTotal").textContent = baseOverview.total_events || 0;
+      qs("metricUnavailable").textContent = `${baseOverview.unavailable_events || 0} indisponíveis`;
+      qs("metricPending").textContent = baseOverview.pending_events || 0;
+      qs("metricResolved").textContent = `${baseOverview.resolved_events || 0} resolvidos`;
+      qs("metricFirstHitRate").textContent = formatPct(baseOverview.hit_first_attempt_rate || 0);
+      qs("metricOptimizedFirstHitRate").textContent = formatPct(optimizedOverview.hit_first_attempt_rate || 0);
+      qs("metricOptimizedFirstHitLabel").textContent = `${optimizedOverview.resolved_events || 0} resolvidos`;
+      qs("metricAggressiveFirstHitRate").textContent = formatPct(aggressiveOverview.hit_first_attempt_rate || 0);
+      qs("metricAggressiveFirstHitLabel").textContent = `${aggressiveOverview.resolved_events || 0} resolvidos`;
+      qs("metricSelectiveFirstHitRate").textContent = formatPct(selectiveOverview.hit_first_attempt_rate || 0);
+      qs("metricSelectiveFirstHitLabel").textContent = `${selectiveOverview.resolved_events || 0} resolvidos`;
+      qs("metricSelectiveProtectedFirstHitRate").textContent = formatPct(selectiveProtectedOverview.hit_first_attempt_rate || 0);
+      qs("metricSelectiveProtectedFirstHitLabel").textContent = `${selectiveProtectedOverview.resolved_events || 0} resolvidos`;
+      qs("metricTemporalBlendFirstHitRate").textContent = formatPct(temporalBlendOverview.hit_first_attempt_rate || 0);
+      qs("metricTemporalBlendFirstHitLabel").textContent = `${temporalBlendOverview.resolved_events || 0} resolvidos`;
+      qs("metricCompactHitRate").textContent = formatPct(compactOutcomeTimeline?.hit_rate || 0);
+      qs("metricCompactHitLabel").textContent = `${compactOutcomeTimeline?.total_hits || 0} hits em ${compactOutcomeTimeline?.total_finalized || 0} janelas`;
+      qs("metricBaseRankAverage").textContent = Number(baseTimeline?.average_rank_position || 0).toFixed(2);
+      qs("metricOptimizedRankAverage").textContent = Number(optimizedTimeline?.average_rank_position || 0).toFixed(2);
+      qs("metricAggressiveRankAverage").textContent = Number(aggressiveTimeline?.average_rank_position || 0).toFixed(2);
+      qs("metricSelectiveRankAverage").textContent = Number(selectiveTimeline?.average_rank_position || 0).toFixed(2);
+      qs("metricSelectiveProtectedRankAverage").textContent = Number(selectiveProtectedTimeline?.average_rank_position || 0).toFixed(2);
+      qs("metricTemporalBlendRankAverage").textContent = Number(temporalBlendTimeline?.average_rank_position || 0).toFixed(2);
+      qs("metricCompactFinalized").textContent = Number(compactOutcomeTimeline?.total_finalized || 0);
+      qs("metricCurrentStreak").textContent = baseStreaks.current_first_hit_streak || 0;
+      qs("metricMaxStreak").textContent = `Máxima histórica: ${baseStreaks.max_first_hit_streak || 0}`;
+      qs("metricCurrentUnpaidStreak").textContent = baseStreaks.current_unpaid_streak || 0;
+      qs("metricMaxUnpaidStreak").textContent = `Máxima histórica: ${baseStreaks.max_unpaid_streak || 0}`;
+      qs("streakCurrent").textContent = baseStreaks.current_first_hit_streak || 0;
+      qs("streakMax").textContent = baseStreaks.max_first_hit_streak || 0;
+      qs("streakMaxPaidOccurrences").textContent = baseStreaks.max_first_hit_streak_occurrences || 0;
+      qs("streakCurrentUnpaid").textContent = baseStreaks.current_unpaid_streak || 0;
+      qs("streakMaxUnpaid").textContent = baseStreaks.max_unpaid_streak || 0;
+      qs("streakMaxUnpaidOccurrences").textContent = baseStreaks.max_unpaid_streak_occurrences || 0;
+      qs("streakAnalyzed").textContent = baseStreaks.events_analyzed || 0;
+
+      const streakSequence = qs("streakSequence");
+      streakSequence.innerHTML = "";
+      (baseStreaks.recent_sequence || []).forEach((value) => {
+        const node = document.createElement("span");
+        node.className = `badge ${value ? "badge-success" : "badge-danger"}`;
+        node.textContent = value ? "1º" : "late";
+        streakSequence.appendChild(node);
+      });
+
+      const paidStreakDistribution = qs("paidStreakDistribution");
+      paidStreakDistribution.innerHTML = "";
+      const paidDistribution = Array.isArray(baseStreaks.first_hit_streak_distribution)
+        ? baseStreaks.first_hit_streak_distribution
+        : [];
+      if (!paidDistribution.length) {
+        const node = document.createElement("span");
+        node.className = "badge badge-muted";
+        node.textContent = "Sem ocorrências";
+        paidStreakDistribution.appendChild(node);
+      } else {
+        paidDistribution.forEach((item) => {
+          const node = document.createElement("span");
+          node.className = "badge badge-success";
+          node.textContent = `${item.length} seguidas: ${item.occurrences}x`;
+          paidStreakDistribution.appendChild(node);
+        });
+      }
+
+      const unpaidStreakDistribution = qs("unpaidStreakDistribution");
+      unpaidStreakDistribution.innerHTML = "";
+      const distribution = Array.isArray(baseStreaks.unpaid_streak_distribution)
+        ? baseStreaks.unpaid_streak_distribution
+        : [];
+      if (!distribution.length) {
+        const node = document.createElement("span");
+        node.className = "badge badge-muted";
+        node.textContent = "Sem ocorrências";
+        unpaidStreakDistribution.appendChild(node);
+      } else {
+        distribution.forEach((item) => {
+          const node = document.createElement("span");
+          node.className = "badge badge-danger";
+          node.textContent = `${item.length} seguidas: ${item.occurrences}x`;
+          unpaidStreakDistribution.appendChild(node);
+        });
+      }
+    }
+
+    function heatmapColor(item) {
+      const events = Number(item.events || 0);
+      const rate = Number(item.first_hit_rate || 0);
+      if (!events) {
+        return "linear-gradient(135deg, #f8fafc 0%, #eef2f6 100%)";
+      }
+      const intensity = Math.max(0.12, Math.min(0.88, rate));
+      const alphaStrong = Math.min(0.82, 0.22 + (intensity * 0.56));
+      const alphaSoft = Math.min(0.48, 0.10 + (intensity * 0.24));
+      return `linear-gradient(135deg, rgba(13, 148, 136, ${alphaSoft}) 0%, rgba(17, 94, 89, ${alphaStrong}) 100%)`;
+    }
+
+    function renderHourlyHeatmap(hourlyItems) {
+      const container = qs("hourlyHeatmap");
+      container.innerHTML = "";
+      hourlyItems.forEach((item) => {
+        const cell = document.createElement("div");
+        cell.className = "heatmap-cell";
+        cell.style.background = heatmapColor(item);
+        cell.innerHTML = `
+          <div class="stack">
+            <div class="heatmap-hour">${item.label}</div>
+            <div class="heatmap-rate">${formatPct(item.first_hit_rate)}</div>
+          </div>
+          <div class="heatmap-meta">
+            <span>Eventos: ${item.events}</span>
+            <span>Resolvidos: ${item.resolved}</span>
+            <span>Pendentes: ${item.pending}</span>
+            <span>Tentativa média: ${Number(item.avg_resolved_attempt || 0).toFixed(2)}</span>
+          </div>
+        `;
+        container.appendChild(cell);
+      });
+    }
+
+    function renderRankTimeline(rankTimeline, target) {
+      const container = qs(target.chartId);
+      const items = Array.isArray(rankTimeline?.items) ? rankTimeline.items : [];
+      const totalResolved = Number(rankTimeline?.total_resolved || 0);
+      const displayedPoints = Number(rankTimeline?.displayed_points || items.length || 0);
+      const averageRankPosition = Number(rankTimeline?.average_rank_position || 0);
+      const truncated = Boolean(rankTimeline?.truncated);
+      const maxRank = Math.max(2, Number(rankTimeline?.rank_ceiling || target.rankCeiling || 24));
+
+      qs(target.resolvedMetaId).textContent = `${totalResolved} resolvidos filtrados`;
+      qs(target.displayedMetaId).textContent = truncated
+        ? `${displayedPoints} últimos pontos exibidos`
+        : `${displayedPoints} pontos exibidos`;
+      qs(target.averageMetaId).textContent = `posição média ${averageRankPosition.toFixed(2)}`;
+
+      container.innerHTML = "";
+      if (!items.length || !displayedPoints) {
+        container.innerHTML = `<div class="timeline-empty">Nenhum acerto resolvido para montar a timeline com os filtros atuais.</div>`;
+        return;
+      }
+
+      const width = Math.max(960, items.length * 26);
+      const height = 340;
+      const padding = { top: 24, right: 24, bottom: 34, left: 46 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const xStep = items.length > 1 ? plotWidth / (items.length - 1) : 0;
+      const yForRank = (rank) => padding.top + ((rank - 1) / (maxRank - 1)) * plotHeight;
+      const xForIndex = (index) => padding.left + (index * xStep);
+      const colorClass = (bucket) => bucket === "first" ? "first" : bucket === "second" ? "second" : "late";
+
+      const midRank = Math.max(2, Math.round((maxRank + 1) / 2));
+      const gridRanks = [1, midRank, maxRank];
+      const gridLines = gridRanks.map((rank) => {
+        const y = yForRank(rank);
+        return `
+          <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="timeline-grid-line" />
+          <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="timeline-axis-label">${rank}</text>
+        `;
+      }).join("");
+
+      const xLabels = items.length > 1
+        ? `
+            <text x="${padding.left}" y="${height - 8}" text-anchor="start" class="timeline-axis-label">mais antigo</text>
+            <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="timeline-axis-label">mais recente</text>
+          `
+        : `<text x="${width / 2}" y="${height - 8}" text-anchor="middle" class="timeline-axis-label">1 ponto</text>`;
+
+      const linePath = items.map((item, index) => {
+        const x = xForIndex(index);
+        const y = yForRank(Number(item.rank_position || 24));
+        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+      }).join(" ");
+
+      const points = items.map((item, index) => {
+        const x = xForIndex(index);
+        const y = yForRank(Number(item.rank_position || 24));
+        const anchor = item.anchor_number ?? "-";
+        const resolved = item.resolved_number ?? "-";
+        const rank = item.rank_position ?? "-";
+        const attempt = item.resolved_attempt ?? "-";
+        const timestamp = item.anchor_timestamp_br || "-";
+        return `
+          <circle cx="${x}" cy="${y}" r="5" class="timeline-point ${colorClass(item.attempt_bucket)}">
+            <title>${timestamp} | âncora ${anchor} | acertou ${resolved} | rank ${rank} | tentativa ${attempt}</title>
+          </circle>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Timeline das posições de acerto">
+          ${gridLines}
+          <path d="${linePath}" class="timeline-line"></path>
+          ${points}
+          ${xLabels}
+        </svg>
+      `;
+    }
+
+    function renderCompactOutcomeTimeline(outcomeTimeline) {
+      const container = qs("compactOutcomeTimelineChart");
+      const items = Array.isArray(outcomeTimeline?.items) ? outcomeTimeline.items : [];
+      const totalFinalized = Number(outcomeTimeline?.total_finalized || 0);
+      const displayedPoints = Number(outcomeTimeline?.displayed_points || items.length || 0);
+      const hitRate = Number(outcomeTimeline?.hit_rate || 0);
+      const truncated = Boolean(outcomeTimeline?.truncated);
+      const totalEvents = Number(outcomeTimeline?.total_events || 0);
+      const pendingEvents = Number(outcomeTimeline?.pending_events || 0);
+      const unavailableEvents = Number(outcomeTimeline?.unavailable_events || 0);
+
+      qs("compactOutcomeFinalizedMeta").textContent = `${totalFinalized} finalizados filtrados`;
+      qs("compactOutcomeDisplayedMeta").textContent = truncated
+        ? `${displayedPoints} últimos pontos exibidos`
+        : `${displayedPoints} pontos exibidos`;
+      qs("compactOutcomeHitRateMeta").textContent = `taxa de hit ${formatPct(hitRate)}`;
+
+      container.innerHTML = "";
+      if (!items.length || !displayedPoints) {
+        container.innerHTML = `<div class="timeline-empty">Nenhuma janela finalizada para montar a timeline compacta com os filtros atuais. Total monitorado: ${totalEvents}. Pendentes: ${pendingEvents}. Sem entrada: ${unavailableEvents}.</div>`;
+        return;
+      }
+
+      const width = Math.max(960, items.length * 26);
+      const height = 260;
+      const padding = { top: 24, right: 24, bottom: 34, left: 46 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const xStep = items.length > 1 ? plotWidth / (items.length - 1) : 0;
+      const xForIndex = (index) => padding.left + (index * xStep);
+      const yForOutcome = (outcome) => padding.top + ((1 - outcome) * plotHeight);
+
+      const gridLines = [1, 0].map((value) => {
+        const y = yForOutcome(value);
+        const label = value === 1 ? "hit" : "miss";
+        return `
+          <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="timeline-grid-line" />
+          <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="timeline-axis-label">${label}</text>
+        `;
+      }).join("");
+
+      const xLabels = items.length > 1
+        ? `
+            <text x="${padding.left}" y="${height - 8}" text-anchor="start" class="timeline-axis-label">mais antigo</text>
+            <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="timeline-axis-label">mais recente</text>
+          `
+        : `<text x="${width / 2}" y="${height - 8}" text-anchor="middle" class="timeline-axis-label">1 ponto</text>`;
+
+      const linePath = items.map((item, index) => {
+        const x = xForIndex(index);
+        const y = yForOutcome(item.outcome === "hit" ? 1 : 0);
+        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+      }).join(" ");
+
+      const points = items.map((item, index) => {
+        const x = xForIndex(index);
+        const isHit = item.outcome === "hit";
+        const y = yForOutcome(isHit ? 1 : 0);
+        const color = isHit ? "first" : "late";
+        const timestamp = item.anchor_timestamp_br || "-";
+        return `
+          <circle cx="${x}" cy="${y}" r="5" class="timeline-point ${color}">
+            <title>${timestamp} | âncora ${item.anchor_number ?? "-"} | ${isHit ? "HIT" : "MISS"} | janela ${item.window_attempt ?? "-"} rodadas</title>
+          </circle>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Timeline de hit ou miss compacto em 3 rodadas">
+          ${gridLines}
+          <path d="${linePath}" class="timeline-line"></path>
+          ${points}
+          ${xLabels}
+        </svg>
+      `;
+    }
+
+    function renderLatestEvents(items) {
+      const body = qs("latestEventsBody");
+      body.innerHTML = "";
+      if (!items.length) {
+        body.innerHTML = `<tr><td colspan="6" class="muted">Nenhum evento monitorado ainda.</td></tr>`;
+        return;
+      }
+
+      items.forEach((item) => {
+        const optimized = item.optimized && typeof item.optimized === "object"
+          ? item.optimized
+          : { available: false, status: "", suggestion_preview: [], suggestion_size: 0, oscillation_mode: "", oscillation_reference_rank: null, explanation: "" };
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>
+            <div class="stack">
+              <strong>Número ${item.anchor_number}</strong>
+              <span class="muted">${item.anchor_timestamp_br || "-"}</span>
+              <div class="meta-inline">
+                <span>${item.pattern_count} patterns</span>
+                <span>top support ${item.top_support_count}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="stack">
+              <span class="badge ${badgeClass(item.status)}">${item.outcome_label}</span>
+              <span class="muted">${item.resolved_timestamp_br || ""}</span>
+              <div class="meta-inline">
+                <span>número ${item.resolved_number ?? "-"}</span>
+                <span>rank ${item.resolved_rank_position ?? "-"}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="stack">
+              <span class="badge ${badgeClass(item.shadow_action)}">${item.shadow_label || item.shadow_action || "-"}</span>
+              <span class="muted">conf ${item.shadow_confidence_score}</span>
+              <div class="meta-inline">
+                <span>p1 ${formatPct(item.shadow_p_hit_1)}</span>
+                <span>late ${formatPct(item.shadow_late_hit_risk)}</span>
+                <span>EV ${Number(item.shadow_ev || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="stack">
+              <div class="suggestion-numbers">${(item.suggestion_preview || []).map((n) => `<span class="ball">${n}</span>`).join("")}</div>
+              <span class="muted">${item.suggestion_size} números</span>
+            </div>
+          </td>
+          <td>
+            <div class="stack">
+              <div class="suggestion-numbers">${(optimized.suggestion_preview || []).map((n) => `<span class="ball">${n}</span>`).join("")}</div>
+              <span class="muted">${optimized.suggestion_size || 0} números</span>
+              <div class="meta-inline">
+                <span class="badge ${badgeClass(optimized.status)}">${optimized.status || "sem par"}</span>
+                <span>${optimized.oscillation_mode || "-"}</span>
+                <span>ref ${optimized.oscillation_reference_rank ?? "-"}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="stack summary">
+              <strong>${item.summary}</strong>
+              <span class="muted">${optimized.explanation || item.shadow_reason || item.explanation || item.generation_error || "-"}</span>
+            </div>
+          </td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    function renderPatterns(items) {
+      const body = qs("patternsBody");
+      body.innerHTML = "";
+      if (!items.length) {
+        body.innerHTML = `<tr><td colspan="6" class="muted">Nenhum pattern consolidado ainda.</td></tr>`;
+        return;
+      }
+
+      items.forEach((item) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>
+            <div class="stack">
+              <strong>${item.pattern_name || item.pattern_id}</strong>
+              <span class="muted">${item.pattern_id}</span>
+            </div>
+          </td>
+          <td>${item.signals}</td>
+          <td>${item.covered_hits}</td>
+          <td><span class="badge badge-accent">${formatPct(item.covered_hit_rate)}</span></td>
+          <td><span class="badge badge-success">${formatPct(item.first_hit_rate)}</span></td>
+          <td>${Number(item.avg_resolved_attempt || 0).toFixed(2)}</td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    async function refreshDashboard() {
+      const filters = buildFilterParams();
+      const [baseOverview, optimizedOverview, aggressiveOverview, selectiveOverview, selectiveProtectedOverview, temporalBlendOverview, compactOutcomeTimeline, latest, hourly, baseRankTimeline, optimizedRankTimeline, aggressiveRankTimeline, selectiveRankTimeline, selectiveProtectedRankTimeline, temporalBlendRankTimeline, patterns, streaks] = await Promise.all([
+        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "base" }),
+        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "oscillation_v1" }),
+        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "oscillation_v2_aggressive" }),
+        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "oscillation_v3_selective" }),
+        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "oscillation_v3_selective_protected" }),
+        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "temporal_blend_v1" }),
+        fetchJson("/api/suggestion-monitor/window-outcome-timeline", filters),
+        fetchJson("/api/suggestion-monitor/latest", { ...filters, page: state.currentPage, ranking_variant: "base" }),
+        fetchJson("/api/suggestion-monitor/hourly", { ...filters, ranking_variant: "base" }),
+        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "base" }),
+        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "oscillation_v1" }),
+        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "oscillation_v2_aggressive" }),
+        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "oscillation_v3_selective" }),
+        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "oscillation_v3_selective_protected" }),
+        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "temporal_blend_v1" }),
+        fetchJson("/api/suggestion-monitor/patterns", { ...filters, limit: 20, ranking_variant: "base" }),
+        fetchJson("/api/suggestion-monitor/streaks", { ...filters, ranking_variant: "base" }),
+      ]);
+
+      syncAttemptOptions(buildAttemptOptions(baseOverview, latest));
+      renderOverview(baseOverview, streaks, baseRankTimeline, optimizedOverview, optimizedRankTimeline, aggressiveOverview, aggressiveRankTimeline, selectiveOverview, selectiveRankTimeline, selectiveProtectedOverview, selectiveProtectedRankTimeline, temporalBlendOverview, temporalBlendRankTimeline, compactOutcomeTimeline);
+      renderHourlyHeatmap(hourly.items || []);
+      renderRankTimeline(baseRankTimeline, {
+        chartId: "rankTimelineChart",
+        resolvedMetaId: "rankTimelineResolvedMeta",
+        displayedMetaId: "rankTimelineDisplayedMeta",
+        averageMetaId: "rankTimelineAverageMeta",
+        rankCeiling: 37,
+      });
+      renderRankTimeline(optimizedRankTimeline, {
+        chartId: "optimizedRankTimelineChart",
+        resolvedMetaId: "optimizedRankTimelineResolvedMeta",
+        displayedMetaId: "optimizedRankTimelineDisplayedMeta",
+        averageMetaId: "optimizedRankTimelineAverageMeta",
+        rankCeiling: 37,
+      });
+      renderRankTimeline(aggressiveRankTimeline, {
+        chartId: "aggressiveRankTimelineChart",
+        resolvedMetaId: "aggressiveRankTimelineResolvedMeta",
+        displayedMetaId: "aggressiveRankTimelineDisplayedMeta",
+        averageMetaId: "aggressiveRankTimelineAverageMeta",
+        rankCeiling: 37,
+      });
+      renderRankTimeline(selectiveRankTimeline, {
+        chartId: "selectiveRankTimelineChart",
+        resolvedMetaId: "selectiveRankTimelineResolvedMeta",
+        displayedMetaId: "selectiveRankTimelineDisplayedMeta",
+        averageMetaId: "selectiveRankTimelineAverageMeta",
+        rankCeiling: 37,
+      });
+      renderRankTimeline(selectiveProtectedRankTimeline, {
+        chartId: "selectiveProtectedRankTimelineChart",
+        resolvedMetaId: "selectiveProtectedRankTimelineResolvedMeta",
+        displayedMetaId: "selectiveProtectedRankTimelineDisplayedMeta",
+        averageMetaId: "selectiveProtectedRankTimelineAverageMeta",
+        rankCeiling: 37,
+      });
+      renderRankTimeline(temporalBlendRankTimeline, {
+        chartId: "temporalBlendRankTimelineChart",
+        resolvedMetaId: "temporalBlendRankTimelineResolvedMeta",
+        displayedMetaId: "temporalBlendRankTimelineDisplayedMeta",
+        averageMetaId: "temporalBlendRankTimelineAverageMeta",
+        rankCeiling: 37,
+      });
+      renderCompactOutcomeTimeline(compactOutcomeTimeline);
+      renderLatestEvents(latest.items || []);
+      renderPatterns(patterns.items || []);
+      renderPagination(latest);
+      clearStatus();
+    }
+
+    function applyAutoRefresh() {
+      if (state.timerId) {
+        clearInterval(state.timerId);
+        state.timerId = null;
+      }
+      if (state.autoRefresh) {
+        state.timerId = setInterval(() => {
+          refreshDashboard().catch((error) => console.error("dashboard refresh error", error));
+        }, 10000);
+      }
+      qs("toggleAutoBtn").textContent = `Auto refresh: ${state.autoRefresh ? "ligado" : "desligado"}`;
+    }
+
+    qs("refreshBtn").addEventListener("click", () => {
+      refreshDashboard().catch((error) => {
+        console.error(error);
+        alert(`Falha ao carregar dashboard: ${error.message}`);
+      });
+    });
+
+    qs("toggleAutoBtn").addEventListener("click", () => {
+      state.autoRefresh = !state.autoRefresh;
+      applyAutoRefresh();
+    });
+
+    ["rouletteId", "configKey", "attemptFilter", "shadowAction", "startDate", "endDate", "startHour", "endHour"].forEach((id) => {
+      qs(id).addEventListener("change", () => {
+        state.currentPage = 1;
+        refreshDashboard().catch((error) => {
+          console.error(error);
+          setStatus(`Falha ao aplicar filtros: ${error.message}`, "error");
+        });
+      });
+    });
+
+    qs("prevPageBtn").addEventListener("click", () => {
+      if (state.currentPage <= 1) return;
+      state.currentPage -= 1;
+      refreshDashboard().catch((error) => {
+        console.error(error);
+        setStatus(`Falha ao trocar página: ${error.message}`, "error");
+      });
+    });
+
+    qs("nextPageBtn").addEventListener("click", () => {
+      if (state.currentPage >= state.totalPages) return;
+      state.currentPage += 1;
+      refreshDashboard().catch((error) => {
+        console.error(error);
+        setStatus(`Falha ao trocar página: ${error.message}`, "error");
+      });
+    });
+
+    qs("resetBtn").addEventListener("click", async () => {
+      const confirmed = window.confirm(
+        "Isso vai apagar a base monitorada da roleta atual e mandar o worker reiniciar o estado. Deseja continuar?"
+      );
+      if (!confirmed) return;
+      try {
+        const result = await deleteJson("/api/suggestion-monitor/reset");
+        setStatus(
+          `Base zerada com sucesso. Eventos: ${result.deleted_events}, tentativas: ${result.deleted_attempts}, patterns: ${result.deleted_patterns}, offsets: ${result.deleted_offsets}.`,
+          "success"
+        );
+        await refreshDashboard();
+      } catch (error) {
+        console.error(error);
+        setStatus(`Falha ao zerar base: ${error.message}`, "error");
+      }
+    });
+
+    populateHourSelect("startHour");
+    populateHourSelect("endHour");
+
+    refreshDashboard().catch((error) => {
+      console.error(error);
+      setStatus(`Falha ao carregar dashboard: ${error.message}`, "error");
+    });
+  </script>
+</body>
+</html>

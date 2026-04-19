@@ -96,9 +96,21 @@ async def monitor_page(request: Request):
     )
 
 
+@router.get("/suggestion-monitor", response_class=HTMLResponse)
+async def suggestion_monitor_dashboard_page():
+    with open(os.path.join(templates_dir, "suggestion_monitor_dashboard.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/pattern-training", response_class=HTMLResponse)
 async def pattern_training_page():
     with open(os.path.join(templates_dir, "pattern_training.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/pattern-score-training", response_class=HTMLResponse)
+async def pattern_score_training_page():
+    with open(os.path.join(templates_dir, "pattern_score_training.html"), "r", encoding="utf-8") as f:
         return f.read()
 
 

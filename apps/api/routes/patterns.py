@@ -18,10 +18,15 @@ from api.services.suggestion_filter import suggestion_filter
 from api.services.pattern_decay import pattern_decay
 from api.services.pattern_training_service import pattern_training_service
 from api.services.pattern_training_jobs import pattern_training_jobs
+from api.services.pattern_score_training_service import pattern_score_training_service
 from api.services.pattern_weight_profiles import pattern_weight_profiles
 from api.services.final_suggestion_signal_policy import final_suggestion_signal_policy
 from api.services.final_suggestion_entry_intelligence import final_suggestion_entry_intelligence
+from api.services.final_suggestion_protection import build_protected_coverage_suggestion
+from api.services.simple_suggestion_entry_shadow import simple_suggestion_entry_shadow
 from api.patterns.final_suggestion import (
+    _compact_final_list_into_blocks,
+    analyze_wheel_temperature,
     build_base_suggestion,
     build_final_suggestion,
     build_focus_context,
@@ -95,6 +100,11 @@ class FinalSuggestionRequest(BaseModel):
     final_gate_require_optimized: bool = True
     final_gate_use_confidence_v2: bool = True
     final_gate_min_confidence: int = 40
+    protected_mode_enabled: bool = False
+    protected_suggestion_size: int = 35
+    protected_recent_anchor_count: int = 3
+    protected_swap_enabled: bool = False
+    cold_count: int = 18
 
 
 class ActiveSignalRequest(BaseModel):
@@ -103,6 +113,8 @@ class ActiveSignalRequest(BaseModel):
     suggestion_size: int = 0
     policy_score: float | None = None
     block_compaction_applied: bool = False
+    protected_mode_enabled: bool = False
+    protected_suggestion_size: int | None = None
     attempts_used: int = 0
     max_attempts: int = 1
     wait_spins: int = 0
@@ -132,6 +144,11 @@ class FinalSuggestionPolicyRequest(BaseModel):
     final_gate_require_optimized: bool = True
     final_gate_use_confidence_v2: bool = True
     final_gate_min_confidence: int = 40
+    protected_mode_enabled: bool = False
+    protected_suggestion_size: int = 35
+    protected_recent_anchor_count: int = 3
+    protected_swap_enabled: bool = False
+    cold_count: int = 18
     max_attempts: int = 4
     policy_observation_window: int = 2
     policy_switch_min_hold_spins: int = 1
@@ -189,6 +206,20 @@ class PatternTrainingSaveRequest(BaseModel):
     patterns: List[Dict[str, Any]] = Field(default_factory=list)
     weights: Dict[str, float] = Field(default_factory=dict)
     effective_weights: Dict[str, float] = Field(default_factory=dict)
+
+
+class PatternScoreTrainingRunRequest(BaseModel):
+    roulette_id: str
+    history_limit: int = 1000
+    max_attempts: int = 3
+    timeline_window: int = 80
+
+
+class PatternScoreTrainingSaveRequest(BaseModel):
+    job_id: str
+    name: str
+
+
 def _event_from_result(
     *,
     source: str,
@@ -364,6 +395,132 @@ async def get_pattern_training_job(job_id: str):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.post("/api/patterns/score-training/run")
+async def run_pattern_score_training(payload: PatternScoreTrainingRunRequest):
+    try:
+        roulette_id = str(payload.roulette_id or "").strip()
+        if not roulette_id:
+            raise HTTPException(status_code=400, detail="roulette_id obrigatorio")
+
+        history_limit = max(50, min(50000, int(payload.history_limit)))
+        max_attempts = max(1, min(3, int(payload.max_attempts)))
+        timeline_window = max(10, min(200, int(payload.timeline_window)))
+        history = await _load_history_for_training(roulette_id, history_limit)
+        job = pattern_training_jobs.create_job(
+            params={
+                "mode": "score-training",
+                "roulette_id": roulette_id,
+                "history_limit": history_limit,
+                "max_attempts": max_attempts,
+                "timeline_window": timeline_window,
+            }
+        )
+
+        def _worker() -> Dict[str, Any]:
+            return pattern_score_training_service.run_training(
+                roulette_id=roulette_id,
+                history=history,
+                history_limit=history_limit,
+                max_attempts=max_attempts,
+                timeline_window=timeline_window,
+                progress_callback=lambda info: pattern_training_jobs.update_progress(job["job_id"], info),
+            )
+
+        asyncio.create_task(
+            pattern_training_jobs.run_in_background(
+                job_id=job["job_id"],
+                worker=_worker,
+            )
+        )
+
+        return {
+            "accepted": True,
+            "job_id": job["job_id"],
+            "status": job["status"],
+            "progress": job["progress"],
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/patterns/score-training/jobs/{job_id}")
+async def get_pattern_score_training_job(job_id: str):
+    try:
+        job = pattern_training_jobs.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Treino nao encontrado")
+        return job
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/api/patterns/score-training/save")
+async def save_pattern_score_training(payload: PatternScoreTrainingSaveRequest):
+    try:
+        job_id = str(payload.job_id or "").strip()
+        if not job_id:
+            raise HTTPException(status_code=400, detail="job_id obrigatorio")
+
+        job = pattern_training_jobs.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Treino nao encontrado")
+        if str(job.get("status", "")).lower() != "completed":
+            raise HTTPException(status_code=400, detail="Treino ainda nao foi concluido")
+
+        result = job.get("result", {})
+        if not isinstance(result, dict) or not bool(result.get("available", False)):
+            raise HTTPException(status_code=400, detail="Treino sem resultado valido para salvar")
+
+        profile_material = pattern_score_training_service.build_profile_material(result=result)
+        profile_config = {
+            **dict(result.get("config", {}) or {}),
+            **dict(profile_material.get("config", {}) or {}),
+        }
+        profile_summary = {
+            **dict(result.get("summary", {}) or {}),
+            "training_mode": "score-training",
+            "score_mode": "size_adjusted",
+        }
+        profile = pattern_weight_profiles.save_profile(
+            name=str(payload.name or "").strip() or "score-training",
+            roulette_id=str(result.get("roulette_id", "") or ""),
+            history_size=max(
+                0,
+                int(
+                    result.get("config", {}).get("history_size", 0)
+                    or result.get("summary", {}).get("history_size", 0)
+                    or 0
+                ),
+            ),
+            max_attempts=max(1, int(result.get("config", {}).get("max_attempts", 3) or 3)),
+            optimized_max_numbers=37,
+            use_adaptive_weights=False,
+            config=profile_config,
+            summary=profile_summary,
+            patterns=list(profile_material.get("patterns", []) or []),
+            weights={str(k): float(v) for k, v in dict(profile_material.get("weights", {}) or {}).items()},
+            effective_weights={
+                str(k): float(v)
+                for k, v in dict(profile_material.get("effective_weights", {}) or {}).items()
+            },
+        )
+        return {
+            "saved": True,
+            "profile": {
+                "id": profile.get("id"),
+                "name": profile.get("name"),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.post("/api/patterns/training/save")
 async def save_pattern_training_profile(payload: PatternTrainingSaveRequest):
     try:
@@ -431,6 +588,339 @@ def _build_ranked_optimized_list(number_details: Any, fallback: List[int]) -> Li
     if ranked:
         return ranked
     return list(fallback)
+
+
+def _build_simple_suggestion_from_contributions(
+    contributions: Any,
+    *,
+    focus_number: int,
+    from_index: int,
+    max_numbers: int,
+    block_bets_enabled: bool = False,
+    pulled_counts: Dict[int, int] | None = None,
+    weight_profile_id: str | None = None,
+    weight_profile_weights: Dict[str, float] | None = None,
+    known_pattern_ids: List[str] | None = None,
+) -> Dict[str, Any]:
+    def _canonical_pattern_id(raw_pattern_id: str) -> str:
+        raw = str(raw_pattern_id or "").strip()
+        if not raw:
+            return ""
+        if raw in safe_known_pattern_ids:
+            return raw
+        matches = [pid for pid in safe_known_pattern_ids if raw.startswith(f"{pid}_")]
+        if not matches:
+            return raw
+        matches.sort(key=len, reverse=True)
+        return matches[0]
+
+    safe_max_numbers = max(1, min(37, int(max_numbers)))
+    safe_block_bets_enabled = bool(block_bets_enabled)
+    safe_pulled_counts = {
+        int(k): int(v)
+        for k, v in dict(pulled_counts or {}).items()
+        if 0 <= int(k) <= 36
+    }
+    safe_profile_id = str(weight_profile_id or "").strip() or None
+    safe_profile_weights = {
+        str(k): float(v)
+        for k, v in dict(weight_profile_weights or {}).items()
+        if str(k).strip()
+    }
+    safe_known_pattern_ids = [str(pid).strip() for pid in (known_pattern_ids or []) if str(pid).strip()]
+    normalized_contributions: List[Dict[str, Any]] = []
+    supports_by_number: Dict[int, Dict[str, Dict[str, Any]]] = defaultdict(dict)
+
+    if isinstance(contributions, list):
+        for item in contributions:
+            if not isinstance(item, dict):
+                continue
+            pattern_id = str(item.get("pattern_id", "") or "").strip() or "unknown_pattern"
+            base_pattern_id = _canonical_pattern_id(pattern_id)
+            pattern_name = str(item.get("pattern_name", "") or "").strip() or pattern_id
+            applied_weight = float(safe_profile_weights.get(base_pattern_id, 1.0))
+            unique_numbers: List[int] = []
+            seen_numbers: set[int] = set()
+            for raw_number in item.get("numbers", []) or []:
+                try:
+                    number = int(raw_number)
+                except (TypeError, ValueError):
+                    continue
+                if not (0 <= number <= 36):
+                    continue
+                if number in seen_numbers:
+                    continue
+                seen_numbers.add(number)
+                unique_numbers.append(number)
+                supports_by_number[number][pattern_id] = {
+                    "pattern_id": pattern_id,
+                    "base_pattern_id": base_pattern_id or pattern_id,
+                    "pattern_name": pattern_name,
+                    "applied_weight": round(applied_weight, 6),
+                }
+            if not unique_numbers:
+                continue
+            normalized_contributions.append(
+                {
+                    "pattern_id": pattern_id,
+                    "base_pattern_id": base_pattern_id or pattern_id,
+                    "pattern_name": pattern_name,
+                    "applied_weight": round(applied_weight, 6),
+                    "numbers": unique_numbers,
+                }
+            )
+
+    number_details = [
+        {
+            "number": int(number),
+            "support_score": len(patterns_by_id),
+            "support_count": len(patterns_by_id),
+            "weighted_support_score": round(
+                sum(float(item.get("applied_weight", 1.0) or 1.0) for item in patterns_by_id.values()),
+                6,
+            ),
+            "supporting_patterns": sorted(
+                patterns_by_id.values(),
+                key=lambda item: (str(item.get("pattern_name", "")), str(item.get("pattern_id", ""))),
+            ),
+        }
+        for number, patterns_by_id in supports_by_number.items()
+    ]
+    number_details.sort(
+        key=lambda item: (
+            -float(item.get("weighted_support_score", 0.0) or 0.0),
+            -int(item["support_score"]),
+            int(item["number"]),
+        )
+    )
+    selected_number_details = list(number_details[:safe_max_numbers])
+    ranked_list = [int(item["number"]) for item in selected_number_details]
+    score_map = {
+        int(item["number"]): round(
+            float(item.get("weighted_support_score", 0.0) or 0.0)
+            + (float(item.get("support_score", 0) or 0) * 0.001),
+            6,
+        )
+        for item in number_details
+    }
+    block_compaction = {
+        "list": list(ranked_list),
+        "added": [],
+        "removed": [],
+        "changed": False,
+    }
+    if safe_block_bets_enabled and len(ranked_list) > 1:
+        block_compaction = _compact_final_list_into_blocks(
+            initial_list=ranked_list,
+            score_map=dict(score_map),
+            pulled_counts=safe_pulled_counts,
+            target_size=safe_max_numbers,
+        )
+        ranked_list = [int(n) for n in block_compaction["list"][:safe_max_numbers]]
+        number_details_map = {
+            int(item["number"]): item
+            for item in number_details
+            if isinstance(item, dict) and isinstance(item.get("number"), int)
+        }
+        selected_number_details = [
+            (
+                number_details_map[number]
+                if number in number_details_map
+                else {
+                    "number": int(number),
+                    "support_score": 0,
+                    "support_count": 0,
+                    "weighted_support_score": 0.0,
+                    "supporting_patterns": [],
+                    "added_by_block_compaction": True,
+                }
+            )
+            for number in ranked_list
+        ]
+    top_support_count = int(selected_number_details[0]["support_score"]) if selected_number_details else 0
+    min_support_count = int(selected_number_details[-1]["support_score"]) if selected_number_details else 0
+    avg_support_count = (
+        round(
+            sum(int(item["support_score"]) for item in selected_number_details) / len(selected_number_details),
+            2,
+        )
+        if selected_number_details
+        else 0.0
+    )
+    top_weighted_support_score = (
+        round(float(selected_number_details[0].get("weighted_support_score", 0.0) or 0.0), 6)
+        if selected_number_details
+        else 0.0
+    )
+    min_weighted_support_score = (
+        round(float(selected_number_details[-1].get("weighted_support_score", 0.0) or 0.0), 6)
+        if selected_number_details
+        else 0.0
+    )
+    avg_weighted_support_score = (
+        round(
+            sum(float(item.get("weighted_support_score", 0.0) or 0.0) for item in selected_number_details)
+            / len(selected_number_details),
+            6,
+        )
+        if selected_number_details
+        else 0.0
+    )
+
+    if not ranked_list:
+        return {
+            "available": False,
+            "list": [],
+            "suggestion": [],
+            "ordered_suggestion": [],
+            "focus_number": int(focus_number),
+            "from_index": int(from_index),
+            "max_numbers": safe_max_numbers,
+            "pattern_count": len(normalized_contributions),
+            "unique_numbers": 0,
+            "number_details": [],
+            "selected_number_details": [],
+            "top_support_count": 0,
+            "min_support_count": 0,
+            "avg_support_count": 0.0,
+            "top_weighted_support_score": 0.0,
+            "min_weighted_support_score": 0.0,
+            "avg_weighted_support_score": 0.0,
+            "contributions": normalized_contributions,
+            "explanation": "Nenhum pattern positivo retornou números para a sugestão simples.",
+            "weight_profile": {
+                "id": safe_profile_id,
+                "weighted_ranking": bool(safe_profile_id and safe_profile_weights),
+            } if safe_profile_id else None,
+            "block_bets_enabled": safe_block_bets_enabled,
+            "block_compaction": block_compaction,
+            "block_compaction_applied": False,
+            "block_numbers_added": 0,
+            "block_numbers_removed": 0,
+            "ranking_locked": True,
+        }
+
+    explanation = (
+        (
+            f"Sugestão simples ponderada por profile: "
+            if (safe_profile_id and safe_profile_weights)
+            else f"Sugestão simples por contagem de apoio: "
+        )
+        + f"{len(normalized_contributions)} pattern(s) positivos e {len(number_details)} número(s) únicos citados."
+    )
+    if safe_block_bets_enabled and bool(block_compaction["changed"]):
+        explanation = (
+            f"{explanation} Compactação em blocos aplicada "
+            f"(+{len(block_compaction['added'])}/-{len(block_compaction['removed'])})."
+        )
+
+    return {
+        "available": True,
+        "list": ranked_list,
+        "suggestion": ranked_list,
+        "ordered_suggestion": list(ranked_list),
+        "focus_number": int(focus_number),
+        "from_index": int(from_index),
+        "max_numbers": safe_max_numbers,
+        "pattern_count": len(normalized_contributions),
+        "unique_numbers": len(number_details),
+        "number_details": number_details,
+        "selected_number_details": selected_number_details,
+        "top_support_count": top_support_count,
+        "min_support_count": min_support_count,
+        "avg_support_count": avg_support_count,
+        "top_weighted_support_score": top_weighted_support_score,
+        "min_weighted_support_score": min_weighted_support_score,
+        "avg_weighted_support_score": avg_weighted_support_score,
+        "contributions": normalized_contributions,
+        "explanation": explanation,
+        "weight_profile": {
+            "id": safe_profile_id,
+            "weighted_ranking": bool(safe_profile_id and safe_profile_weights),
+        } if safe_profile_id else None,
+        "block_bets_enabled": safe_block_bets_enabled,
+        "block_compaction": block_compaction,
+        "block_compaction_applied": bool(block_compaction["changed"]),
+        "block_numbers_added": len(block_compaction["added"]),
+        "block_numbers_removed": len(block_compaction["removed"]),
+        "ranking_locked": True,
+    }
+
+
+def _build_protected_policy_decision(
+    result: Dict[str, Any],
+    *,
+    candidate_list: List[int],
+    candidate_confidence: int,
+    candidate_policy_score: float,
+) -> Dict[str, Any]:
+    excluded_numbers = [
+        int(n) for n in (result.get("protected_excluded_numbers") or []) if 0 <= int(n) <= 36
+    ]
+    excluded_label = ", ".join(str(number) for number in excluded_numbers) or "n/a"
+    wait_triggered = bool(result.get("protected_wait_triggered", False))
+    recommended_wait_spins = max(
+        0,
+        int(result.get("protected_wait_recommended_spins", 0) or 0),
+    )
+    wait_reason = str(result.get("protected_wait_reason", "") or "").strip()
+    swap_applied = bool(result.get("protected_swap_applied", False))
+    swap_summary = str(result.get("protected_swap_summary", "") or "").strip()
+    base_reason = f"Cobertura protegida ativa. Fora da jogada: {excluded_label}."
+    has_candidate = bool(candidate_list)
+    action = "enter" if has_candidate else "wait"
+    label = "Cobertura protegida" if has_candidate else "Esperar"
+    reason = base_reason if has_candidate else "Sem sugestão candidata válida para cobertura protegida."
+    wait_spins = 0
+    touch_exact = 0
+    touch_near = 0
+
+    if has_candidate and wait_triggered and recommended_wait_spins > 0:
+        action = "wait"
+        label = "Proteção 35 números"
+        reason = wait_reason or f"Zona protegida tocada. Aguarde {recommended_wait_spins} giros."
+        wait_spins = recommended_wait_spins
+        touch_exact = 1
+        touch_near = 1
+    elif has_candidate and swap_applied:
+        label = "Aposta salva"
+        reason = swap_summary or f"Aposta salva por troca dos frios excluidos. Fora da jogada: {excluded_label}."
+
+    return {
+        "action": action,
+        "label": label,
+        "reason": reason,
+        "score": round(float(candidate_policy_score), 4),
+        "score_delta": round(float(candidate_policy_score), 4),
+        "confidence_delta": int(candidate_confidence),
+        "overlap_ratio": 0.0,
+        "saved_steps_estimate": 0,
+        "recommended_wait_spins": wait_spins,
+        "entry_overlap_unique": 0,
+        "entry_overlap_hits": 0,
+        "entry_overlap_group": "0",
+        "entry_confidence_segment": "protected",
+        "touch_exact": touch_exact,
+        "touch_near": touch_near,
+        "touch_close": 0,
+        "last_distance": 99,
+        "recent_regions": [],
+        "alternating_regions": False,
+        "region_alignment": 0.0,
+        "relation_score": 0.0,
+        "wait_spins": 0,
+        "max_wait_allowed": wait_spins,
+        "decay_penalty": 0.0,
+        "alert_mode": False,
+        "rescue_mode": False,
+        "protected_wait": action == "wait",
+        "protected_mode_enabled": True,
+        "protected_excluded_numbers": excluded_numbers,
+        "protected_swap_applied": swap_applied,
+        "protected_swap_summary": swap_summary,
+    }
+
+
 async def _compute_final_suggestion(
     payload: FinalSuggestionRequest,
 ) -> Dict[str, Any]:
@@ -447,6 +937,38 @@ async def _compute_final_suggestion(
             "pending_patterns": [],
             "number_details": [],
             "adaptive_weights": [],
+        }
+        simple_payload: Dict[str, Any] = {
+            "available": False,
+            "list": [],
+            "suggestion": [],
+            "ordered_suggestion": [],
+            "focus_number": None,
+            "from_index": 0,
+            "max_numbers": max(1, min(37, int(payload.max_numbers))),
+            "pattern_count": 0,
+            "unique_numbers": 0,
+            "number_details": [],
+            "selected_number_details": [],
+            "top_support_count": 0,
+            "min_support_count": 0,
+            "avg_support_count": 0.0,
+            "top_weighted_support_score": 0.0,
+            "min_weighted_support_score": 0.0,
+            "avg_weighted_support_score": 0.0,
+            "contributions": [],
+            "explanation": "Historico insuficiente para avaliacao simples.",
+            "weight_profile": None,
+            "block_bets_enabled": bool(payload.block_bets_enabled),
+            "block_compaction": {"list": [], "added": [], "removed": [], "changed": False},
+            "block_compaction_applied": False,
+            "block_numbers_added": 0,
+            "block_numbers_removed": 0,
+            "ranking_locked": True,
+            "entry_shadow": simple_suggestion_entry_shadow.unavailable(
+                "Historico insuficiente para avaliacao simples.",
+                suggestion_size=0,
+            ),
         }
         return {
             "available": False,
@@ -469,6 +991,14 @@ async def _compute_final_suggestion(
             "optimized_pending_patterns": [],
             "optimized_number_details": [],
             "optimized_adaptive_weights": [],
+            "simple_payload": simple_payload,
+            "simple_suggestion": [],
+            "simple_available": False,
+            "simple_explanation": simple_payload["explanation"],
+            "simple_number_details": [],
+            "simple_pattern_count": 0,
+            "simple_unique_numbers": 0,
+            "simple_entry_shadow": simple_payload["entry_shadow"],
         }
 
     from_index = max(0, min(int(payload.from_index), len(normalized_history) - 1))
@@ -480,6 +1010,14 @@ async def _compute_final_suggestion(
     focus_number = int(focus_number)
 
     target_size = max(1, min(37, int(payload.max_numbers)))
+    protected_mode_enabled = bool(payload.protected_mode_enabled)
+    protected_suggestion_size = max(26, min(35, int(payload.protected_suggestion_size)))
+    if protected_mode_enabled:
+        protected_suggestion_size = 35
+    protected_recent_anchor_count = max(1, min(5, int(payload.protected_recent_anchor_count)))
+    protected_swap_enabled = False
+    cold_count = max(1, min(36, int(payload.cold_count)))
+    effective_target_size = protected_suggestion_size if protected_mode_enabled else target_size
     optimized_max_numbers = max(1, min(37, int(payload.optimized_max_numbers)))
     final_base_weight, final_optimized_weight = normalize_weights(payload.base_weight, payload.optimized_weight)
 
@@ -562,7 +1100,7 @@ async def _compute_final_suggestion(
         optimized_confidence_effective=opt_confidence_effective,
         number_details=number_details if isinstance(number_details, list) else [],
         base_confidence_score=base_confidence_score,
-        max_size=target_size,
+        max_size=effective_target_size,
         history_arr=normalized_history,
         from_index=from_index,
         pulled_counts=pulled_counts,
@@ -572,48 +1110,131 @@ async def _compute_final_suggestion(
         inversion_enabled=inversion_enabled,
         inversion_context_window=inversion_context_window,
         inversion_penalty_factor=inversion_penalty_factor,
+        assertiveness_compaction_enabled=not protected_mode_enabled,
     )
+
+    wheel_temperature = analyze_wheel_temperature(
+        normalized_history,
+        from_index=from_index,
+        window=50,
+        cold_count=cold_count,
+    )
+    cold_ranking = [int(n) for n in wheel_temperature.get("cold_ranking", []) if 0 <= int(n) <= 36]
+    base_is_cold = focus_number in set(wheel_temperature.get("cold_numbers", set()))
+    base_cold_rank = (cold_ranking.index(focus_number) + 1) if focus_number in cold_ranking else None
 
     candidate_list = list(final_result.get("list", []) if isinstance(final_result, dict) else [])
     candidate_protections = list(final_result.get("protections", []) if isinstance(final_result, dict) else [])
     candidate_confidence_obj = dict(final_result.get("confidence", {}) if isinstance(final_result, dict) else {})
     candidate_confidence_score = int(candidate_confidence_obj.get("score", 0) or 0)
+    protection_result: Dict[str, Any] | None = None
+    protected_excluded_numbers: List[int] = []
+    protected_guard_numbers: List[int] = []
+    protected_guard_details: Dict[str, Any] = {}
+    protected_wait_triggered = False
+    protected_wait_matches: List[Dict[str, Any]] = []
+    protected_wait_recommended_spins = 0
+    protected_wait_reason = ""
+    protected_original_excluded_numbers: List[int] = []
+    protected_swap_applied = False
+    protected_swap_summary = ""
+    protected_swap_details: List[Dict[str, Any]] = []
+    cold_count_effective = cold_count
+    if protected_mode_enabled:
+        protection_result = build_protected_coverage_suggestion(
+            history_arr=normalized_history,
+            from_index=from_index,
+            focus_number=focus_number,
+            base_list=base_list_ranked,
+            candidate_list=candidate_list,
+            protections=candidate_protections,
+            number_details=number_details if isinstance(number_details, list) else [],
+            target_size=protected_suggestion_size,
+            cold_count=cold_count,
+            recent_anchor_count=protected_recent_anchor_count,
+            protected_swap_enabled=protected_swap_enabled,
+        )
+        candidate_list = list(protection_result.get("ordered_suggestion", candidate_list))
+        protected_excluded_numbers = [int(n) for n in protection_result.get("protected_excluded_numbers", []) if 0 <= int(n) <= 36]
+        protected_original_excluded_numbers = [int(n) for n in protection_result.get("protected_original_excluded_numbers", []) if 0 <= int(n) <= 36]
+        protected_guard_numbers = [int(n) for n in protection_result.get("protected_guard_numbers", []) if 0 <= int(n) <= 36]
+        protected_guard_details = dict(protection_result.get("protected_guard_details", {}))
+        protected_wait_triggered = bool(protection_result.get("protected_wait_triggered", False))
+        protected_wait_matches = [
+            item
+            for item in protection_result.get("protected_wait_matches", [])
+            if isinstance(item, dict)
+        ]
+        protected_wait_recommended_spins = int(protection_result.get("protected_wait_recommended_spins", 0) or 0)
+        protected_wait_reason = str(protection_result.get("protected_wait_reason", "") or "").strip()
+        protected_swap_applied = bool(protection_result.get("protected_swap_applied", False))
+        protected_swap_summary = str(protection_result.get("protected_swap_summary", "") or "").strip()
+        protected_swap_details = [
+            item for item in protection_result.get("protected_swap_details", []) if isinstance(item, dict)
+        ]
+        # Mecanismo de espera/troca desativado: mantemos só os frios excluídos da cobertura.
+        protected_wait_triggered = False
+        protected_wait_matches = []
+        protected_wait_recommended_spins = 0
+        protected_wait_reason = ""
+        protected_swap_applied = False
+        protected_swap_summary = ""
+        protected_swap_details = []
+        base_is_cold = bool(protection_result.get("base_is_cold", base_is_cold))
+        base_cold_rank = protection_result.get("base_cold_rank", base_cold_rank)
+        cold_ranking = [int(n) for n in protection_result.get("cold_numbers_considered", []) if 0 <= int(n) <= 36]
+        cold_count_effective = len(cold_ranking)
     candidate_policy_score = float(candidate_confidence_score - (len(candidate_list) * 1.5))
     if bool(final_result.get("breakdown", {}).get("block_compaction_applied")):
         candidate_policy_score += 3.0
-    entry_policy = final_suggestion_entry_intelligence.recommend(
-        active_signal=None,
-        candidate_signal={
-            "suggestion": candidate_list,
-            "confidence_score": candidate_confidence_score,
-            "suggestion_size": len(candidate_list),
-            "policy_score": round(candidate_policy_score, 4),
-            "block_compaction_applied": bool(final_result.get("breakdown", {}).get("block_compaction_applied")),
-        },
-        history=normalized_history,
-        from_index=from_index,
-        overlap_window=entry_policy_overlap_window,
-        high_confidence_cutoff=entry_policy_high_confidence_cutoff,
-    )
+    if protected_mode_enabled:
+        entry_policy = _build_protected_policy_decision(
+            {
+                **final_result,
+                "protected_wait_triggered": protected_wait_triggered,
+                "protected_wait_recommended_spins": protected_wait_recommended_spins,
+                "protected_wait_reason": protected_wait_reason,
+                "protected_excluded_numbers": protected_excluded_numbers,
+            },
+            candidate_list=candidate_list,
+            candidate_confidence=candidate_confidence_score,
+            candidate_policy_score=candidate_policy_score,
+        )
+    else:
+        entry_policy = final_suggestion_entry_intelligence.recommend(
+            active_signal=None,
+            candidate_signal={
+                "suggestion": candidate_list,
+                "confidence_score": candidate_confidence_score,
+                "suggestion_size": len(candidate_list),
+                "policy_score": round(candidate_policy_score, 4),
+                "block_compaction_applied": bool(final_result.get("breakdown", {}).get("block_compaction_applied")),
+            },
+            history=normalized_history,
+            from_index=from_index,
+            overlap_window=entry_policy_overlap_window,
+            high_confidence_cutoff=entry_policy_high_confidence_cutoff,
+        )
     optimized_supported = bool(optimized_result.get("available", False)) and bool(opt_list_ranked)
     gate_reasons: List[str] = []
-    if final_gate_require_optimized and not optimized_supported:
-        filter_reason = str(optimized_result.get("filter_reason", "") or "").strip()
-        if filter_reason:
-            gate_reasons.append(f"Motor otimizado bloqueou o sinal: {filter_reason}")
-        else:
-            gate_reasons.append("Motor otimizado sem suporte suficiente para emitir a sugestão final.")
-    if candidate_confidence_score < final_gate_min_confidence:
-        gate_reasons.append(
-            f"Confidence final abaixo do mínimo ({candidate_confidence_score}<{final_gate_min_confidence})."
-        )
-    if entry_policy_enabled and str(entry_policy.get("action", "")).lower() == "wait":
-        wait_spins = max(0, int(entry_policy.get("recommended_wait_spins", 0) or 0))
-        if wait_spins > 0:
-            gate_reasons.append(f"Política de entrada recomendou esperar {wait_spins} giro(s).")
-        else:
-            gate_reasons.append("Política de entrada recomendou aguardar antes de emitir.")
-    emission_gate_passed = bool(final_result.get("available", False)) and not gate_reasons
+    if not protected_mode_enabled:
+        if final_gate_require_optimized and not optimized_supported:
+            filter_reason = str(optimized_result.get("filter_reason", "") or "").strip()
+            if filter_reason:
+                gate_reasons.append(f"Motor otimizado bloqueou o sinal: {filter_reason}")
+            else:
+                gate_reasons.append("Motor otimizado sem suporte suficiente para emitir a sugestão final.")
+        if candidate_confidence_score < final_gate_min_confidence:
+            gate_reasons.append(
+                f"Confidence final abaixo do mínimo ({candidate_confidence_score}<{final_gate_min_confidence})."
+            )
+        if entry_policy_enabled and str(entry_policy.get("action", "")).lower() == "wait":
+            wait_spins = max(0, int(entry_policy.get("recommended_wait_spins", 0) or 0))
+            if wait_spins > 0:
+                gate_reasons.append(f"Política de entrada recomendou esperar {wait_spins} giro(s).")
+            else:
+                gate_reasons.append("Política de entrada recomendou aguardar antes de emitir.")
+    emission_gate_passed = bool(candidate_list) if protected_mode_enabled else bool(final_result.get("available", False)) and not gate_reasons
     final_list = candidate_list if emission_gate_passed else []
     final_protections = candidate_protections if emission_gate_passed else []
     emission_gate = {
@@ -630,6 +1251,12 @@ async def _compute_final_suggestion(
         "used_confidence_v2": bool(final_gate_use_confidence_v2 and opt_confidence_v2 > 0),
     }
     explanation = str(final_result.get("explanation", "") or "").strip()
+    if protected_mode_enabled:
+        explanation = (
+            f"{explanation} Cobertura protegida ativa: {len(candidate_list)} numero(s), removendo os frios {protected_excluded_numbers} pelas ultimas 50 jogadas."
+        ).strip()
+        if protected_swap_applied and protected_swap_summary:
+            explanation = f"{explanation} {protected_swap_summary}".strip()
     if gate_reasons:
         explanation = f"{explanation} Emissão bloqueada: {' '.join(gate_reasons)}".strip()
     optimized_payload = {
@@ -651,11 +1278,29 @@ async def _compute_final_suggestion(
             "name": selected_profile.get("name"),
         } if isinstance(selected_profile, dict) else None,
     }
+    simple_payload = _build_simple_suggestion_from_contributions(
+        optimized_result.get("contributions", []),
+        focus_number=focus_number,
+        from_index=from_index,
+        max_numbers=effective_target_size,
+        block_bets_enabled=bool(payload.block_bets_enabled),
+        pulled_counts=pulled_counts,
+        weight_profile_id=selected_profile_id,
+        weight_profile_weights=profile_weights if isinstance(profile_weights, dict) else {},
+        known_pattern_ids=[definition.id for definition in pattern_engine._load_patterns()],
+    )
+    simple_payload["entry_shadow"] = simple_suggestion_entry_shadow.evaluate(
+        simple_payload=simple_payload,
+        history=normalized_history,
+        from_index=from_index,
+        max_attempts=4,
+    )
     return {
         **final_result,
         "available": emission_gate_passed,
         "list": final_list,
         "suggestion": final_list,
+        "ordered_suggestion": list(final_list),
         "protections": final_protections,
         "focus_number": focus_number,
         "from_index": from_index,
@@ -670,11 +1315,36 @@ async def _compute_final_suggestion(
         "candidate_available": bool(final_result.get("available", False)),
         "candidate_list": candidate_list,
         "candidate_suggestion": candidate_list,
+        "candidate_ordered_suggestion": list(candidate_list),
         "candidate_protections": candidate_protections,
         "candidate_confidence": candidate_confidence_obj,
         "candidate_explanation": final_result.get("explanation", ""),
         "confidence": candidate_confidence_obj,
         "explanation": explanation,
+        "ranking_locked": bool(protected_mode_enabled),
+        "protected_mode_enabled": protected_mode_enabled,
+        "protected_suggestion_size": protected_suggestion_size if protected_mode_enabled else None,
+        "protected_recent_anchor_count": protected_recent_anchor_count if protected_mode_enabled else None,
+        "protected_swap_enabled": protected_swap_enabled if protected_mode_enabled else False,
+        "protected_swap_applied": protected_swap_applied if protected_mode_enabled else False,
+        "protected_swap_summary": protected_swap_summary if protected_mode_enabled else "",
+        "protected_swap_details": protected_swap_details if protected_mode_enabled else [],
+        "protected_excluded_numbers": protected_excluded_numbers if protected_mode_enabled else [],
+        "protected_original_excluded_numbers": protected_original_excluded_numbers if protected_mode_enabled else [],
+        "protected_guard_numbers": protected_guard_numbers if protected_mode_enabled else [],
+        "protected_guard_details": protected_guard_details if protected_mode_enabled else {},
+        "protected_wait_triggered": bool(protected_wait_triggered) if protected_mode_enabled else False,
+        "protected_wait_matches": protected_wait_matches if protected_mode_enabled else [],
+        "protected_wait_recommended_spins": protected_wait_recommended_spins if protected_mode_enabled else 0,
+        "protected_wait_reason": protected_wait_reason if protected_mode_enabled else "",
+        "excluded_tail_numbers": list(protection_result.get("excluded_tail_numbers", [])) if isinstance(protection_result, dict) else [],
+        "excluded_tail_reasons": list(protection_result.get("excluded_tail_reasons", [])) if isinstance(protection_result, dict) else [],
+        "protection_candidate_details": dict(protection_result.get("candidate_details", {})) if isinstance(protection_result, dict) else {},
+        "base_is_cold": bool(base_is_cold),
+        "base_cold_rank": base_cold_rank,
+        "cold_numbers_considered": cold_ranking,
+        "cold_count_requested": cold_count_effective,
+        "cold_wait_recommended_spins": protected_wait_recommended_spins if protected_mode_enabled else (2 if base_is_cold else 0),
         # Mantém payload de resposta compatível com ordem antiga.
         "base_suggestion": base_list_for_engine,
         "base_confidence": base_confidence_score,
@@ -696,6 +1366,14 @@ async def _compute_final_suggestion(
         "optimized_number_details": number_details if isinstance(number_details, list) else [],
         "optimized_adaptive_weights": optimized_result.get("adaptive_weights", []),
         "optimized_weight_profile": optimized_payload.get("weight_profile"),
+        "simple_payload": simple_payload,
+        "simple_suggestion": simple_payload.get("list", []),
+        "simple_available": bool(simple_payload.get("available", False)),
+        "simple_explanation": simple_payload.get("explanation", ""),
+        "simple_number_details": simple_payload.get("number_details", []),
+        "simple_pattern_count": int(simple_payload.get("pattern_count", 0) or 0),
+        "simple_unique_numbers": int(simple_payload.get("unique_numbers", 0) or 0),
+        "simple_entry_shadow": simple_payload.get("entry_shadow", {}),
     }
 
 
@@ -1096,6 +1774,58 @@ async def get_final_suggestion(payload: FinalSuggestionRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.post("/api/patterns/simple-suggestion")
+async def get_simple_suggestion(payload: FinalSuggestionRequest):
+    """
+    Retorna uma sugestao simples baseada apenas na contagem de apoio dos patterns.
+
+    Regra:
+    - sem weight_profile_id: cada pattern positivo que citar um numero soma 1 ponto para esse numero
+    - com weight_profile_id: cada pattern positivo soma o multiplicador salvo no profile
+    - com block_bets_enabled: reaplica a compactacao em blocos do final-suggestion sobre o ranking simples
+    - confidence e score final do motor nao entram no ranking
+    """
+    try:
+        result = await _compute_final_suggestion(payload)
+        simple_payload = result.get("simple_payload", {})
+        if isinstance(simple_payload, dict):
+            return simple_payload
+        return {
+            "available": False,
+            "list": [],
+            "suggestion": [],
+            "ordered_suggestion": [],
+            "focus_number": payload.focus_number,
+            "from_index": max(0, int(payload.from_index)),
+            "max_numbers": max(1, min(37, int(payload.max_numbers))),
+            "pattern_count": 0,
+            "unique_numbers": 0,
+            "number_details": [],
+            "selected_number_details": [],
+            "top_support_count": 0,
+            "min_support_count": 0,
+            "avg_support_count": 0.0,
+            "top_weighted_support_score": 0.0,
+            "min_weighted_support_score": 0.0,
+            "avg_weighted_support_score": 0.0,
+            "contributions": [],
+            "explanation": "Sugestao simples indisponivel.",
+            "weight_profile": None,
+            "block_bets_enabled": bool(payload.block_bets_enabled),
+            "block_compaction": {"list": [], "added": [], "removed": [], "changed": False},
+            "block_compaction_applied": False,
+            "block_numbers_added": 0,
+            "block_numbers_removed": 0,
+            "ranking_locked": True,
+            "entry_shadow": simple_suggestion_entry_shadow.unavailable(
+                "Sugestao simples indisponivel.",
+                suggestion_size=0,
+            ),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.post("/api/patterns/final-suggestion/policy")
 async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
     try:
@@ -1123,6 +1853,11 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
             final_gate_require_optimized=payload.final_gate_require_optimized,
             final_gate_use_confidence_v2=payload.final_gate_use_confidence_v2,
             final_gate_min_confidence=payload.final_gate_min_confidence,
+            protected_mode_enabled=payload.protected_mode_enabled,
+            protected_suggestion_size=payload.protected_suggestion_size,
+            protected_recent_anchor_count=payload.protected_recent_anchor_count,
+            protected_swap_enabled=payload.protected_swap_enabled,
+            cold_count=payload.cold_count,
         )
         result = await _compute_final_suggestion(suggestion_payload)
         candidate_list = [int(n) for n in (result.get("candidate_suggestion") or result.get("candidate_list") or []) if 0 <= int(n) <= 36]
@@ -1131,26 +1866,34 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
         if bool(result.get("breakdown", {}).get("block_compaction_applied")):
             candidate_policy_score += 3.0
 
-        live_decision = final_suggestion_entry_intelligence.recommend(
-            active_signal=(
-                payload.active_signal.model_dump()
-                if (payload.active_signal and hasattr(payload.active_signal, "model_dump"))
-                else payload.active_signal.dict()
-                if payload.active_signal
-                else None
-            ),
-            candidate_signal={
-                "suggestion": candidate_list,
-                "confidence_score": candidate_confidence,
-                "suggestion_size": len(candidate_list),
-                "policy_score": candidate_policy_score,
-                "block_compaction_applied": bool(result.get("breakdown", {}).get("block_compaction_applied")),
-            },
-            history=payload.history,
-            from_index=payload.from_index,
-            overlap_window=payload.entry_policy_overlap_window,
-            high_confidence_cutoff=payload.entry_policy_high_confidence_cutoff,
-        )
+        if bool(result.get("protected_mode_enabled", False)):
+            live_decision = _build_protected_policy_decision(
+                result,
+                candidate_list=candidate_list,
+                candidate_confidence=candidate_confidence,
+                candidate_policy_score=candidate_policy_score,
+            )
+        else:
+            live_decision = final_suggestion_entry_intelligence.recommend(
+                active_signal=(
+                    payload.active_signal.model_dump()
+                    if (payload.active_signal and hasattr(payload.active_signal, "model_dump"))
+                    else payload.active_signal.dict()
+                    if payload.active_signal
+                    else None
+                ),
+                candidate_signal={
+                    "suggestion": candidate_list,
+                    "confidence_score": candidate_confidence,
+                    "suggestion_size": len(candidate_list),
+                    "policy_score": candidate_policy_score,
+                    "block_compaction_applied": bool(result.get("breakdown", {}).get("block_compaction_applied")),
+                },
+                history=payload.history,
+                from_index=payload.from_index,
+                overlap_window=payload.entry_policy_overlap_window,
+                high_confidence_cutoff=payload.entry_policy_high_confidence_cutoff,
+            )
         return {
             "available": bool(result.get("available", False)),
             "decision": live_decision,
@@ -1167,6 +1910,22 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
                 "policy_score": round(float(candidate_policy_score), 4),
                 "block_compaction_applied": bool(result.get("breakdown", {}).get("block_compaction_applied")),
                 "block_bets_enabled": bool(result.get("blockBetsEnabled", payload.block_bets_enabled)),
+                "ranking_locked": bool(result.get("ranking_locked", False)),
+                "protected_mode_enabled": bool(result.get("protected_mode_enabled", False)),
+                "protected_suggestion_size": result.get("protected_suggestion_size"),
+                "protected_swap_enabled": bool(result.get("protected_swap_enabled", False)),
+                "protected_swap_applied": bool(result.get("protected_swap_applied", False)),
+                "protected_swap_summary": str(result.get("protected_swap_summary", "") or ""),
+                "protected_swap_details": list(result.get("protected_swap_details", []) or []),
+                "protected_excluded_numbers": list(result.get("protected_excluded_numbers", []) or []),
+                "protected_original_excluded_numbers": list(result.get("protected_original_excluded_numbers", []) or []),
+                "protected_guard_numbers": list(result.get("protected_guard_numbers", []) or []),
+                "protected_guard_details": dict(result.get("protected_guard_details", {}) or {}),
+                "protected_wait_triggered": bool(result.get("protected_wait_triggered", False)),
+                "protected_wait_recommended_spins": int(result.get("protected_wait_recommended_spins", 0) or 0),
+                "protected_wait_reason": str(result.get("protected_wait_reason", "") or ""),
+                "base_is_cold": bool(result.get("base_is_cold", False)),
+                "cold_wait_recommended_spins": int(result.get("cold_wait_recommended_spins", 0) or 0),
             },
             "result": result,
         }

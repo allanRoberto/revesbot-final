@@ -5,7 +5,7 @@
       "name": "Brazilian Roulette",
       "rouletteId": "pragmatic-brazilian-roulette",
       "url": "https://lotogreen.bet.br/play/450",
-      "enabled": true
+      "enabled": false
     },
     {
       "gameId": "556",
@@ -40,7 +40,7 @@
       "name": "Auto Roulette",
       "rouletteId": "pragmatic-auto-roulette",
       "url": "https://lotogreen.bet.br/play/373",
-      "enabled": false
+      "enabled": true
     },
     {
       "gameId": "6478",

@@ -13,6 +13,18 @@ from api.core.redis_client import r
 
 
 STREAM_NEW = "streams:signals:new"
+RESULT_CHANNEL_REAL = "new_result"
+RESULT_CHANNEL_SIMULATION = "new_result_simulate"
+_RESULT_CHANNEL_ALIASES = {
+    "real": RESULT_CHANNEL_REAL,
+    "live": RESULT_CHANNEL_REAL,
+    RESULT_CHANNEL_REAL: RESULT_CHANNEL_REAL,
+    "simulation": RESULT_CHANNEL_SIMULATION,
+    "simulate": RESULT_CHANNEL_SIMULATION,
+    "simulacao": RESULT_CHANNEL_SIMULATION,
+    "simulação": RESULT_CHANNEL_SIMULATION,
+    RESULT_CHANNEL_SIMULATION: RESULT_CHANNEL_SIMULATION,
+}
 
 
 router = APIRouter()
@@ -79,6 +91,11 @@ def _normalize_result_event(raw_data, contract: str):
     return data
 
 
+def _resolve_result_channel(raw_value) -> str:
+    key = str(raw_value or "").strip().lower()
+    return _RESULT_CHANNEL_ALIASES.get(key, RESULT_CHANNEL_REAL)
+
+
 def _normalize_stream_payload(stream_name: str, message_id: str, fields):
     if not isinstance(fields, dict):
         _warn_invalid_contract(stream_name, "envelope_nao_dict", f"id={message_id}")
@@ -115,15 +132,15 @@ def _normalize_stream_payload(stream_name: str, message_id: str, fields):
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    print("websocket_endpoint", websocket)
+    channel = _resolve_result_channel(websocket.query_params.get("channel"))
     await websocket.accept()
     pubsub = r.pubsub()
-    await pubsub.subscribe("new_result")
+    await pubsub.subscribe(channel)
     disconnected = False
     try:
         async for message in pubsub.listen():
             if message["type"] == "message":
-                data = _normalize_result_event(message.get("data"), "new_result")
+                data = _normalize_result_event(message.get("data"), channel)
                
                 if not data:
                     continue
@@ -134,7 +151,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     break
     finally:
         try:
-            await pubsub.unsubscribe("new_result")
+            await pubsub.unsubscribe(channel)
             await pubsub.close()
         finally:
             if not disconnected and websocket.client_state != WebSocketState.DISCONNECTED:

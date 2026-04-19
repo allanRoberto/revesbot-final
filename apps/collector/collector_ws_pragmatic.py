@@ -62,6 +62,7 @@ class Pragmatic :
         self.max_reconnect_attempts = 3
         self.reconnect_attempts = 0
         self.results = {}
+        self.last_game_id_by_slug = {}
 
 
     def connect_to_wss(self):
@@ -79,15 +80,35 @@ class Pragmatic :
             last_result = data["last20Results"][0]
             result = int(last_result["result"])
             game_id = last_result.get("gameId")
+            game_id_str = str(game_id).strip() if game_id is not None else ""
+
+            if game_id_str and self.last_game_id_by_slug.get(slug) == game_id_str:
+                return
+
+            if game_id_str:
+                existing = collection.find_one(
+                    {
+                        "roulette_id": slug,
+                        "external_game_id": game_id_str,
+                    },
+                    sort=[("timestamp", -1)],
+                )
+                if existing is not None:
+                    self.last_game_id_by_slug[slug] = game_id_str
+                    return
 
             now = datetime.datetime.now(UTC)
 
             full_result = collection.insert_one({
                 "roulette_id": slug,
                 "roulette_name" : slug,
+                "slug": slug,
+                "external_game_id": game_id_str or None,
                 "value": result,
                 "timestamp": now
             })
+            if game_id_str:
+                self.last_game_id_by_slug[slug] = game_id_str
 
             # trim para 500
             count = collection.count_documents({"roulette_id": slug})
@@ -107,10 +128,11 @@ class Pragmatic :
 
             br_time = now.astimezone(tz_br)
 
-            """ r.publish("new_result", json.dumps({"slug": slug, "result": result, "full_result" : {
+            r.publish("new_result", json.dumps({"slug": slug, "result": result, "full_result" : {
                 "_id": str(full_result.inserted_id),
                 "roulette_id": slug,
                 "roulette_name" : slug,
+                "external_game_id": game_id_str or None,
                 "value": result,
                 "timestamp": now.isoformat(),
                 "timestamp_br": br_time.isoformat(),
@@ -121,7 +143,6 @@ class Pragmatic :
                 "day_of_week": br_time.strftime("%A"),
                 "formatted": br_time.strftime("%d/%m/%Y %H:%M:%S"),
             }}))
- """
           
                 
             print(f"[{slug}] ✅ Resultado salvo: {result} (gameId: {game_id})")

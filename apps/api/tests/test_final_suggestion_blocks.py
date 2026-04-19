@@ -109,3 +109,29 @@ def test_applies_assertiveness_compaction_on_low_effective_confidence() -> None:
     assert result["breakdown"]["effective_target_size"] == 8
     assert result["breakdown"]["assertiveness_compaction_applied"] is True
     assert "confidence_lt_50" in result["breakdown"]["assertiveness_reasons"]
+
+
+def test_skips_assertiveness_compaction_when_explicitly_disabled() -> None:
+    result = build_final_suggestion(
+        base_list=[1, 2, 3, 4, 5, 6],
+        optimized_list=[7, 8, 9, 10, 11, 12],
+        optimized_confidence=92,
+        optimized_confidence_effective=48,
+        number_details=[],
+        base_confidence_score=52,
+        max_size=12,
+        history_arr=[],
+        from_index=0,
+        pulled_counts={},
+        base_weight=0.5,
+        optimized_weight=0.5,
+        block_bets_enabled=False,
+        inversion_enabled=False,
+        assertiveness_compaction_enabled=False,
+    )
+
+    assert len(result["list"]) == 12
+    assert result["breakdown"]["requested_target_size"] == 12
+    assert result["breakdown"]["effective_target_size"] == 12
+    assert result["breakdown"]["assertiveness_compaction_applied"] is False
+    assert result["breakdown"]["assertiveness_compaction_enabled"] is False

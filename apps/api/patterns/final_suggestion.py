@@ -244,21 +244,58 @@ def _build_wheel_heat_score(window_arr: List[int]) -> Dict[int, float]:
     return scores
 
 
-def _analyze_sector_signal(source_arr: List[int], from_index: int = 0, window: int = 20) -> Dict[str, Any]:
+def analyze_wheel_temperature(
+    source_arr: List[int],
+    from_index: int = 0,
+    window: int = 20,
+    cold_count: int = 12,
+) -> Dict[str, Any]:
     segment = [n for n in source_arr[from_index:from_index + window] if isinstance(n, int)]
+    score_map = _build_wheel_heat_score(segment)
+    safe_cold_count = max(1, min(36, int(cold_count)))
+    ranked_hot = sorted(
+        ({"n": int(n), "s": float(s)} for n, s in score_map.items()),
+        key=lambda item: (-item["s"], item["n"]),
+    )
+    ranked_cold = sorted(
+        ({"n": int(n), "s": float(s)} for n, s in score_map.items()),
+        key=lambda item: (item["s"], item["n"]),
+    )
+    return {
+        "segment": segment,
+        "score_map": score_map,
+        "ranked_hot": ranked_hot,
+        "ranked_cold": ranked_cold,
+        "cold_numbers": {item["n"] for item in ranked_cold[:safe_cold_count]},
+        "cold_ranking": [item["n"] for item in ranked_cold[:safe_cold_count]],
+    }
+
+
+def _analyze_sector_signal(
+    source_arr: List[int],
+    from_index: int = 0,
+    window: int = 20,
+    cold_count: int = 12,
+) -> Dict[str, Any]:
+    temperature = analyze_wheel_temperature(
+        source_arr,
+        from_index=from_index,
+        window=window,
+        cold_count=cold_count,
+    )
+    segment = temperature["segment"]
     if len(segment) < 8:
         return {
             "alternation_active": False,
             "target_zone": set(),
             "cold_numbers": set(),
+            "cold_ranking": [],
+            "score_map": dict(temperature["score_map"]),
         }
 
-    score_map = _build_wheel_heat_score(segment)
+    score_map = temperature["score_map"]
     idx_map = {n: i for i, n in enumerate(ROULETTE_EUROPEAN_NUMBERS)}
-    ranked_hot = sorted(
-        ({"n": int(n), "s": float(s)} for n, s in score_map.items()),
-        key=lambda item: (-item["s"], item["n"]),
-    )
+    ranked_hot = temperature["ranked_hot"]
 
     centers: List[int] = []
     for item in ranked_hot:
@@ -309,15 +346,12 @@ def _analyze_sector_signal(source_arr: List[int], from_index: int = 0, window: i
             for d in range(-2, 3):
                 target_zone.add(ROULETTE_EUROPEAN_NUMBERS[(target_idx + d + len(ROULETTE_EUROPEAN_NUMBERS)) % len(ROULETTE_EUROPEAN_NUMBERS)])
 
-    sorted_cold = sorted(
-        ({"n": int(n), "s": float(s)} for n, s in score_map.items()),
-        key=lambda item: (item["s"], item["n"]),
-    )
-    cold_numbers = {item["n"] for item in sorted_cold[:12]}
     return {
         "alternation_active": alternation_active,
         "target_zone": target_zone,
-        "cold_numbers": cold_numbers,
+        "cold_numbers": set(temperature["cold_numbers"]),
+        "cold_ranking": list(temperature["cold_ranking"]),
+        "score_map": dict(score_map),
     }
 
 
@@ -821,6 +855,7 @@ def build_final_suggestion(
     inversion_enabled: bool = True,
     inversion_context_window: int = 15,
     inversion_penalty_factor: float = 0.3,
+    assertiveness_compaction_enabled: bool = True,
 ) -> Dict[str, Any]:
     base_numbers = [int(n) for n in base_list if isinstance(n, int)]
     opt_numbers = [int(n) for n in optimized_list if isinstance(n, int)]
@@ -869,11 +904,15 @@ def build_final_suggestion(
         if optimized_confidence_effective is None
         else optimized_confidence_effective
     )
-    target_size, assertiveness_reasons = _resolve_assertive_target_size(
-        requested_target_size=requested_target_size,
-        effective_optimized_confidence=effective_optimized_confidence,
-        intersection_count=len(intersection),
-    )
+    if assertiveness_compaction_enabled:
+        target_size, assertiveness_reasons = _resolve_assertive_target_size(
+            requested_target_size=requested_target_size,
+            effective_optimized_confidence=effective_optimized_confidence,
+            intersection_count=len(intersection),
+        )
+    else:
+        target_size = requested_target_size
+        assertiveness_reasons = []
 
     ranked: List[Dict[str, Any]] = []
     for n in all_numbers:
@@ -986,6 +1025,7 @@ def build_final_suggestion(
             "effective_target_size": target_size,
             "assertiveness_compaction_applied": bool(target_size != requested_target_size),
             "assertiveness_reasons": list(assertiveness_reasons),
+            "assertiveness_compaction_enabled": bool(assertiveness_compaction_enabled),
             "inversion_penalized": len(inv_set),
             "pulled_bonus": len(pulled_in_final),
             "block_bets_enabled": bool(block_bets_enabled),

@@ -588,6 +588,12 @@
     font-size: clamp(0.65rem, 0.9vw, 1rem);
   }
 
+  #history.binary-mode .cell {
+    font-size: clamp(0.5rem, 0.72vw, 0.8rem);
+    font-family: "Roboto Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    letter-spacing: -0.02em;
+  }
+
   #selected-list-container {
     display: flex;
     flex-direction: column;
@@ -835,6 +841,40 @@
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 4px;
     margin-top: 10px;
+  }
+
+  .number-tooltip .tt-compare-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .number-tooltip .tt-compare-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 8px;
+    background: rgba(15, 23, 42, 0.35);
+  }
+
+  .number-tooltip .tt-compare-title {
+    color: #cbd5e1;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .number-tooltip .tt-compare-meta {
+    color: #94a3b8;
+    font-size: 10px;
+    margin-top: 4px;
+  }
+
+  .number-tooltip .tt-vote-list {
+    color: #e5e7eb;
+    font-size: 10px;
+    margin-top: 6px;
+    line-height: 1.45;
   }
 
   .number-tooltip .tt-divider {
@@ -2177,6 +2217,7 @@
                 <button id="btn-range-low" class="btn btn-sm btn-secondary">Baixos</button>
                 <button id="btn-range-high" class="btn btn-sm btn-secondary">Altos</button>
                 <button id="btn-sum-digits" class="btn btn-sm btn-secondary">Soma</button>
+                <button id="btn-binary-mode" class="btn btn-sm btn-secondary">Binário</button>
               </div>
               <div id="countResult" class="count-result mt-2"></div>
               <div class="tiny-label">Cor</div>
@@ -2272,6 +2313,7 @@
       <button id="btn-cavalos-mobile" class="btn btn-sm btn-secondary">Cavalos</button>
       <button id="btn-range-low-mobile" class="btn btn-sm btn-outline-info">0–19</button>
       <button id="btn-range-high-mobile" class="btn btn-sm btn-outline-info">20–36</button>
+      <button id="btn-binary-mode-mobile" class="btn btn-sm btn-secondary">Binário</button>
     </div>
     <div class="drawer-group">
       <button id="btn-select-neighbors-mobile" class="btn btn-sm btn-secondary">Selecionar Vizinhos</button>
@@ -2431,6 +2473,7 @@
             <div class="ui-field">
               <label class="ui-label">Qtd. números frios</label>
               <select id="cfg-cold-count" class="ui-select">
+                <option value="2">2</option>
                 <option value="6">6</option>
                 <option value="10">10</option>
                 <option value="14">14</option>
@@ -2450,6 +2493,35 @@
                 value="8"
                 placeholder="Ex: 8"
               />
+            </div>
+            <div class="ui-field ui-field--wide">
+              <label class="ui-label">Cobertura protegida</label>
+              <label class="ui-switch">
+                <input type="checkbox" id="cfg-protected-mode-enabled" />
+                <span class="ui-switch-control" aria-hidden="true"></span>
+                <span class="ui-switch-label">Preservar o ranking e expandir a cobertura para apostas de 26 a 35 números</span>
+              </label>
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Qtd. números protegidos</label>
+              <input
+                type="number"
+                id="cfg-protected-suggestion-size"
+                class="ui-input"
+                min="26"
+                max="35"
+                step="1"
+                value="35"
+                placeholder="Ex: 32"
+              />
+            </div>
+            <div class="ui-field ui-field--wide">
+              <label class="ui-label">Troca automática dos frios excluídos</label>
+              <label class="ui-switch">
+                <input type="checkbox" id="cfg-protected-swap-enabled" disabled />
+                <span class="ui-switch-control" aria-hidden="true"></span>
+                <span class="ui-switch-label">Desativada: cobertura protegida sem troca automática e sem espera</span>
+              </label>
             </div>
             <div class="ui-field">
               <label class="ui-label">Peso base da sugestão final (%)</label>
@@ -2557,6 +2629,9 @@
     let hotCount = 18;
     let coldCount = 18;
     let finalSuggestionCount = 8;
+    let protectedModeEnabled = false;
+    let protectedSuggestionSize = 35;
+    let protectedSwapEnabled = false;
     let blockBetsEnabled = false;
     let finalBaseWeight = 0.5;
     let finalOptimizedWeight = 0.5;
@@ -2574,6 +2649,7 @@
     const heatmapSelectedNumbers = new Set();
     let showTerminals = false;
     let sumModeActive = false;
+    let binaryModeActive = false;
     let currentBets = [];
     let selectedTriggers = [];
 
@@ -2823,6 +2899,12 @@ countContainers.forEach(({ selector, itemClass }) => {
     if (!Number.isInteger(finalSuggestionCount) || finalSuggestionCount < 1 || finalSuggestionCount > 37) {
       finalSuggestionCount = 8;
     }
+    protectedModeEnabled = loadConfig("protectedModeEnabled", "false") === "true";
+    protectedSuggestionSize = parseInt(loadConfig("protectedSuggestionSize", String(protectedSuggestionSize)), 10);
+    if (!Number.isInteger(protectedSuggestionSize) || protectedSuggestionSize < 26 || protectedSuggestionSize > 35) {
+      protectedSuggestionSize = 35;
+    }
+    protectedSwapEnabled = false;
     blockBetsEnabled = loadConfig("blockBetsEnabled", "false") === "true";
     finalBaseWeight = parseFloat(loadConfig("finalBaseWeight", String(finalBaseWeight)));
     finalOptimizedWeight = parseFloat(loadConfig("finalOptimizedWeight", String(finalOptimizedWeight)));
@@ -2892,6 +2974,19 @@ countContainers.forEach(({ selector, itemClass }) => {
     if (finalSuggestionCountSelect) {
       finalSuggestionCountSelect.value = String(finalSuggestionCount);
     }
+    const protectedModeEnabledCheck = document.getElementById("cfg-protected-mode-enabled");
+    if (protectedModeEnabledCheck) {
+      protectedModeEnabledCheck.checked = protectedModeEnabled;
+    }
+    const protectedSuggestionSizeSelect = document.getElementById("cfg-protected-suggestion-size");
+    if (protectedSuggestionSizeSelect) {
+      protectedSuggestionSizeSelect.value = String(protectedSuggestionSize);
+    }
+    const protectedSwapEnabledCheck = document.getElementById("cfg-protected-swap-enabled");
+    if (protectedSwapEnabledCheck) {
+      protectedSwapEnabledCheck.checked = false;
+      protectedSwapEnabledCheck.disabled = true;
+    }
     const blockBetsEnabledCheck = document.getElementById("cfg-block-bets-enabled");
     if (blockBetsEnabledCheck) {
       blockBetsEnabledCheck.checked = blockBetsEnabled;
@@ -2944,6 +3039,9 @@ countContainers.forEach(({ selector, itemClass }) => {
     const selHotCount = document.getElementById("cfg-hot-count");
     const selColdCount = document.getElementById("cfg-cold-count");
     const selFinalSuggestionCount = document.getElementById("cfg-final-suggestion-count");
+    const selProtectedModeEnabled = document.getElementById("cfg-protected-mode-enabled");
+    const selProtectedSuggestionSize = document.getElementById("cfg-protected-suggestion-size");
+    const selProtectedSwapEnabled = document.getElementById("cfg-protected-swap-enabled");
     const selBlockBetsEnabled = document.getElementById("cfg-block-bets-enabled");
     const selFinalBaseWeight = document.getElementById("cfg-final-base-weight");
     const selFinalOptimizedWeight = document.getElementById("cfg-final-optimized-weight");
@@ -3049,9 +3147,12 @@ countContainers.forEach(({ selector, itemClass }) => {
     // range desktop
     const btnRangeLow = document.getElementById("btn-range-low");
     const btnRangeHigh = document.getElementById("btn-range-high");
+    const btnSumDigits = document.getElementById("btn-sum-digits");
+    const btnBinaryMode = document.getElementById("btn-binary-mode");
     // range mobile 
     const btnRangeLowM = document.getElementById("btn-range-low-mobile");
     const btnRangeHighM = document.getElementById("btn-range-high-mobile");
+    const btnBinaryModeM = document.getElementById("btn-binary-mode-mobile");
 
 
     const fabToggle = document.getElementById("fab-toggle");
@@ -3517,6 +3618,9 @@ countContainers.forEach(({ selector, itemClass }) => {
       if (selHotCount) selHotCount.value = String(hotCount);
       if (selColdCount) selColdCount.value = String(coldCount);
       if (selFinalSuggestionCount) selFinalSuggestionCount.value = String(finalSuggestionCount);
+      if (selProtectedModeEnabled) selProtectedModeEnabled.checked = protectedModeEnabled;
+      if (selProtectedSuggestionSize) selProtectedSuggestionSize.value = String(protectedSuggestionSize);
+      if (selProtectedSwapEnabled) selProtectedSwapEnabled.checked = protectedSwapEnabled;
       if (selBlockBetsEnabled) selBlockBetsEnabled.checked = storedBlockBetsEnabled;
       if (selFinalBaseWeight) selFinalBaseWeight.value = String(Math.round(finalBaseWeight * 100));
       if (selFinalOptimizedWeight) selFinalOptimizedWeight.value = String(Math.round(finalOptimizedWeight * 100));
@@ -3655,6 +3759,12 @@ countContainers.forEach(({ selector, itemClass }) => {
       if (!Number.isInteger(finalSuggestionCount) || finalSuggestionCount < 1 || finalSuggestionCount > 37) {
         finalSuggestionCount = 8;
       }
+      protectedModeEnabled = !!(selProtectedModeEnabled && selProtectedModeEnabled.checked);
+      protectedSuggestionSize = parseInt(document.getElementById("cfg-protected-suggestion-size").value, 10);
+      if (!Number.isInteger(protectedSuggestionSize) || protectedSuggestionSize < 26 || protectedSuggestionSize > 35) {
+        protectedSuggestionSize = 35;
+      }
+      protectedSwapEnabled = false;
       if (selBlockBetsEnabled) {
         blockBetsEnabled = !!selBlockBetsEnabled.checked;
       }
@@ -3731,6 +3841,9 @@ countContainers.forEach(({ selector, itemClass }) => {
       saveConfig("hotCount", hotCount);
       saveConfig("coldCount", coldCount);
       saveConfig("finalSuggestionCount", finalSuggestionCount);
+      saveConfig("protectedModeEnabled", protectedModeEnabled ? "true" : "false");
+      saveConfig("protectedSuggestionSize", protectedSuggestionSize);
+      saveConfig("protectedSwapEnabled", "false");
       saveConfig("blockBetsEnabled", blockBetsEnabled ? "true" : "false");
       saveConfig("finalBaseWeight", finalBaseWeight);
       saveConfig("finalOptimizedWeight", finalOptimizedWeight);
@@ -4212,6 +4325,10 @@ countContainers.forEach(({ selector, itemClass }) => {
         maxNumbers,
         focus,
         historySlice,
+        coldCount,
+        protectedModeEnabled ? 1 : 0,
+        protectedSuggestionSize,
+        protectedSwapEnabled ? 1 : 0,
         finalBaseWeight.toFixed(4),
         finalOptimizedWeight.toFixed(4),
         siegeWindow,
@@ -4260,6 +4377,30 @@ countContainers.forEach(({ selector, itemClass }) => {
       };
     }
 
+    function buildEmptySimpleSuggestion(reason = "Sugestão simples indisponível.") {
+      return {
+        available: false,
+        list: [],
+        explanation: reason,
+        number_details: [],
+        selected_number_details: [],
+        pattern_count: 0,
+        unique_numbers: 0,
+        top_support_count: 0,
+        min_support_count: 0,
+        avg_support_count: 0,
+        ranking_locked: true,
+        entry_shadow: {
+          available: false,
+          entry_confidence: { score: 0, label: "Baixa" },
+          probabilities: { hit_1: 0, hit_2: 0, hit_3: 0, hit_4: 0, miss: 1 },
+          late_hit_risk: 0,
+          expected_value: { net_units: 0 },
+          recommendation: { action: "wait", label: "Shadow indisponível", reason: reason },
+        },
+      };
+    }
+
     async function loadWeightProfiles() {
       if (!weightProfileSelect) return;
       try {
@@ -4305,8 +4446,12 @@ countContainers.forEach(({ selector, itemClass }) => {
         inversion_context_window: inversionContextWindow,
         inversion_penalty_factor: inversionPenaltyFactor,
         weight_profile_id: selectedWeightProfileId || null,
+        protected_mode_enabled: protectedModeEnabled,
+        protected_suggestion_size: protectedSuggestionSize,
+        protected_swap_enabled: protectedSwapEnabled,
+        cold_count: coldCount,
       };
-      const response = await fetch("/api/patterns/final-suggestion/policy", {
+      const response = await fetch("/api/patterns/simple-suggestion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -4326,7 +4471,13 @@ countContainers.forEach(({ selector, itemClass }) => {
       const finalSuggestionRaw = Array.isArray(resultPayload.suggestion)
         ? resultPayload.suggestion
         : (Array.isArray(resultPayload.list) ? resultPayload.list : []);
-      const finalSuggestionSorted = sortNumbersForDisplay(finalSuggestionRaw);
+      const rankingLocked = !!resultPayload.ranking_locked;
+      const finalSuggestionOrdered = finalSuggestionRaw
+        .map((value) => parseInt(value, 10))
+        .filter((value) => Number.isInteger(value) && value >= 0 && value <= 36);
+      const finalSuggestionDisplay = rankingLocked
+        ? finalSuggestionOrdered
+        : sortNumbersForDisplay(finalSuggestionOrdered);
       const optimizedPayload = resultPayload.optimized_payload && typeof resultPayload.optimized_payload === "object"
         ? resultPayload.optimized_payload
         : {};
@@ -4373,9 +4524,61 @@ countContainers.forEach(({ selector, itemClass }) => {
           ? optimizedPayload.adaptive_weights
           : (Array.isArray(resultPayload.optimized_adaptive_weights) ? resultPayload.optimized_adaptive_weights : []),
       };
+      const simplePayload = resultPayload.simple_payload && typeof resultPayload.simple_payload === "object"
+        ? resultPayload.simple_payload
+        : (resultPayload && typeof resultPayload === "object" ? resultPayload : {});
+      const simpleSuggestionRaw = Array.isArray(simplePayload.suggestion)
+        ? simplePayload.suggestion
+        : (Array.isArray(resultPayload.simple_suggestion) ? resultPayload.simple_suggestion : []);
+      const simpleSuggestionOrdered = simpleSuggestionRaw
+        .map((value) => parseInt(value, 10))
+        .filter((value) => Number.isInteger(value) && value >= 0 && value <= 36);
+      const simpleDetails = Array.isArray(simplePayload.number_details)
+        ? simplePayload.number_details
+        : (Array.isArray(resultPayload.simple_number_details) ? resultPayload.simple_number_details : []);
+      const simpleEntryShadow = simplePayload.entry_shadow && typeof simplePayload.entry_shadow === "object"
+        ? simplePayload.entry_shadow
+        : (resultPayload.simple_entry_shadow && typeof resultPayload.simple_entry_shadow === "object"
+          ? resultPayload.simple_entry_shadow
+          : null);
+      const normalizedSimple = {
+        available: typeof simplePayload.available === "boolean" ? simplePayload.available : !!resultPayload.simple_available,
+        list: simpleSuggestionOrdered,
+        explanation: simplePayload.explanation || resultPayload.simple_explanation || "Sugestão simples por contagem de apoio.",
+        number_details: simpleDetails,
+        selected_number_details: Array.isArray(simplePayload.selected_number_details)
+          ? simplePayload.selected_number_details
+          : [],
+        pattern_count: Number.isFinite(Number(simplePayload.pattern_count))
+          ? Number(simplePayload.pattern_count)
+          : (Number.isFinite(Number(resultPayload.simple_pattern_count)) ? Number(resultPayload.simple_pattern_count) : 0),
+        unique_numbers: Number.isFinite(Number(simplePayload.unique_numbers))
+          ? Number(simplePayload.unique_numbers)
+          : (Number.isFinite(Number(resultPayload.simple_unique_numbers)) ? Number(resultPayload.simple_unique_numbers) : 0),
+        top_support_count: Number.isFinite(Number(simplePayload.top_support_count))
+          ? Number(simplePayload.top_support_count)
+          : 0,
+        min_support_count: Number.isFinite(Number(simplePayload.min_support_count))
+          ? Number(simplePayload.min_support_count)
+          : 0,
+        avg_support_count: Number.isFinite(Number(simplePayload.avg_support_count))
+          ? Number(simplePayload.avg_support_count)
+          : 0,
+        ranking_locked: simplePayload.ranking_locked !== undefined ? !!simplePayload.ranking_locked : true,
+        entry_shadow: simpleEntryShadow && typeof simpleEntryShadow === "object"
+          ? simpleEntryShadow
+          : {
+              available: false,
+              entry_confidence: { score: 0, label: "Baixa" },
+              probabilities: { hit_1: 0, hit_2: 0, hit_3: 0, hit_4: 0, miss: 1 },
+              late_hit_risk: 0,
+              expected_value: { net_units: 0 },
+              recommendation: { action: "wait", label: "Shadow indisponível", reason: "Shadow indisponível." },
+            },
+      };
       return {
         available: typeof data.available === "boolean" ? !!data.available : !!resultPayload.available,
-        list: finalSuggestionSorted,
+        list: finalSuggestionDisplay,
         confidence: resultPayload.confidence && typeof resultPayload.confidence === "object"
           ? resultPayload.confidence
           : { score: 0, label: "Baixa" },
@@ -4393,8 +4596,33 @@ countContainers.forEach(({ selector, itemClass }) => {
         optimized_explanation: normalizedOptimized.explanation,
         optimized_breakdown: normalizedOptimized.confidence_breakdown,
         optimized: normalizedOptimized,
+        ranking_locked: rankingLocked,
+        protected_mode_enabled: !!resultPayload.protected_mode_enabled,
+        protected_suggestion_size: Number.isFinite(Number(resultPayload.protected_suggestion_size))
+          ? Number(resultPayload.protected_suggestion_size)
+          : null,
+        protected_swap_enabled: !!resultPayload.protected_swap_enabled,
+        protected_swap_applied: !!resultPayload.protected_swap_applied,
+        protected_swap_summary: String(resultPayload.protected_swap_summary || ""),
+        protected_swap_details: Array.isArray(resultPayload.protected_swap_details) ? resultPayload.protected_swap_details : [],
+        protected_excluded_numbers: Array.isArray(resultPayload.protected_excluded_numbers) ? resultPayload.protected_excluded_numbers : [],
+        protected_original_excluded_numbers: Array.isArray(resultPayload.protected_original_excluded_numbers) ? resultPayload.protected_original_excluded_numbers : [],
+        protected_guard_numbers: Array.isArray(resultPayload.protected_guard_numbers) ? resultPayload.protected_guard_numbers : [],
+        protected_guard_details: resultPayload.protected_guard_details && typeof resultPayload.protected_guard_details === "object"
+          ? resultPayload.protected_guard_details
+          : {},
+        protected_wait_triggered: !!resultPayload.protected_wait_triggered,
+        protected_wait_recommended_spins: Number.isFinite(Number(resultPayload.protected_wait_recommended_spins))
+          ? Number(resultPayload.protected_wait_recommended_spins)
+          : 0,
+        protected_wait_reason: String(resultPayload.protected_wait_reason || ""),
+        excluded_tail_numbers: Array.isArray(resultPayload.excluded_tail_numbers) ? resultPayload.excluded_tail_numbers : [],
+        base_is_cold: !!resultPayload.base_is_cold,
+        base_cold_rank: Number.isFinite(Number(resultPayload.base_cold_rank)) ? Number(resultPayload.base_cold_rank) : null,
+        cold_numbers_considered: Array.isArray(resultPayload.cold_numbers_considered) ? resultPayload.cold_numbers_considered : [],
         policyDecision,
         policyCandidate,
+        simple: normalizedSimple,
       };
     }
 
@@ -4454,8 +4682,27 @@ countContainers.forEach(({ selector, itemClass }) => {
               number_details: [],
               adaptive_weights: [],
             },
+            ranking_locked: false,
+            protected_mode_enabled: false,
+            protected_suggestion_size: null,
+            protected_swap_enabled: false,
+            protected_swap_applied: false,
+            protected_swap_summary: "",
+            protected_swap_details: [],
+            protected_excluded_numbers: [],
+            protected_original_excluded_numbers: [],
+            protected_guard_numbers: [],
+            protected_guard_details: {},
+            protected_wait_triggered: false,
+            protected_wait_recommended_spins: 0,
+            protected_wait_reason: "",
+            excluded_tail_numbers: [],
+            base_is_cold: false,
+            base_cold_rank: null,
+            cold_numbers_considered: [],
             policyDecision: buildDefaultPolicyDecision("Falha ao calcular política de entrada."),
             policyCandidate: {},
+            simple: buildEmptySimpleSuggestion("Falha ao calcular sugestão simples."),
           });
           if (fromIndex === 0 && Number.isInteger(focusNumber)) {
             scheduleHistoryRefresh();
@@ -4564,8 +4811,22 @@ countContainers.forEach(({ selector, itemClass }) => {
           number_details: [],
           adaptive_weights: [],
         },
+        protected_mode_enabled: false,
+        protected_suggestion_size: null,
+        protected_swap_enabled: false,
+        protected_swap_applied: false,
+        protected_swap_summary: "",
+        protected_swap_details: [],
+        protected_excluded_numbers: [],
+        protected_original_excluded_numbers: [],
+        protected_guard_numbers: [],
+        protected_guard_details: {},
+        protected_wait_triggered: false,
+        protected_wait_recommended_spins: 0,
+        protected_wait_reason: "",
         policyDecision: buildDefaultPolicyDecision("Calculando política de entrada..."),
         policyCandidate: {},
+        simple: buildEmptySimpleSuggestion("Calculando sugestão simples..."),
       };
       requestFinalSuggestionApi(sourceArr, num, startIdx, finalSuggestionCount);
       const optimizedSuggestion = finalSuggestionApi.optimized && typeof finalSuggestionApi.optimized === "object"
@@ -4582,9 +4843,18 @@ countContainers.forEach(({ selector, itemClass }) => {
           number_details: [],
           adaptive_weights: [],
         };
+      const simpleSuggestion = finalSuggestionApi.simple && typeof finalSuggestionApi.simple === "object"
+        ? finalSuggestionApi.simple
+        : buildEmptySimpleSuggestion("Calculando sugestão simples...");
       const finalProgress = evaluateSuggestionProgressWithProtections(
         finalSuggestionApi.list || [],
         finalSuggestionApi.protections || [],
+        sourceArr,
+        startIdx
+      );
+      const simpleProgress = evaluateSuggestionProgressWithProtections(
+        simpleSuggestion.list || [],
+        [],
         sourceArr,
         startIdx
       );
@@ -4596,9 +4866,11 @@ countContainers.forEach(({ selector, itemClass }) => {
         topPulledItems,
         bucket,
         optimizedSuggestion,
+        simpleSuggestion,
         finalSuggestionApi,
         finalApiKey,
         finalProgress,
+        simpleProgress,
       };
     }
 
@@ -4609,24 +4881,29 @@ countContainers.forEach(({ selector, itemClass }) => {
         topPulledItems,
         bucket,
         optimizedSuggestion,
+        simpleSuggestion,
         finalSuggestionApi,
         finalApiKey,
-        finalProgress
+        finalProgress,
+        simpleProgress,
       } = data;
       if (currentTooltipContext && currentTooltipContext.num === num) {
         currentTooltipContext.finalApiKey = finalApiKey || currentTooltipContext.finalApiKey;
       }
-      // Construir HTML do progresso final com proteções
-      let finalProgressHtml = "";
-      if (finalProgress.status === "hit") {
-        finalProgressHtml = `<span style="color:#34d399;">Acertou na ${finalProgress.attempts}ª tentativa da sugestão final.</span>`;
-      } else if (finalProgress.protectionHit) {
-        finalProgressHtml = `<span style="color:#60a5fa;">Acertou na ${finalProgress.protectionAttempts}ª tentativa na proteção da aposta (${finalProgress.protectionHitNumber}).</span>`;
-      } else if (finalProgress.status === "pending") {
-        finalProgressHtml = `Sugestão final pendente, já se passaram ${finalProgress.elapsed} números.`;
-      } else {
-        finalProgressHtml = "Sugestão final indisponível para conferência.";
-      }
+      const buildProgressHtml = (progress, label, { allowProtectionHit = false } = {}) => {
+        if (progress.status === "hit") {
+          return `<span style="color:#34d399;">Acertou na ${progress.attempts}ª tentativa da ${label}.</span>`;
+        }
+        if (allowProtectionHit && progress.protectionHit) {
+          return `<span style="color:#60a5fa;">Acertou na ${progress.protectionAttempts}ª tentativa na proteção da aposta (${progress.protectionHitNumber}).</span>`;
+        }
+        if (progress.status === "pending") {
+          return `${label.charAt(0).toUpperCase() + label.slice(1)} pendente, já se passaram ${progress.elapsed} números.`;
+        }
+        return `${label.charAt(0).toUpperCase() + label.slice(1)} indisponível para conferência.`;
+      };
+      const finalProgressHtml = buildProgressHtml(finalProgress, "sugestão final", { allowProtectionHit: true });
+      const simpleProgressHtml = buildProgressHtml(simpleProgress, "sugestão simples");
       // Adicionar info das proteções se existirem
       const protectionsList = finalSuggestionApi?.protections || [];
       const protectionsHtml = protectionsList.length > 0
@@ -4880,79 +5157,106 @@ countContainers.forEach(({ selector, itemClass }) => {
       const maxSection = maxValue(bucket.section);
       const maxHorse = maxValue(bucket.horse);
 
-      const isFinalApiReady = finalSuggestionApi?.available === true;
-      const finalApiSuggestionGridHtml = isFinalApiReady && Array.isArray(finalSuggestionApi?.list) && finalSuggestionApi.list.length
-        ? finalSuggestionApi.list.map(n => `<div class="cell ${getColor(parseInt(n, 10))}">${n}</div>`).join("")
-        : `<div style="color: #94a3b8; font-style: italic; padding: 8px;">⏳ Carregando sugestão final da API...</div>`;
-      const confidenceScore = isFinalApiReady ? (finalSuggestionApi?.confidence?.score ?? 0) : 0;
-      const confidenceLabel = isFinalApiReady ? (finalSuggestionApi?.confidence?.label || "Baixa") : "—";
-      const confidenceV2ScoreRaw = isFinalApiReady
-        ? parseInt(
-            optimizedSuggestion?.confidence_breakdown?.calibrated_confidence_v2
-              ?? finalSuggestionApi?.optimized_breakdown?.calibrated_confidence_v2
-              ?? 0,
-            10
-          )
+      const isSimpleApiReady = simpleSuggestion?.available === true;
+      const simpleExplanationText = String(simpleSuggestion?.explanation || "").trim();
+      const simplePending = !isSimpleApiReady && (!simpleExplanationText || simpleExplanationText.startsWith("Calculando"));
+      const simpleSuggestionGridHtml = isSimpleApiReady && Array.isArray(simpleSuggestion?.list) && simpleSuggestion.list.length
+        ? simpleSuggestion.list.map(n => `<div class="cell ${getColor(parseInt(n, 10))}">${n}</div>`).join("")
+        : `<div style="color: #94a3b8; font-style: italic; padding: 8px;">${simplePending ? "⏳ Carregando sugestão simples..." : (simpleExplanationText || "Sugestão simples indisponível.")}</div>`;
+      const simplePatternCount = Number.isFinite(Number(simpleSuggestion?.pattern_count))
+        ? Number(simpleSuggestion.pattern_count)
         : 0;
-      const confidenceV2Score = Number.isFinite(confidenceV2ScoreRaw) ? confidenceV2ScoreRaw : 0;
-      const confidenceV2Label = !isFinalApiReady
-        ? "—"
-        : (confidenceV2Score >= 75 ? "Alta" : (confidenceV2Score >= 50 ? "Media" : "Baixa"));
-      const policyDecision = normalizePolicyDecision(
-        finalSuggestionApi?.policyDecision,
-        "Sem decisão operacional disponível."
-      );
-      const policyAction = String(policyDecision.action || "wait").toLowerCase();
-      const hardBlockLowConfidence = confidenceScore < 40;
-      const cautionBand = confidenceScore >= 40 && confidenceScore < 50;
-      const policyEnterSuggested = policyAction === "enter" || policyAction === "switch";
-      const entryEnabled = isFinalApiReady && policyEnterSuggested && confidenceScore >= 50;
-      const policyBadgeHtml = isFinalApiReady
-        ? `<div class="tt-list">Policy: ${policyDecision.label} | score ${Math.round(policyDecision.score || 0)} | motivo: ${policyDecision.reason}</div>`
-        : "";
-      let waitAlertHtml = "";
-      if (!isFinalApiReady) {
-        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
-            ⏳ CALCULANDO SUGESTÃO...
+      const simpleTopSupportCount = Number.isFinite(Number(simpleSuggestion?.top_support_count))
+        ? Number(simpleSuggestion.top_support_count)
+        : (Array.isArray(simpleSuggestion?.number_details) && simpleSuggestion.number_details.length
+          ? Number(simpleSuggestion.number_details[0]?.support_score || 0)
+          : 0);
+      const simpleMinSupportCount = Number.isFinite(Number(simpleSuggestion?.min_support_count))
+        ? Number(simpleSuggestion.min_support_count)
+        : 0;
+      const simpleAvgSupportCount = Number.isFinite(Number(simpleSuggestion?.avg_support_count))
+        ? Number(simpleSuggestion.avg_support_count)
+        : 0;
+      const simpleEntryShadow = simpleSuggestion?.entry_shadow && typeof simpleSuggestion.entry_shadow === "object"
+        ? simpleSuggestion.entry_shadow
+        : null;
+      const simpleEntryShadowConfidence = simpleEntryShadow?.entry_confidence && typeof simpleEntryShadow.entry_confidence === "object"
+        ? simpleEntryShadow.entry_confidence
+        : { score: 0, label: "Baixa" };
+      const simpleEntryShadowProbabilities = simpleEntryShadow?.probabilities && typeof simpleEntryShadow.probabilities === "object"
+        ? simpleEntryShadow.probabilities
+        : {};
+      const simpleEntryShadowRecommendation = simpleEntryShadow?.recommendation && typeof simpleEntryShadow.recommendation === "object"
+        ? simpleEntryShadow.recommendation
+        : { action: "wait", label: "Shadow indisponível", reason: "Shadow indisponível." };
+      const simpleEntryShadowExpectedValue = simpleEntryShadow?.expected_value && typeof simpleEntryShadow.expected_value === "object"
+        ? simpleEntryShadow.expected_value
+        : { net_units: 0 };
+      const simpleShadowAvailable = !!simpleEntryShadow?.available;
+      const simpleShadowAction = String(simpleEntryShadowRecommendation.action || "wait").toLowerCase();
+      const simpleShadowActionLabel = String(simpleEntryShadowRecommendation.label || "Shadow indisponível");
+      const simpleShadowActionTheme = simpleShadowAction === "enter"
+        ? "background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ecfdf5;"
+        : (simpleShadowAction === "skip"
+          ? "background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); color: #fef2f2;"
+          : "background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); color: #fffbeb;");
+      const simpleShadowPHit1 = Number.isFinite(Number(simpleEntryShadowProbabilities.hit_1))
+        ? Number(simpleEntryShadowProbabilities.hit_1)
+        : 0;
+      const simpleShadowLateRisk = Number.isFinite(Number(simpleEntryShadow?.late_hit_risk))
+        ? Number(simpleEntryShadow.late_hit_risk)
+        : 0;
+      const simpleShadowExpectedValue = Number.isFinite(Number(simpleEntryShadowExpectedValue.net_units))
+        ? Number(simpleEntryShadowExpectedValue.net_units)
+        : 0;
+      const simpleShadowConfidenceScore = Number.isFinite(Number(simpleEntryShadowConfidence.score))
+        ? Number(simpleEntryShadowConfidence.score)
+        : 0;
+      const simpleShadowReason = String(simpleEntryShadowRecommendation.reason || "").trim();
+      const simpleShadowExpectedValueLabel = `${simpleShadowExpectedValue >= 0 ? "+" : ""}${simpleShadowExpectedValue.toFixed(2)}`;
+      const simpleShadowHtml = isSimpleApiReady ? `
+        <div class="tt-list" style="margin-top: 8px; border: 1px solid rgba(148, 163, 184, 0.22);">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <span style="font-weight: 700;">Shadow de Entrada</span>
+            <span style="padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; ${simpleShadowActionTheme}">
+              ${simpleShadowActionLabel}
+            </span>
+          </div>
+          <div style="font-size: 11px; color: #cbd5e1; margin-top: 6px;">
+            Confiança ${simpleShadowConfidenceScore}% (${simpleEntryShadowConfidence.label || "Baixa"}) | P(hit@1) ${(simpleShadowPHit1 * 100).toFixed(1)}% | Risco tardio ${(simpleShadowLateRisk * 100).toFixed(1)}% | EV ${simpleShadowExpectedValueLabel}
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
+            ${simpleShadowAvailable ? (simpleShadowReason || "Shadow calculado para apoio à entrada.") : "Shadow indisponível para este contexto."}
+          </div>
+        </div>
+      ` : "";
+      const simpleAlertHtml = !isSimpleApiReady
+        ? `<div class="tt-list" style="background: linear-gradient(135deg, ${simplePending ? "#64748b 0%, #475569 100%" : "#b45309 0%, #92400e 100%"}); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
+            ${simplePending ? "⏳ CALCULANDO SUGESTÃO SIMPLES..." : "⚠️ SUGESTÃO SIMPLES INDISPONÍVEL"}
             <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
-              Aguarde enquanto analisamos os padrões e a policy de entrada.
+              ${simplePending ? "Aguarde enquanto contamos os apoios dos patterns positivos." : (simpleExplanationText || "Nenhuma sugestão simples disponível para este contexto.")}
+            </div>
+          </div>`
+        : `<div class="tt-list" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
+            ✅ SUGESTÃO SIMPLES PRONTA
+            <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
+              ${simpleSuggestion?.explanation || "Sugestão simples disponível."}
             </div>
           </div>`;
-      } else if (hardBlockLowConfidence) {
-        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
-            ⛔ ENTRADA BLOQUEADA
-            <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
-              Confiança ${confidenceScore}% abaixo da faixa mínima operacional. ${policyDecision.reason}
-            </div>
-          </div>`;
-      } else if (entryEnabled) {
-        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
-            ✅ ${String(policyDecision.label || "Entrar Agora").toUpperCase()}
-            <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
-              ${policyDecision.reason}
-            </div>
-          </div>`;
-      } else if (cautionBand && policyEnterSuggested) {
-        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
-            ⚠️ FAIXA DE CAUTELA
-            <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
-              Policy vê potencial, mas a confiança ${confidenceScore}% ainda está entre 40 e 49. ${policyDecision.reason}
-            </div>
-          </div>`;
-      } else {
-        waitAlertHtml = `<div class="tt-list" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-weight: 600;">
-            ⏳ AGUARDE MOMENTO MAIS FAVORÁVEL
-            <div style="font-size: 10px; font-weight: 400; margin-top: 4px; opacity: 0.9;">
-              ${policyDecision.reason}
-            </div>
-          </div>`;
-      }
-      const confidenceSummaryHtml = `
-        ${waitAlertHtml}
-        ${isFinalApiReady ? `<div class="tt-list">Confiança final: ${confidenceLabel} (${confidenceScore}%)</div>` : ""}
-        ${isFinalApiReady ? `<div class="tt-list">Confiança v2: ${confidenceV2Label} (${confidenceV2Score}%)</div>` : ""}
-        ${policyBadgeHtml}
+      const simpleSummaryHtml = `
+        ${simpleAlertHtml}
+        ${isSimpleApiReady ? `<div class="tt-list">Patterns positivos: ${simplePatternCount}</div>` : ""}
+        ${isSimpleApiReady ? `<div class="tt-list">Apoio do topo: ${simpleTopSupportCount} pattern(s)</div>` : ""}
+        ${isSimpleApiReady ? `<div class="tt-list">Apoio mínimo na lista: ${simpleMinSupportCount}</div>` : ""}
+        ${isSimpleApiReady ? `<div class="tt-list">Apoio médio da lista: ${simpleAvgSupportCount.toFixed(2)}</div>` : ""}
+        ${simpleShadowHtml}
       `;
+      const simpleTopVotes = Array.isArray(simpleSuggestion?.number_details)
+        ? simpleSuggestion.number_details
+            .slice(0, 6)
+            .map((item) => `${item.number}(${item.support_score}x)`)
+            .join(", ")
+        : "";
       const occurrencesAccordionHtml = `
         <details class="tt-accordion">
           <summary>Ocorrências (${occurrences.length})</summary>
@@ -5020,21 +5324,19 @@ countContainers.forEach(({ selector, itemClass }) => {
         </details>
       `;
       const suggestionSectionHtml = `
-        <div class="tt-section">Sugestão Final (${finalSuggestionApi?.list?.length || 0} números) | Confiança: ${confidenceLabel} (${confidenceScore}%)</div>
-        <div class="tt-suggestion-grid">${finalApiSuggestionGridHtml}</div>
+        <div class="tt-section">Sugestão Simples</div>
+        <div class="tt-compare-card">
+          <div class="tt-compare-title">Sugestão Principal</div>
+          <div class="tt-compare-meta">${simpleSuggestion?.list?.length || 0} números | ${simplePatternCount} patterns positivos</div>
+          <div class="tt-suggestion-grid">${simpleSuggestionGridHtml}</div>
+          <div class="tt-vote-list">${simpleProgressHtml}</div>
+          <div class="tt-vote-list">${simpleTopVotes ? `Top votos: ${simpleTopVotes}` : (simpleSuggestion?.explanation || "Sugestão simples indisponível.")}</div>
+        </div>
       `;
-      const finalProgressDisplayHtml = isFinalApiReady ? `<div class="tt-list">${finalProgressHtml}</div>${protectionsHtml}${inversionHtml}` : "";
-      const betNumbers = isFinalApiReady && Array.isArray(finalSuggestionApi?.list) ? finalSuggestionApi.list : [];
-      const betButtonDisabled = !isFinalApiReady || betNumbers.length === 0 || !entryEnabled;
-      const betButtonLabel = !isFinalApiReady
-        ? "Calculando..."
-        : entryEnabled
-          ? "Apostar"
-          : hardBlockLowConfidence
-            ? "Bloqueado"
-            : cautionBand && policyEnterSuggested
-              ? "Cautela"
-              : "Aguardar";
+      const finalProgressDisplayHtml = "";
+      const betNumbers = isSimpleApiReady && Array.isArray(simpleSuggestion?.list) ? simpleSuggestion.list : [];
+      const betButtonDisabled = !isSimpleApiReady || betNumbers.length === 0;
+      const betButtonLabel = !isSimpleApiReady ? "Calculando..." : "Apostar";
       const betSectionHtml = botAutomationEnabled ? `
         <div class="tt-bet-section">
           <div class="tt-bot-status checking" id="tt-bot-status">
@@ -5047,8 +5349,15 @@ countContainers.forEach(({ selector, itemClass }) => {
               <button class="tt-chip selected" data-value="0.5" onclick="selectChip(this)">R$0,50</button>
               <button class="tt-chip" data-value="1" onclick="selectChip(this)">R$1</button>
               <button class="tt-chip" data-value="1.5" onclick="selectChip(this)">R$1,50</button>
+              <button class="tt-chip" data-value="2" onclick="selectChip(this)">R$2</button>
               <button class="tt-chip" data-value="2.5" onclick="selectChip(this)">R$2,50</button>
+              <button class="tt-chip" data-value="3" onclick="selectChip(this)">R$3</button>
+              <button class="tt-chip" data-value="4" onclick="selectChip(this)">R$4</button>
               <button class="tt-chip" data-value="5" onclick="selectChip(this)">R$5</button>
+              <button class="tt-chip" data-value="6" onclick="selectChip(this)">R$6</button>
+              <button class="tt-chip" data-value="7" onclick="selectChip(this)">R$7</button>
+              <button class="tt-chip" data-value="8" onclick="selectChip(this)">R$8</button>
+              <button class="tt-chip" data-value="9" onclick="selectChip(this)">R$9</button>
               <button class="tt-chip" data-value="10" onclick="selectChip(this)">R$10</button>
             </div>
           </div>
@@ -5081,11 +5390,10 @@ countContainers.forEach(({ selector, itemClass }) => {
       `;
       const tooltipHtml = `
         <div class="tt-title">Número ${num}</div>
-        ${confidenceSummaryHtml}
+        ${simpleSummaryHtml}
         ${suggestionSectionHtml}
         ${betSectionHtml}
         ${finalProgressDisplayHtml}
-        ${patternDebugHtml}
         <div class="tt-divider"></div>
         ${occurrencesAccordionHtml}
       `;
@@ -5830,7 +6138,7 @@ countContainers.forEach(({ selector, itemClass }) => {
           const bg = selectedNumbers[n];
           el.style.backgroundColor = bg;
           el.style.color = isColorLight(bg) ? "black" : "white";
-        } else if (showTerminals || showCavalos) {
+        } else if (showTerminals || showCavalos || sumModeActive) {
           const bg = getBgColor(n);
           el.style.backgroundColor = bg;
           el.style.color = isColorLight(bg) ? "black" : "white";
@@ -5856,12 +6164,70 @@ countContainers.forEach(({ selector, itemClass }) => {
       if (showTerminals) {
         return terminalColors[n % 10];
       }
-      // 1.3. modo "cavalos"
+      // 1.3. modo "soma"
+      if (sumModeActive) {
+        return sumColors[getDigitSum(n)] || getColor(n);
+      }
+      // 1.4. modo "cavalos"
       if (showCavalos) {
         return getCavalosColor(n);
       }
-      // 1.4. caso normal: usa sua função original
+      // 1.5. caso normal: usa sua função original
       return getColor(n);
+    }
+
+    function getDigitSum(num) {
+      return Math.abs(num)
+        .toString()
+        .split("")
+        .reduce((acc, digit) => acc + parseInt(digit, 10), 0);
+    }
+
+    function syncHistoryDisplayButtons() {
+      if (toggleTerminalsBtn) {
+        toggleTerminalsBtn.classList.toggle("btn-success", showTerminals);
+        toggleTerminalsBtn.textContent = showTerminals
+          ? "Mostrar números completos"
+          : "Mostrar apenas terminais";
+      }
+
+      if (btnSumDigits) {
+        btnSumDigits.classList.toggle("btn-success", sumModeActive);
+        btnSumDigits.classList.toggle("btn-secondary", !sumModeActive);
+        btnSumDigits.textContent = sumModeActive ? "Números" : "Soma";
+      }
+
+      if (btnBinaryMode) {
+        btnBinaryMode.classList.toggle("btn-success", binaryModeActive);
+        btnBinaryMode.classList.toggle("btn-secondary", !binaryModeActive);
+        btnBinaryMode.textContent = binaryModeActive ? "Números" : "Binário";
+      }
+
+      if (btnBinaryModeM) {
+        btnBinaryModeM.classList.toggle("btn-success", binaryModeActive);
+        btnBinaryModeM.classList.toggle("btn-secondary", !binaryModeActive);
+        btnBinaryModeM.textContent = binaryModeActive ? "Números" : "Binário";
+      }
+    }
+
+    function setHistoryDisplayMode(mode) {
+      showTerminals = mode === "terminals";
+      sumModeActive = mode === "sum";
+      binaryModeActive = mode === "binary";
+      syncHistoryDisplayButtons();
+      renderHistory();
+    }
+
+    function toggleHistoryDisplayMode(mode) {
+      const currentMode = binaryModeActive
+        ? "binary"
+        : sumModeActive
+          ? "sum"
+          : showTerminals
+            ? "terminals"
+            : "normal";
+
+      setHistoryDisplayMode(currentMode === mode ? "normal" : mode);
     }
 
     function getCavalosGroup(n) {
@@ -5901,7 +6267,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       // Se nenhum filtro estiver ativo, não faz nada ... teste de commit
       //if (!showSequence && !showRepeat && !showSkipped) return;
 
-      const nums = cells.map(c => parseInt(c.textContent));
+      const nums = cells.map(c => parseInt(c.dataset.num || c.textContent, 10));
       for (let i = 0; i < nums.length; i++) {
         const n = nums[i];
         let isSeq = false;
@@ -5942,7 +6308,7 @@ countContainers.forEach(({ selector, itemClass }) => {
 
       if (showRangeLow || showRangeHigh) {
         cells.forEach(cell => {
-          const n = parseInt(cell.textContent);
+          const n = parseInt(cell.dataset.num || cell.textContent, 10);
           const inLow = (n >= 0 && n <= 19);
           const inHigh = (n >= 20 && n <= 36);
           // se nenhuma faixa ativa, não muda nada
@@ -6027,6 +6393,7 @@ countContainers.forEach(({ selector, itemClass }) => {
         renderPatternMetrics({ available: false });
       }
       historyEl.style.gridTemplateColumns = `repeat(${perRow}, 1fr)`;
+      historyEl.classList.toggle("binary-mode", binaryModeActive);
 
 
       // 1. Remover qualquer classe grid-*
@@ -6037,8 +6404,15 @@ countContainers.forEach(({ selector, itemClass }) => {
 
       historyEl.innerHTML = sliceArr.map((n, i) => {
         const term = n % 10;
+        const digitSum = getDigitSum(n);
 
-        const displayValue = showTerminals ? (n % 10) : n;
+        const displayValue = binaryModeActive
+          ? n.toString(2)
+          : sumModeActive
+            ? digitSum
+            : showTerminals
+              ? term
+              : n;
         const isSelected = !!selectedNumbers[n];
         let styleAttr = "";
         let textColor = "";
@@ -6049,6 +6423,8 @@ countContainers.forEach(({ selector, itemClass }) => {
           bgColor = selectedNumbers[n];
           textColor = isColorLight(bgColor) ? "color: black;" : "color: white;";
           styleAttr = `style="background-color: ${bgColor}; ${textColor}"`;
+        } else if (sumModeActive) {
+          bgColor = sumColors[digitSum] || null;
         } else if (showTerminals) {
           bgColor = terminalColors[term];
         } else if (showCavalos) {
@@ -6293,12 +6669,7 @@ countContainers.forEach(({ selector, itemClass }) => {
 
     if (toggleTerminalsBtn) {
       toggleTerminalsBtn.addEventListener("click", () => {
-        showTerminals = !showTerminals;
-        toggleTerminalsBtn.textContent = showTerminals
-          ? "Mostrar números completos"
-          : "Mostrar apenas terminais";
-        // Reaplica o render de todo o histórico com o novo modo
-        renderHistory();
+        toggleHistoryDisplayMode("terminals");
       });
     }
     
@@ -6748,33 +7119,23 @@ countContainers.forEach(({ selector, itemClass }) => {
     9: "#F29C2E"  // vermelho-alaranjado
   };
 
-  document.getElementById("btn-sum-digits").addEventListener("click", function () {
-    sumModeActive = !sumModeActive;
-    this.classList.toggle("btn-success", sumModeActive);
-    this.textContent = sumModeActive ? "Mostrar Números" : "Mostrar Soma";
-
-    document.querySelectorAll("#history .cell").forEach(cell => {
-      const original = cell.getAttribute("data-original");
-      if (!original) {
-        cell.setAttribute("data-original", cell.textContent.trim());
-      }
-      const num = parseInt(cell.getAttribute("data-original"));
-      if (sumModeActive) {
-        const soma = num.toString().split("").reduce((a, b) => a + parseInt(b), 0);
-        
-        cell.textContent = soma;
-        // aplica cor de fundo se entre 1–9
-        if (sumColors[soma]) {
-          cell.style.backgroundColor = sumColors[soma];
-          cell.style.color = "#fff"; // texto branco para contraste
-        }
-      } else {
-        cell.textContent = cell.getAttribute("data-original");
-        cell.style.backgroundColor = ""; // remove cor customizada
-        cell.style.color = ""; // volta cor padrão
-      }
+  if (btnSumDigits) {
+    btnSumDigits.addEventListener("click", () => {
+      toggleHistoryDisplayMode("sum");
     });
-  });
+  }
+
+  if (btnBinaryMode) {
+    btnBinaryMode.addEventListener("click", () => {
+      toggleHistoryDisplayMode("binary");
+    });
+  }
+
+  if (btnBinaryModeM) {
+    btnBinaryModeM.addEventListener("click", () => {
+      toggleHistoryDisplayMode("binary");
+    });
+  }
 
     rouletteSelect.addEventListener("change", () => {
       const selectedOption = rouletteSelect.options[rouletteSelect.selectedIndex];
@@ -6822,6 +7183,7 @@ countContainers.forEach(({ selector, itemClass }) => {
 
     restoreSelectionsState();
     updateWsToggleButtons();
+    syncHistoryDisplayButtons();
 
     // Carrega histórico inicial
     renderHistory();

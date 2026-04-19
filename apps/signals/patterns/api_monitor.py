@@ -1,6 +1,6 @@
 """
 Padrao de monitoramento da API de sugestoes.
-Recebe um numero, chama a API para obter sugestao otimizada e monta o sinal.
+Recebe um numero, chama a API para obter sugestao simples e monta o sinal.
 
 Inclui logica de deteccao de padroes comportamentais que podem:
 - Atrasar a entrada (adiciona spins_required)
@@ -465,14 +465,16 @@ def _build_signal(
     trigger: int,
     bet: list[int],
     score: int,
-    confidence_label: str,
+    support_label: str,
     pattern: str,
     spins_required: int = 0,
-    behavior_message: str = ""
+    behavior_message: str = "",
+    simple_metrics: Optional[dict] = None,
 ) -> dict:
     created_at = int(datetime.now().timestamp())
+    metrics = dict(simple_metrics or {})
 
-    message = f"API Monitor - Confianca: {confidence_label} ({score}%)"
+    message = f"API Monitor - Sugestão simples: {support_label}"
     if behavior_message:
         message = f"{message} | {behavior_message}"
 
@@ -496,25 +498,28 @@ def _build_signal(
         "temp_state": {
             "behavior_analysis": behavior_message,
             "spins_required": spins_required,
+            "pattern_count": int(metrics.get("pattern_count", 0) or 0),
+            "top_support_count": int(metrics.get("top_support_count", 0) or 0),
+            "min_support_count": int(metrics.get("min_support_count", 0) or 0),
+            "avg_support_count": float(metrics.get("avg_support_count", 0.0) or 0.0),
         },
         "created_at": created_at,
         "timestamp": created_at,
     }
 
 
-def _call_api_final_suggestion(history: list[int], focus_number: int, max_numbers: int = 12) -> dict | None:
+def _call_api_simple_suggestion(history: list[int], focus_number: int, max_numbers: int = 12) -> dict | None:
     """
-    Chama o endpoint /api/patterns/final-suggestion para obter a sugestao final fundida.
-    Este endpoint retorna a mesma sugestao que o frontend exibe.
+    Chama o endpoint /api/patterns/simple-suggestion para obter a sugestao simples.
+    Cada pattern positivo que citar um numero soma 1 apoio para esse numero.
     """
-    url = f"{URL_API.rstrip('/')}/api/patterns/final-suggestion"
+    url = f"{URL_API.rstrip('/')}/api/patterns/simple-suggestion"
 
     payload = {
         "history": history,
         "focus_number": focus_number,
+        "from_index": 0,
         "max_numbers": max_numbers,
-        "base_weight": 0.4,
-        "optimized_weight": 0.6,
     }
 
     try:
@@ -527,6 +532,34 @@ def _call_api_final_suggestion(history: list[int], focus_number: int, max_number
         return None
 
 
+def _extract_simple_metrics(payload: dict) -> dict:
+    selected_details = payload.get("selected_number_details")
+    if not isinstance(selected_details, list):
+        selected_details = []
+
+    top_support_count = int(payload.get("top_support_count", 0) or 0)
+    min_support_count = int(payload.get("min_support_count", 0) or 0)
+    avg_support_count = float(payload.get("avg_support_count", 0.0) or 0.0)
+
+    if not top_support_count and selected_details:
+        top_support_count = int(selected_details[0].get("support_score", 0) or 0)
+    if not min_support_count and selected_details:
+        min_support_count = int(selected_details[-1].get("support_score", 0) or 0)
+    if avg_support_count <= 0 and selected_details:
+        avg_support_count = round(
+            sum(int(item.get("support_score", 0) or 0) for item in selected_details) / len(selected_details),
+            2,
+        )
+
+    return {
+        "pattern_count": int(payload.get("pattern_count", 0) or 0),
+        "top_support_count": top_support_count,
+        "min_support_count": min_support_count,
+        "avg_support_count": avg_support_count,
+        "selected_number_details": selected_details,
+    }
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # FUNCAO PRINCIPAL
 # ══════════════════════════════════════════════════════════════════════════════
@@ -537,8 +570,8 @@ def process_roulette(roulette, numbers):
 
     - Recebe o numero mais recente
     - Analisa comportamentos que podem atrasar ou cancelar a jogada
-    - Chama a API para obter sugestao otimizada (limitada a 12 numeros)
-    - Usa a sugestao como aposta e a confianca como score
+    - Chama a API para obter sugestao simples (limitada a 12 numeros)
+    - Usa a contagem de apoio dos patterns como metrica operacional
     """
     if not numbers or len(numbers) < 10:
         return None
@@ -546,8 +579,8 @@ def process_roulette(roulette, numbers):
     # Numero mais recente como trigger/focus
     focus_number = numbers[0]
 
-    # Chama a API com max_numbers = 12 (endpoint final-suggestion que faz fusao)
-    result = _call_api_final_suggestion(
+    # Chama a API com max_numbers = 12 usando a sugestao simples por apoio.
+    result = _call_api_simple_suggestion(
         history=numbers,
         focus_number=focus_number,
         max_numbers=12
@@ -571,36 +604,29 @@ def process_roulette(roulette, numbers):
 
     # Usa exatamente 12 numeros
     bet = suggestion[:12]
+    simple_metrics = _extract_simple_metrics(result)
 
     # Debug: mostra sugestao apenas para pragmatic-brazilian-roulette
     if roulette.get("slug") == "pragmatic-brazilian-roulette":
-        confidence = result.get("confidence", {})
-        conf_breakdown = result.get("confidence_breakdown", {})
-        opt_suggestion = result.get("optimized_suggestion", [])
-        legacy_suggestion = result.get("legacy_suggestion", [])
+        support_details = simple_metrics.get("selected_number_details", [])
         print(f"\n{'='*60}")
         print(f"[api_monitor DEBUG] Roleta: {roulette['slug']}")
         print(f"[api_monitor DEBUG] Gatilho: {focus_number}")
         print(f"{'='*60}")
-        print(f"[api_monitor DEBUG] Sugestao Legacy: {legacy_suggestion}")
-        print(f"[api_monitor DEBUG] Sugestao Otimizada: {opt_suggestion}")
-        print(f"[api_monitor DEBUG] Sugestao Final (fusao): {suggestion}")
+        print(f"[api_monitor DEBUG] Sugestao Simples: {suggestion}")
         print(f"[api_monitor DEBUG] Bet (12 nums): {bet}")
         print(f"{'='*60}")
-        print(f"[api_monitor DEBUG] CONFIANCA FINAL: {confidence.get('score', 0)}% ({confidence.get('label', 'N/A')})")
-        print(f"[api_monitor DEBUG] - Base: {conf_breakdown.get('base_confidence', 0)}")
-        print(f"[api_monitor DEBUG] - Bonus consenso: +{conf_breakdown.get('consensus_bonus', 0)}")
-        print(f"[api_monitor DEBUG] - Bonus diversidade: +{conf_breakdown.get('diversity_bonus', 0)}")
-        print(f"[api_monitor DEBUG] - Bonus forca: +{conf_breakdown.get('strength_bonus', 0)}")
-        print(f"[api_monitor DEBUG] - Bonus calibracao: +{conf_breakdown.get('calibration_bonus', 0)}")
-        print(f"[api_monitor DEBUG] - Bonus recencia: +{conf_breakdown.get('recency_bonus', 0)}")
-        print(f"[api_monitor DEBUG] - Penalidade: -{conf_breakdown.get('penalty', 0)}")
-        if conf_breakdown.get('penalty_reasons'):
-            print(f"[api_monitor DEBUG] - Motivos penalidade: {conf_breakdown.get('penalty_reasons')}")
-        print(f"[api_monitor DEBUG] - Padroes positivos: {conf_breakdown.get('num_positive_patterns', 0)}")
-        print(f"[api_monitor DEBUG] - Padroes negativos: {conf_breakdown.get('num_negative_patterns', 0)}")
-        print(f"[api_monitor DEBUG] - Volatilidade: {conf_breakdown.get('volatility', 0)}")
-        print(f"[api_monitor DEBUG] - Overlap ratio: {result.get('overlap_ratio', 0)}")
+        print(f"[api_monitor DEBUG] - Patterns positivos: {simple_metrics['pattern_count']}")
+        print(f"[api_monitor DEBUG] - Top support: {simple_metrics['top_support_count']}")
+        print(f"[api_monitor DEBUG] - Min support: {simple_metrics['min_support_count']}")
+        print(f"[api_monitor DEBUG] - Avg support: {simple_metrics['avg_support_count']:.2f}")
+        if support_details:
+            top_votes = ", ".join(
+                f"{item.get('number')}({item.get('support_score')}x)"
+                for item in support_details[:6]
+                if isinstance(item, dict)
+            )
+            print(f"[api_monitor DEBUG] - Top votos: {top_votes}")
         print(f"{'='*60}\n")
 
     # ══════════════════════════════════════════════════════════════════
@@ -608,10 +634,12 @@ def process_roulette(roulette, numbers):
     # ══════════════════════════════════════════════════════════════════
     spins_required, behavior_message = analyze_behavior(numbers, bet)
 
-    # Extrai confianca
-    confidence = result.get("confidence", {})
-    confidence_score = int(confidence.get("score", 0))
-    confidence_label = confidence.get("label", "Baixa")
+    support_score = int(simple_metrics.get("top_support_count", 0) or 0)
+    support_label = (
+        f"{int(simple_metrics.get('pattern_count', 0) or 0)} pattern(s) | "
+        f"topo {support_score} apoio(s) | "
+        f"média {float(simple_metrics.get('avg_support_count', 0.0) or 0.0):.2f}"
+    )
 
     # Monta e retorna o sinal
     return _build_signal(
@@ -619,9 +647,10 @@ def process_roulette(roulette, numbers):
         numbers=numbers,
         trigger=focus_number,
         bet=bet,
-        score=confidence_score,
-        confidence_label=confidence_label,
-        pattern="API_MONITOR",
+        score=support_score,
+        support_label=support_label,
+        pattern="API_MONITOR_SIMPLE",
         spins_required=spins_required,
         behavior_message=behavior_message,
+        simple_metrics=simple_metrics,
     )

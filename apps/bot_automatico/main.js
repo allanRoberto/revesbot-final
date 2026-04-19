@@ -22,10 +22,10 @@ const DEFAULT_AUTH_BASE_URL =
     ? "https://auth-dev.revesbot.com.br"
     : "https://auth.revesbot.com.br";
 const AUTH_BASE_URL = process.env.AUTH_BASE_URL || DEFAULT_AUTH_BASE_URL;
-const AUTH_EMAIL_FALLBACK = "romulogoncalves95@gmail.com";
-const AUTH_PASSWORD_FALLBACK = "497856Drs@";
-const AUTH_EMAIL = process.env.AUTH_EMAIL || AUTH_EMAIL_FALLBACK;
-const AUTH_PASSWORD = process.env.AUTH_PASSWORD || AUTH_PASSWORD_FALLBACK;
+const AUTH_EMAIL = "romulogoncalves95@gmail.com";
+const AUTH_PASSWORD = "497856Drs@";
+const AUTH_EMAIL_FALLBACK = process.env.AUTH_EMAIL || AUTH_EMAIL_FALLBACK;
+const AUTH_PASSWORD_FALLBACK = process.env.AUTH_PASSWORD || AUTH_PASSWORD_FALLBACK;
 const API_PORT = process.env.API_PORT || 3000;
 const TOKEN_RENEWAL_INTERVAL = 20 * 60 * 1000; // 20 minutos
 const PING_INTERVAL = 5000; // Ping a cada 5 segundos
@@ -249,6 +249,67 @@ function addReconnect(wsUrl) {
   return url.toString();
 }
 
+function isLikelyGameWebSocketUrl(url) {
+  const raw = String(url || "").trim().toLowerCase();
+  if (!raw) {
+    return false;
+  }
+  return (
+    raw.startsWith("ws://") ||
+    raw.startsWith("wss://")
+  ) && (
+    raw.includes("pragmatic") ||
+    raw.includes("livecasino") ||
+    raw.includes("game")
+  );
+}
+
+function isIgnoredGameWebSocketUrl(url) {
+  const raw = String(url || "").trim().toLowerCase();
+  if (!raw) {
+    return false;
+  }
+  return (
+    raw.includes("/chat") ||
+    raw.includes("chat.") ||
+    raw.includes("pragmaticplaylive.net/chat") ||
+    raw.includes("generic")
+  );
+}
+
+function chooseBestGameWebSocketUrl(urls) {
+  const normalizedUrls = Array.from(
+    new Set(
+      (Array.isArray(urls) ? urls : [])
+        .map((url) => String(url || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  const candidates = normalizedUrls
+    .filter((url) => isLikelyGameWebSocketUrl(url))
+    .filter((url) => !isIgnoredGameWebSocketUrl(url));
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const scoreUrl = (url) => {
+    const raw = String(url || "").toLowerCase();
+    let score = 0;
+    if (raw.includes("/game")) score += 100;
+    if (raw.includes("table")) score += 30;
+    if (raw.includes("tableid")) score += 20;
+    if (raw.includes("game")) score += 10;
+    if (raw.includes("pragmatic")) score += 5;
+    if (raw.includes("livecasino")) score += 5;
+    return score;
+  };
+
+  candidates.sort((a, b) => scoreUrl(b) - scoreUrl(a) || a.localeCompare(b));
+  return candidates[0];
+}
+
 // =========================
 // FUNÇÕES DE LOGIN
 // =========================
@@ -345,21 +406,22 @@ async function getWebSocketUrlWithPuppeteer(gameLink) {
 
   try {
     const page = await browser.newPage();
-
-
+    const client = await page.target().createCDPSession();
+    await client.send("Network.enable");
 
     // User-agent completo de Chrome real
     await page.setUserAgent(
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
       );
     
-    const webSocketUrls = [];
+    const webSocketUrls = new Set();
 
     await page.evaluateOnNewDocument(() => {
       const originalWebSocket = window.WebSocket;
       window.WebSocket = new Proxy(originalWebSocket, {
         construct(target, args) {
           const url = args[0];
+          console.log("WS_INTERCEPTED:", url);
           window.__wsUrls = window.__wsUrls || [];
           window.__wsUrls.push(url);
           return new target(...args);
@@ -367,10 +429,26 @@ async function getWebSocketUrlWithPuppeteer(gameLink) {
       });
     });
 
+    page.on("console", (msg) => {
+      const text = msg.text();
+      if (text.includes("WS_INTERCEPTED:")) {
+        const url = text.split("WS_INTERCEPTED:")[1].trim();
+        if (url) {
+          webSocketUrls.add(url);
+        }
+      }
+    });
+
     page.on("websocket", (wso) => {
       const url = wso.url();
-      if (url.includes("game")) {
-        webSocketUrls.push(url);
+      if (url) {
+        webSocketUrls.add(url);
+      }
+    });
+
+    client.on("Network.webSocketCreated", ({ url }) => {
+      if (url) {
+        webSocketUrls.add(url);
       }
     });
 
@@ -379,25 +457,48 @@ async function getWebSocketUrlWithPuppeteer(gameLink) {
         timeout: 60000,
       });
   
-    // Aguarda até capturar o WebSocket (máximo 60s)
-    const maxWait = 5000;
+    const maxWait = 15000;
     const startTime = Date.now();
-    while (webSocketUrls.length === 0 && (Date.now() - startTime) < maxWait) {
-        await new Promise(r => setTimeout(r, 200));
+    let selectedUrl = null;
+    while ((Date.now() - startTime) < maxWait) {
+        const capturedUrls = await page.evaluate(() => window.__wsUrls || []);
+        capturedUrls.forEach((url) => {
+          if (url) {
+            webSocketUrls.add(url);
+          }
+        });
+        selectedUrl = chooseBestGameWebSocketUrl(Array.from(webSocketUrls));
+        if (selectedUrl) {
+          break;
+        }
+        await new Promise(r => setTimeout(r, 250));
     }
 
-    const capturedUrls = await page.evaluate(() => window.__wsUrls || []);
-    const allUrls = [...new Set([...capturedUrls, ...webSocketUrls])];
+    const allUrls = Array.from(webSocketUrls);
 
-    if (allUrls.length > 0) {
-      const pragmaticUrl = allUrls.find(
-        (url) =>
-          url.includes("game")
-      );
-      return pragmaticUrl || allUrls[0];
+    if (selectedUrl) {
+      if (DEBUG_MODE) {
+        console.log("[ws] URLs capturadas:", allUrls);
+        console.log("[ws] URL escolhida:", selectedUrl);
+      }
+      return selectedUrl;
     }
 
-    throw new Error("WebSocket URL não encontrada");
+    if (DEBUG_MODE) {
+      console.error("[ws] Nenhuma URL de WebSocket capturada", {
+        gameLink,
+        finalPageUrl: page.url(),
+        capturedCount: allUrls.length,
+        urls: allUrls,
+        ignoredOnly: allUrls.length > 0 && allUrls.every((url) => isIgnoredGameWebSocketUrl(url)),
+      });
+    }
+
+    throw new Error(
+      allUrls.length > 0 && allUrls.every((url) => isIgnoredGameWebSocketUrl(url))
+        ? "Apenas WebSocket ignorado (chat/generic) foi capturado"
+        : "WebSocket URL não encontrada"
+    );
   } finally {
     await browser.close();
   }
@@ -414,11 +515,27 @@ async function getGameWebSocketUrl(gameId, token) {
     timeout: START_GAME_TIMEOUT,
   });
 
-  
-  if (!data.success || !data.link) {
+  const gameLink =
+    data?.gameUrl ||
+    data?.iframeUrl ||
+    data?.url ||
+    data?.link ||
+    data?.urlGame ||
+    null;
+
+  if (DEBUG_MODE) {
+    console.log("[auth] /start-game resposta:", {
+      success: !!data?.success,
+      gameId,
+      keys: Object.keys(data || {}),
+      gameLink,
+    });
+  }
+
+  if (!data?.success || !gameLink) {
     throw new Error("Falha ao iniciar o jogo");
   }
-  const wsUrl = await getWebSocketUrlWithPuppeteer(data.link);
+  const wsUrl = await getWebSocketUrlWithPuppeteer(gameLink);
 
 
   if (!wsUrl) {

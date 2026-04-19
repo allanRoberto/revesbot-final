@@ -1,5 +1,6 @@
 aiohttp==3.11.16
 backoff==2.2.1
+certifi==2025.8.3
 colorama==0.4.6
 fastapi==0.116.1
 joblib==1.5.1
@@ -8,5 +9,6 @@ prometheus_client==0.22.0
 pydantic==2.11.7
 pymongo==4.14.1
 python-dotenv==1.1.1
+redis==6.1.0
 scikit_learn==1.7.1
 websockets==15.0.1

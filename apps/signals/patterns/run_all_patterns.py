@@ -8,7 +8,7 @@ from helpers.utils.redis_client import r
 
 # Importe todos os seus padrões aqui
 from patterns import (
-    soma_terminal_grupo,
+    subtracao_api,
     # blackhorse,
     # api_monitor,
     # cinco_bases,
@@ -41,7 +41,7 @@ from patterns import (
 # Lista de módulos de patterns que possuem a função process_roulette
 ALL_PATTERNS = [
     # ================= PATTERNS ATIVOS =================
-    soma_terminal_grupo,
+    subtracao_api,
     # ================= PATTERNS INATIVOS =================
     # blackhorse,
     # api_monitor,
@@ -112,10 +112,8 @@ def run_all_patterns(
 
     # Verifica se já existe sinal ativo para esta mesa
     
-    #if _has_active_signal_for_roulette(slug):
-        #Já existe sinal ativo, não processa novos padrões
-        #print(f"Já existe um sinal rolando para a mesa : {slug}")
-        #return
+    if _has_active_signal_for_roulette(slug):
+        return
 
     diag_state: Dict[str, Any] = diag_ctx if isinstance(diag_ctx, dict) else {}
     diag_state.setdefault("signal_generated", False)

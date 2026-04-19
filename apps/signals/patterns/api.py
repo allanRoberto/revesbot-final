@@ -38,9 +38,9 @@ RECENT_BETS_LOOKBACK = max(1, min(20, int(os.environ.get("PATTERNS_API_RECENT_BE
 RECENT_BETS_WAIT_THRESHOLD = max(0, min(RECENT_BETS_LOOKBACK, int(os.environ.get("PATTERNS_API_RECENT_BETS_WAIT_THRESHOLD", "2"))))
 RECENT_BETS_WAIT_SPINS = max(0, min(6, int(os.environ.get("PATTERNS_API_RECENT_BETS_WAIT_SPINS", "2"))))
 MIN_HISTORY = 10
-PATTERN_NAME = "API_FINAL_SUGGESTION_10"
+PATTERN_NAME = "API_SIMPLE_SUGGESTION_10"
 SIGNAL_GALES = max(1, int(os.environ.get("PATTERNS_API_GALES", "4")))
-MIN_CONFIDENCE_TO_PLAY = max(0, min(100, int(os.environ.get("PATTERNS_API_MIN_CONFIDENCE", "80"))))
+MIN_SIMPLE_TOP_SUPPORT = max(0, int(os.environ.get("PATTERNS_API_MIN_TOP_SUPPORT", "0")))
 ACTIVE_SIGNAL_MEMORY: Dict[str, Dict[str, object]] = {}
 ACTIVE_SIGNAL_LOCK = threading.Lock()
 
@@ -125,12 +125,16 @@ def _runtime_overrides_payload() -> Dict[str, Dict[str, int]]:
     }
 
 
-def _compute_pre_trigger_policy(numbers: List[int], bets: List[int], confidence_score: int) -> Dict[str, Any]:
+def _compute_pre_trigger_policy(
+    numbers: List[int],
+    bets: List[int],
+    strength_score: Optional[int] = None,
+) -> Dict[str, Any]:
     """
     Regras operacionais derivadas da análise histórica:
     - olhar OVERLAP_LOOKBACK casas antes do gatilho
     - overlap 0/1: entrar
-    - overlap 2: esperar 1 spin quando confidence < limiar alto
+    - overlap 2: esperar 1 spin quando houver uma métrica de força informada abaixo do limiar alto
     - overlap >= 3: cancelar
     """
     previous_window = [int(n) for n in numbers[1 : 1 + OVERLAP_LOOKBACK]]
@@ -155,7 +159,11 @@ def _compute_pre_trigger_policy(numbers: List[int], bets: List[int], confidence_
         action = "wait" if wait_spins > 0 else "enter"
     elif should_cancel:
         action = "cancel"
-    elif overlap_unique >= OVERLAP_WAIT_ONE_THRESHOLD and confidence_score < OVERLAP_CONFIDENCE_HIGH:
+    elif (
+        strength_score is not None
+        and overlap_unique >= OVERLAP_WAIT_ONE_THRESHOLD
+        and strength_score < OVERLAP_CONFIDENCE_HIGH
+    ):
         wait_spins = WAIT_SPINS_ON_MEDIUM_OVERLAP
         action = "wait" if wait_spins > 0 else "enter"
 
@@ -168,7 +176,7 @@ def _compute_pre_trigger_policy(numbers: List[int], bets: List[int], confidence_
         "overlap_hits": overlap_hits,
         "overlap_ratio": overlap_ratio,
         "previous_window": previous_window,
-        "confidence_threshold": OVERLAP_CONFIDENCE_HIGH,
+        "strength_threshold": OVERLAP_CONFIDENCE_HIGH,
         "recent_bets_window": recent_window,
         "recent_bets_hits": recent_bets_hits,
         "recent_bets_unique": recent_bets_unique,
@@ -178,8 +186,8 @@ def _compute_pre_trigger_policy(numbers: List[int], bets: List[int], confidence_
     }
 
 
-def _call_final_suggestion(history: List[int], focus_number: int, max_numbers: int) -> Optional[Dict[str, Any]]:
-    url = f"{URL_API.rstrip('/')}/api/patterns/final-suggestion"
+def _call_simple_suggestion(history: List[int], focus_number: int, max_numbers: int) -> Optional[Dict[str, Any]]:
+    url = f"{URL_API.rstrip('/')}/api/patterns/simple-suggestion"
     payload: Dict[str, Any] = {
         "history": history,
         "focus_number": focus_number,
@@ -216,7 +224,7 @@ def _call_final_suggestion(history: List[int], focus_number: int, max_numbers: i
         except Exception as exc:
             if attempt >= REQUEST_RETRIES:
                 print(
-                    "[patterns.api] erro ao chamar final-suggestion "
+                    "[patterns.api] erro ao chamar simple-suggestion "
                     f"(tentativas={REQUEST_RETRIES}, url={url}): {exc}"
                 )
                 return None
@@ -225,14 +233,47 @@ def _call_final_suggestion(history: List[int], focus_number: int, max_numbers: i
     return None
 
 
+def _extract_simple_metrics(payload: Dict[str, Any]) -> Dict[str, Any]:
+    selected_details = payload.get("selected_number_details")
+    if not isinstance(selected_details, list):
+        selected_details = []
+    entry_shadow = payload.get("entry_shadow")
+    if not isinstance(entry_shadow, dict):
+        entry_shadow = {}
+    pattern_count = int(payload.get("pattern_count", 0) or 0)
+    top_support_count = int(payload.get("top_support_count", 0) or 0)
+    min_support_count = int(payload.get("min_support_count", 0) or 0)
+    avg_support_count = float(payload.get("avg_support_count", 0.0) or 0.0)
+
+    if not top_support_count and selected_details:
+        top_support_count = int(selected_details[0].get("support_score", 0) or 0)
+    if not min_support_count and selected_details:
+        min_support_count = int(selected_details[-1].get("support_score", 0) or 0)
+    if avg_support_count <= 0 and selected_details:
+        avg_support_count = round(
+            sum(int(item.get("support_score", 0) or 0) for item in selected_details) / len(selected_details),
+            2,
+        )
+
+    return {
+        "pattern_count": pattern_count,
+        "top_support_count": top_support_count,
+        "min_support_count": min_support_count,
+        "avg_support_count": avg_support_count,
+        "selected_number_details": selected_details,
+        "entry_shadow": entry_shadow,
+    }
+
+
 def _build_signal(
     *,
     roulette: Dict[str, Any],
     numbers: List[int],
     focus_number: int,
     bets: List[int],
-    confidence_score: int,
-    confidence_label: str,
+    support_score: int,
+    support_label: str,
+    simple_metrics: Dict[str, Any],
     overlap_policy: Dict[str, Any],
 ) -> Dict[str, Any]:
     created_at = int(datetime.now().timestamp())
@@ -241,16 +282,18 @@ def _build_signal(
     overlap_hits = int(overlap_policy.get("overlap_hits", 0) or 0)
     overlap_ratio = float(overlap_policy.get("overlap_ratio", 0.0) or 0.0)
     previous_window = list(overlap_policy.get("previous_window", []))
-    confidence_threshold = int(overlap_policy.get("confidence_threshold", OVERLAP_CONFIDENCE_HIGH) or OVERLAP_CONFIDENCE_HIGH)
+    strength_threshold = int(overlap_policy.get("strength_threshold", OVERLAP_CONFIDENCE_HIGH) or OVERLAP_CONFIDENCE_HIGH)
     recent_bets_window = list(overlap_policy.get("recent_bets_window", []))
     recent_bets_hits = int(overlap_policy.get("recent_bets_hits", 0) or 0)
     recent_bets_unique = int(overlap_policy.get("recent_bets_unique", 0) or 0)
     recent_bets_forced_wait = bool(overlap_policy.get("recent_bets_forced_wait", False))
+    entry_shadow = dict(simple_metrics.get("entry_shadow") or {})
+    entry_shadow_confidence = dict(entry_shadow.get("entry_confidence") or {})
+    entry_shadow_probabilities = dict(entry_shadow.get("probabilities") or {})
+    entry_shadow_recommendation = dict(entry_shadow.get("recommendation") or {})
+    entry_shadow_expected_value = dict(entry_shadow.get("expected_value") or {})
 
-    message = (
-        f"API Final Suggestion ({MAX_BETS}): confianca {confidence_label} "
-        f"({confidence_score}%) [min={MIN_CONFIDENCE_TO_PLAY}%]"
-    )
+    message = f"API Simple Suggestion ({MAX_BETS}): {support_label}"
     if initial_wait_spins > 0:
         if recent_bets_forced_wait:
             message = (
@@ -260,7 +303,7 @@ def _build_signal(
         else:
             message = (
                 f"⏳ ESPERA {initial_wait_spins} spin(s) antes da entrada "
-                f"(overlap={overlap_unique}, janela={OVERLAP_LOOKBACK}, corte_conf={confidence_threshold}) - {message}"
+                f"(overlap={overlap_unique}, janela={OVERLAP_LOOKBACK}) - {message}"
             )
 
     return {
@@ -275,15 +318,19 @@ def _build_signal(
         "spins_required": initial_wait_spins,
         "spins_count": 0,
         "gales": SIGNAL_GALES,
-        "score": confidence_score,
+        "score": support_score,
         "snapshot": numbers[:500],
         "status": "processing",
         "message": message,
-        "tags": ["api", "final_suggestion", "top10"],
+        "tags": ["api", "simple_suggestion", f"top{MAX_BETS}"],
         "temp_state": {
             "focus_number": focus_number,
-            "confidence_label": confidence_label,
-            "confidence_score": confidence_score,
+            "support_label": support_label,
+            "support_score": support_score,
+            "pattern_count": int(simple_metrics.get("pattern_count", 0) or 0),
+            "top_support_count": int(simple_metrics.get("top_support_count", 0) or 0),
+            "min_support_count": int(simple_metrics.get("min_support_count", 0) or 0),
+            "avg_support_count": float(simple_metrics.get("avg_support_count", 0.0) or 0.0),
             "bets_size": len(bets),
             "initial_wait_spins": initial_wait_spins,
             "overlap_lookback": OVERLAP_LOOKBACK,
@@ -291,13 +338,21 @@ def _build_signal(
             "overlap_hits": overlap_hits,
             "overlap_ratio": overlap_ratio,
             "overlap_previous_window": previous_window,
-            "confidence_threshold_for_wait": confidence_threshold,
+            "strength_threshold_for_wait": strength_threshold,
             "pre_trigger_action": str(overlap_policy.get("action", "enter")),
             "recent_bets_window": recent_bets_window,
             "recent_bets_hits": recent_bets_hits,
             "recent_bets_unique": recent_bets_unique,
             "recent_bets_forced_wait": recent_bets_forced_wait,
             "recent_bets_wait_threshold": RECENT_BETS_WAIT_THRESHOLD,
+            "entry_shadow": entry_shadow,
+            "entry_shadow_action": str(entry_shadow_recommendation.get("action", "")),
+            "entry_shadow_reason": str(entry_shadow_recommendation.get("reason", "")),
+            "entry_shadow_confidence_score": int(entry_shadow_confidence.get("score", 0) or 0),
+            "entry_shadow_confidence_label": str(entry_shadow_confidence.get("label", "")),
+            "entry_shadow_expected_value": float(entry_shadow_expected_value.get("net_units", 0.0) or 0.0),
+            "entry_shadow_late_hit_risk": float(entry_shadow.get("late_hit_risk", 0.0) or 0.0),
+            "entry_shadow_p_hit_1": float(entry_shadow_probabilities.get("hit_1", 0.0) or 0.0),
         },
         "created_at": created_at,
         "timestamp": created_at,
@@ -318,7 +373,7 @@ def process_roulette(
     if roulette_slug and _consume_active_signal_memory(roulette_slug, focus_number, numbers):
         return None
 
-    data = _call_final_suggestion(history=numbers, focus_number=focus_number, max_numbers=MAX_BETS)
+    data = _call_simple_suggestion(history=numbers, focus_number=focus_number, max_numbers=MAX_BETS)
     if not data:
         return None
 
@@ -329,25 +384,31 @@ def process_roulette(
     if len(bets) < MAX_BETS:
         return None
 
-    confidence = data.get("confidence", {}) if isinstance(data.get("confidence"), dict) else {}
-    confidence_score = int(confidence.get("score", 0) or 0)
-    confidence_label = str(confidence.get("label", "Baixa"))
-    if confidence_score < MIN_CONFIDENCE_TO_PLAY:
+    simple_metrics = _extract_simple_metrics(data)
+    top_support_count = int(simple_metrics.get("top_support_count", 0) or 0)
+    pattern_count = int(simple_metrics.get("pattern_count", 0) or 0)
+    avg_support_count = float(simple_metrics.get("avg_support_count", 0.0) or 0.0)
+    if top_support_count < MIN_SIMPLE_TOP_SUPPORT:
         return None
 
-    overlap_policy = _compute_pre_trigger_policy(numbers, bets, confidence_score)
+    overlap_policy = _compute_pre_trigger_policy(numbers, bets, None)
     if bool(overlap_policy.get("should_cancel", False)):
         return None
 
     if roulette_slug:
         _register_active_signal_memory(roulette_slug, bets, numbers)
 
+    support_label = (
+        f"{pattern_count} pattern(s) | topo {top_support_count} apoio(s) | média {avg_support_count:.2f}"
+    )
+
     return _build_signal(
         roulette=roulette,
         numbers=numbers,
         focus_number=focus_number,
         bets=bets,
-        confidence_score=confidence_score,
-        confidence_label=confidence_label,
+        support_score=top_support_count,
+        support_label=support_label,
+        simple_metrics=simple_metrics,
         overlap_policy=overlap_policy,
     )

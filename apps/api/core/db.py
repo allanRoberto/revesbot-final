@@ -26,3 +26,7 @@ def format_timestamp_br(timestamp: int) -> str:
     return dt.strftime("%d/%m/%Y %H:%M:%S")
 
 predictions_norm_coll = mongo_db["predictions_normalized"]
+suggestion_monitor_events_coll = mongo_db["suggestion_monitor_events"]
+suggestion_monitor_attempts_coll = mongo_db["suggestion_monitor_attempts"]
+suggestion_monitor_offsets_coll = mongo_db["suggestion_monitor_offsets"]
+suggestion_monitor_pattern_outcomes_coll = mongo_db["suggestion_monitor_pattern_outcomes"]

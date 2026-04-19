@@ -1,0 +1,297 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from hashlib import sha1
+from typing import Any, Dict, Iterable, List, Mapping, Sequence
+
+from bson import ObjectId
+from pymongo import ASCENDING, DESCENDING
+
+from src.mongo import mongo_db
+from src.suggestion_monitor_runtime import normalize_history_doc
+
+
+def _roulette_filter(roulette_id: str) -> Dict[str, Any]:
+    safe_roulette_id = str(roulette_id or "").strip()
+    return {
+        "$or": [
+            {"roulette_id": safe_roulette_id},
+            {"slug": safe_roulette_id},
+        ]
+    }
+
+
+def _offset_document_id(config_key: str) -> str:
+    digest = sha1(config_key.encode("utf-8")).hexdigest()[:12]
+    return f"smonitor-offset:{digest}"
+
+
+def _to_object_id(value: Any) -> ObjectId | None:
+    if isinstance(value, ObjectId):
+        return value
+    try:
+        return ObjectId(str(value))
+    except Exception:
+        return None
+
+
+class SuggestionMonitorRepository:
+    def __init__(self) -> None:
+        self.history_coll = mongo_db["history"]
+        self.events_coll = mongo_db["suggestion_monitor_events"]
+        self.attempts_coll = mongo_db["suggestion_monitor_attempts"]
+        self.offsets_coll = mongo_db["suggestion_monitor_offsets"]
+        self.pattern_outcomes_coll = mongo_db["suggestion_monitor_pattern_outcomes"]
+
+    def ensure_indexes(self) -> None:
+        self.history_coll.create_index(
+            [("roulette_id", ASCENDING), ("timestamp", DESCENDING), ("_id", DESCENDING)],
+            name="history_roulette_ts_desc",
+        )
+        self.events_coll.create_index(
+            [("roulette_id", ASCENDING), ("config_key", ASCENDING), ("status", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_events_status",
+        )
+        self.events_coll.create_index(
+            [("roulette_id", ASCENDING), ("config_key", ASCENDING), ("anchor_number", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_events_anchor",
+        )
+        self.events_coll.create_index(
+            [("roulette_id", ASCENDING), ("config_key", ASCENDING), ("resolved_attempt", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_events_attempt",
+        )
+        self.events_coll.create_index(
+            [("anchor_history_id", ASCENDING), ("config_key", ASCENDING)],
+            name="smonitor_events_anchor_history",
+        )
+        self.attempts_coll.create_index(
+            [("suggestion_event_id", ASCENDING), ("attempt_number", ASCENDING)],
+            name="smonitor_attempts_event_attempt",
+        )
+        self.attempts_coll.create_index(
+            [("roulette_id", ASCENDING), ("result_timestamp_utc", DESCENDING)],
+            name="smonitor_attempts_result_time",
+        )
+        self.pattern_outcomes_coll.create_index(
+            [("roulette_id", ASCENDING), ("pattern_id", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_pattern_pattern_time",
+        )
+        self.pattern_outcomes_coll.create_index(
+            [("suggestion_event_id", ASCENDING), ("pattern_id", ASCENDING)],
+            name="smonitor_pattern_event_pattern",
+        )
+        self.offsets_coll.create_index(
+            [("roulette_id", ASCENDING), ("config_key", ASCENDING)],
+            name="smonitor_offsets_config",
+            unique=True,
+        )
+
+    def get_offset(self, *, config_key: str) -> Dict[str, Any] | None:
+        doc = self.offsets_coll.find_one({"_id": _offset_document_id(config_key)})
+        return dict(doc) if isinstance(doc, Mapping) else None
+
+    def save_offset(self, *, config_key: str, roulette_id: str, history_doc: Mapping[str, Any]) -> Dict[str, Any]:
+        document = {
+            "_id": _offset_document_id(config_key),
+            "config_key": config_key,
+            "roulette_id": roulette_id,
+            "last_history_id": str(history_doc["history_id"]),
+            "last_history_timestamp_utc": history_doc["history_timestamp_utc"],
+            "last_history_number": int(history_doc["value"]),
+            "updated_at": datetime.now(timezone.utc),
+        }
+        self.offsets_coll.update_one({"_id": document["_id"]}, {"$set": document}, upsert=True)
+        return document
+
+    def get_latest_history_doc(self, roulette_id: str) -> Dict[str, Any] | None:
+        doc = self.history_coll.find_one(
+            _roulette_filter(roulette_id),
+            sort=[("timestamp", DESCENDING), ("_id", DESCENDING)],
+        )
+        if not isinstance(doc, Mapping):
+            return None
+        return normalize_history_doc(doc)
+
+    def get_new_history_docs(
+        self,
+        *,
+        roulette_id: str,
+        last_history_timestamp_utc: datetime,
+        last_history_id: str,
+        limit: int = 500,
+    ) -> List[Dict[str, Any]]:
+        object_id = _to_object_id(last_history_id)
+        roulette_query = _roulette_filter(roulette_id)
+        if object_id is not None:
+            filter_query: Dict[str, Any] = {
+                "$and": [
+                    roulette_query,
+                    {
+                        "$or": [
+                            {"timestamp": {"$gt": last_history_timestamp_utc}},
+                            {"timestamp": last_history_timestamp_utc, "_id": {"$gt": object_id}},
+                        ]
+                    },
+                ]
+            }
+        else:
+            filter_query = {"$and": [roulette_query, {"timestamp": {"$gt": last_history_timestamp_utc}}]}
+
+        docs = list(
+            self.history_coll.find(filter_query)
+            .sort([("timestamp", ASCENDING), ("_id", ASCENDING)])
+            .limit(int(limit))
+        )
+        return [normalize_history_doc(doc) for doc in docs if isinstance(doc, Mapping)]
+
+    def count_new_history_docs(
+        self,
+        *,
+        roulette_id: str,
+        last_history_timestamp_utc: datetime,
+        last_history_id: str,
+    ) -> int:
+        object_id = _to_object_id(last_history_id)
+        roulette_query = _roulette_filter(roulette_id)
+        if object_id is not None:
+            filter_query: Dict[str, Any] = {
+                "$and": [
+                    roulette_query,
+                    {
+                        "$or": [
+                            {"timestamp": {"$gt": last_history_timestamp_utc}},
+                            {"timestamp": last_history_timestamp_utc, "_id": {"$gt": object_id}},
+                        ]
+                    },
+                ]
+            }
+        else:
+            filter_query = {"$and": [roulette_query, {"timestamp": {"$gt": last_history_timestamp_utc}}]}
+        return int(self.history_coll.count_documents(filter_query))
+
+    def mark_pending_events_unavailable(
+        self,
+        *,
+        roulette_id: str,
+        config_keys: Sequence[str],
+        reason: str,
+    ) -> int:
+        clean_keys = [str(key).strip() for key in config_keys if str(key).strip()]
+        if not clean_keys:
+            return 0
+        result = self.events_coll.update_many(
+            {
+                "roulette_id": roulette_id,
+                "config_key": {"$in": clean_keys},
+                "status": "pending",
+            },
+            {
+                "$set": {
+                    "status": "unavailable",
+                    "unavailable_reason": "fast_forward_on_backlog",
+                    "explanation": reason,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+        return int(result.modified_count or 0)
+
+    def get_history_window_up_to(
+        self,
+        *,
+        roulette_id: str,
+        anchor_history_timestamp_utc: datetime,
+        anchor_history_id: str,
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        object_id = _to_object_id(anchor_history_id)
+        roulette_query = _roulette_filter(roulette_id)
+        if object_id is not None:
+            filter_query: Dict[str, Any] = {
+                "$and": [
+                    roulette_query,
+                    {
+                        "$or": [
+                            {"timestamp": {"$lt": anchor_history_timestamp_utc}},
+                            {"timestamp": anchor_history_timestamp_utc, "_id": {"$lte": object_id}},
+                        ]
+                    },
+                ]
+            }
+        else:
+            filter_query = {"$and": [roulette_query, {"timestamp": {"$lte": anchor_history_timestamp_utc}}]}
+
+        docs = list(
+            self.history_coll.find(filter_query)
+            .sort([("timestamp", DESCENDING), ("_id", DESCENDING)])
+            .limit(int(limit))
+        )
+        return [normalize_history_doc(doc) for doc in docs if isinstance(doc, Mapping)]
+
+    def load_pending_events(self, *, roulette_id: str, config_key: str) -> List[Dict[str, Any]]:
+        docs = list(
+            self.events_coll.find(
+                {"roulette_id": roulette_id, "config_key": config_key, "status": "pending"}
+            ).sort([("anchor_timestamp_utc", ASCENDING), ("anchor_history_id", ASCENDING)])
+        )
+        return [dict(doc) for doc in docs if isinstance(doc, Mapping)]
+
+    def get_latest_resolved_event(self, *, roulette_id: str, config_key: str) -> Dict[str, Any] | None:
+        doc = self.events_coll.find_one(
+            {"roulette_id": roulette_id, "config_key": config_key, "status": "resolved"},
+            sort=[("anchor_timestamp_utc", DESCENDING), ("_id", DESCENDING)],
+        )
+        return dict(doc) if isinstance(doc, Mapping) else None
+
+    def get_recent_resolved_events(
+        self,
+        *,
+        roulette_id: str,
+        config_key: str,
+        limit: int = 8,
+    ) -> List[Dict[str, Any]]:
+        docs = list(
+            self.events_coll.find(
+                {"roulette_id": roulette_id, "config_key": config_key, "status": "resolved"}
+            )
+            .sort([("anchor_timestamp_utc", DESCENDING), ("_id", DESCENDING)])
+            .limit(int(limit))
+        )
+        return [dict(doc) for doc in docs if isinstance(doc, Mapping)]
+
+    def upsert_event(self, event_doc: Mapping[str, Any]) -> None:
+        self.events_coll.replace_one({"_id": event_doc["_id"]}, dict(event_doc), upsert=True)
+
+    def upsert_pattern_outcomes(self, documents: Sequence[Mapping[str, Any]]) -> None:
+        for document in documents:
+            self.pattern_outcomes_coll.replace_one({"_id": document["_id"]}, dict(document), upsert=True)
+
+    def apply_attempt(
+        self,
+        *,
+        event_doc: Mapping[str, Any],
+        attempt_doc: Mapping[str, Any],
+        resolution_fields: Mapping[str, Any],
+        pattern_resolution_docs: Sequence[Mapping[str, Any]],
+    ) -> Dict[str, Any]:
+        result_history_id = str(attempt_doc["result_history_id"])
+        if str(event_doc.get("last_attempt_history_id") or "") == result_history_id:
+            return dict(event_doc)
+
+        self.attempts_coll.update_one(
+            {"_id": attempt_doc["_id"]},
+            {"$setOnInsert": dict(attempt_doc)},
+            upsert=True,
+        )
+        self.events_coll.update_one(
+            {"_id": event_doc["_id"], "last_attempt_history_id": {"$ne": result_history_id}},
+            {"$set": dict(resolution_fields)},
+        )
+        for pattern_doc in pattern_resolution_docs:
+            payload = dict(pattern_doc)
+            identifier = payload.pop("_id")
+            self.pattern_outcomes_coll.update_one({"_id": identifier}, {"$set": payload}, upsert=True)
+
+        updated = dict(event_doc)
+        updated.update(dict(resolution_fields))
+        return updated
