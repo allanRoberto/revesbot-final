@@ -8647,6 +8647,190 @@
       }
     },
     {
+      "activation_id": "64e58625597042dbd48ac2a2a76afb3dbacc3836",
+      "created_at": "2026-04-22T13:05:15.005604+00:00",
+      "base_number": 33,
+      "ordered_candidates": [
+        23,
+        10,
+        5,
+        24,
+        16,
+        33,
+        1,
+        20,
+        14,
+        31,
+        9
+      ],
+      "candidate_positions": {
+        "23": {
+          "position": "left_5",
+          "wheel_offset": -5
+        },
+        "10": {
+          "position": "left_4",
+          "wheel_offset": -4
+        },
+        "5": {
+          "position": "left_3",
+          "wheel_offset": -3
+        },
+        "24": {
+          "position": "left_2",
+          "wheel_offset": -2
+        },
+        "16": {
+          "position": "left_1",
+          "wheel_offset": -1
+        },
+        "33": {
+          "position": "self",
+          "wheel_offset": 0
+        },
+        "1": {
+          "position": "right_1",
+          "wheel_offset": 1
+        },
+        "20": {
+          "position": "right_2",
+          "wheel_offset": 2
+        },
+        "14": {
+          "position": "right_3",
+          "wheel_offset": 3
+        },
+        "31": {
+          "position": "right_4",
+          "wheel_offset": 4
+        },
+        "9": {
+          "position": "right_5",
+          "wheel_offset": 5
+        }
+      },
+      "horizon_used": 8,
+      "expected_hit_rate": 0.944,
+      "history_anchor": [
+        33,
+        24,
+        9,
+        18,
+        1,
+        29,
+        12,
+        7,
+        3,
+        26,
+        17,
+        4
+      ],
+      "status": "pending",
+      "resolved_at": null,
+      "hit": null,
+      "hit_round": null,
+      "hit_number": null,
+      "hit_position": null,
+      "recent_snapshot_at_activation": {
+        "recent_sample_size": 100,
+        "recent_hit_rate": 0.92,
+        "recent_mean_hit_round": 2.5326
+      }
+    }
+  ],
+  "resolved": [
+    {
+      "activation_id": "8ec6eba19d362f6e47ed123392473866de159a84",
+      "created_at": "2026-04-22T13:03:45.020711+00:00",
+      "base_number": 24,
+      "ordered_candidates": [
+        30,
+        8,
+        23,
+        10,
+        5,
+        24,
+        16,
+        33,
+        1,
+        20,
+        14
+      ],
+      "candidate_positions": {
+        "30": {
+          "position": "left_5",
+          "wheel_offset": -5
+        },
+        "8": {
+          "position": "left_4",
+          "wheel_offset": -4
+        },
+        "23": {
+          "position": "left_3",
+          "wheel_offset": -3
+        },
+        "10": {
+          "position": "left_2",
+          "wheel_offset": -2
+        },
+        "5": {
+          "position": "left_1",
+          "wheel_offset": -1
+        },
+        "24": {
+          "position": "self",
+          "wheel_offset": 0
+        },
+        "16": {
+          "position": "right_1",
+          "wheel_offset": 1
+        },
+        "33": {
+          "position": "right_2",
+          "wheel_offset": 2
+        },
+        "1": {
+          "position": "right_3",
+          "wheel_offset": 3
+        },
+        "20": {
+          "position": "right_4",
+          "wheel_offset": 4
+        },
+        "14": {
+          "position": "right_5",
+          "wheel_offset": 5
+        }
+      },
+      "horizon_used": 8,
+      "expected_hit_rate": 0.944,
+      "history_anchor": [
+        24,
+        9,
+        18,
+        1,
+        29,
+        12,
+        7,
+        3,
+        26,
+        17,
+        4,
+        14
+      ],
+      "status": "hit",
+      "resolved_at": "2026-04-22T13:05:14.850582+00:00",
+      "hit": true,
+      "hit_round": 1,
+      "hit_number": 33,
+      "hit_position": "right_2",
+      "recent_snapshot_at_activation": {
+        "recent_sample_size": 100,
+        "recent_hit_rate": 0.92,
+        "recent_mean_hit_round": 2.5217
+      }
+    },
+    {
       "activation_id": "ce2a3b454555154f601b0f7c11b3063b295fbde8",
       "created_at": "2026-04-22T13:02:05.546201+00:00",
       "base_number": 9,
@@ -8725,20 +8909,18 @@
         14,
         17
       ],
-      "status": "pending",
-      "resolved_at": null,
-      "hit": null,
-      "hit_round": null,
-      "hit_number": null,
-      "hit_position": null,
+      "status": "hit",
+      "resolved_at": "2026-04-22T13:05:14.850461+00:00",
+      "hit": true,
+      "hit_round": 2,
+      "hit_number": 33,
+      "hit_position": "left_5",
       "recent_snapshot_at_activation": {
         "recent_sample_size": 100,
         "recent_hit_rate": 0.92,
         "recent_mean_hit_round": 2.5217
       }
-    }
-  ],
-  "resolved": [
+    },
     {
       "activation_id": "f2eca3bd6b3f2fcddb7545df0b1c12bf814ed350",
       "created_at": "2026-04-22T13:00:48.553013+00:00",
@@ -54055,188 +54237,6 @@
         "recent_sample_size": 100,
         "recent_hit_rate": 0.98,
         "recent_mean_hit_round": 2.9388
-      }
-    },
-    {
-      "activation_id": "ac72812d3d8e945d5c8fe1d988276a3d59c2a32b",
-      "created_at": "2026-04-22T07:34:13.482558+00:00",
-      "base_number": 13,
-      "ordered_candidates": [
-        25,
-        17,
-        34,
-        6,
-        27,
-        13,
-        36,
-        11,
-        30,
-        8,
-        23
-      ],
-      "candidate_positions": {
-        "25": {
-          "position": "left_5",
-          "wheel_offset": -5
-        },
-        "17": {
-          "position": "left_4",
-          "wheel_offset": -4
-        },
-        "34": {
-          "position": "left_3",
-          "wheel_offset": -3
-        },
-        "6": {
-          "position": "left_2",
-          "wheel_offset": -2
-        },
-        "27": {
-          "position": "left_1",
-          "wheel_offset": -1
-        },
-        "13": {
-          "position": "self",
-          "wheel_offset": 0
-        },
-        "36": {
-          "position": "right_1",
-          "wheel_offset": 1
-        },
-        "11": {
-          "position": "right_2",
-          "wheel_offset": 2
-        },
-        "30": {
-          "position": "right_3",
-          "wheel_offset": 3
-        },
-        "8": {
-          "position": "right_4",
-          "wheel_offset": 4
-        },
-        "23": {
-          "position": "right_5",
-          "wheel_offset": 5
-        }
-      },
-      "horizon_used": 8,
-      "expected_hit_rate": 0.944,
-      "history_anchor": [
-        13,
-        1,
-        31,
-        19,
-        15,
-        19,
-        3,
-        15,
-        4,
-        26,
-        31,
-        25
-      ],
-      "status": "hit",
-      "resolved_at": "2026-04-22T07:35:24.274569+00:00",
-      "hit": true,
-      "hit_round": 2,
-      "hit_number": 11,
-      "hit_position": "right_2",
-      "recent_snapshot_at_activation": {
-        "recent_sample_size": 100,
-        "recent_hit_rate": 0.98,
-        "recent_mean_hit_round": 2.9796
-      }
-    },
-    {
-      "activation_id": "135f5a7839f3a993ccad0c03cd285e7197ef074d",
-      "created_at": "2026-04-22T07:33:34.660642+00:00",
-      "base_number": 1,
-      "ordered_candidates": [
-        10,
-        5,
-        24,
-        16,
-        33,
-        1,
-        20,
-        14,
-        31,
-        9,
-        22
-      ],
-      "candidate_positions": {
-        "10": {
-          "position": "left_5",
-          "wheel_offset": -5
-        },
-        "5": {
-          "position": "left_4",
-          "wheel_offset": -4
-        },
-        "24": {
-          "position": "left_3",
-          "wheel_offset": -3
-        },
-        "16": {
-          "position": "left_2",
-          "wheel_offset": -2
-        },
-        "33": {
-          "position": "left_1",
-          "wheel_offset": -1
-        },
-        "1": {
-          "position": "self",
-          "wheel_offset": 0
-        },
-        "20": {
-          "position": "right_1",
-          "wheel_offset": 1
-        },
-        "14": {
-          "position": "right_2",
-          "wheel_offset": 2
-        },
-        "31": {
-          "position": "right_3",
-          "wheel_offset": 3
-        },
-        "9": {
-          "position": "right_4",
-          "wheel_offset": 4
-        },
-        "22": {
-          "position": "right_5",
-          "wheel_offset": 5
-        }
-      },
-      "horizon_used": 8,
-      "expected_hit_rate": 0.944,
-      "history_anchor": [
-        1,
-        31,
-        19,
-        15,
-        19,
-        3,
-        15,
-        4,
-        26,
-        31,
-        25,
-        22
-      ],
-      "status": "hit",
-      "resolved_at": "2026-04-22T07:34:51.828407+00:00",
-      "hit": true,
-      "hit_round": 2,
-      "hit_number": 9,
-      "hit_position": "right_4",
-      "recent_snapshot_at_activation": {
-        "recent_sample_size": 100,
-        "recent_hit_rate": 0.98,
-        "recent_mean_hit_round": 2.9796
       }
     }
   ]
