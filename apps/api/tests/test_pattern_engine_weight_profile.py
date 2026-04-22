@@ -4,6 +4,7 @@ import json
 import pytest
 
 from api.patterns.engine import PatternEngine
+from api.routes.patterns import _merge_effective_profile_weights
 
 
 SAFE_NUMBERS = [1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28]
@@ -54,3 +55,14 @@ def test_weight_profile_multiplies_pattern_weight_in_engine_result(tmp_path) -> 
     assert baseline["contributions"][0]["weight"] == 4.2
     assert weighted["contributions"][0]["weight"] == pytest.approx(6.3)
     assert weighted["contributions"][0]["base_weight"] == pytest.approx(6.3)
+
+
+def test_merge_effective_profile_weights_multiplies_saved_and_runtime_values() -> None:
+    merged = _merge_effective_profile_weights(
+        saved_profile_weights={"p1": 1.4, "p2": 0.9},
+        runtime_profile_weights={"p1": 1.2, "p3": 0.8},
+    )
+
+    assert merged["p1"] == pytest.approx(1.68)
+    assert merged["p2"] == pytest.approx(0.9)
+    assert merged["p3"] == pytest.approx(0.8)

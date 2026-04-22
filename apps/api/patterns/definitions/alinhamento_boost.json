@@ -3,7 +3,7 @@
   "name": "Alinhamento (Triangula\u00e7\u00e3o)",
   "kind": "positive",
   "version": "1.0.0",
-  "active": false,
+  "active": true,
   "priority": 88,
   "weight": 5.0,
   "evaluator": "alinhamento_boost",

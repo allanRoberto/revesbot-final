@@ -10,15 +10,31 @@ import aiohttp
 import redis.asyncio as aioredis
 
 from src.config import settings
+from src.ml_entry_gate import (
+    build_default_ml_entry_gate_state,
+    build_ml_entry_gate_payload_from_ml_meta,
+    build_ml_top12_reference_payload_from_ml_meta,
+    train_ml_entry_gate_state_from_ml_meta_event,
+    train_ml_entry_gate_state_from_reference_event,
+)
+from src.ml_meta_rank import (
+    build_default_ml_meta_rank_state,
+    build_ml_meta_rank_payload_from_context,
+    train_ml_meta_rank_state_from_resolved_event,
+)
 from src.suggestion_monitor_repo import SuggestionMonitorRepository
 from src.suggestion_monitor_runtime import (
     build_attempt_document,
     build_config_key,
     build_event_resolution_fields,
     build_monitor_event_document,
-    build_oscillation_payload_from_base,
-    build_temporal_blend_payload_from_base,
-    build_selective_compact_payload_from_base,
+    apply_rank_confidence_feedback,
+    build_time_window_prior_payload_from_base,
+    build_top26_dynamic_follow_fields,
+    build_ranking_v2_top26_payload_from_base,
+    build_top26_selective_16x4_payload_from_top26,
+    build_top26_selective_16x4_dynamic_payload_from_top26,
+    build_realtime_pattern_weights,
     build_pattern_outcome_documents,
     build_pattern_resolution_documents,
 )
@@ -32,6 +48,34 @@ class SuggestionMonitorWorker:
         self.roulette_id = settings.suggestion_monitor_roulette_id
         self.max_numbers = max(1, min(37, int(settings.suggestion_monitor_max_numbers)))
         self.history_window_size = max(10, int(settings.suggestion_monitor_history_window))
+        self.dynamic_weights_enabled = bool(settings.suggestion_monitor_dynamic_weights_enabled)
+        self.dynamic_weights_lookback = max(12, int(settings.suggestion_monitor_dynamic_weights_lookback))
+        self.dynamic_weight_floor = float(settings.suggestion_monitor_dynamic_weight_floor)
+        self.dynamic_weight_ceil = float(settings.suggestion_monitor_dynamic_weight_ceil)
+        self.dynamic_weight_smoothing = float(settings.suggestion_monitor_dynamic_weight_smoothing)
+        self.dynamic_weight_sample_target = float(settings.suggestion_monitor_dynamic_weight_sample_target)
+        self.dynamic_top_rank_bonus = float(settings.suggestion_monitor_dynamic_top_rank_bonus)
+        self.time_window_prior_enabled = bool(settings.suggestion_monitor_time_window_prior_enabled)
+        self.time_window_prior_lookback_days = max(3, int(settings.suggestion_monitor_time_window_prior_lookback_days))
+        self.time_window_prior_minute_span = max(0, int(settings.suggestion_monitor_time_window_prior_minute_span))
+        self.time_window_prior_region_span = max(0, int(settings.suggestion_monitor_time_window_prior_region_span))
+        self.time_window_prior_current_weight = float(settings.suggestion_monitor_time_window_prior_current_weight)
+        self.time_window_prior_exact_weight = float(settings.suggestion_monitor_time_window_prior_exact_weight)
+        self.time_window_prior_region_weight = float(settings.suggestion_monitor_time_window_prior_region_weight)
+        self.ml_meta_rank_enabled = bool(settings.suggestion_monitor_ml_meta_rank_enabled)
+        self.ml_meta_rank_learning_rate = float(settings.suggestion_monitor_ml_meta_rank_learning_rate)
+        self.ml_meta_rank_positive_class_weight = float(settings.suggestion_monitor_ml_meta_rank_positive_class_weight)
+        self.ml_meta_rank_negative_class_weight = float(settings.suggestion_monitor_ml_meta_rank_negative_class_weight)
+        self.ml_meta_rank_l2_decay = float(settings.suggestion_monitor_ml_meta_rank_l2_decay)
+        self.ml_meta_rank_warmup_events = max(6, int(settings.suggestion_monitor_ml_meta_rank_warmup_events))
+        self.ml_entry_gate_enabled = bool(settings.suggestion_monitor_ml_entry_gate_enabled)
+        self.ml_entry_gate_learning_rate = float(settings.suggestion_monitor_ml_entry_gate_learning_rate)
+        self.ml_entry_gate_positive_class_weight = float(settings.suggestion_monitor_ml_entry_gate_positive_class_weight)
+        self.ml_entry_gate_negative_class_weight = float(settings.suggestion_monitor_ml_entry_gate_negative_class_weight)
+        self.ml_entry_gate_l2_decay = float(settings.suggestion_monitor_ml_entry_gate_l2_decay)
+        self.ml_entry_gate_warmup_events = max(8, int(settings.suggestion_monitor_ml_entry_gate_warmup_events))
+        self.ml_entry_gate_threshold = float(settings.suggestion_monitor_ml_entry_gate_threshold)
+        self.dynamic_pattern_weights: Dict[str, float] = {}
         self.fast_forward_on_backlog = bool(settings.suggestion_monitor_fast_forward_on_backlog)
         self.max_backlog_results = max(50, int(settings.suggestion_monitor_max_backlog_results))
         self.shadow_compare_enabled = bool(settings.suggestion_monitor_shadow_compare_enabled)
@@ -51,17 +95,43 @@ class SuggestionMonitorWorker:
             history_window_size=self.history_window_size,
         )
         self.base_config_key = f"{self.config_key}|variant=base_v1"
-        self.optimized_config_key = f"{self.config_key}|variant=oscillation_v1"
-        self.aggressive_config_key = f"{self.config_key}|variant=oscillation_v2_aggressive"
-        self.selective_config_key = f"{self.config_key}|variant=oscillation_v3_selective"
-        self.selective_protected_config_key = f"{self.config_key}|variant=oscillation_v3_selective_protected"
-        self.temporal_blend_config_key = f"{self.config_key}|variant=temporal_blend_v1"
-        self.selective_compact_config_key = f"{self.config_key}|variant=oscillation_v4_selective_compact"
+        self.time_window_prior_config_key = f"{self.config_key}|variant=time_window_prior_v1"
+        self.ranking_v2_top26_config_key = f"{self.config_key}|variant=ranking_v2_top26"
+        self.ml_meta_rank_config_key = f"{self.config_key}|variant=ml_meta_rank_v1"
+        self.ml_top12_reference_config_key = f"{self.config_key}|variant=ml_top12_reference_12x4_v1"
+        self.ml_entry_gate_config_key = f"{self.config_key}|variant=ml_entry_gate_12x4_v1"
+        self.top26_selective_config_key = f"{self.config_key}|variant=top26_selective_16x4_v1"
+        self.top26_selective_dynamic_config_key = f"{self.config_key}|variant=top26_selective_16x4_dynamic_v1"
         self.pending_events: Dict[str, Dict[str, Any]] = {}
         self.offset_doc: Dict[str, Any] | None = None
         self.last_resolved_base_event: Dict[str, Any] | None = None
         self.recent_resolved_base_events: List[Dict[str, Any]] = []
-        self.selective_compact_hold_state: Dict[str, Any] = {}
+        self.last_resolved_top26_event: Dict[str, Any] | None = None
+        self.last_generated_top26_event: Dict[str, Any] | None = None
+        self.recent_resolved_top26_events: List[Dict[str, Any]] = []
+        self.recent_resolved_ml_events: List[Dict[str, Any]] = []
+        self.ml_meta_rank_state: Dict[str, Any] = build_default_ml_meta_rank_state(
+            roulette_id=self.roulette_id,
+            config_key=self.ml_meta_rank_config_key,
+            learning_rate=self.ml_meta_rank_learning_rate,
+            positive_class_weight=self.ml_meta_rank_positive_class_weight,
+            negative_class_weight=self.ml_meta_rank_negative_class_weight,
+            l2_decay=self.ml_meta_rank_l2_decay,
+            warmup_events=self.ml_meta_rank_warmup_events,
+        )
+        self.ml_entry_gate_state: Dict[str, Any] = build_default_ml_entry_gate_state(
+            roulette_id=self.roulette_id,
+            config_key=self.ml_entry_gate_config_key,
+            learning_rate=self.ml_entry_gate_learning_rate,
+            positive_class_weight=self.ml_entry_gate_positive_class_weight,
+            negative_class_weight=self.ml_entry_gate_negative_class_weight,
+            l2_decay=self.ml_entry_gate_l2_decay,
+            warmup_events=self.ml_entry_gate_warmup_events,
+            threshold=self.ml_entry_gate_threshold,
+        )
+        self.resolved_base_history_limit = max(8, self.dynamic_weights_lookback)
+        self.resolved_top26_history_limit = max(8, self.dynamic_weights_lookback)
+        self.resolved_ml_history_limit = max(8, self.dynamic_weights_lookback)
         self.results_redis = None
         self.session: aiohttp.ClientSession | None = None
         self._startup_reconcile_done = False
@@ -99,14 +169,28 @@ class SuggestionMonitorWorker:
             settings.suggestion_monitor_runtime_overrides,
         )
         logger.info(
-            "Suggestion monitor | variants base=%s optimized=%s aggressive=%s selective=%s selective_protected=%s temporal=%s compact=%s",
+            "Suggestion monitor | realtime_weights enabled=%s lookback=%s floor=%.2f ceil=%.2f smoothing=%.2f sample_target=%.1f top_rank_bonus=%.2f",
+            self.dynamic_weights_enabled,
+            self.dynamic_weights_lookback,
+            self.dynamic_weight_floor,
+            self.dynamic_weight_ceil,
+            self.dynamic_weight_smoothing,
+            self.dynamic_weight_sample_target,
+            self.dynamic_top_rank_bonus,
+        )
+        logger.info(
+            "Suggestion monitor | variants base=%s time_window=%s top26=%s ml=%s top26_selective=%s",
             self.base_config_key,
-            self.optimized_config_key,
-            self.aggressive_config_key,
-            self.selective_config_key,
-            self.selective_protected_config_key,
-            self.temporal_blend_config_key,
-            self.selective_compact_config_key,
+            self.time_window_prior_config_key,
+            self.ranking_v2_top26_config_key,
+            self.ml_meta_rank_config_key,
+            self.top26_selective_config_key,
+        )
+        logger.info(
+            "Suggestion monitor | variants ml_ref=%s ml_gate=%s top26_selective_dynamic=%s",
+            self.ml_top12_reference_config_key,
+            self.ml_entry_gate_config_key,
+            self.top26_selective_dynamic_config_key,
         )
         await asyncio.to_thread(self.repo.ensure_indexes)
         logger.info("Suggestion monitor | indices Mongo garantidos.")
@@ -203,12 +287,13 @@ class SuggestionMonitorWorker:
         if config_key and config_key not in {
             self.config_key,
             self.base_config_key,
-            self.optimized_config_key,
-            self.aggressive_config_key,
-            self.selective_config_key,
-            self.selective_protected_config_key,
-            self.temporal_blend_config_key,
-            self.selective_compact_config_key,
+            self.time_window_prior_config_key,
+            self.ranking_v2_top26_config_key,
+            self.ml_meta_rank_config_key,
+            self.ml_top12_reference_config_key,
+            self.ml_entry_gate_config_key,
+            self.top26_selective_config_key,
+            self.top26_selective_dynamic_config_key,
         }:
             return
 
@@ -220,7 +305,32 @@ class SuggestionMonitorWorker:
         self.pending_events = {}
         self.last_resolved_base_event = None
         self.recent_resolved_base_events = []
-        self.selective_compact_hold_state = {}
+        self.last_resolved_top26_event = None
+        self.last_generated_top26_event = None
+        self.recent_resolved_top26_events = []
+        self.recent_resolved_ml_events = []
+        self.dynamic_pattern_weights = {}
+        self.ml_meta_rank_state = build_default_ml_meta_rank_state(
+            roulette_id=self.roulette_id,
+            config_key=self.ml_meta_rank_config_key,
+            learning_rate=self.ml_meta_rank_learning_rate,
+            positive_class_weight=self.ml_meta_rank_positive_class_weight,
+            negative_class_weight=self.ml_meta_rank_negative_class_weight,
+            l2_decay=self.ml_meta_rank_l2_decay,
+            warmup_events=self.ml_meta_rank_warmup_events,
+        )
+        self.ml_entry_gate_state = build_default_ml_entry_gate_state(
+            roulette_id=self.roulette_id,
+            config_key=self.ml_entry_gate_config_key,
+            learning_rate=self.ml_entry_gate_learning_rate,
+            positive_class_weight=self.ml_entry_gate_positive_class_weight,
+            negative_class_weight=self.ml_entry_gate_negative_class_weight,
+            l2_decay=self.ml_entry_gate_l2_decay,
+            warmup_events=self.ml_entry_gate_warmup_events,
+            threshold=self.ml_entry_gate_threshold,
+        )
+        await asyncio.to_thread(self.repo.save_model_state, self.ml_meta_rank_state)
+        await asyncio.to_thread(self.repo.save_model_state, self.ml_entry_gate_state)
         latest_history_doc = await asyncio.to_thread(self.repo.get_latest_history_doc, self.roulette_id)
         if latest_history_doc is None:
             self.offset_doc = None
@@ -244,44 +354,50 @@ class SuggestionMonitorWorker:
             roulette_id=self.roulette_id,
             config_key=self.base_config_key,
         )
-        optimized_pending = await asyncio.to_thread(
+        time_window_prior_pending = await asyncio.to_thread(
             self.repo.load_pending_events,
             roulette_id=self.roulette_id,
-            config_key=self.optimized_config_key,
+            config_key=self.time_window_prior_config_key,
         )
-        aggressive_pending = await asyncio.to_thread(
+        ranking_v2_top26_pending = await asyncio.to_thread(
             self.repo.load_pending_events,
             roulette_id=self.roulette_id,
-            config_key=self.aggressive_config_key,
+            config_key=self.ranking_v2_top26_config_key,
         )
-        selective_pending = await asyncio.to_thread(
+        ml_meta_rank_pending = await asyncio.to_thread(
             self.repo.load_pending_events,
             roulette_id=self.roulette_id,
-            config_key=self.selective_config_key,
+            config_key=self.ml_meta_rank_config_key,
         )
-        selective_protected_pending = await asyncio.to_thread(
+        ml_top12_reference_pending = await asyncio.to_thread(
             self.repo.load_pending_events,
             roulette_id=self.roulette_id,
-            config_key=self.selective_protected_config_key,
+            config_key=self.ml_top12_reference_config_key,
         )
-        temporal_blend_pending = await asyncio.to_thread(
+        ml_entry_gate_pending = await asyncio.to_thread(
             self.repo.load_pending_events,
             roulette_id=self.roulette_id,
-            config_key=self.temporal_blend_config_key,
+            config_key=self.ml_entry_gate_config_key,
         )
-        selective_compact_pending = await asyncio.to_thread(
+        top26_selective_pending = await asyncio.to_thread(
             self.repo.load_pending_events,
             roulette_id=self.roulette_id,
-            config_key=self.selective_compact_config_key,
+            config_key=self.top26_selective_config_key,
+        )
+        top26_selective_dynamic_pending = await asyncio.to_thread(
+            self.repo.load_pending_events,
+            roulette_id=self.roulette_id,
+            config_key=self.top26_selective_dynamic_config_key,
         )
         pending = [
             *base_pending,
-            *optimized_pending,
-            *aggressive_pending,
-            *selective_pending,
-            *selective_protected_pending,
-            *temporal_blend_pending,
-            *selective_compact_pending,
+            *time_window_prior_pending,
+            *ranking_v2_top26_pending,
+            *ml_meta_rank_pending,
+            *ml_top12_reference_pending,
+            *ml_entry_gate_pending,
+            *top26_selective_pending,
+            *top26_selective_dynamic_pending,
         ]
         self.pending_events = {str(event["_id"]): dict(event) for event in pending}
         self.offset_doc = await asyncio.to_thread(self.repo.get_offset, config_key=self.config_key)
@@ -294,8 +410,85 @@ class SuggestionMonitorWorker:
             self.repo.get_recent_resolved_events,
             roulette_id=self.roulette_id,
             config_key=self.base_config_key,
-            limit=8,
+            limit=self.resolved_base_history_limit,
         )
+        self.last_resolved_top26_event = await asyncio.to_thread(
+            self.repo.get_latest_resolved_event,
+            roulette_id=self.roulette_id,
+            config_key=self.ranking_v2_top26_config_key,
+        )
+        self.last_generated_top26_event = await asyncio.to_thread(
+            self.repo.get_latest_event,
+            roulette_id=self.roulette_id,
+            config_key=self.ranking_v2_top26_config_key,
+        )
+        self.recent_resolved_top26_events = await asyncio.to_thread(
+            self.repo.get_recent_resolved_events,
+            roulette_id=self.roulette_id,
+            config_key=self.ranking_v2_top26_config_key,
+            limit=self.resolved_top26_history_limit,
+        )
+        self.recent_resolved_ml_events = await asyncio.to_thread(
+            self.repo.get_recent_resolved_events,
+            roulette_id=self.roulette_id,
+            config_key=self.ml_meta_rank_config_key,
+            limit=self.resolved_ml_history_limit,
+        )
+        self.ml_meta_rank_state = await asyncio.to_thread(
+            self.repo.get_model_state,
+            roulette_id=self.roulette_id,
+            config_key=self.ml_meta_rank_config_key,
+            model_name="ml_meta_rank_v1",
+        ) or build_default_ml_meta_rank_state(
+            roulette_id=self.roulette_id,
+            config_key=self.ml_meta_rank_config_key,
+            learning_rate=self.ml_meta_rank_learning_rate,
+            positive_class_weight=self.ml_meta_rank_positive_class_weight,
+            negative_class_weight=self.ml_meta_rank_negative_class_weight,
+            l2_decay=self.ml_meta_rank_l2_decay,
+            warmup_events=self.ml_meta_rank_warmup_events,
+        )
+        self.ml_entry_gate_state = await asyncio.to_thread(
+            self.repo.get_model_state,
+            roulette_id=self.roulette_id,
+            config_key=self.ml_entry_gate_config_key,
+            model_name="ml_entry_gate_v1",
+        ) or build_default_ml_entry_gate_state(
+            roulette_id=self.roulette_id,
+            config_key=self.ml_entry_gate_config_key,
+            learning_rate=self.ml_entry_gate_learning_rate,
+            positive_class_weight=self.ml_entry_gate_positive_class_weight,
+            negative_class_weight=self.ml_entry_gate_negative_class_weight,
+            l2_decay=self.ml_entry_gate_l2_decay,
+            warmup_events=self.ml_entry_gate_warmup_events,
+            threshold=self.ml_entry_gate_threshold,
+        )
+        if self.ml_entry_gate_enabled and int(self.ml_entry_gate_state.get("trained_events") or 0) <= 0:
+            bootstrap_ml_events = await asyncio.to_thread(
+                self.repo.get_recent_resolved_events,
+                roulette_id=self.roulette_id,
+                config_key=self.ml_meta_rank_config_key,
+                limit=240,
+            )
+            for event_doc in reversed(list(bootstrap_ml_events or [])):
+                future_results = await asyncio.to_thread(
+                    self.repo.get_new_history_docs,
+                    roulette_id=self.roulette_id,
+                    last_history_timestamp_utc=event_doc["anchor_timestamp_utc"],
+                    last_history_id=event_doc["anchor_history_id"],
+                    limit=4,
+                )
+                self.ml_entry_gate_state = train_ml_entry_gate_state_from_ml_meta_event(
+                    self.ml_entry_gate_state,
+                    event_doc,
+                    future_results,
+                    roulette_id=self.roulette_id,
+                    config_key=self.ml_entry_gate_config_key,
+                    suggestion_size=12,
+                    evaluation_window_attempts=4,
+                )
+            await asyncio.to_thread(self.repo.save_model_state, self.ml_entry_gate_state)
+        self.dynamic_pattern_weights = self._compute_runtime_pattern_weights()
         if self.offset_doc is not None:
             await self._maybe_fast_forward_stale_offset(context="resume")
             logger.info(
@@ -327,12 +520,10 @@ class SuggestionMonitorWorker:
     def _all_config_keys(self) -> List[str]:
         return [
             self.base_config_key,
-            self.optimized_config_key,
-            self.aggressive_config_key,
-            self.selective_config_key,
-            self.selective_protected_config_key,
-            self.temporal_blend_config_key,
-            self.selective_compact_config_key,
+            self.time_window_prior_config_key,
+            self.ranking_v2_top26_config_key,
+            self.top26_selective_config_key,
+            self.top26_selective_dynamic_config_key,
         ]
 
     async def _maybe_fast_forward_stale_offset(self, *, context: str) -> bool:
@@ -362,7 +553,8 @@ class SuggestionMonitorWorker:
             ),
         )
         self.pending_events = {}
-        self.selective_compact_hold_state = {}
+        self.dynamic_pattern_weights = {}
+        self.last_generated_top26_event = None
         self.offset_doc = await asyncio.to_thread(
             self.repo.save_offset,
             config_key=self.config_key,
@@ -447,6 +639,11 @@ class SuggestionMonitorWorker:
             history_values=history_values,
             focus_number=int(history_doc["value"]),
         )
+        if status_override is None and isinstance(simple_payload, Mapping):
+            simple_payload = apply_rank_confidence_feedback(
+                simple_payload,
+                self.recent_resolved_base_events,
+            )
         base_event_doc = build_monitor_event_document(
             anchor_doc=history_doc,
             simple_payload=simple_payload,
@@ -457,44 +654,38 @@ class SuggestionMonitorWorker:
             status_override=status_override,
             error_message=error_message,
         )
-        optimized_payload = (
-            build_oscillation_payload_from_base(
-                base_payload=simple_payload,
-                recent_resolved_base_events=self.recent_resolved_base_events,
-                profile="oscillation_v1",
+        time_window_prior_docs_by_day = (
+            await asyncio.to_thread(
+                self.repo.get_history_docs_by_time_window_days,
+                roulette_id=self.roulette_id,
+                reference_timestamp_utc=history_doc["history_timestamp_utc"],
+                lookback_days=self.time_window_prior_lookback_days,
+                minute_span=self.time_window_prior_minute_span,
             )
-            if status_override is None and isinstance(simple_payload, Mapping)
+            if self.time_window_prior_enabled and status_override is None and isinstance(simple_payload, Mapping)
+            else {}
+        )
+        time_window_prior_payload = (
+            build_time_window_prior_payload_from_base(
+                base_payload=simple_payload,
+                docs_by_day=time_window_prior_docs_by_day,
+                lookback_days=self.time_window_prior_lookback_days,
+                minute_span=self.time_window_prior_minute_span,
+                region_span=self.time_window_prior_region_span,
+                current_weight=self.time_window_prior_current_weight,
+                exact_weight=self.time_window_prior_exact_weight,
+                region_weight=self.time_window_prior_region_weight,
+            )
+            if self.time_window_prior_enabled and status_override is None and isinstance(simple_payload, Mapping)
             else None
         )
-        aggressive_payload = (
-            build_oscillation_payload_from_base(
-                base_payload=simple_payload,
-                recent_resolved_base_events=self.recent_resolved_base_events,
-                profile="oscillation_v2_aggressive",
+        if status_override is None and isinstance(time_window_prior_payload, Mapping):
+            time_window_prior_payload = apply_rank_confidence_feedback(
+                time_window_prior_payload,
+                self.recent_resolved_base_events,
             )
-            if status_override is None and isinstance(simple_payload, Mapping)
-            else None
-        )
-        selective_payload = (
-            build_oscillation_payload_from_base(
-                base_payload=simple_payload,
-                recent_resolved_base_events=self.recent_resolved_base_events,
-                profile="oscillation_v3_selective",
-            )
-            if status_override is None and isinstance(simple_payload, Mapping)
-            else None
-        )
-        selective_protected_payload = (
-            build_oscillation_payload_from_base(
-                base_payload=simple_payload,
-                recent_resolved_base_events=self.recent_resolved_base_events,
-                profile="oscillation_v3_selective_protected",
-            )
-            if status_override is None and isinstance(simple_payload, Mapping)
-            else None
-        )
-        temporal_blend_payload = (
-            build_temporal_blend_payload_from_base(
+        ranking_v2_top26_payload = (
+            build_ranking_v2_top26_payload_from_base(
                 base_payload=simple_payload,
                 recent_resolved_base_events=self.recent_resolved_base_events,
                 history_values=history_values,
@@ -502,135 +693,207 @@ class SuggestionMonitorWorker:
             if status_override is None and isinstance(simple_payload, Mapping)
             else None
         )
-        selective_compact_payload = (
-            build_selective_compact_payload_from_base(
-                base_payload=simple_payload,
-                recent_resolved_base_events=self.recent_resolved_base_events,
-                hold_state=self.selective_compact_hold_state,
-                compact_size=18,
-                hold_rounds=3,
+        if status_override is None and isinstance(ranking_v2_top26_payload, Mapping):
+            ranking_v2_top26_payload = apply_rank_confidence_feedback(
+                ranking_v2_top26_payload,
+                self.recent_resolved_top26_events,
             )
-            if status_override is None and isinstance(simple_payload, Mapping)
+        ml_meta_rank_payload = (
+            build_ml_meta_rank_payload_from_context(
+                base_payload=simple_payload,
+                top26_payload=ranking_v2_top26_payload,
+                time_window_prior_payload=time_window_prior_payload,
+                history_values=history_values,
+                model_state=self.ml_meta_rank_state,
+                roulette_id=self.roulette_id,
+                config_key=self.ml_meta_rank_config_key,
+            )
+            if self.ml_meta_rank_enabled and status_override is None and isinstance(simple_payload, Mapping)
             else None
         )
-        optimized_status_override = status_override
-        optimized_error_message = error_message
-        if optimized_payload is None and optimized_status_override is None:
-            optimized_status_override = "unavailable"
-            optimized_error_message = "Oscillation v1 indisponivel: ranking base sem dados suficientes."
-        aggressive_status_override = status_override
-        aggressive_error_message = error_message
-        if aggressive_payload is None and aggressive_status_override is None:
-            aggressive_status_override = "unavailable"
-            aggressive_error_message = "Oscillation v2 aggressive indisponivel: ranking base sem dados suficientes."
-        selective_status_override = status_override
-        selective_error_message = error_message
-        if selective_payload is None and selective_status_override is None:
-            selective_status_override = "unavailable"
-            selective_error_message = "Oscillation v3 selective indisponivel: gate sem tendência confirmada."
-        selective_protected_status_override = status_override
-        selective_protected_error_message = error_message
-        if selective_protected_payload is None and selective_protected_status_override is None:
-            selective_protected_status_override = "unavailable"
-            selective_protected_error_message = "Oscillation v3 selective protected indisponivel: gate sem tendência confirmada."
-        temporal_blend_status_override = status_override
-        temporal_blend_error_message = error_message
-        if temporal_blend_payload is None and temporal_blend_status_override is None:
-            temporal_blend_status_override = "unavailable"
-            temporal_blend_error_message = "Temporal blend v1 indisponivel: ranking base sem dados suficientes."
-        selective_compact_status_override = status_override
-        selective_compact_error_message = error_message
-        if selective_compact_payload is None and selective_compact_status_override is None:
-            selective_compact_status_override = "unavailable"
-            selective_compact_error_message = "Oscillation v4 selective compact indisponivel."
-        optimized_event_doc = build_monitor_event_document(
-            anchor_doc=history_doc,
-            simple_payload=optimized_payload,
-            history_values=history_values,
-            config_key=self.optimized_config_key,
-            ranking_variant="oscillation_v1",
-            source_base_event_id=str(base_event_doc["_id"]),
-            source_base_config_key=self.base_config_key,
-            suggestion_type="simple_http",
-            status_override=optimized_status_override,
-            error_message=optimized_error_message,
+        if status_override is None and isinstance(ml_meta_rank_payload, Mapping):
+            ml_meta_rank_payload = apply_rank_confidence_feedback(
+                ml_meta_rank_payload,
+                self.recent_resolved_ml_events,
+            )
+        ml_top12_reference_payload = (
+            build_ml_top12_reference_payload_from_ml_meta(
+                ml_meta_rank_payload,
+                suggestion_size=12,
+                evaluation_window_attempts=4,
+            )
+            if self.ml_entry_gate_enabled and status_override is None and isinstance(ml_meta_rank_payload, Mapping)
+            else None
         )
-        aggressive_event_doc = build_monitor_event_document(
-            anchor_doc=history_doc,
-            simple_payload=aggressive_payload,
-            history_values=history_values,
-            config_key=self.aggressive_config_key,
-            ranking_variant="oscillation_v2_aggressive",
-            source_base_event_id=str(base_event_doc["_id"]),
-            source_base_config_key=self.base_config_key,
-            suggestion_type="simple_http",
-            status_override=aggressive_status_override,
-            error_message=aggressive_error_message,
+        ml_entry_gate_payload = (
+            build_ml_entry_gate_payload_from_ml_meta(
+                ml_meta_rank_payload,
+                self.ml_entry_gate_state,
+                roulette_id=self.roulette_id,
+                config_key=self.ml_entry_gate_config_key,
+                suggestion_size=12,
+                evaluation_window_attempts=4,
+            )
+            if self.ml_entry_gate_enabled and status_override is None and isinstance(ml_meta_rank_payload, Mapping)
+            else None
         )
-        selective_event_doc = build_monitor_event_document(
-            anchor_doc=history_doc,
-            simple_payload=selective_payload,
-            history_values=history_values,
-            config_key=self.selective_config_key,
-            ranking_variant="oscillation_v3_selective",
-            source_base_event_id=str(base_event_doc["_id"]),
-            source_base_config_key=self.base_config_key,
-            suggestion_type="simple_http",
-            status_override=selective_status_override,
-            error_message=selective_error_message,
+        top26_selective_payload = (
+            build_top26_selective_16x4_payload_from_top26(
+                top26_payload=ranking_v2_top26_payload,
+                recent_resolved_top26_events=self.recent_resolved_top26_events,
+                compact_size=14,
+                evaluation_window_attempts=4,
+            )
+            if status_override is None and isinstance(ranking_v2_top26_payload, Mapping)
+            else None
         )
-        selective_protected_event_doc = build_monitor_event_document(
-            anchor_doc=history_doc,
-            simple_payload=selective_protected_payload,
-            history_values=history_values,
-            config_key=self.selective_protected_config_key,
-            ranking_variant="oscillation_v3_selective_protected",
-            source_base_event_id=str(base_event_doc["_id"]),
-            source_base_config_key=self.base_config_key,
-            suggestion_type="simple_http",
-            status_override=selective_protected_status_override,
-            error_message=selective_protected_error_message,
+        top26_selective_dynamic_payload = (
+            build_top26_selective_16x4_dynamic_payload_from_top26(
+                top26_payload=ranking_v2_top26_payload,
+                recent_resolved_top26_events=self.recent_resolved_top26_events,
+                compact_size=14,
+                evaluation_window_attempts=4,
+            )
+            if status_override is None and isinstance(ranking_v2_top26_payload, Mapping)
+            else None
         )
-        temporal_blend_event_doc = build_monitor_event_document(
+        time_window_prior_status_override = status_override
+        time_window_prior_error_message = error_message
+        if self.time_window_prior_enabled and time_window_prior_payload is None and time_window_prior_status_override is None:
+            time_window_prior_status_override = "unavailable"
+            time_window_prior_error_message = "Prior temporal por janela horária indisponível: sem histórico suficiente."
+        ranking_v2_top26_status_override = status_override
+        ranking_v2_top26_error_message = error_message
+        if ranking_v2_top26_payload is None and ranking_v2_top26_status_override is None:
+            ranking_v2_top26_status_override = "unavailable"
+            ranking_v2_top26_error_message = "Ranking v2 top26 indisponivel: ranking base sem dados suficientes."
+        ml_meta_rank_status_override = status_override
+        ml_meta_rank_error_message = error_message
+        if self.ml_meta_rank_enabled and ml_meta_rank_payload is None and ml_meta_rank_status_override is None:
+            ml_meta_rank_status_override = "unavailable"
+            ml_meta_rank_error_message = "ML meta-ranker indisponível: sem dados suficientes para montar features."
+        ml_top12_reference_status_override = status_override
+        ml_top12_reference_error_message = error_message
+        if self.ml_entry_gate_enabled and ml_top12_reference_payload is None and ml_top12_reference_status_override is None:
+            ml_top12_reference_status_override = "unavailable"
+            ml_top12_reference_error_message = "Referência ML top12 12x4 indisponível: meta-ranker sem dados suficientes."
+        ml_entry_gate_status_override = status_override
+        ml_entry_gate_error_message = error_message
+        if self.ml_entry_gate_enabled and ml_entry_gate_payload is None and ml_entry_gate_status_override is None:
+            ml_entry_gate_status_override = "unavailable"
+            ml_entry_gate_error_message = "Gate ML 12x4 indisponível: sem dados suficientes para previsão de entrada."
+        top26_selective_status_override = status_override
+        top26_selective_error_message = error_message
+        if top26_selective_payload is None and top26_selective_status_override is None:
+            top26_selective_status_override = "unavailable"
+            top26_selective_error_message = "Top26 selective 16x4 indisponivel: descida não confirmada."
+        top26_selective_dynamic_status_override = status_override
+        top26_selective_dynamic_error_message = error_message
+        if top26_selective_dynamic_payload is None and top26_selective_dynamic_status_override is None:
+            top26_selective_dynamic_status_override = "unavailable"
+            top26_selective_dynamic_error_message = "Top26 selective dinâmico 16x4 indisponivel: descida não confirmada."
+        time_window_prior_event_doc = build_monitor_event_document(
             anchor_doc=history_doc,
-            simple_payload=temporal_blend_payload,
+            simple_payload=time_window_prior_payload,
             history_values=history_values,
-            config_key=self.temporal_blend_config_key,
-            ranking_variant="temporal_blend_v1",
+            config_key=self.time_window_prior_config_key,
+            ranking_variant="time_window_prior_v1",
             source_base_event_id=str(base_event_doc["_id"]),
             source_base_config_key=self.base_config_key,
+            ranking_source_variant="base_v1",
             suggestion_type="simple_http",
-            status_override=temporal_blend_status_override,
-            error_message=temporal_blend_error_message,
+            status_override=time_window_prior_status_override,
+            error_message=time_window_prior_error_message,
         )
-        selective_compact_event_doc = build_monitor_event_document(
+        ranking_v2_top26_event_doc = build_monitor_event_document(
             anchor_doc=history_doc,
-            simple_payload=selective_compact_payload,
+            simple_payload=ranking_v2_top26_payload,
             history_values=history_values,
-            config_key=self.selective_compact_config_key,
-            ranking_variant="oscillation_v4_selective_compact",
+            config_key=self.ranking_v2_top26_config_key,
+            ranking_variant="ranking_v2_top26",
             source_base_event_id=str(base_event_doc["_id"]),
             source_base_config_key=self.base_config_key,
+            ranking_source_variant="base_v1",
             suggestion_type="simple_http",
-            status_override=selective_compact_status_override,
-            error_message=selective_compact_error_message,
+            status_override=ranking_v2_top26_status_override,
+            error_message=ranking_v2_top26_error_message,
+        )
+        ml_meta_rank_event_doc = build_monitor_event_document(
+            anchor_doc=history_doc,
+            simple_payload=ml_meta_rank_payload,
+            history_values=history_values,
+            config_key=self.ml_meta_rank_config_key,
+            ranking_variant="ml_meta_rank_v1",
+            source_base_event_id=str(base_event_doc["_id"]),
+            source_base_config_key=self.base_config_key,
+            ranking_source_variant="base_v1",
+            suggestion_type="simple_http",
+            status_override=ml_meta_rank_status_override,
+            error_message=ml_meta_rank_error_message,
+        )
+        ml_top12_reference_event_doc = build_monitor_event_document(
+            anchor_doc=history_doc,
+            simple_payload=ml_top12_reference_payload,
+            history_values=history_values,
+            config_key=self.ml_top12_reference_config_key,
+            ranking_variant="ml_top12_reference_12x4_v1",
+            source_base_event_id=str(ml_meta_rank_event_doc["_id"]),
+            source_base_config_key=self.ml_meta_rank_config_key,
+            ranking_source_variant="ml_meta_rank_v1",
+            suggestion_type="simple_http",
+            status_override=ml_top12_reference_status_override,
+            error_message=ml_top12_reference_error_message,
+        )
+        ml_entry_gate_event_doc = build_monitor_event_document(
+            anchor_doc=history_doc,
+            simple_payload=ml_entry_gate_payload,
+            history_values=history_values,
+            config_key=self.ml_entry_gate_config_key,
+            ranking_variant="ml_entry_gate_12x4_v1",
+            source_base_event_id=str(ml_meta_rank_event_doc["_id"]),
+            source_base_config_key=self.ml_meta_rank_config_key,
+            ranking_source_variant="ml_meta_rank_v1",
+            suggestion_type="simple_http",
+            status_override=ml_entry_gate_status_override,
+            error_message=ml_entry_gate_error_message,
+        )
+        top26_selective_event_doc = build_monitor_event_document(
+            anchor_doc=history_doc,
+            simple_payload=top26_selective_payload,
+            history_values=history_values,
+            config_key=self.top26_selective_config_key,
+            ranking_variant="top26_selective_16x4_v1",
+            source_base_event_id=str(ranking_v2_top26_event_doc["_id"]),
+            source_base_config_key=self.ranking_v2_top26_config_key,
+            ranking_source_variant="ranking_v2_top26",
+            suggestion_type="simple_http",
+            status_override=top26_selective_status_override,
+            error_message=top26_selective_error_message,
+        )
+        top26_selective_dynamic_event_doc = build_monitor_event_document(
+            anchor_doc=history_doc,
+            simple_payload=top26_selective_dynamic_payload,
+            history_values=history_values,
+            config_key=self.top26_selective_dynamic_config_key,
+            ranking_variant="top26_selective_16x4_dynamic_v1",
+            source_base_event_id=str(ranking_v2_top26_event_doc["_id"]),
+            source_base_config_key=self.ranking_v2_top26_config_key,
+            ranking_source_variant="ranking_v2_top26",
+            suggestion_type="simple_http",
+            status_override=top26_selective_dynamic_status_override,
+            error_message=top26_selective_dynamic_error_message,
         )
 
         event_docs = [
             base_event_doc,
-            optimized_event_doc,
-            aggressive_event_doc,
-            selective_event_doc,
-            selective_protected_event_doc,
-            temporal_blend_event_doc,
-            selective_compact_event_doc,
+            time_window_prior_event_doc,
+            ranking_v2_top26_event_doc,
+            ml_meta_rank_event_doc,
+            ml_top12_reference_event_doc,
+            ml_entry_gate_event_doc,
+            top26_selective_event_doc,
+            top26_selective_dynamic_event_doc,
         ]
-        compact_hold = (
-            ((selective_compact_payload or {}).get("oscillation") or {}).get("compact_hold")
-            if isinstance(selective_compact_payload, Mapping)
-            else None
-        )
-        self.selective_compact_hold_state = dict(compact_hold) if isinstance(compact_hold, Mapping) else {}
         for event_doc in event_docs:
             pattern_docs = build_pattern_outcome_documents(event_doc)
             await asyncio.to_thread(self.repo.upsert_event, event_doc)
@@ -639,25 +902,29 @@ class SuggestionMonitorWorker:
             if event_doc.get("status") == "pending":
                 self.pending_events[str(event_doc["_id"])] = dict(event_doc)
 
+        self.last_generated_top26_event = dict(ranking_v2_top26_event_doc)
+
         logger.info(
-            "Suggestion monitor evento | numero=%s | timestamp=%s | resolvidas_agora=%d | base_status=%s | optimized_status=%s | aggressive_status=%s | selective_status=%s | selective_protected_status=%s | temporal_status=%s | compact_status=%s | base_size=%d | optimized_size=%d | aggressive_size=%d | selective_size=%d | selective_protected_size=%d | temporal_size=%d | compact_size=%d | pendencias=%d | detalhe=%s",
+            "Suggestion monitor evento | numero=%s | timestamp=%s | resolvidas_agora=%d | base_status=%s | time_window_status=%s | top26_status=%s | ml_status=%s | ml_ref_status=%s | ml_gate_status=%s | strategy_fixed_status=%s | strategy_dynamic_status=%s | base_size=%d | time_window_size=%d | top26_size=%d | ml_size=%d | ml_ref_size=%d | ml_gate_size=%d | strategy_fixed_size=%d | strategy_dynamic_size=%d | pendencias=%d | detalhe=%s",
             history_doc["value"],
             history_doc["history_timestamp_br"],
             resolved_now,
             base_event_doc.get("status"),
-            optimized_event_doc.get("status"),
-            aggressive_event_doc.get("status"),
-            selective_event_doc.get("status"),
-            selective_protected_event_doc.get("status"),
-            temporal_blend_event_doc.get("status"),
-            selective_compact_event_doc.get("status"),
+            time_window_prior_event_doc.get("status"),
+            ranking_v2_top26_event_doc.get("status"),
+            ml_meta_rank_event_doc.get("status"),
+            ml_top12_reference_event_doc.get("status"),
+            ml_entry_gate_event_doc.get("status"),
+            top26_selective_event_doc.get("status"),
+            top26_selective_dynamic_event_doc.get("status"),
             int(base_event_doc.get("suggestion_size") or 0),
-            int(optimized_event_doc.get("suggestion_size") or 0),
-            int(aggressive_event_doc.get("suggestion_size") or 0),
-            int(selective_event_doc.get("suggestion_size") or 0),
-            int(selective_protected_event_doc.get("suggestion_size") or 0),
-            int(temporal_blend_event_doc.get("suggestion_size") or 0),
-            int(selective_compact_event_doc.get("suggestion_size") or 0),
+            int(time_window_prior_event_doc.get("suggestion_size") or 0),
+            int(ranking_v2_top26_event_doc.get("suggestion_size") or 0),
+            int(ml_meta_rank_event_doc.get("suggestion_size") or 0),
+            int(ml_top12_reference_event_doc.get("suggestion_size") or 0),
+            int(ml_entry_gate_event_doc.get("suggestion_size") or 0),
+            int(top26_selective_event_doc.get("suggestion_size") or 0),
+            int(top26_selective_dynamic_event_doc.get("suggestion_size") or 0),
             len(self.pending_events),
             (
                 error_message
@@ -687,12 +954,23 @@ class SuggestionMonitorWorker:
             return
 
         for event_id, event_doc in list(self.pending_events.items()):
-            attempt_doc = build_attempt_document(event_doc, result_doc)
-            resolution_fields = build_event_resolution_fields(event_doc, attempt_doc)
-            pattern_resolution_docs = build_pattern_resolution_documents(event_doc, attempt_doc)
+            effective_event_doc = dict(event_doc)
+            follow_fields: Dict[str, Any] = {}
+            if str(event_doc.get("ranking_variant") or "").strip() == "top26_selective_16x4_dynamic_v1":
+                follow_fields = build_top26_dynamic_follow_fields(
+                    effective_event_doc,
+                    self.last_generated_top26_event,
+                )
+                if follow_fields:
+                    effective_event_doc.update(follow_fields)
+
+            attempt_doc = build_attempt_document(effective_event_doc, result_doc)
+            resolution_fields = dict(follow_fields)
+            resolution_fields.update(build_event_resolution_fields(effective_event_doc, attempt_doc))
+            pattern_resolution_docs = build_pattern_resolution_documents(effective_event_doc, attempt_doc)
             updated_event = await asyncio.to_thread(
                 self.repo.apply_attempt,
-                event_doc=event_doc,
+                event_doc=effective_event_doc,
                 attempt_doc=attempt_doc,
                 resolution_fields=resolution_fields,
                 pattern_resolution_docs=pattern_resolution_docs,
@@ -714,11 +992,44 @@ class SuggestionMonitorWorker:
                         event_key = str(item.get("_id") or "").strip()
                         if event_key and event_key not in deduped:
                             deduped[event_key] = item
-                    self.recent_resolved_base_events = list(deduped.values())[:8]
+                    self.recent_resolved_base_events = list(deduped.values())[: self.resolved_base_history_limit]
+                    self.dynamic_pattern_weights = self._compute_runtime_pattern_weights()
+                if str(updated_event.get("ranking_variant") or "") == "ranking_v2_top26":
+                    self.last_resolved_top26_event = dict(updated_event)
+                    self.recent_resolved_top26_events = [dict(updated_event), *self.recent_resolved_top26_events]
+                    deduped_top26: Dict[str, Dict[str, Any]] = {}
+                    for item in self.recent_resolved_top26_events:
+                        event_key = str(item.get("_id") or "").strip()
+                        if event_key and event_key not in deduped_top26:
+                            deduped_top26[event_key] = item
+                    self.recent_resolved_top26_events = list(deduped_top26.values())[: self.resolved_top26_history_limit]
+                if str(updated_event.get("ranking_variant") or "") == "ml_meta_rank_v1":
+                    self.ml_meta_rank_state = train_ml_meta_rank_state_from_resolved_event(
+                        self.ml_meta_rank_state,
+                        updated_event,
+                        roulette_id=self.roulette_id,
+                        config_key=self.ml_meta_rank_config_key,
+                    )
+                    await asyncio.to_thread(self.repo.save_model_state, self.ml_meta_rank_state)
+                    self.recent_resolved_ml_events = [dict(updated_event), *self.recent_resolved_ml_events]
+                    deduped_ml: Dict[str, Dict[str, Any]] = {}
+                    for item in self.recent_resolved_ml_events:
+                        event_key = str(item.get("_id") or "").strip()
+                        if event_key and event_key not in deduped_ml:
+                            deduped_ml[event_key] = item
+                    self.recent_resolved_ml_events = list(deduped_ml.values())[: self.resolved_ml_history_limit]
                 self.pending_events.pop(event_id, None)
             elif bool(updated_event.get("window_result_finalized")):
+                if str(updated_event.get("ranking_variant") or "").strip() == "ml_top12_reference_12x4_v1":
+                    self.ml_entry_gate_state = train_ml_entry_gate_state_from_reference_event(
+                        self.ml_entry_gate_state,
+                        updated_event,
+                        roulette_id=self.roulette_id,
+                        config_key=self.ml_entry_gate_config_key,
+                    )
+                    await asyncio.to_thread(self.repo.save_model_state, self.ml_entry_gate_state)
                 logger.info(
-                    "Suggestion monitor compact window | anchor=%s | outcome=%s | attempt=%s | event_id=%s",
+                    "Suggestion monitor strategy window | anchor=%s | outcome=%s | attempt=%s | event_id=%s",
                     event_doc.get("anchor_number"),
                     updated_event.get("window_result_status"),
                     updated_event.get("window_result_attempt"),
@@ -727,6 +1038,25 @@ class SuggestionMonitorWorker:
                 self.pending_events.pop(event_id, None)
             else:
                 self.pending_events[event_id] = updated_event
+
+    def _compute_runtime_pattern_weights(self) -> Dict[str, float]:
+        if not self.dynamic_weights_enabled:
+            return {}
+        summary = build_realtime_pattern_weights(
+            self.recent_resolved_base_events,
+            previous_weights=self.dynamic_pattern_weights,
+            lookback=self.dynamic_weights_lookback,
+            weight_floor=self.dynamic_weight_floor,
+            weight_ceil=self.dynamic_weight_ceil,
+            smoothing_alpha=self.dynamic_weight_smoothing,
+            sample_target=self.dynamic_weight_sample_target,
+            top_rank_bonus=self.dynamic_top_rank_bonus,
+        )
+        return {
+            str(pattern_id): float(weight)
+            for pattern_id, weight in dict(summary.get("weights") or {}).items()
+            if str(pattern_id).strip()
+        }
 
     async def _fetch_simple_suggestion(
         self,
@@ -738,6 +1068,34 @@ class SuggestionMonitorWorker:
             return None, "generation_error", "Sessao HTTP indisponivel."
 
         url = f"{self.base_url}{self.simple_path}"
+        runtime_dynamic_summary = (
+            build_realtime_pattern_weights(
+                self.recent_resolved_base_events,
+                previous_weights=self.dynamic_pattern_weights,
+                lookback=self.dynamic_weights_lookback,
+                weight_floor=self.dynamic_weight_floor,
+                weight_ceil=self.dynamic_weight_ceil,
+                smoothing_alpha=self.dynamic_weight_smoothing,
+                sample_target=self.dynamic_weight_sample_target,
+                top_rank_bonus=self.dynamic_top_rank_bonus,
+            )
+            if self.dynamic_weights_enabled
+            else {
+                "enabled": False,
+                "applied": False,
+                "weight_count": 0,
+                "weights": {},
+                "top_weights": [],
+                "details": {},
+            }
+        )
+        runtime_dynamic_weights = {
+            str(pattern_id): float(weight)
+            for pattern_id, weight in dict(runtime_dynamic_summary.get("weights") or {}).items()
+            if str(pattern_id).strip()
+        }
+        if runtime_dynamic_weights:
+            self.dynamic_pattern_weights = dict(runtime_dynamic_weights)
         payload = {
             "history": history_values,
             "focus_number": int(focus_number),
@@ -756,6 +1114,7 @@ class SuggestionMonitorWorker:
             "inversion_context_window": int(settings.suggestion_monitor_inversion_context_window),
             "inversion_penalty_factor": float(settings.suggestion_monitor_inversion_penalty_factor),
             "weight_profile_id": settings.suggestion_monitor_weight_profile_id,
+            "weight_profile_weights": runtime_dynamic_weights,
             "protected_mode_enabled": bool(settings.suggestion_monitor_protected_mode_enabled),
             "protected_suggestion_size": int(settings.suggestion_monitor_protected_suggestion_size),
             "protected_swap_enabled": bool(settings.suggestion_monitor_protected_swap_enabled),
@@ -780,6 +1139,33 @@ class SuggestionMonitorWorker:
                     return None, "generation_error", f"Resposta JSON invalida da API simple-suggestion em {url}."
                 if not isinstance(data, dict):
                     return None, "generation_error", f"Resposta inesperada da API simple-suggestion em {url}."
+                data = dict(data)
+                data["dynamic_weighting"] = {
+                    "enabled": bool(runtime_dynamic_summary.get("enabled", False)),
+                    "applied": bool(runtime_dynamic_summary.get("applied", False)),
+                    "weight_count": int(runtime_dynamic_summary.get("weight_count", 0) or 0),
+                    "weights": {
+                        str(pattern_id): float(weight)
+                        for pattern_id, weight in dict(runtime_dynamic_summary.get("weights") or {}).items()
+                        if str(pattern_id).strip()
+                    },
+                    "top_weights": [
+                        item
+                        for item in (runtime_dynamic_summary.get("top_weights") or [])
+                        if isinstance(item, Mapping)
+                    ],
+                    "details": {
+                        str(pattern_id): dict(detail)
+                        for pattern_id, detail in dict(runtime_dynamic_summary.get("details") or {}).items()
+                        if str(pattern_id).strip() and isinstance(detail, Mapping)
+                    },
+                }
+                logger.info(
+                    "Suggestion monitor dynamic weights | applied=%s | count=%d | top=%s",
+                    data["dynamic_weighting"]["applied"],
+                    data["dynamic_weighting"]["weight_count"],
+                    data["dynamic_weighting"]["top_weights"][:3],
+                )
                 return data, None, None
         except asyncio.TimeoutError:
             return None, "generation_error", f"Timeout ao consultar simple-suggestion em {url}."

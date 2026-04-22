@@ -1,0 +1,26 @@
+{
+  "id": "maquina_mortifera_sector_memory",
+  "name": "Maquina Mortifera - Memoria Setorial",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 78,
+  "weight": 2.85,
+  "evaluator": "maquina_mortifera_sector_memory",
+  "max_numbers": 13,
+  "params": {
+    "min_history": 60,
+    "history_window": 200,
+    "required_occurrences": 4,
+    "context_window": 4,
+    "min_gap_between_occurrences": 4,
+    "min_context_matches": 3,
+    "interval_window": 30,
+    "interval_tolerance": 2.0,
+    "include_zero": true,
+    "region_base_score": 1.0,
+    "context_bonus_per_match": 0.18,
+    "sync_bonus": 0.35,
+    "zero_score_ratio": 0.82
+  }
+}

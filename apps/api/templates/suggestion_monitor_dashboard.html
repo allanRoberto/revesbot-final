@@ -162,6 +162,21 @@
       font-size: 0.9rem;
     }
 
+    .delta-positive {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .delta-negative {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .delta-neutral {
+      color: var(--warning);
+      font-weight: 700;
+    }
+
     .layout {
       display: grid;
       grid-template-columns: 1.2fr 0.8fr;
@@ -563,7 +578,7 @@
       </div>
       <div class="toolbar-actions">
         <button class="btn btn-primary" id="refreshBtn">Atualizar</button>
-        <button class="btn btn-secondary" id="toggleAutoBtn">Auto refresh: desligado</button>
+        <button class="btn btn-secondary" id="toggleAutoBtn">Tempo real: desligado</button>
         <button class="btn btn-danger" id="resetBtn">Zerar Base</button>
       </div>
     </section>
@@ -587,69 +602,44 @@
         <div class="metric-subtext" id="metricFirstHitLabel">Base canônica</div>
       </div>
       <div class="card">
-        <div class="metric-label">Hit de Primeira Otimizado</div>
-        <div class="metric-value" id="metricOptimizedFirstHitRate">0%</div>
-        <div class="metric-subtext" id="metricOptimizedFirstHitLabel">Oscillation v1</div>
-      </div>
-      <div class="card">
         <div class="metric-label">Rank Médio Bruto</div>
         <div class="metric-value" id="metricBaseRankAverage">0.00</div>
         <div class="metric-subtext">Posição média da timeline</div>
       </div>
       <div class="card">
-        <div class="metric-label">Rank Médio Otimizado</div>
-        <div class="metric-value" id="metricOptimizedRankAverage">0.00</div>
+        <div class="metric-label">Hit@26 Ranking V2 Top26</div>
+        <div class="metric-value" id="metricTop26HitAt26">0%</div>
+        <div class="metric-subtext">Meta principal até a 26ª posição</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">MRR Ranking V2 Top26</div>
+        <div class="metric-value" id="metricTop26Mrr">0.0000</div>
+        <div class="metric-subtext">Mean reciprocal rank</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Rank Médio Ranking V2</div>
+        <div class="metric-value" id="metricTop26MeanRank">0.00</div>
         <div class="metric-subtext">Posição média da timeline</div>
       </div>
       <div class="card">
-        <div class="metric-label">Hit de Primeira Agressivo</div>
-        <div class="metric-value" id="metricAggressiveFirstHitRate">0%</div>
-        <div class="metric-subtext" id="metricAggressiveFirstHitLabel">Oscillation v2 aggressive</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Rank Médio Agressivo</div>
-        <div class="metric-value" id="metricAggressiveRankAverage">0.00</div>
-        <div class="metric-subtext">Posição média da timeline</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Hit de Primeira Seletivo</div>
-        <div class="metric-value" id="metricSelectiveFirstHitRate">0%</div>
-        <div class="metric-subtext" id="metricSelectiveFirstHitLabel">Oscillation v3 selective</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Rank Médio Seletivo</div>
-        <div class="metric-value" id="metricSelectiveRankAverage">0.00</div>
-        <div class="metric-subtext">Posição média da timeline</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Hit de Primeira Seletivo com Proteção</div>
-        <div class="metric-value" id="metricSelectiveProtectedFirstHitRate">0%</div>
-        <div class="metric-subtext" id="metricSelectiveProtectedFirstHitLabel">Oscillation v3 selective protected</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Rank Médio Seletivo com Proteção</div>
-        <div class="metric-value" id="metricSelectiveProtectedRankAverage">0.00</div>
-        <div class="metric-subtext">Posição média da timeline</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Hit de Primeira Temporal Blend</div>
-        <div class="metric-value" id="metricTemporalBlendFirstHitRate">0%</div>
-        <div class="metric-subtext" id="metricTemporalBlendFirstHitLabel">Temporal blend v1</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Rank Médio Temporal Blend</div>
-        <div class="metric-value" id="metricTemporalBlendRankAverage">0.00</div>
-        <div class="metric-subtext">Posição média da timeline</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Hit em 3 Rodadas Compacto</div>
+        <div class="metric-label">Hit em 4 Tentativas Estratégia 16</div>
         <div class="metric-value" id="metricCompactHitRate">0%</div>
-        <div class="metric-subtext" id="metricCompactHitLabel">Oscillation v4 selective compact</div>
+        <div class="metric-subtext" id="metricCompactHitLabel">Top26 selective 14x4</div>
       </div>
       <div class="card">
-        <div class="metric-label">Finalizados Compacto</div>
+        <div class="metric-label">Finalizados Estratégia 16</div>
         <div class="metric-value" id="metricCompactFinalized">0</div>
-        <div class="metric-subtext">Janela de 3 rodadas</div>
+        <div class="metric-subtext">Janela operacional de 4 tentativas</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Hit em 4 Tentativas Estratégia 14 Dinâmica</div>
+        <div class="metric-value" id="metricDynamicHitRate">0%</div>
+        <div class="metric-subtext" id="metricDynamicHitLabel">Troca o ranking a cada tentativa</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Finalizados Estratégia 14 Dinâmica</div>
+        <div class="metric-value" id="metricDynamicFinalized">0</div>
+        <div class="metric-subtext">Comparação contra o modo fixo</div>
       </div>
       <div class="card">
         <div class="metric-label">Streak Atual</div>
@@ -736,11 +726,11 @@
     </section>
 
     <section class="table-card timeline-card">
-      <h2>Timeline de Posição do Acerto Ranking Otimizado</h2>
+      <h2>Timeline de Posição do Acerto Ranking V2 Top26</h2>
       <div class="timeline-meta">
-        <span id="optimizedRankTimelineResolvedMeta">0 resolvidos</span>
-        <span id="optimizedRankTimelineDisplayedMeta">0 pontos exibidos</span>
-        <span id="optimizedRankTimelineAverageMeta">posição média 0.00</span>
+        <span id="top26RankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="top26RankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="top26RankTimelineAverageMeta">posição média 0.00</span>
       </div>
       <div class="timeline-legend">
         <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
@@ -748,19 +738,19 @@
         <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
       </div>
       <div class="timeline-chart-wrap">
-        <div class="timeline-chart" id="optimizedRankTimelineChart"></div>
+        <div class="timeline-chart" id="top26RankTimelineChart"></div>
       </div>
       <div class="timeline-note">
-        Esta linha mostra o `oscillation_v1`, derivado apenas do histórico do ranking bruto resolvido, sem retroalimentar a própria otimização.
+        Esta linha mostra o `ranking_v2_top26`: ele preserva os 37 números da lista, mas reranqueia o bloco dos 26 melhores candidatos usando score atual dos patterns, memória temporal das sugestões, memória dos resultados reais da roda, persistência regional e penalidade de volatilidade.
       </div>
     </section>
 
     <section class="table-card timeline-card">
-      <h2>Timeline de Posição do Acerto Ranking Agressivo</h2>
+      <h2>Timeline de Posição do Acerto Prior Temporal por Horário</h2>
       <div class="timeline-meta">
-        <span id="aggressiveRankTimelineResolvedMeta">0 resolvidos</span>
-        <span id="aggressiveRankTimelineDisplayedMeta">0 pontos exibidos</span>
-        <span id="aggressiveRankTimelineAverageMeta">posição média 0.00</span>
+        <span id="timeWindowRankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="timeWindowRankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="timeWindowRankTimelineAverageMeta">posição média 0.00</span>
       </div>
       <div class="timeline-legend">
         <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
@@ -768,19 +758,19 @@
         <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
       </div>
       <div class="timeline-chart-wrap">
-        <div class="timeline-chart" id="aggressiveRankTimelineChart"></div>
+        <div class="timeline-chart" id="timeWindowRankTimelineChart"></div>
       </div>
       <div class="timeline-note">
-        Esta linha mostra o `oscillation_v2_aggressive`, com viés mais forte por blocos, deslocamento maior e menor preservação da ordem original para comparação visual.
+        Esta linha aplica um prior temporal usando os dias recentes na mesma janela horária do giro atual, com ±2 minutos e reforço regional de ±2 vizinhos na roda, para reranquear a sugestão atual da API.
       </div>
     </section>
 
     <section class="table-card timeline-card">
-      <h2>Timeline de Posição do Acerto Ranking Seletivo</h2>
+      <h2>Timeline de Posição do Acerto ML Meta Rank</h2>
       <div class="timeline-meta">
-        <span id="selectiveRankTimelineResolvedMeta">0 resolvidos</span>
-        <span id="selectiveRankTimelineDisplayedMeta">0 pontos exibidos</span>
-        <span id="selectiveRankTimelineAverageMeta">posição média 0.00</span>
+        <span id="mlMetaRankTimelineResolvedMeta">0 resolvidos</span>
+        <span id="mlMetaRankTimelineDisplayedMeta">0 pontos exibidos</span>
+        <span id="mlMetaRankTimelineAverageMeta">posição média 0.00</span>
       </div>
       <div class="timeline-legend">
         <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
@@ -788,69 +778,142 @@
         <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
       </div>
       <div class="timeline-chart-wrap">
-        <div class="timeline-chart" id="selectiveRankTimelineChart"></div>
+        <div class="timeline-chart" id="mlMetaRankTimelineChart"></div>
       </div>
       <div class="timeline-note">
-        Esta linha mostra o `oscillation_v3_selective`: ele só sugere quando detecta extremidade e tendência confiáveis no ranking bruto; fora disso, fica sem entrada.
+        Esta linha usa um meta-ranker online treinado a cada giro resolvido. Ele combina score atual dos patterns, pesos dinâmicos, confiança contextual, prior temporal por horário, reranking top26 e contexto regional recente da roda para reranquear os 37 números.
       </div>
     </section>
 
     <section class="table-card timeline-card">
-      <h2>Timeline de Posição do Acerto Ranking Seletivo com Proteção</h2>
+      <h2>Timeline de Hit ou Miss ML Top12 Referência 12x4</h2>
       <div class="timeline-meta">
-        <span id="selectiveProtectedRankTimelineResolvedMeta">0 resolvidos</span>
-        <span id="selectiveProtectedRankTimelineDisplayedMeta">0 pontos exibidos</span>
-        <span id="selectiveProtectedRankTimelineAverageMeta">posição média 0.00</span>
+        <span id="mlReferenceOutcomeFinalizedMeta">0 finalizados</span>
+        <span id="mlReferenceOutcomeDisplayedMeta">0 pontos exibidos</span>
+        <span id="mlReferenceOutcomeHitRateMeta">taxa de hit 0.00%</span>
       </div>
+      <div class="suggestion-numbers" id="mlReferenceOutcomeAttemptBreakdown" style="margin-top:10px;"></div>
       <div class="timeline-legend">
-        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>2º tiro</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>Hit até 4 rodadas</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>Miss na janela de 4 rodadas</span>
       </div>
       <div class="timeline-chart-wrap">
-        <div class="timeline-chart" id="selectiveProtectedRankTimelineChart"></div>
+        <div class="timeline-chart" id="mlReferenceOutcomeTimelineChart"></div>
+      </div>
+      <div class="table-scroll" style="margin-top:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Âncora</th>
+              <th>Desfecho</th>
+              <th>Posição Paga</th>
+              <th>Números Sugeridos</th>
+            </tr>
+          </thead>
+          <tbody id="mlReferenceOutcomeSuggestionsBody"></tbody>
+        </table>
       </div>
       <div class="timeline-note">
-        Esta linha mostra o `oscillation_v3_selective_protected`: mantém a leitura seletiva de reversão, mas preserva alguns números de proteção no mesmo lado quando o bruto tende a travar na extremidade.
+        Estratégia de referência do gate: sempre entra com os 12 primeiros números do `ml_meta_rank_v1` e fecha em hit ou miss dentro de 4 tentativas. Ela serve como linha-base para treinar e comparar o modelo de decisão de entrada.
       </div>
     </section>
 
     <section class="table-card timeline-card">
-      <h2>Timeline de Posição do Acerto Ranking Temporal Blend</h2>
+      <h2>Timeline de Hit ou Miss ML Entry Gate 12x4</h2>
       <div class="timeline-meta">
-        <span id="temporalBlendRankTimelineResolvedMeta">0 resolvidos</span>
-        <span id="temporalBlendRankTimelineDisplayedMeta">0 pontos exibidos</span>
-        <span id="temporalBlendRankTimelineAverageMeta">posição média 0.00</span>
+        <span id="mlGateOutcomeFinalizedMeta">0 finalizados</span>
+        <span id="mlGateOutcomeDisplayedMeta">0 pontos exibidos</span>
+        <span id="mlGateOutcomeHitRateMeta">taxa de hit 0.00%</span>
       </div>
+      <div class="suggestion-numbers" id="mlGateOutcomeAttemptBreakdown" style="margin-top:10px;"></div>
       <div class="timeline-legend">
-        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>1º tiro</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>2º tiro</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>3º tiro ou mais</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>Hit até 4 rodadas</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>Miss na janela de 4 rodadas</span>
       </div>
       <div class="timeline-chart-wrap">
-        <div class="timeline-chart" id="temporalBlendRankTimelineChart"></div>
+        <div class="timeline-chart" id="mlGateOutcomeTimelineChart"></div>
+      </div>
+      <div class="table-scroll" style="margin-top:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Âncora</th>
+              <th>Desfecho</th>
+              <th>Posição Paga</th>
+              <th>Números Sugeridos</th>
+            </tr>
+          </thead>
+          <tbody id="mlGateOutcomeSuggestionsBody"></tbody>
+        </table>
       </div>
       <div class="timeline-note">
-        Esta linha mostra o `temporal_blend_v1`: ele mistura score atual da API, memória das sugestões anteriores resolvidas, memória dos resultados recentes da roleta por distância na roda e um termo de estabilidade para reduzir mudanças bruscas de ordenação.
+        Gate operacional treinado online a partir da referência `ML Top12 12x4`. Ele decide `entrar` ou `aguardar` antes da janela operacional, usando o contexto recente do zigzag, confiança contextual, distribuição do top 12 do meta rank e sinais temporais/regionais.
       </div>
     </section>
 
     <section class="table-card timeline-card">
-      <h2>Timeline de Hit ou Miss Compacto em 3 Rodadas</h2>
+      <h2>Timeline de Hit ou Miss Estratégia Top26 Descida 14x4</h2>
       <div class="timeline-meta">
         <span id="compactOutcomeFinalizedMeta">0 finalizados</span>
         <span id="compactOutcomeDisplayedMeta">0 pontos exibidos</span>
         <span id="compactOutcomeHitRateMeta">taxa de hit 0.00%</span>
       </div>
+      <div class="suggestion-numbers" id="compactOutcomeAttemptBreakdown" style="margin-top:10px;"></div>
       <div class="timeline-legend">
-        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>Hit até 3 rodadas</span>
-        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>Miss na janela de 3 rodadas</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>Hit até 4 rodadas</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>Miss na janela de 4 rodadas</span>
       </div>
       <div class="timeline-chart-wrap">
         <div class="timeline-chart" id="compactOutcomeTimelineChart"></div>
       </div>
+      <div class="table-scroll" style="margin-top:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Âncora</th>
+              <th>Desfecho</th>
+              <th>Posição Paga</th>
+              <th>Números Sugeridos</th>
+            </tr>
+          </thead>
+          <tbody id="compactOutcomeSuggestionsBody"></tbody>
+        </table>
+      </div>
       <div class="timeline-note">
-        Aqui não importa a posição do ranking. O gráfico mostra apenas se a `oscillation_v4_selective_compact` acertou ou não dentro da janela fixa de 3 rodadas usando 18 números.
+        Esta estratégia lê apenas o comportamento do `ranking_v2_top26`. Quando a linha confirma uma descida para a faixa baixa, ela entra no próximo giro com os 14 primeiros números do ranking atual. Se o rank recente cair no meio, ela espera. O gráfico mostra apenas hit ou miss dentro de 4 tentativas.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Timeline de Hit ou Miss Estratégia Top26 Descida 14x4 Dinâmica</h2>
+      <div class="timeline-meta">
+        <span id="dynamicOutcomeFinalizedMeta">0 finalizados</span>
+        <span id="dynamicOutcomeDisplayedMeta">0 pontos exibidos</span>
+        <span id="dynamicOutcomeHitRateMeta">taxa de hit 0.00%</span>
+      </div>
+      <div class="suggestion-numbers" id="dynamicOutcomeAttemptBreakdown" style="margin-top:10px;"></div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>Hit até 4 rodadas</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>Miss na janela de 4 rodadas</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="dynamicOutcomeTimelineChart"></div>
+      </div>
+      <div class="table-scroll" style="margin-top:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Âncora</th>
+              <th>Desfecho</th>
+              <th>Posição Paga</th>
+              <th>Números Sugeridos</th>
+            </tr>
+          </thead>
+          <tbody id="dynamicOutcomeSuggestionsBody"></tbody>
+        </table>
+      </div>
+      <div class="timeline-note">
+        Esta variante usa o mesmo gatilho de descida do `ranking_v2_top26`, mas troca a lista ativa a cada tentativa para seguir o ranking mais recente. Assim dá para comparar diretamente se insistir na primeira lista é melhor do que acompanhar a evolução do ranking.
       </div>
     </section>
 
@@ -864,7 +927,7 @@
               <th>Desfecho</th>
               <th>Shadow</th>
               <th>Sugestão Base</th>
-              <th>Sugestão Otimizada</th>
+              <th>Sugestão V2 Top26</th>
               <th>Resumo</th>
             </tr>
           </thead>
@@ -882,11 +945,16 @@
 
     <section class="table-card">
       <h2>Patterns Mais Promissores</h2>
+      <div class="muted" id="patternsWeightMeta" style="margin-bottom:12px;">Pesos dinâmicos aguardando dados.</div>
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
               <th>Pattern</th>
+              <th>Peso</th>
+              <th>Δ Peso</th>
+              <th>Topo</th>
+              <th>Fundo</th>
               <th>Sinais</th>
               <th>Hits Cobertos</th>
               <th>Taxa de Cobertura</th>
@@ -904,6 +972,14 @@
     const state = {
       autoRefresh: false,
       timerId: null,
+      ws: null,
+      wsReconnectTimerId: null,
+      wsRefreshTimerId: null,
+      wsConnected: false,
+      wsConnectionState: "off",
+      refreshPromise: null,
+      refreshQueued: false,
+      optimisticLatestEvent: null,
       currentPage: 1,
       totalPages: 1,
     };
@@ -953,6 +1029,236 @@
         start_hour: qs("startHour").value || "",
         end_hour: qs("endHour").value || "",
       };
+    }
+
+    function getSelectedRouletteId() {
+      return qs("rouletteId").value.trim() || "pragmatic-auto-roulette";
+    }
+
+    function buildRealtimeWsUrl() {
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const params = new URLSearchParams();
+      params.set("channel", "new_result");
+      return `${wsProtocol}//${window.location.host}/ws?${params.toString()}`;
+    }
+
+    function updateRealtimeButton() {
+      const button = qs("toggleAutoBtn");
+      if (!button) return;
+      if (!state.autoRefresh) {
+        button.textContent = "Tempo real: desligado";
+        return;
+      }
+      if (state.wsConnectionState === "connected") {
+        button.textContent = "Tempo real: ligado";
+        return;
+      }
+      if (state.wsConnectionState === "connecting") {
+        button.textContent = "Tempo real: conectando";
+        return;
+      }
+      button.textContent = "Tempo real: reconectando";
+    }
+
+    function clearRealtimeTimers() {
+      if (state.wsReconnectTimerId) {
+        clearTimeout(state.wsReconnectTimerId);
+        state.wsReconnectTimerId = null;
+      }
+      if (state.wsRefreshTimerId) {
+        clearTimeout(state.wsRefreshTimerId);
+        state.wsRefreshTimerId = null;
+      }
+    }
+
+    function disconnectRealtimeSocket() {
+      clearRealtimeTimers();
+      if (state.ws) {
+        try {
+          state.ws.onopen = null;
+          state.ws.onmessage = null;
+          state.ws.onerror = null;
+          state.ws.onclose = null;
+          state.ws.close();
+        } catch (error) {
+          console.error("Erro ao fechar websocket do suggestion-monitor", error);
+        }
+      }
+      state.ws = null;
+      state.wsConnected = false;
+      state.wsConnectionState = state.autoRefresh ? "reconnecting" : "off";
+      updateRealtimeButton();
+    }
+
+    function scheduleRealtimeReconnect() {
+      if (!state.autoRefresh || state.wsReconnectTimerId) return;
+      state.wsConnectionState = "reconnecting";
+      updateRealtimeButton();
+      state.wsReconnectTimerId = setTimeout(() => {
+        state.wsReconnectTimerId = null;
+        connectRealtimeSocket();
+      }, 3000);
+    }
+
+    function scheduleRealtimeDashboardRefresh(eventPayload = {}) {
+      if (!state.autoRefresh) return;
+      const eventNumber = Number(eventPayload.result);
+      const rouletteId = String(eventPayload.slug || eventPayload.roulette_id || "").trim();
+      const selectedRoulette = getSelectedRouletteId();
+      if (rouletteId !== selectedRoulette) return;
+      const expectedHistoryId = String(
+        eventPayload?.full_result?._id
+        || eventPayload?.history_id
+        || eventPayload?.result_id
+        || ""
+      ).trim();
+      const anchorTimestampBr = String(
+        eventPayload?.full_result?.timestamp_br
+        || eventPayload?.full_result?.formatted
+        || eventPayload?.timestamp_br
+        || ""
+      ).trim();
+
+      state.optimisticLatestEvent = {
+        id: expectedHistoryId || `optimistic:${rouletteId}:${Date.now()}:${eventNumber}`,
+        anchor_history_id: expectedHistoryId,
+        anchor_number: Number.isInteger(eventNumber) ? eventNumber : null,
+        anchor_timestamp_br: anchorTimestampBr || new Date().toLocaleString("pt-BR"),
+        status: "pending",
+        outcome_label: "Processando",
+        summary: "Resultado recebido em tempo real. Aguardando o worker persistir o evento monitorado.",
+        suggestion_size: 0,
+        suggestion_preview: [],
+        attempts_elapsed: 0,
+        resolved_attempt: null,
+        resolved_number: null,
+        resolved_rank_position: null,
+        resolved_timestamp_br: "",
+        pattern_count: 0,
+        top_support_count: 0,
+        shadow_action: "wait",
+        shadow_label: "Aguardando",
+        shadow_reason: "Aguardando processamento do worker.",
+        shadow_confidence_base_score: 0,
+        shadow_confidence_score: 0,
+        shadow_confidence_delta: 0,
+        shadow_rank_context_band: "",
+        shadow_p_hit_1: 0,
+        shadow_late_hit_risk: 0,
+        shadow_ev: 0,
+        generation_error: "",
+        explanation: "Processando novo resultado em tempo real.",
+        optimized: {
+          available: false,
+          status: "pending",
+          suggestion_preview: [],
+          suggestion_size: 0,
+          oscillation_mode: "",
+          oscillation_reference_rank: null,
+          explanation: "Aguardando processamento do worker.",
+        },
+        is_optimistic: true,
+      };
+
+      clearTimeout(state.wsRefreshTimerId);
+
+      state.wsRefreshTimerId = setTimeout(() => {
+        state.wsRefreshTimerId = null;
+        syncDashboardToResult({
+          expectedHistoryId,
+          expectedNumber: eventNumber,
+          attemptsLeft: 10,
+          retryDelayMs: 700,
+        }).catch((error) => {
+          console.error("suggestion-monitor realtime refresh error", error);
+        });
+      }, 350);
+
+      if (Number.isInteger(eventNumber)) {
+        setStatus(
+          `Novo resultado ${eventNumber} recebido para ${selectedRoulette}. Atualizando dashboard...`,
+          "success"
+        );
+      }
+    }
+
+    function connectRealtimeSocket() {
+      if (!state.autoRefresh) return;
+
+      disconnectRealtimeSocket();
+      state.wsConnectionState = "connecting";
+      updateRealtimeButton();
+
+      const socket = new WebSocket(buildRealtimeWsUrl());
+      state.ws = socket;
+
+      socket.onopen = () => {
+        state.wsConnected = true;
+        state.wsConnectionState = "connected";
+        updateRealtimeButton();
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          scheduleRealtimeDashboardRefresh(payload);
+        } catch (error) {
+          console.error("Erro ao processar websocket do suggestion-monitor", error);
+        }
+      };
+
+      socket.onerror = (error) => {
+        console.error("WebSocket do suggestion-monitor falhou", error);
+      };
+
+      socket.onclose = () => {
+        state.wsConnected = false;
+        state.ws = null;
+        if (!state.autoRefresh) {
+          state.wsConnectionState = "off";
+          updateRealtimeButton();
+          return;
+        }
+        scheduleRealtimeReconnect();
+      };
+    }
+
+    async function syncDashboardToResult({
+      expectedHistoryId = "",
+      expectedNumber = null,
+      attemptsLeft = 8,
+      retryDelayMs = 700,
+    } = {}) {
+      const snapshot = await refreshDashboard();
+      const latestItems = Array.isArray(snapshot?.latest?.items) ? snapshot.latest.items : [];
+      const topItem = latestItems.length ? latestItems[0] : null;
+      const topHistoryId = String(topItem?.anchor_history_id || "").trim();
+      const topNumber = Number(topItem?.anchor_number);
+
+      const matched = expectedHistoryId
+        ? topHistoryId === expectedHistoryId
+        : (Number.isInteger(expectedNumber) && Number.isInteger(topNumber) && topNumber === expectedNumber);
+
+      if (matched || attemptsLeft <= 1) {
+        if (matched) {
+          state.optimisticLatestEvent = null;
+        }
+        return snapshot;
+      }
+
+      await new Promise((resolve) => {
+        state.wsRefreshTimerId = setTimeout(() => {
+          state.wsRefreshTimerId = null;
+          resolve();
+        }, retryDelayMs);
+      });
+
+      return syncDashboardToResult({
+        expectedHistoryId,
+        expectedNumber,
+        attemptsLeft: attemptsLeft - 1,
+        retryDelayMs,
+      });
     }
 
     function populateHourSelect(selectId) {
@@ -1054,31 +1360,22 @@
       return response.json();
     }
 
-    function renderOverview(baseOverview, baseStreaks, baseTimeline, optimizedOverview, optimizedTimeline, aggressiveOverview, aggressiveTimeline, selectiveOverview, selectiveTimeline, selectiveProtectedOverview, selectiveProtectedTimeline, temporalBlendOverview, temporalBlendTimeline, compactOutcomeTimeline) {
+    function renderOverview(baseOverview, baseStreaks, baseTimeline, top26Timeline, top26Metrics, compactOutcomeTimeline, dynamicOutcomeTimeline) {
       qs("metricTotal").textContent = baseOverview.total_events || 0;
       qs("metricUnavailable").textContent = `${baseOverview.unavailable_events || 0} indisponíveis`;
       qs("metricPending").textContent = baseOverview.pending_events || 0;
       qs("metricResolved").textContent = `${baseOverview.resolved_events || 0} resolvidos`;
       qs("metricFirstHitRate").textContent = formatPct(baseOverview.hit_first_attempt_rate || 0);
-      qs("metricOptimizedFirstHitRate").textContent = formatPct(optimizedOverview.hit_first_attempt_rate || 0);
-      qs("metricOptimizedFirstHitLabel").textContent = `${optimizedOverview.resolved_events || 0} resolvidos`;
-      qs("metricAggressiveFirstHitRate").textContent = formatPct(aggressiveOverview.hit_first_attempt_rate || 0);
-      qs("metricAggressiveFirstHitLabel").textContent = `${aggressiveOverview.resolved_events || 0} resolvidos`;
-      qs("metricSelectiveFirstHitRate").textContent = formatPct(selectiveOverview.hit_first_attempt_rate || 0);
-      qs("metricSelectiveFirstHitLabel").textContent = `${selectiveOverview.resolved_events || 0} resolvidos`;
-      qs("metricSelectiveProtectedFirstHitRate").textContent = formatPct(selectiveProtectedOverview.hit_first_attempt_rate || 0);
-      qs("metricSelectiveProtectedFirstHitLabel").textContent = `${selectiveProtectedOverview.resolved_events || 0} resolvidos`;
-      qs("metricTemporalBlendFirstHitRate").textContent = formatPct(temporalBlendOverview.hit_first_attempt_rate || 0);
-      qs("metricTemporalBlendFirstHitLabel").textContent = `${temporalBlendOverview.resolved_events || 0} resolvidos`;
+      qs("metricTop26HitAt26").textContent = formatPct(top26Metrics?.hit_at_26 || 0);
+      qs("metricTop26Mrr").textContent = Number(top26Metrics?.mrr || 0).toFixed(4);
+      qs("metricTop26MeanRank").textContent = Number(top26Metrics?.mean_rank || top26Timeline?.average_rank_position || 0).toFixed(2);
       qs("metricCompactHitRate").textContent = formatPct(compactOutcomeTimeline?.hit_rate || 0);
       qs("metricCompactHitLabel").textContent = `${compactOutcomeTimeline?.total_hits || 0} hits em ${compactOutcomeTimeline?.total_finalized || 0} janelas`;
       qs("metricBaseRankAverage").textContent = Number(baseTimeline?.average_rank_position || 0).toFixed(2);
-      qs("metricOptimizedRankAverage").textContent = Number(optimizedTimeline?.average_rank_position || 0).toFixed(2);
-      qs("metricAggressiveRankAverage").textContent = Number(aggressiveTimeline?.average_rank_position || 0).toFixed(2);
-      qs("metricSelectiveRankAverage").textContent = Number(selectiveTimeline?.average_rank_position || 0).toFixed(2);
-      qs("metricSelectiveProtectedRankAverage").textContent = Number(selectiveProtectedTimeline?.average_rank_position || 0).toFixed(2);
-      qs("metricTemporalBlendRankAverage").textContent = Number(temporalBlendTimeline?.average_rank_position || 0).toFixed(2);
       qs("metricCompactFinalized").textContent = Number(compactOutcomeTimeline?.total_finalized || 0);
+      qs("metricDynamicHitRate").textContent = formatPct(dynamicOutcomeTimeline?.hit_rate || 0);
+      qs("metricDynamicHitLabel").textContent = `${dynamicOutcomeTimeline?.total_hits || 0} hits em ${dynamicOutcomeTimeline?.total_finalized || 0} janelas`;
+      qs("metricDynamicFinalized").textContent = Number(dynamicOutcomeTimeline?.total_finalized || 0);
       qs("metricCurrentStreak").textContent = baseStreaks.current_first_hit_streak || 0;
       qs("metricMaxStreak").textContent = `Máxima histórica: ${baseStreaks.max_first_hit_streak || 0}`;
       qs("metricCurrentUnpaidStreak").textContent = baseStreaks.current_unpaid_streak || 0;
@@ -1253,9 +1550,12 @@
       `;
     }
 
-    function renderCompactOutcomeTimeline(outcomeTimeline) {
-      const container = qs("compactOutcomeTimelineChart");
+    function renderWindowOutcomeTimeline(outcomeTimeline, target) {
+      const container = qs(target.chartId);
+      const suggestionsBody = qs(target.suggestionsBodyId);
+      const attemptBreakdownNode = qs(target.attemptBreakdownId);
       const items = Array.isArray(outcomeTimeline?.items) ? outcomeTimeline.items : [];
+      const pendingItems = Array.isArray(outcomeTimeline?.pending_items) ? outcomeTimeline.pending_items : [];
       const totalFinalized = Number(outcomeTimeline?.total_finalized || 0);
       const displayedPoints = Number(outcomeTimeline?.displayed_points || items.length || 0);
       const hitRate = Number(outcomeTimeline?.hit_rate || 0);
@@ -1264,15 +1564,26 @@
       const pendingEvents = Number(outcomeTimeline?.pending_events || 0);
       const unavailableEvents = Number(outcomeTimeline?.unavailable_events || 0);
 
-      qs("compactOutcomeFinalizedMeta").textContent = `${totalFinalized} finalizados filtrados`;
-      qs("compactOutcomeDisplayedMeta").textContent = truncated
+      qs(target.finalizedMetaId).textContent = `${totalFinalized} finalizados filtrados`;
+      qs(target.displayedMetaId).textContent = truncated
         ? `${displayedPoints} últimos pontos exibidos`
         : `${displayedPoints} pontos exibidos`;
-      qs("compactOutcomeHitRateMeta").textContent = `taxa de hit ${formatPct(hitRate)}`;
+      qs(target.hitRateMetaId).textContent = `taxa de hit ${formatPct(hitRate)}`;
+      const hitsByAttempt = outcomeTimeline?.hits_by_attempt && typeof outcomeTimeline.hits_by_attempt === "object"
+        ? outcomeTimeline.hits_by_attempt
+        : {};
+      if (attemptBreakdownNode) {
+        attemptBreakdownNode.innerHTML = ["1", "2", "3", "4"].map((attempt) => {
+          const count = Number(hitsByAttempt[attempt] || 0);
+          return `<span class="badge ${count > 0 ? "badge-success" : "badge-muted"}">${attempt}ª: ${count}</span>`;
+        }).join("");
+      }
 
       container.innerHTML = "";
-      if (!items.length || !displayedPoints) {
-        container.innerHTML = `<div class="timeline-empty">Nenhuma janela finalizada para montar a timeline compacta com os filtros atuais. Total monitorado: ${totalEvents}. Pendentes: ${pendingEvents}. Sem entrada: ${unavailableEvents}.</div>`;
+      suggestionsBody.innerHTML = "";
+      if ((!items.length || !displayedPoints) && !pendingItems.length) {
+        container.innerHTML = `<div class="timeline-empty">${target.emptyMessage} Total monitorado: ${totalEvents}. Pendentes: ${pendingEvents}. Sem entrada: ${unavailableEvents}.</div>`;
+        suggestionsBody.innerHTML = `<tr><td colspan="4" class="muted">${target.emptyTableMessage}</td></tr>`;
         return;
       }
 
@@ -1313,36 +1624,117 @@
         const y = yForOutcome(isHit ? 1 : 0);
         const color = isHit ? "first" : "late";
         const timestamp = item.anchor_timestamp_br || "-";
+        const suggestionLabel = Array.isArray(item.suggestion) && item.suggestion.length
+          ? item.suggestion.join(", ")
+          : "-";
         return `
           <circle cx="${x}" cy="${y}" r="5" class="timeline-point ${color}">
-            <title>${timestamp} | âncora ${item.anchor_number ?? "-"} | ${isHit ? "HIT" : "MISS"} | janela ${item.window_attempt ?? "-"} rodadas</title>
+            <title>${timestamp} | âncora ${item.anchor_number ?? "-"} | ${isHit ? "HIT" : "MISS"} | janela ${item.window_attempt ?? "-"} rodadas | sugestão: ${suggestionLabel}</title>
           </circle>
         `;
       }).join("");
 
       container.innerHTML = `
-        <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Timeline de hit ou miss compacto em 3 rodadas">
+        <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${target.ariaLabel}">
           ${gridLines}
           <path d="${linePath}" class="timeline-line"></path>
           ${points}
           ${xLabels}
         </svg>
       `;
+
+      const pendingRows = pendingItems.map((item) => {
+        const suggestion = Array.isArray(item.suggestion) ? item.suggestion : [];
+        const suggestionHtml = suggestion.length
+          ? `<div class="suggestion-numbers">${suggestion.map((n) => `<span class="ball">${n}</span>`).join("")}</div><span class="muted">${item.suggestion_size || suggestion.length} números</span>`
+          : `<span class="muted">Sem sugestão</span>`;
+        const attemptsElapsed = Number(item.attempts_elapsed || 0);
+        const processingLabel = attemptsElapsed > 0
+          ? `Processando ${attemptsElapsed} tentativa${attemptsElapsed > 1 ? "s" : ""}`
+          : "Processando";
+        return `
+          <tr>
+            <td>
+              <strong>${item.anchor_number ?? "-"}</strong>
+              <div class="muted">${item.anchor_timestamp_br || "-"}</div>
+            </td>
+            <td>
+              <span class="badge badge-warning">${processingLabel}</span>
+            </td>
+            <td>
+              <span class="badge badge-muted">-</span>
+            </td>
+            <td>${suggestionHtml}</td>
+          </tr>
+        `;
+      });
+
+      const finalizedRows = items.map((item) => {
+        const suggestion = Array.isArray(item.suggestion) ? item.suggestion : [];
+        const suggestionHtml = suggestion.length
+          ? `<div class="suggestion-numbers">${suggestion.map((n) => `<span class="ball">${n}</span>`).join("")}</div><span class="muted">${item.suggestion_size || suggestion.length} números</span>`
+          : `<span class="muted">Sem sugestão</span>`;
+        return `
+          <tr>
+            <td>
+              <strong>${item.anchor_number ?? "-"}</strong>
+              <div class="muted">${item.anchor_timestamp_br || "-"}</div>
+            </td>
+            <td>
+              <span class="badge ${item.outcome === "hit" ? "badge-success" : "badge-danger"}">
+                ${item.outcome === "hit" ? `Hit na ${item.window_attempt || "-"}ª` : "Miss"}
+              </span>
+            </td>
+            <td>
+              <span class="badge ${item.outcome === "hit" ? "badge-success" : "badge-muted"}">
+                ${item.resolved_rank_position ? `rank ${item.resolved_rank_position}` : "-"}
+              </span>
+            </td>
+            <td>${suggestionHtml}</td>
+          </tr>
+        `;
+      });
+
+      suggestionsBody.innerHTML = [...pendingRows, ...finalizedRows].join("");
     }
 
     function renderLatestEvents(items) {
       const body = qs("latestEventsBody");
       body.innerHTML = "";
-      if (!items.length) {
+      const safeItems = Array.isArray(items) ? [...items] : [];
+      const optimistic = state.optimisticLatestEvent && typeof state.optimisticLatestEvent === "object"
+        ? state.optimisticLatestEvent
+        : null;
+      const optimisticHistoryId = String(optimistic?.anchor_history_id || "").trim();
+      const alreadyRenderedOptimistic = optimistic
+        ? safeItems.some((item) => {
+            const itemHistoryId = String(item?.anchor_history_id || "").trim();
+            if (optimisticHistoryId && itemHistoryId) return optimisticHistoryId === itemHistoryId;
+            return Number(item?.anchor_number) === Number(optimistic?.anchor_number)
+              && String(item?.anchor_timestamp_br || "") === String(optimistic?.anchor_timestamp_br || "");
+          })
+        : false;
+
+      const itemsToRender = optimistic && !alreadyRenderedOptimistic
+        ? [optimistic, ...safeItems]
+        : safeItems;
+
+      if (!itemsToRender.length) {
         body.innerHTML = `<tr><td colspan="6" class="muted">Nenhum evento monitorado ainda.</td></tr>`;
         return;
       }
 
-      items.forEach((item) => {
+      itemsToRender.forEach((item) => {
         const optimized = item.optimized && typeof item.optimized === "object"
           ? item.optimized
           : { available: false, status: "", suggestion_preview: [], suggestion_size: 0, oscillation_mode: "", oscillation_reference_rank: null, explanation: "" };
+        const deltaValue = Number(item.shadow_confidence_delta || 0);
+        const deltaClass = deltaValue > 0 ? "delta-positive" : deltaValue < 0 ? "delta-negative" : "delta-neutral";
+        const deltaText = `Δ${deltaValue >= 0 ? "+" : ""}${deltaValue}`;
         const row = document.createElement("tr");
+        if (item.is_optimistic) {
+          row.style.opacity = "0.82";
+        }
         row.innerHTML = `
           <td>
             <div class="stack">
@@ -1367,11 +1759,15 @@
           <td>
             <div class="stack">
               <span class="badge ${badgeClass(item.shadow_action)}">${item.shadow_label || item.shadow_action || "-"}</span>
-              <span class="muted">conf ${item.shadow_confidence_score}</span>
+              <span class="muted">
+                conf ${item.shadow_confidence_score}
+                ${item.shadow_confidence_base_score ? `(base ${item.shadow_confidence_base_score}, <span class="${deltaClass}">${deltaText}</span>)` : ""}
+              </span>
               <div class="meta-inline">
                 <span>p1 ${formatPct(item.shadow_p_hit_1)}</span>
                 <span>late ${formatPct(item.shadow_late_hit_risk)}</span>
                 <span>EV ${Number(item.shadow_ev || 0).toFixed(2)}</span>
+                <span>${item.shadow_rank_context_band || "-"}</span>
               </div>
             </div>
           </td>
@@ -1405,13 +1801,22 @@
 
     function renderPatterns(items) {
       const body = qs("patternsBody");
+      const meta = qs("patternsWeightMeta");
       body.innerHTML = "";
-      if (!items.length) {
-        body.innerHTML = `<tr><td colspan="6" class="muted">Nenhum pattern consolidado ainda.</td></tr>`;
+      const safeItems = Array.isArray(items) ? items : [];
+      const weightedCount = safeItems.filter((item) => Math.abs(Number(item.current_weight || 1) - 1) >= 0.0001).length;
+      meta.textContent = safeItems.length
+        ? `${weightedCount} patterns com peso dinâmico diferente de 1.00.`
+        : "Pesos dinâmicos aguardando dados.";
+      if (!safeItems.length) {
+        body.innerHTML = `<tr><td colspan="10" class="muted">Nenhum pattern consolidado ainda.</td></tr>`;
         return;
       }
 
-      items.forEach((item) => {
+      safeItems.forEach((item) => {
+        const weight = Number(item.current_weight || 1);
+        const weightDelta = Number(item.weight_delta || 0);
+        const deltaClass = weightDelta > 0 ? "delta-positive" : weightDelta < 0 ? "delta-negative" : "delta-neutral";
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>
@@ -1420,6 +1825,10 @@
               <span class="muted">${item.pattern_id}</span>
             </div>
           </td>
+          <td><span class="badge badge-accent">${weight.toFixed(3)}</span></td>
+          <td><span class="${deltaClass}">${weightDelta >= 0 ? "+" : ""}${weightDelta.toFixed(3)}</span></td>
+          <td><span class="badge badge-success">${formatPct(item.top_rank_hit_rate)}</span></td>
+          <td><span class="badge badge-danger">${formatPct(item.deep_rank_hit_rate)}</span></td>
           <td>${item.signals}</td>
           <td>${item.covered_hits}</td>
           <td><span class="badge badge-accent">${formatPct(item.covered_hit_rate)}</span></td>
@@ -1431,90 +1840,164 @@
     }
 
     async function refreshDashboard() {
-      const filters = buildFilterParams();
-      const [baseOverview, optimizedOverview, aggressiveOverview, selectiveOverview, selectiveProtectedOverview, temporalBlendOverview, compactOutcomeTimeline, latest, hourly, baseRankTimeline, optimizedRankTimeline, aggressiveRankTimeline, selectiveRankTimeline, selectiveProtectedRankTimeline, temporalBlendRankTimeline, patterns, streaks] = await Promise.all([
-        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "base" }),
-        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "oscillation_v1" }),
-        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "oscillation_v2_aggressive" }),
-        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "oscillation_v3_selective" }),
-        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "oscillation_v3_selective_protected" }),
-        fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "temporal_blend_v1" }),
-        fetchJson("/api/suggestion-monitor/window-outcome-timeline", filters),
-        fetchJson("/api/suggestion-monitor/latest", { ...filters, page: state.currentPage, ranking_variant: "base" }),
-        fetchJson("/api/suggestion-monitor/hourly", { ...filters, ranking_variant: "base" }),
-        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "base" }),
-        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "oscillation_v1" }),
-        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "oscillation_v2_aggressive" }),
-        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "oscillation_v3_selective" }),
-        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "oscillation_v3_selective_protected" }),
-        fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "temporal_blend_v1" }),
-        fetchJson("/api/suggestion-monitor/patterns", { ...filters, limit: 20, ranking_variant: "base" }),
-        fetchJson("/api/suggestion-monitor/streaks", { ...filters, ranking_variant: "base" }),
-      ]);
+      if (state.refreshPromise) {
+        state.refreshQueued = true;
+        return state.refreshPromise;
+      }
 
-      syncAttemptOptions(buildAttemptOptions(baseOverview, latest));
-      renderOverview(baseOverview, streaks, baseRankTimeline, optimizedOverview, optimizedRankTimeline, aggressiveOverview, aggressiveRankTimeline, selectiveOverview, selectiveRankTimeline, selectiveProtectedOverview, selectiveProtectedRankTimeline, temporalBlendOverview, temporalBlendRankTimeline, compactOutcomeTimeline);
-      renderHourlyHeatmap(hourly.items || []);
-      renderRankTimeline(baseRankTimeline, {
-        chartId: "rankTimelineChart",
-        resolvedMetaId: "rankTimelineResolvedMeta",
-        displayedMetaId: "rankTimelineDisplayedMeta",
-        averageMetaId: "rankTimelineAverageMeta",
-        rankCeiling: 37,
-      });
-      renderRankTimeline(optimizedRankTimeline, {
-        chartId: "optimizedRankTimelineChart",
-        resolvedMetaId: "optimizedRankTimelineResolvedMeta",
-        displayedMetaId: "optimizedRankTimelineDisplayedMeta",
-        averageMetaId: "optimizedRankTimelineAverageMeta",
-        rankCeiling: 37,
-      });
-      renderRankTimeline(aggressiveRankTimeline, {
-        chartId: "aggressiveRankTimelineChart",
-        resolvedMetaId: "aggressiveRankTimelineResolvedMeta",
-        displayedMetaId: "aggressiveRankTimelineDisplayedMeta",
-        averageMetaId: "aggressiveRankTimelineAverageMeta",
-        rankCeiling: 37,
-      });
-      renderRankTimeline(selectiveRankTimeline, {
-        chartId: "selectiveRankTimelineChart",
-        resolvedMetaId: "selectiveRankTimelineResolvedMeta",
-        displayedMetaId: "selectiveRankTimelineDisplayedMeta",
-        averageMetaId: "selectiveRankTimelineAverageMeta",
-        rankCeiling: 37,
-      });
-      renderRankTimeline(selectiveProtectedRankTimeline, {
-        chartId: "selectiveProtectedRankTimelineChart",
-        resolvedMetaId: "selectiveProtectedRankTimelineResolvedMeta",
-        displayedMetaId: "selectiveProtectedRankTimelineDisplayedMeta",
-        averageMetaId: "selectiveProtectedRankTimelineAverageMeta",
-        rankCeiling: 37,
-      });
-      renderRankTimeline(temporalBlendRankTimeline, {
-        chartId: "temporalBlendRankTimelineChart",
-        resolvedMetaId: "temporalBlendRankTimelineResolvedMeta",
-        displayedMetaId: "temporalBlendRankTimelineDisplayedMeta",
-        averageMetaId: "temporalBlendRankTimelineAverageMeta",
-        rankCeiling: 37,
-      });
-      renderCompactOutcomeTimeline(compactOutcomeTimeline);
-      renderLatestEvents(latest.items || []);
-      renderPatterns(patterns.items || []);
-      renderPagination(latest);
-      clearStatus();
+      state.refreshPromise = (async () => {
+        const filters = buildFilterParams();
+      const [
+        baseOverview,
+        top26Metrics,
+        compactOutcomeTimeline,
+        dynamicOutcomeTimeline,
+        mlReferenceOutcomeTimeline,
+        mlGateOutcomeTimeline,
+        latest,
+        hourly,
+        baseRankTimeline,
+        top26RankTimeline,
+        timeWindowRankTimeline,
+        mlMetaRankTimeline,
+        patterns,
+        streaks,
+      ] = await Promise.all([
+          fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "base" }),
+          fetchJson("/api/suggestion-monitor/top-k-metrics", { ...filters, ranking_variant: "ranking_v2_top26" }),
+          fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "top26_selective_16x4_v1" }),
+          fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "top26_selective_16x4_dynamic_v1" }),
+          fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "ml_top12_reference_12x4_v1" }),
+          fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "ml_entry_gate_12x4_v1" }),
+          fetchJson("/api/suggestion-monitor/latest", { ...filters, page: state.currentPage, ranking_variant: "base" }),
+          fetchJson("/api/suggestion-monitor/hourly", { ...filters, ranking_variant: "base" }),
+          fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "base" }),
+          fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "ranking_v2_top26" }),
+          fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "time_window_prior_v1" }),
+          fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "ml_meta_rank_v1" }),
+          fetchJson("/api/suggestion-monitor/patterns", { ...filters, limit: 100, ranking_variant: "base" }),
+          fetchJson("/api/suggestion-monitor/streaks", { ...filters, ranking_variant: "base" }),
+        ]);
+
+        syncAttemptOptions(buildAttemptOptions(baseOverview, latest));
+        renderOverview(baseOverview, streaks, baseRankTimeline, top26RankTimeline, top26Metrics, compactOutcomeTimeline, dynamicOutcomeTimeline);
+        renderHourlyHeatmap(hourly.items || []);
+        renderRankTimeline(baseRankTimeline, {
+          chartId: "rankTimelineChart",
+          resolvedMetaId: "rankTimelineResolvedMeta",
+          displayedMetaId: "rankTimelineDisplayedMeta",
+          averageMetaId: "rankTimelineAverageMeta",
+          rankCeiling: 37,
+        });
+        renderRankTimeline(top26RankTimeline, {
+          chartId: "top26RankTimelineChart",
+          resolvedMetaId: "top26RankTimelineResolvedMeta",
+          displayedMetaId: "top26RankTimelineDisplayedMeta",
+          averageMetaId: "top26RankTimelineAverageMeta",
+          rankCeiling: 37,
+        });
+        renderRankTimeline(timeWindowRankTimeline, {
+          chartId: "timeWindowRankTimelineChart",
+          resolvedMetaId: "timeWindowRankTimelineResolvedMeta",
+          displayedMetaId: "timeWindowRankTimelineDisplayedMeta",
+          averageMetaId: "timeWindowRankTimelineAverageMeta",
+          rankCeiling: 37,
+        });
+        renderRankTimeline(mlMetaRankTimeline, {
+          chartId: "mlMetaRankTimelineChart",
+          resolvedMetaId: "mlMetaRankTimelineResolvedMeta",
+          displayedMetaId: "mlMetaRankTimelineDisplayedMeta",
+          averageMetaId: "mlMetaRankTimelineAverageMeta",
+          rankCeiling: 37,
+        });
+        renderWindowOutcomeTimeline(compactOutcomeTimeline, {
+          chartId: "compactOutcomeTimelineChart",
+          suggestionsBodyId: "compactOutcomeSuggestionsBody",
+          attemptBreakdownId: "compactOutcomeAttemptBreakdown",
+          finalizedMetaId: "compactOutcomeFinalizedMeta",
+          displayedMetaId: "compactOutcomeDisplayedMeta",
+          hitRateMetaId: "compactOutcomeHitRateMeta",
+          emptyMessage: "Nenhuma janela finalizada para montar a timeline da estratégia fixa com os filtros atuais.",
+          emptyTableMessage: "Nenhuma janela finalizada da estratégia fixa top26 de descida com os filtros atuais.",
+          ariaLabel: "Timeline de hit ou miss da estratégia fixa top26 em 4 tentativas",
+        });
+        renderWindowOutcomeTimeline(dynamicOutcomeTimeline, {
+          chartId: "dynamicOutcomeTimelineChart",
+          suggestionsBodyId: "dynamicOutcomeSuggestionsBody",
+          attemptBreakdownId: "dynamicOutcomeAttemptBreakdown",
+          finalizedMetaId: "dynamicOutcomeFinalizedMeta",
+          displayedMetaId: "dynamicOutcomeDisplayedMeta",
+          hitRateMetaId: "dynamicOutcomeHitRateMeta",
+          emptyMessage: "Nenhuma janela finalizada para montar a timeline da estratégia dinâmica com os filtros atuais.",
+          emptyTableMessage: "Nenhuma janela finalizada da estratégia dinâmica top26 de descida com os filtros atuais.",
+          ariaLabel: "Timeline de hit ou miss da estratégia dinâmica top26 em 4 tentativas",
+        });
+        renderWindowOutcomeTimeline(mlReferenceOutcomeTimeline, {
+          chartId: "mlReferenceOutcomeTimelineChart",
+          suggestionsBodyId: "mlReferenceOutcomeSuggestionsBody",
+          attemptBreakdownId: "mlReferenceOutcomeAttemptBreakdown",
+          finalizedMetaId: "mlReferenceOutcomeFinalizedMeta",
+          displayedMetaId: "mlReferenceOutcomeDisplayedMeta",
+          hitRateMetaId: "mlReferenceOutcomeHitRateMeta",
+          emptyMessage: "Nenhuma janela finalizada para montar a timeline da referência ML Top12 com os filtros atuais.",
+          emptyTableMessage: "Nenhuma janela finalizada da referência ML Top12 12x4 com os filtros atuais.",
+          ariaLabel: "Timeline de hit ou miss da referência ML Top12 em 4 tentativas",
+        });
+        renderWindowOutcomeTimeline(mlGateOutcomeTimeline, {
+          chartId: "mlGateOutcomeTimelineChart",
+          suggestionsBodyId: "mlGateOutcomeSuggestionsBody",
+          attemptBreakdownId: "mlGateOutcomeAttemptBreakdown",
+          finalizedMetaId: "mlGateOutcomeFinalizedMeta",
+          displayedMetaId: "mlGateOutcomeDisplayedMeta",
+          hitRateMetaId: "mlGateOutcomeHitRateMeta",
+          emptyMessage: "Nenhuma janela finalizada para montar a timeline do gate ML com os filtros atuais.",
+          emptyTableMessage: "Nenhuma janela finalizada do ML Entry Gate 12x4 com os filtros atuais.",
+          ariaLabel: "Timeline de hit ou miss do gate ML em 4 tentativas",
+        });
+        renderLatestEvents(latest.items || []);
+        renderPatterns(patterns.items || []);
+        renderPagination(latest);
+        clearStatus();
+        return {
+          latest,
+          baseOverview,
+          top26Metrics,
+          compactOutcomeTimeline,
+          dynamicOutcomeTimeline,
+          mlReferenceOutcomeTimeline,
+          mlGateOutcomeTimeline,
+          hourly,
+          baseRankTimeline,
+          top26RankTimeline,
+          timeWindowRankTimeline,
+          mlMetaRankTimeline,
+          patterns,
+          streaks,
+        };
+      })();
+
+      let snapshot = null;
+      try {
+        snapshot = await state.refreshPromise;
+      } finally {
+        state.refreshPromise = null;
+        if (state.refreshQueued) {
+          state.refreshQueued = false;
+          refreshDashboard().catch((error) => console.error("queued dashboard refresh error", error));
+        }
+      }
+      return snapshot;
     }
 
     function applyAutoRefresh() {
-      if (state.timerId) {
-        clearInterval(state.timerId);
-        state.timerId = null;
+      if (!state.autoRefresh) {
+        disconnectRealtimeSocket();
+        state.wsConnectionState = "off";
+        updateRealtimeButton();
+        return;
       }
-      if (state.autoRefresh) {
-        state.timerId = setInterval(() => {
-          refreshDashboard().catch((error) => console.error("dashboard refresh error", error));
-        }, 10000);
-      }
-      qs("toggleAutoBtn").textContent = `Auto refresh: ${state.autoRefresh ? "ligado" : "desligado"}`;
+      connectRealtimeSocket();
+      updateRealtimeButton();
     }
 
     qs("refreshBtn").addEventListener("click", () => {
@@ -1527,11 +2010,20 @@
     qs("toggleAutoBtn").addEventListener("click", () => {
       state.autoRefresh = !state.autoRefresh;
       applyAutoRefresh();
+      if (state.autoRefresh) {
+        refreshDashboard().catch((error) => {
+          console.error(error);
+          setStatus(`Falha ao iniciar atualização em tempo real: ${error.message}`, "error");
+        });
+      }
     });
 
     ["rouletteId", "configKey", "attemptFilter", "shadowAction", "startDate", "endDate", "startHour", "endHour"].forEach((id) => {
       qs(id).addEventListener("change", () => {
         state.currentPage = 1;
+        if (id === "rouletteId" && state.autoRefresh) {
+          connectRealtimeSocket();
+        }
         refreshDashboard().catch((error) => {
           console.error(error);
           setStatus(`Falha ao aplicar filtros: ${error.message}`, "error");

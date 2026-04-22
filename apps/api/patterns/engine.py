@@ -61,6 +61,16 @@ SECTION_MAP: Dict[str, List[int]] = {
     "Orphelins": [17, 34, 6, 1, 20, 14, 31, 9],
     "Tiers": [27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33],
 }
+MAQUINA_MORTIFERA_REGIONS: Dict[int, List[int]] = {
+    1: [32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13],
+    2: [36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20],
+    3: [14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26],
+}
+MAQUINA_MORTIFERA_REGION_BY_NUMBER: Dict[int, int] = {
+    number: region
+    for region, numbers in MAQUINA_MORTIFERA_REGIONS.items()
+    for number in numbers
+}
 
 WHEEL_ORDER: List[int] = [
     0,
@@ -1441,6 +1451,43 @@ class PatternEngine:
     def _mirror_numbers(num: int) -> List[int]:
         mirrors = get_mirror(int(num))
         return [int(n) for n in mirrors if 1 <= int(n) <= 36]
+
+    @staticmethod
+    def _maquina_mortifera_region(num: int) -> int:
+        return int(MAQUINA_MORTIFERA_REGION_BY_NUMBER.get(int(num), 0))
+
+    @staticmethod
+    def _maquina_mortifera_region_numbers(region: int, include_zero: bool = True) -> List[int]:
+        numbers = [int(n) for n in MAQUINA_MORTIFERA_REGIONS.get(int(region), [])]
+        if include_zero and numbers:
+            numbers = [0, *numbers]
+        return sorted(set(numbers))
+
+    def _maquina_mortifera_calc_mean_interval(self, raw: List[int], region: int, limit: int = 30) -> float:
+        history = [int(n) for n in raw[: max(2, int(limit))] if self._is_valid_number(n)]
+        appearances = [i for i, value in enumerate(history) if self._maquina_mortifera_region(value) == int(region)]
+        if len(appearances) < 2:
+            return 0.0
+        intervals = [appearances[i + 1] - appearances[i] for i in range(len(appearances) - 1)]
+        return float(sum(intervals) / len(intervals))
+
+    def _maquina_mortifera_current_delay(self, raw: List[int], region: int) -> int:
+        for idx, value in enumerate(raw):
+            if self._maquina_mortifera_region(value) == int(region):
+                return int(idx)
+        return 999
+
+    def _maquina_mortifera_is_valid_occ(self, raw: List[int], occ_idx: int, context_window: int = 4) -> bool:
+        win_before = raw[occ_idx + 1 : occ_idx + 1 + context_window]
+        win_after = raw[max(0, occ_idx - context_window) : occ_idx]
+        for window in (win_before, win_after):
+            if not window:
+                continue
+            if len(set(window)) != len(window):
+                return False
+            if len(set(int(x) % 10 for x in window)) != len(window):
+                return False
+        return True
 
     def _eval_wheel_neighbors_5(
         self,
@@ -6032,6 +6079,187 @@ class PatternEngine:
             "numbers": sorted_numbers,
             "scores": final_scores,
             "explanation": f"Concentracao em {center_num} ({concentration}/{lookback}) -> boost em setor de {opposite_num}",
+        }
+
+    def _eval_maquina_mortifera_sector_memory(
+        self,
+        history: List[int],
+        base_suggestion: List[int],
+        from_index: int,
+        definition: PatternDefinition,
+        focus_number: int | None = None,
+    ) -> Dict[str, Any]:
+        del base_suggestion
+
+        params = dict(definition.params or {})
+        min_history = max(20, int(params.get("min_history", 60)))
+        history_window = max(min_history, int(params.get("history_window", 200)))
+        required_occurrences = max(3, int(params.get("required_occurrences", 4)))
+        context_window = max(2, int(params.get("context_window", 4)))
+        min_gap = max(1, int(params.get("min_gap_between_occurrences", 4)))
+        min_context_matches = max(1, min(context_window, int(params.get("min_context_matches", 3))))
+        interval_window = max(context_window + 2, int(params.get("interval_window", 30)))
+        interval_tolerance = max(0.5, float(params.get("interval_tolerance", 2.0)))
+        include_zero = bool(params.get("include_zero", True))
+        region_base_score = float(params.get("region_base_score", 1.0))
+        context_bonus_per_match = float(params.get("context_bonus_per_match", 0.18))
+        sync_bonus = float(params.get("sync_bonus", 0.35))
+        zero_score_ratio = max(0.1, float(params.get("zero_score_ratio", 0.82)))
+        max_numbers = max(1, int(definition.max_numbers))
+
+        if len(history) <= from_index:
+            return {"numbers": [], "explanation": "Historico insuficiente para memoria setorial da maquina mortifera."}
+
+        raw = [int(n) for n in history[from_index : from_index + history_window] if self._is_valid_number(n)]
+        if len(raw) < min_history:
+            return {
+                "numbers": [],
+                "explanation": (
+                    f"Memoria setorial inativa: historico insuficiente ({len(raw)}<{min_history})."
+                ),
+            }
+
+        current = int(focus_number) if focus_number is not None and self._is_valid_number(focus_number) else int(raw[0])
+        occurrences: List[int] = []
+        for idx, value in enumerate(raw):
+            if int(value) == current:
+                occurrences.append(idx)
+                if len(occurrences) >= required_occurrences:
+                    break
+
+        if len(occurrences) < required_occurrences:
+            return {
+                "numbers": [],
+                "explanation": (
+                    f"Memoria setorial inativa para {current}: {len(occurrences)}/{required_occurrences} ocorrencias."
+                ),
+            }
+
+        for idx in range(1, len(occurrences)):
+            if (occurrences[idx] - occurrences[idx - 1]) < min_gap:
+                return {
+                    "numbers": [],
+                    "explanation": (
+                        f"Memoria setorial descartada para {current}: repeticoes muito proximas."
+                    ),
+                }
+
+        for occ_idx in occurrences:
+            if not self._maquina_mortifera_is_valid_occ(raw, occ_idx, context_window=context_window):
+                return {
+                    "numbers": [],
+                    "explanation": (
+                        f"Memoria setorial descartada para {current}: janelas locais invalidas."
+                    ),
+                }
+
+        current_before_regions = [
+            self._maquina_mortifera_region(n)
+            for n in raw[1 : 1 + context_window]
+        ]
+        if len(current_before_regions) < context_window:
+            return {"numbers": [], "explanation": "Janela atual insuficiente para matriz setorial."}
+
+        best_score = -1
+        target_region = 0
+        best_orientation = ""
+        best_occurrence = None
+
+        for occ_idx in occurrences[1:]:
+            if occ_idx <= 0:
+                continue
+            candidate_region = self._maquina_mortifera_region(raw[occ_idx - 1])
+            if candidate_region == 0:
+                continue
+
+            past_before_regions = [
+                self._maquina_mortifera_region(n)
+                for n in raw[occ_idx + 1 : occ_idx + 1 + context_window]
+            ]
+            past_after_regions = [
+                self._maquina_mortifera_region(n)
+                for n in raw[max(0, occ_idx - context_window) : occ_idx]
+            ]
+            score_before = sum(
+                1 for current_reg, past_reg in zip(current_before_regions, past_before_regions) if current_reg == past_reg
+            )
+            score_after = sum(
+                1
+                for current_reg, past_reg in zip(current_before_regions, reversed(past_after_regions))
+                if current_reg == past_reg
+            )
+            local_score = max(score_before, score_after)
+            if local_score > best_score:
+                best_score = int(local_score)
+                target_region = int(candidate_region)
+                best_orientation = "before_window" if score_before >= score_after else "after_window_reversed"
+                best_occurrence = int(occ_idx)
+
+        if target_region == 0 or best_score < min_context_matches:
+            return {
+                "numbers": [],
+                "explanation": (
+                    f"Memoria setorial inativa para {current}: matching insuficiente ({best_score}/{context_window})."
+                ),
+            }
+
+        mean_interval = self._maquina_mortifera_calc_mean_interval(raw, target_region, limit=interval_window)
+        current_delay = self._maquina_mortifera_current_delay(raw, target_region)
+        if mean_interval <= 0.0:
+            return {
+                "numbers": [],
+                "explanation": (
+                    f"Memoria setorial inativa para {current}: regiao {target_region} sem intervalo medio confiavel."
+                ),
+            }
+
+        interval_gap = abs(float(current_delay) - float(mean_interval))
+        if interval_gap > interval_tolerance:
+            return {
+                "numbers": [],
+                "explanation": (
+                    f"Memoria setorial inativa para {current}: delay {current_delay} distante da media {mean_interval:.2f}."
+                ),
+            }
+
+        region_numbers = self._maquina_mortifera_region_numbers(target_region, include_zero=include_zero)
+        if not region_numbers:
+            return {
+                "numbers": [],
+                "explanation": f"Memoria setorial inativa para {current}: regiao {target_region} sem numeros validos.",
+            }
+
+        sync_factor = max(0.0, 1.0 - (interval_gap / interval_tolerance))
+        base_score = region_base_score + (best_score * context_bonus_per_match) + (sync_factor * sync_bonus)
+        scores: Dict[int, float] = {}
+        for number in region_numbers:
+            score = base_score * (zero_score_ratio if number == 0 else 1.0)
+            scores[int(number)] = round(score, 4)
+
+        selected_numbers = sorted(scores.keys(), key=lambda n: (-scores[n], n))[:max_numbers]
+        selected_scores = {int(n): float(scores[n]) for n in selected_numbers}
+        return {
+            "numbers": selected_numbers,
+            "scores": selected_scores,
+            "explanation": (
+                f"Memoria setorial da maquina mortifera: gatilho {current} com {len(occurrences)} ocorrencias, "
+                f"matching {best_score}/{context_window}, alvo regiao {target_region} "
+                f"(delay {current_delay}, media {mean_interval:.2f})."
+            ),
+            "meta": {
+                "current_number": int(current),
+                "occurrences": [int(idx) for idx in occurrences],
+                "context_window": int(context_window),
+                "best_match_score": int(best_score),
+                "best_orientation": best_orientation,
+                "best_occurrence_index": best_occurrence,
+                "target_region": int(target_region),
+                "target_region_numbers": [int(n) for n in region_numbers],
+                "mean_interval": round(float(mean_interval), 4),
+                "current_delay": int(current_delay),
+                "interval_gap": round(float(interval_gap), 4),
+                "sync_factor": round(float(sync_factor), 4),
+            },
         }
 
     def _eval_consecutive_gap_boost(

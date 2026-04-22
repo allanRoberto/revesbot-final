@@ -51,7 +51,7 @@ class Settings:
         self.suggestion_monitor_shadow_compare_max_numbers = int(
             os.getenv("SUGGESTION_MONITOR_SHADOW_COMPARE_MAX_NUMBERS", "32")
         )
-        self.suggestion_monitor_history_window = int(os.getenv("SUGGESTION_MONITOR_HISTORY_WINDOW", "200"))
+        self.suggestion_monitor_history_window = int(os.getenv("SUGGESTION_MONITOR_HISTORY_WINDOW", "500"))
         self.suggestion_monitor_fast_forward_on_backlog = (
             os.getenv("SUGGESTION_MONITOR_FAST_FORWARD_ON_BACKLOG", "true").lower() == "true"
         )
@@ -70,6 +70,87 @@ class Settings:
         )
         self.suggestion_monitor_optimized_max_numbers = int(
             os.getenv("SUGGESTION_MONITOR_OPTIMIZED_MAX_NUMBERS", "37")
+        )
+        self.suggestion_monitor_dynamic_weights_enabled = (
+            os.getenv("SUGGESTION_MONITOR_DYNAMIC_WEIGHTS_ENABLED", "true").lower() == "true"
+        )
+        self.suggestion_monitor_dynamic_weights_lookback = int(
+            os.getenv("SUGGESTION_MONITOR_DYNAMIC_WEIGHTS_LOOKBACK", "120")
+        )
+        self.suggestion_monitor_dynamic_weight_floor = float(
+            os.getenv("SUGGESTION_MONITOR_DYNAMIC_WEIGHT_FLOOR", "0.55")
+        )
+        self.suggestion_monitor_dynamic_weight_ceil = float(
+            os.getenv("SUGGESTION_MONITOR_DYNAMIC_WEIGHT_CEIL", "1.85")
+        )
+        self.suggestion_monitor_dynamic_weight_smoothing = float(
+            os.getenv("SUGGESTION_MONITOR_DYNAMIC_WEIGHT_SMOOTHING", "0.35")
+        )
+        self.suggestion_monitor_dynamic_weight_sample_target = float(
+            os.getenv("SUGGESTION_MONITOR_DYNAMIC_WEIGHT_SAMPLE_TARGET", "8.0")
+        )
+        self.suggestion_monitor_dynamic_top_rank_bonus = float(
+            os.getenv("SUGGESTION_MONITOR_DYNAMIC_TOP_RANK_BONUS", "0.9")
+        )
+        self.suggestion_monitor_time_window_prior_enabled = (
+            os.getenv("SUGGESTION_MONITOR_TIME_WINDOW_PRIOR_ENABLED", "true").lower() == "true"
+        )
+        self.suggestion_monitor_time_window_prior_lookback_days = int(
+            os.getenv("SUGGESTION_MONITOR_TIME_WINDOW_PRIOR_LOOKBACK_DAYS", "5")
+        )
+        self.suggestion_monitor_time_window_prior_minute_span = int(
+            os.getenv("SUGGESTION_MONITOR_TIME_WINDOW_PRIOR_MINUTE_SPAN", "2")
+        )
+        self.suggestion_monitor_time_window_prior_region_span = int(
+            os.getenv("SUGGESTION_MONITOR_TIME_WINDOW_PRIOR_REGION_SPAN", "2")
+        )
+        self.suggestion_monitor_time_window_prior_current_weight = float(
+            os.getenv("SUGGESTION_MONITOR_TIME_WINDOW_PRIOR_CURRENT_WEIGHT", "0.75")
+        )
+        self.suggestion_monitor_time_window_prior_exact_weight = float(
+            os.getenv("SUGGESTION_MONITOR_TIME_WINDOW_PRIOR_EXACT_WEIGHT", "0.10")
+        )
+        self.suggestion_monitor_time_window_prior_region_weight = float(
+            os.getenv("SUGGESTION_MONITOR_TIME_WINDOW_PRIOR_REGION_WEIGHT", "0.15")
+        )
+        self.suggestion_monitor_ml_meta_rank_enabled = (
+            os.getenv("SUGGESTION_MONITOR_ML_META_RANK_ENABLED", "true").lower() == "true"
+        )
+        self.suggestion_monitor_ml_meta_rank_learning_rate = float(
+            os.getenv("SUGGESTION_MONITOR_ML_META_RANK_LEARNING_RATE", "0.045")
+        )
+        self.suggestion_monitor_ml_meta_rank_positive_class_weight = float(
+            os.getenv("SUGGESTION_MONITOR_ML_META_RANK_POSITIVE_CLASS_WEIGHT", "9.0")
+        )
+        self.suggestion_monitor_ml_meta_rank_negative_class_weight = float(
+            os.getenv("SUGGESTION_MONITOR_ML_META_RANK_NEGATIVE_CLASS_WEIGHT", "0.75")
+        )
+        self.suggestion_monitor_ml_meta_rank_l2_decay = float(
+            os.getenv("SUGGESTION_MONITOR_ML_META_RANK_L2_DECAY", "0.0008")
+        )
+        self.suggestion_monitor_ml_meta_rank_warmup_events = int(
+            os.getenv("SUGGESTION_MONITOR_ML_META_RANK_WARMUP_EVENTS", "18")
+        )
+        self.suggestion_monitor_ml_entry_gate_enabled = (
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_ENABLED", "true").lower() == "true"
+        )
+        self.suggestion_monitor_ml_entry_gate_learning_rate = float(
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_LEARNING_RATE", "0.05")
+        )
+        self.suggestion_monitor_ml_entry_gate_positive_class_weight = float(
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_POSITIVE_CLASS_WEIGHT", "5.5")
+        )
+        self.suggestion_monitor_ml_entry_gate_negative_class_weight = float(
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_NEGATIVE_CLASS_WEIGHT", "1.0")
+        )
+        self.suggestion_monitor_ml_entry_gate_l2_decay = float(
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_L2_DECAY", "0.001")
+        )
+        self.suggestion_monitor_ml_entry_gate_warmup_events = int(
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_WARMUP_EVENTS", "20")
+        )
+        self.suggestion_monitor_ml_entry_gate_threshold = float(
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_THRESHOLD", "0.58")
         )
         self.suggestion_monitor_base_weight = float(
             os.getenv("SUGGESTION_MONITOR_BASE_WEIGHT", "0.5")
@@ -93,7 +174,7 @@ class Settings:
             os.getenv("SUGGESTION_MONITOR_BLOCK_BETS_ENABLED", "true").lower() == "true"
         )
         self.suggestion_monitor_inversion_enabled = (
-            os.getenv("SUGGESTION_MONITOR_INVERSION_ENABLED", "true").lower() == "true"
+            os.getenv("SUGGESTION_MONITOR_INVERSION_ENABLED", "false").lower() == "true"
         )
         self.suggestion_monitor_inversion_context_window = int(
             os.getenv("SUGGESTION_MONITOR_INVERSION_CONTEXT_WINDOW", "15")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from hashlib import sha1
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
@@ -9,6 +9,7 @@ from pymongo import ASCENDING, DESCENDING
 
 from src.mongo import mongo_db
 from src.suggestion_monitor_runtime import normalize_history_doc
+from src.time_window_prior import BR_TZ, build_daily_window_bounds
 
 
 def _roulette_filter(roulette_id: str) -> Dict[str, Any]:
@@ -42,11 +43,32 @@ class SuggestionMonitorRepository:
         self.attempts_coll = mongo_db["suggestion_monitor_attempts"]
         self.offsets_coll = mongo_db["suggestion_monitor_offsets"]
         self.pattern_outcomes_coll = mongo_db["suggestion_monitor_pattern_outcomes"]
+        self.model_states_coll = mongo_db["suggestion_monitor_model_states"]
 
     def ensure_indexes(self) -> None:
         self.history_coll.create_index(
             [("roulette_id", ASCENDING), ("timestamp", DESCENDING), ("_id", DESCENDING)],
             name="history_roulette_ts_desc",
+        )
+        self.events_coll.create_index(
+            [("roulette_id", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_events_roulette_time",
+        )
+        self.events_coll.create_index(
+            [("roulette_id", ASCENDING), ("status", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_events_roulette_status_time",
+        )
+        self.events_coll.create_index(
+            [("roulette_id", ASCENDING), ("ranking_variant", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_events_roulette_variant_time",
+        )
+        self.events_coll.create_index(
+            [("roulette_id", ASCENDING), ("ranking_variant", ASCENDING), ("status", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_events_roulette_variant_status_time",
+        )
+        self.events_coll.create_index(
+            [("roulette_id", ASCENDING), ("config_key", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="smonitor_events_config_time",
         )
         self.events_coll.create_index(
             [("roulette_id", ASCENDING), ("config_key", ASCENDING), ("status", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
@@ -79,6 +101,11 @@ class SuggestionMonitorRepository:
         self.pattern_outcomes_coll.create_index(
             [("suggestion_event_id", ASCENDING), ("pattern_id", ASCENDING)],
             name="smonitor_pattern_event_pattern",
+        )
+        self.model_states_coll.create_index(
+            [("roulette_id", ASCENDING), ("config_key", ASCENDING), ("model_name", ASCENDING)],
+            name="smonitor_model_state_config",
+            unique=True,
         )
         self.offsets_coll.create_index(
             [("roulette_id", ASCENDING), ("config_key", ASCENDING)],
@@ -228,6 +255,41 @@ class SuggestionMonitorRepository:
         )
         return [normalize_history_doc(doc) for doc in docs if isinstance(doc, Mapping)]
 
+    def get_history_docs_by_time_window_days(
+        self,
+        *,
+        roulette_id: str,
+        reference_timestamp_utc: datetime,
+        lookback_days: int,
+        minute_span: int,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        if reference_timestamp_utc.tzinfo is None:
+            reference_timestamp_utc = reference_timestamp_utc.replace(tzinfo=timezone.utc)
+        else:
+            reference_timestamp_utc = reference_timestamp_utc.astimezone(timezone.utc)
+
+        reference_br = reference_timestamp_utc.astimezone(BR_TZ)
+        docs_by_day: Dict[str, List[Dict[str, Any]]] = {}
+        for days_ago in range(1, max(1, int(lookback_days)) + 1):
+            day_reference_br = reference_br - timedelta(days=days_ago)
+            start_br, end_br = build_daily_window_bounds(day_reference_br, minute_span=minute_span)
+            start_utc = start_br.astimezone(timezone.utc)
+            end_utc = end_br.astimezone(timezone.utc)
+            docs = list(
+                self.history_coll.find(
+                    {
+                        "$and": [
+                            _roulette_filter(roulette_id),
+                            {"timestamp": {"$gte": start_utc, "$lt": end_utc}},
+                        ]
+                    }
+                ).sort([("timestamp", ASCENDING), ("_id", ASCENDING)])
+            )
+            docs_by_day[day_reference_br.strftime("%Y-%m-%d")] = [
+                dict(doc) for doc in docs if isinstance(doc, Mapping)
+            ]
+        return docs_by_day
+
     def load_pending_events(self, *, roulette_id: str, config_key: str) -> List[Dict[str, Any]]:
         docs = list(
             self.events_coll.find(
@@ -239,6 +301,13 @@ class SuggestionMonitorRepository:
     def get_latest_resolved_event(self, *, roulette_id: str, config_key: str) -> Dict[str, Any] | None:
         doc = self.events_coll.find_one(
             {"roulette_id": roulette_id, "config_key": config_key, "status": "resolved"},
+            sort=[("anchor_timestamp_utc", DESCENDING), ("_id", DESCENDING)],
+        )
+        return dict(doc) if isinstance(doc, Mapping) else None
+
+    def get_latest_event(self, *, roulette_id: str, config_key: str) -> Dict[str, Any] | None:
+        doc = self.events_coll.find_one(
+            {"roulette_id": roulette_id, "config_key": config_key},
             sort=[("anchor_timestamp_utc", DESCENDING), ("_id", DESCENDING)],
         )
         return dict(doc) if isinstance(doc, Mapping) else None
@@ -258,6 +327,31 @@ class SuggestionMonitorRepository:
             .limit(int(limit))
         )
         return [dict(doc) for doc in docs if isinstance(doc, Mapping)]
+
+    def get_model_state(
+        self,
+        *,
+        roulette_id: str,
+        config_key: str,
+        model_name: str,
+    ) -> Dict[str, Any] | None:
+        doc = self.model_states_coll.find_one(
+            {
+                "roulette_id": str(roulette_id or "").strip(),
+                "config_key": str(config_key or "").strip(),
+                "model_name": str(model_name or "").strip(),
+            }
+        )
+        return dict(doc) if isinstance(doc, Mapping) else None
+
+    def save_model_state(self, model_state: Mapping[str, Any]) -> None:
+        document = dict(model_state)
+        if "_id" not in document:
+            digest = sha1(
+                f"{document.get('roulette_id')}|{document.get('config_key')}|{document.get('model_name')}".encode("utf-8")
+            ).hexdigest()[:12]
+            document["_id"] = f"smonitor-ml:{digest}"
+        self.model_states_coll.replace_one({"_id": document["_id"]}, document, upsert=True)
 
     def upsert_event(self, event_doc: Mapping[str, Any]) -> None:
         self.events_coll.replace_one({"_id": event_doc["_id"]}, dict(event_doc), upsert=True)

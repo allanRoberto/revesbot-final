@@ -3,7 +3,7 @@
   "name": "Recent Numbers Penalty",
   "kind": "negative",
   "version": "1.2.0",
-  "active": false,
+  "active": true,
   "priority": 200,
   "weight": 0.3,
   "evaluator": "recent_numbers_penalty",

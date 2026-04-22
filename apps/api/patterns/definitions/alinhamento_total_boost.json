@@ -3,7 +3,7 @@
   "name": "Alinhamento Total",
   "kind": "positive",
   "version": "1.0.0",
-  "active": false,
+  "active": true,
   "priority": 85,
   "weight": 4.5,
   "evaluator": "alinhamento_total_boost",

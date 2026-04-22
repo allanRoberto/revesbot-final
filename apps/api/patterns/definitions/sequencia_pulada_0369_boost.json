@@ -3,7 +3,7 @@
   "name": "Sequencia Pulada 0369",
   "kind": "positive",
   "version": "1.0.0",
-  "active": false,
+  "active": true,
   "priority": 89,
   "weight": 5.0,
   "evaluator": "sequencia_pulada_0369_boost",

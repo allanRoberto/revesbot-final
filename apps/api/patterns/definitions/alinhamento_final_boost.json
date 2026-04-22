@@ -3,7 +3,7 @@
   "name": "Alinhamento Final",
   "kind": "positive",
   "version": "1.0.0",
-  "active": false,
+  "active": true,
   "priority": 86,
   "weight": 4.5,
   "evaluator": "alinhamento_final_boost",

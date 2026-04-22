@@ -94,6 +94,7 @@ class FinalSuggestionRequest(BaseModel):
     inversion_context_window: int = 15
     inversion_penalty_factor: float = 0.3
     weight_profile_id: str | None = None
+    weight_profile_weights: Dict[str, float] = Field(default_factory=dict)
     entry_policy_enabled: bool = True
     entry_policy_overlap_window: int = 3
     entry_policy_high_confidence_cutoff: int = 60
@@ -138,6 +139,7 @@ class FinalSuggestionPolicyRequest(BaseModel):
     inversion_context_window: int = 15
     inversion_penalty_factor: float = 0.3
     weight_profile_id: str | None = None
+    weight_profile_weights: Dict[str, float] = Field(default_factory=dict)
     entry_policy_enabled: bool = True
     entry_policy_overlap_window: int = 3
     entry_policy_high_confidence_cutoff: int = 60
@@ -590,6 +592,34 @@ def _build_ranked_optimized_list(number_details: Any, fallback: List[int]) -> Li
     return list(fallback)
 
 
+def _merge_effective_profile_weights(
+    *,
+    saved_profile_weights: Dict[str, float] | None,
+    runtime_profile_weights: Dict[str, float] | None,
+) -> Dict[str, float]:
+    normalized_saved = {
+        str(pattern_id).strip(): float(weight)
+        for pattern_id, weight in dict(saved_profile_weights or {}).items()
+        if str(pattern_id).strip()
+    }
+    normalized_runtime = {
+        str(pattern_id).strip(): float(weight)
+        for pattern_id, weight in dict(runtime_profile_weights or {}).items()
+        if str(pattern_id).strip()
+    }
+    if not normalized_saved and not normalized_runtime:
+        return {}
+
+    merged: Dict[str, float] = {}
+    all_pattern_ids = set(normalized_saved) | set(normalized_runtime)
+    for pattern_id in all_pattern_ids:
+        merged[pattern_id] = round(
+            float(normalized_saved.get(pattern_id, 1.0)) * float(normalized_runtime.get(pattern_id, 1.0)),
+            6,
+        )
+    return merged
+
+
 def _build_simple_suggestion_from_contributions(
     contributions: Any,
     *,
@@ -627,6 +657,7 @@ def _build_simple_suggestion_from_contributions(
         for k, v in dict(weight_profile_weights or {}).items()
         if str(k).strip()
     }
+    weighted_ranking_applied = bool(safe_profile_weights)
     safe_known_pattern_ids = [str(pid).strip() for pid in (known_pattern_ids or []) if str(pid).strip()]
     normalized_contributions: List[Dict[str, Any]] = []
     supports_by_number: Dict[int, Dict[str, Dict[str, Any]]] = defaultdict(dict)
@@ -790,8 +821,8 @@ def _build_simple_suggestion_from_contributions(
             "explanation": "Nenhum pattern positivo retornou números para a sugestão simples.",
             "weight_profile": {
                 "id": safe_profile_id,
-                "weighted_ranking": bool(safe_profile_id and safe_profile_weights),
-            } if safe_profile_id else None,
+                "weighted_ranking": weighted_ranking_applied,
+            } if (safe_profile_id or weighted_ranking_applied) else None,
             "block_bets_enabled": safe_block_bets_enabled,
             "block_compaction": block_compaction,
             "block_compaction_applied": False,
@@ -803,8 +834,8 @@ def _build_simple_suggestion_from_contributions(
     explanation = (
         (
             f"Sugestão simples ponderada por profile: "
-            if (safe_profile_id and safe_profile_weights)
-            else f"Sugestão simples por contagem de apoio: "
+            if safe_profile_id
+            else (f"Sugestão simples ponderada por pesos dinâmicos: " if weighted_ranking_applied else f"Sugestão simples por contagem de apoio: ")
         )
         + f"{len(normalized_contributions)} pattern(s) positivos e {len(number_details)} número(s) únicos citados."
     )
@@ -836,8 +867,8 @@ def _build_simple_suggestion_from_contributions(
         "explanation": explanation,
         "weight_profile": {
             "id": safe_profile_id,
-            "weighted_ranking": bool(safe_profile_id and safe_profile_weights),
-        } if safe_profile_id else None,
+            "weighted_ranking": weighted_ranking_applied,
+        } if (safe_profile_id or weighted_ranking_applied) else None,
         "block_bets_enabled": safe_block_bets_enabled,
         "block_compaction": block_compaction,
         "block_compaction_applied": bool(block_compaction["changed"]),
@@ -1068,7 +1099,28 @@ async def _compute_final_suggestion(
     )
     selected_profile_id = str(payload.weight_profile_id or "").strip() or None
     selected_profile = pattern_weight_profiles.load_profile(selected_profile_id) if selected_profile_id else None
-    profile_weights = selected_profile.get("weights", {}) if isinstance(selected_profile, dict) else {}
+    saved_profile_weights = selected_profile.get("weights", {}) if isinstance(selected_profile, dict) else {}
+    runtime_profile_weights = {
+        str(pattern_id).strip(): float(weight)
+        for pattern_id, weight in dict(payload.weight_profile_weights or {}).items()
+        if str(pattern_id).strip()
+    }
+    effective_profile_weights = _merge_effective_profile_weights(
+        saved_profile_weights=saved_profile_weights if isinstance(saved_profile_weights, dict) else {},
+        runtime_profile_weights=runtime_profile_weights,
+    )
+    dynamic_weighting_meta = {
+        "runtime_weight_count": len(runtime_profile_weights),
+        "runtime_weights_applied": bool(runtime_profile_weights),
+        "effective_weight_count": len(effective_profile_weights),
+        "top_runtime_weights": [
+            {"pattern_id": pattern_id, "weight": weight}
+            for pattern_id, weight in sorted(
+                runtime_profile_weights.items(),
+                key=lambda item: (-abs(float(item[1]) - 1.0), -float(item[1]), item[0]),
+            )[:12]
+        ],
+    }
 
     base_list_for_engine = sorted(base_list_ranked)
     optimized_result = pattern_engine.evaluate(
@@ -1079,7 +1131,7 @@ async def _compute_final_suggestion(
         max_numbers=optimized_max_numbers,
         runtime_overrides=runtime_overrides,
         weight_profile_id=selected_profile_id,
-        weight_profile_weights=profile_weights if isinstance(profile_weights, dict) else {},
+        weight_profile_weights=effective_profile_weights,
     )
 
     opt_list_sorted = _parse_optimized_suggestion_sorted(optimized_result)
@@ -1276,7 +1328,19 @@ async def _compute_final_suggestion(
         "weight_profile": {
             "id": selected_profile.get("id"),
             "name": selected_profile.get("name"),
-        } if isinstance(selected_profile, dict) else None,
+            "runtime_weight_count": len(runtime_profile_weights),
+            "effective_weight_count": len(effective_profile_weights),
+        } if isinstance(selected_profile, dict) else (
+            {
+                "id": None,
+                "name": None,
+                "runtime_weight_count": len(runtime_profile_weights),
+                "effective_weight_count": len(effective_profile_weights),
+            }
+            if runtime_profile_weights
+            else None
+        ),
+        "dynamic_weighting": dynamic_weighting_meta,
     }
     simple_payload = _build_simple_suggestion_from_contributions(
         optimized_result.get("contributions", []),
@@ -1286,9 +1350,12 @@ async def _compute_final_suggestion(
         block_bets_enabled=bool(payload.block_bets_enabled),
         pulled_counts=pulled_counts,
         weight_profile_id=selected_profile_id,
-        weight_profile_weights=profile_weights if isinstance(profile_weights, dict) else {},
+        weight_profile_weights=effective_profile_weights,
         known_pattern_ids=[definition.id for definition in pattern_engine._load_patterns()],
     )
+    simple_payload["dynamic_weighting"] = dynamic_weighting_meta
+    if isinstance(simple_payload.get("weight_profile"), dict):
+        simple_payload["weight_profile"].update(dynamic_weighting_meta)
     simple_payload["entry_shadow"] = simple_suggestion_entry_shadow.evaluate(
         simple_payload=simple_payload,
         history=normalized_history,
@@ -1847,6 +1914,7 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
             inversion_context_window=payload.inversion_context_window,
             inversion_penalty_factor=payload.inversion_penalty_factor,
             weight_profile_id=payload.weight_profile_id,
+            weight_profile_weights=payload.weight_profile_weights,
             entry_policy_enabled=payload.entry_policy_enabled,
             entry_policy_overlap_window=payload.entry_policy_overlap_window,
             entry_policy_high_confidence_cutoff=payload.entry_policy_high_confidence_cutoff,

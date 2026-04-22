@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, HTTPException, Query
 
 from api.core.db import (
+    ensure_suggestion_monitor_indexes,
     suggestion_monitor_attempts_coll,
     suggestion_monitor_events_coll,
     suggestion_monitor_offsets_coll,
@@ -21,6 +22,10 @@ redis_client = get_redis_client()
 SUGGESTION_MONITOR_CONTROL_CHANNEL = (
     os.getenv("SUGGESTION_MONITOR_CONTROL_CHANNEL", "suggestion_monitor_control").strip()
     or "suggestion_monitor_control"
+)
+DEFAULT_MONITOR_RANK_CEILING = max(
+    1,
+    min(37, int(os.getenv("SUGGESTION_MONITOR_MAX_NUMBERS", "37") or "37")),
 )
 
 
@@ -43,6 +48,10 @@ def _normalize_hour(value: int | None) -> int | None:
     return None
 
 
+async def _ensure_monitor_indexes() -> None:
+    await ensure_suggestion_monitor_indexes()
+
+
 def _variant_field_paths(ranking_variant: str | None = None) -> Dict[str, Any]:
     variant = str(ranking_variant or "base").strip().lower()
     if variant in {"compact", "oscillation_v4_selective_compact", "selective_compact_v4"}:
@@ -62,6 +71,7 @@ def _variant_field_paths(ranking_variant: str | None = None) -> Dict[str, Any]:
                 "resolved_number": 1,
                 "resolved_attempt": 1,
                 "resolved_rank_position": 1,
+                "suggestion_size": 1,
                 "window_result_status": 1,
                 "window_result_attempt": 1,
                 "window_result_hit": 1,
@@ -86,9 +96,180 @@ def _variant_field_paths(ranking_variant: str | None = None) -> Dict[str, Any]:
                 "resolved_number": 1,
                 "resolved_attempt": 1,
                 "resolved_rank_position": 1,
+                "suggestion_size": 1,
             },
             "label": "temporal_blend_v1",
-            "rank_ceiling": 37,
+            "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
+        }
+    if variant in {"time_window_prior", "time_window_prior_v1", "temporal_window_prior"}:
+        return {
+            "key": "time_window_prior_v1",
+            "status": "status",
+            "resolved_attempt": "resolved_attempt",
+            "resolved_rank_position": "resolved_rank_position",
+            "resolved_number": "resolved_number",
+            "resolved_timestamp_br": "resolved_timestamp_br",
+            "attempts_elapsed": "attempts_elapsed",
+            "variant_filter": {"ranking_variant": "time_window_prior_v1"},
+            "projection": {
+                "anchor_number": 1,
+                "anchor_timestamp_br": 1,
+                "anchor_timestamp_utc": 1,
+                "resolved_number": 1,
+                "resolved_attempt": 1,
+                "resolved_rank_position": 1,
+                "suggestion_size": 1,
+            },
+            "label": "time_window_prior_v1",
+            "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
+        }
+    if variant in {"top26", "ranking_v2_top26", "top_26_v2"}:
+        return {
+            "key": "ranking_v2_top26",
+            "status": "status",
+            "resolved_attempt": "resolved_attempt",
+            "resolved_rank_position": "resolved_rank_position",
+            "resolved_number": "resolved_number",
+            "resolved_timestamp_br": "resolved_timestamp_br",
+            "attempts_elapsed": "attempts_elapsed",
+            "variant_filter": {"ranking_variant": "ranking_v2_top26"},
+            "projection": {
+                "anchor_number": 1,
+                "anchor_timestamp_br": 1,
+                "anchor_timestamp_utc": 1,
+                "resolved_number": 1,
+                "resolved_attempt": 1,
+                "resolved_rank_position": 1,
+                "suggestion_size": 1,
+            },
+            "label": "ranking_v2_top26",
+            "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
+        }
+    if variant in {"ml", "ml_meta_rank", "ml_meta_rank_v1", "meta_rank_ml"}:
+        return {
+            "key": "ml_meta_rank_v1",
+            "status": "status",
+            "resolved_attempt": "resolved_attempt",
+            "resolved_rank_position": "resolved_rank_position",
+            "resolved_number": "resolved_number",
+            "resolved_timestamp_br": "resolved_timestamp_br",
+            "attempts_elapsed": "attempts_elapsed",
+            "variant_filter": {"ranking_variant": "ml_meta_rank_v1"},
+            "projection": {
+                "anchor_number": 1,
+                "anchor_timestamp_br": 1,
+                "anchor_timestamp_utc": 1,
+                "resolved_number": 1,
+                "resolved_attempt": 1,
+                "resolved_rank_position": 1,
+                "suggestion_size": 1,
+            },
+            "label": "ml_meta_rank_v1",
+            "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
+        }
+    if variant in {"ml_top12_reference", "ml_top12_reference_12x4_v1", "ml_reference_12x4"}:
+        return {
+            "key": "ml_top12_reference_12x4_v1",
+            "status": "status",
+            "resolved_attempt": "resolved_attempt",
+            "resolved_rank_position": "resolved_rank_position",
+            "resolved_number": "resolved_number",
+            "resolved_timestamp_br": "resolved_timestamp_br",
+            "attempts_elapsed": "attempts_elapsed",
+            "variant_filter": {"ranking_variant": "ml_top12_reference_12x4_v1"},
+            "projection": {
+                "anchor_number": 1,
+                "anchor_timestamp_br": 1,
+                "anchor_timestamp_utc": 1,
+                "resolved_number": 1,
+                "resolved_attempt": 1,
+                "resolved_rank_position": 1,
+                "suggestion_size": 1,
+                "window_result_status": 1,
+                "window_result_attempt": 1,
+                "window_result_hit": 1,
+                "suggestion": 1,
+            },
+            "label": "ml_top12_reference_12x4_v1",
+            "rank_ceiling": 12,
+        }
+    if variant in {"ml_entry_gate", "ml_entry_gate_12x4_v1", "entry_gate_ml_12x4"}:
+        return {
+            "key": "ml_entry_gate_12x4_v1",
+            "status": "status",
+            "resolved_attempt": "resolved_attempt",
+            "resolved_rank_position": "resolved_rank_position",
+            "resolved_number": "resolved_number",
+            "resolved_timestamp_br": "resolved_timestamp_br",
+            "attempts_elapsed": "attempts_elapsed",
+            "variant_filter": {"ranking_variant": "ml_entry_gate_12x4_v1"},
+            "projection": {
+                "anchor_number": 1,
+                "anchor_timestamp_br": 1,
+                "anchor_timestamp_utc": 1,
+                "resolved_number": 1,
+                "resolved_attempt": 1,
+                "resolved_rank_position": 1,
+                "suggestion_size": 1,
+                "window_result_status": 1,
+                "window_result_attempt": 1,
+                "window_result_hit": 1,
+                "suggestion": 1,
+            },
+            "label": "ml_entry_gate_12x4_v1",
+            "rank_ceiling": 12,
+        }
+    if variant in {"top26_selective", "top26_selective_16x4_v1", "strategy_16x4"}:
+        return {
+            "key": "top26_selective_16x4_v1",
+            "status": "status",
+            "resolved_attempt": "resolved_attempt",
+            "resolved_rank_position": "resolved_rank_position",
+            "resolved_number": "resolved_number",
+            "resolved_timestamp_br": "resolved_timestamp_br",
+            "attempts_elapsed": "attempts_elapsed",
+            "variant_filter": {"ranking_variant": "top26_selective_16x4_v1"},
+            "projection": {
+                "anchor_number": 1,
+                "anchor_timestamp_br": 1,
+                "anchor_timestamp_utc": 1,
+                "resolved_number": 1,
+                "resolved_attempt": 1,
+                "resolved_rank_position": 1,
+                "suggestion_size": 1,
+                "window_result_status": 1,
+                "window_result_attempt": 1,
+                "window_result_hit": 1,
+                "suggestion": 1,
+            },
+            "label": "top26_selective_16x4_v1",
+            "rank_ceiling": 16,
+        }
+    if variant in {"top26_selective_dynamic", "top26_selective_16x4_dynamic_v1", "strategy_16x4_dynamic"}:
+        return {
+            "key": "top26_selective_16x4_dynamic_v1",
+            "status": "status",
+            "resolved_attempt": "resolved_attempt",
+            "resolved_rank_position": "resolved_rank_position",
+            "resolved_number": "resolved_number",
+            "resolved_timestamp_br": "resolved_timestamp_br",
+            "attempts_elapsed": "attempts_elapsed",
+            "variant_filter": {"ranking_variant": "top26_selective_16x4_dynamic_v1"},
+            "projection": {
+                "anchor_number": 1,
+                "anchor_timestamp_br": 1,
+                "anchor_timestamp_utc": 1,
+                "resolved_number": 1,
+                "resolved_attempt": 1,
+                "resolved_rank_position": 1,
+                "suggestion_size": 1,
+                "window_result_status": 1,
+                "window_result_attempt": 1,
+                "window_result_hit": 1,
+                "suggestion": 1,
+            },
+            "label": "top26_selective_16x4_dynamic_v1",
+            "rank_ceiling": 16,
         }
     if variant in {"selective_protected", "oscillation_v3_selective_protected", "selective_protection_v3"}:
         return {
@@ -107,9 +288,10 @@ def _variant_field_paths(ranking_variant: str | None = None) -> Dict[str, Any]:
                 "resolved_number": 1,
                 "resolved_attempt": 1,
                 "resolved_rank_position": 1,
+                "suggestion_size": 1,
             },
             "label": "oscillation_v3_selective_protected",
-            "rank_ceiling": 37,
+            "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
         }
     if variant in {"selective", "oscillation_v3_selective", "selective_v3"}:
         return {
@@ -128,9 +310,10 @@ def _variant_field_paths(ranking_variant: str | None = None) -> Dict[str, Any]:
                 "resolved_number": 1,
                 "resolved_attempt": 1,
                 "resolved_rank_position": 1,
+                "suggestion_size": 1,
             },
             "label": "oscillation_v3_selective",
-            "rank_ceiling": 37,
+            "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
         }
     if variant in {"aggressive", "oscillation_v2_aggressive", "aggressive_v2"}:
         return {
@@ -149,9 +332,10 @@ def _variant_field_paths(ranking_variant: str | None = None) -> Dict[str, Any]:
                 "resolved_number": 1,
                 "resolved_attempt": 1,
                 "resolved_rank_position": 1,
+                "suggestion_size": 1,
             },
             "label": "oscillation_v2_aggressive",
-            "rank_ceiling": 37,
+            "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
         }
     if variant in {"optimized", "oscillation", "oscillation_v1"}:
         return {
@@ -170,9 +354,10 @@ def _variant_field_paths(ranking_variant: str | None = None) -> Dict[str, Any]:
                 "resolved_number": 1,
                 "resolved_attempt": 1,
                 "resolved_rank_position": 1,
+                "suggestion_size": 1,
             },
             "label": "oscillation_v1",
-            "rank_ceiling": 37,
+            "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
         }
     return {
         "key": "base_v1",
@@ -195,10 +380,23 @@ def _variant_field_paths(ranking_variant: str | None = None) -> Dict[str, Any]:
             "resolved_number": 1,
             "resolved_attempt": 1,
             "resolved_rank_position": 1,
+            "suggestion_size": 1,
         },
         "label": "base_v1",
-        "rank_ceiling": 37,
+        "rank_ceiling": DEFAULT_MONITOR_RANK_CEILING,
     }
+
+
+def _resolve_rank_ceiling(paths: Dict[str, Any], docs: List[Dict[str, Any]]) -> int:
+    fallback = max(1, int(paths.get("rank_ceiling") or DEFAULT_MONITOR_RANK_CEILING))
+    sizes = [
+        max(1, min(37, int(doc.get("suggestion_size") or 0)))
+        for doc in docs
+        if int(doc.get("suggestion_size") or 0) > 0
+    ]
+    if not sizes:
+        return fallback
+    return max(fallback, max(sizes)) if paths.get("label") == "oscillation_v4_selective_compact" else max(sizes)
 
 
 def _build_event_filter(
@@ -349,9 +547,18 @@ def _format_latest_event(doc: Dict[str, Any]) -> Dict[str, Any]:
         "shadow_action": str(recommendation.get("action") or "").strip(),
         "shadow_label": str(recommendation.get("label") or "").strip(),
         "shadow_reason": str(recommendation.get("reason") or "").strip(),
+        "shadow_confidence_base_score": int((entry_shadow.get("entry_confidence") or {}).get("base_score_before_rank_feedback") or 0)
+        if isinstance(entry_shadow.get("entry_confidence"), dict)
+        else 0,
         "shadow_confidence_score": int((entry_shadow.get("entry_confidence") or {}).get("score") or 0)
         if isinstance(entry_shadow.get("entry_confidence"), dict)
         else 0,
+        "shadow_confidence_delta": int((entry_shadow.get("rank_context_confidence") or {}).get("confidence_delta") or 0)
+        if isinstance(entry_shadow.get("rank_context_confidence"), dict)
+        else 0,
+        "shadow_rank_context_band": str((entry_shadow.get("rank_context_confidence") or {}).get("latest_rank_band") or "").strip()
+        if isinstance(entry_shadow.get("rank_context_confidence"), dict)
+        else "",
         "shadow_p_hit_1": round(_safe_float(probabilities.get("hit_1"), 0.0), 6),
         "shadow_late_hit_risk": round(_safe_float(entry_shadow.get("late_hit_risk"), 0.0), 6),
         "shadow_ev": round(_safe_float((entry_shadow.get("expected_value") or {}).get("net_units"), 0.0), 6)
@@ -383,6 +590,47 @@ def _format_optimized_companion(doc: Dict[str, Any] | None) -> Dict[str, Any]:
         "oscillation_reference_rank": oscillation.get("reference_rank"),
         "explanation": str(doc.get("explanation") or "").strip(),
     }
+
+
+def _apply_dynamic_pattern_weights(
+    items: List[Dict[str, Any]],
+    weights: Dict[str, float] | None = None,
+    details: Dict[str, Dict[str, Any]] | None = None,
+) -> List[Dict[str, Any]]:
+    normalized_weights = {
+        str(pattern_id).strip(): float(weight)
+        for pattern_id, weight in dict(weights or {}).items()
+        if str(pattern_id).strip()
+    }
+    normalized_details = {
+        str(pattern_id).strip(): dict(detail)
+        for pattern_id, detail in dict(details or {}).items()
+        if str(pattern_id).strip() and isinstance(detail, dict)
+    }
+    enriched: List[Dict[str, Any]] = []
+    for item in list(items or []):
+        pattern_id = str(item.get("pattern_id") or "").strip()
+        detail = normalized_details.get(pattern_id, {})
+        current_weight = float(normalized_weights.get(pattern_id, 1.0))
+        row = dict(item)
+        row["current_weight"] = round(current_weight, 6)
+        row["weight_delta"] = round(current_weight - 1.0, 6)
+        row["weight_sample"] = round(_safe_float(detail.get("sample"), 0.0), 6)
+        row["top_rank_hit_rate"] = round(_safe_float(detail.get("top_rank_hit_rate"), 0.0), 6)
+        row["upper_mid_hit_rate"] = round(_safe_float(detail.get("upper_mid_hit_rate"), 0.0), 6)
+        row["deep_rank_hit_rate"] = round(_safe_float(detail.get("deep_rank_hit_rate"), 0.0), 6)
+        row["avg_hit_rank_ratio"] = round(_safe_float(detail.get("avg_hit_rank_ratio"), 0.0), 6)
+        row["recent_miss_streak"] = int(detail.get("recent_miss_streak") or 0)
+        enriched.append(row)
+    enriched.sort(
+        key=lambda row: (
+            -float(row.get("current_weight", 1.0)),
+            -float(row.get("first_hit_rate", 0.0)),
+            -float(row.get("covered_hit_rate", 0.0)),
+            str(row.get("pattern_id") or ""),
+        )
+    )
+    return enriched
 
 
 def _compute_first_hit_streaks(resolved_docs: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -588,6 +836,43 @@ def _build_rank_timeline_items(docs: List[Dict[str, Any]]) -> List[Dict[str, Any
     return items
 
 
+def _build_top_k_metrics(
+    docs: List[Dict[str, Any]],
+    *,
+    total_events: int,
+    thresholds: List[int] | None = None,
+) -> Dict[str, Any]:
+    normalized_docs = _normalize_resolved_docs(docs)
+    resolved_count = len(normalized_docs)
+    rank_positions = [
+        max(1, int(doc.get("resolved_rank_position") or 0))
+        for doc in normalized_docs
+        if int(doc.get("resolved_rank_position") or 0) > 0
+    ]
+    target_thresholds = [int(value) for value in (thresholds or [6, 12, 18, 26]) if int(value) > 0]
+    metrics = {
+        f"hit_at_{threshold}": round(
+            (
+                sum(1 for rank in rank_positions if rank <= threshold)
+                / max(1, resolved_count)
+            ),
+            4,
+        ) if resolved_count else 0.0
+        for threshold in target_thresholds
+    }
+    hit_at_26_count = sum(1 for rank in rank_positions if rank <= 26)
+    mean_rank = round(sum(rank_positions) / resolved_count, 4) if resolved_count else 0.0
+    mrr = round(sum(1.0 / rank for rank in rank_positions) / resolved_count, 6) if resolved_count else 0.0
+    return {
+        "total_events": int(total_events),
+        "total_resolved": int(resolved_count),
+        "top26_rate": round(hit_at_26_count / max(1, total_events), 4) if total_events else 0.0,
+        "mean_rank": mean_rank,
+        "mrr": mrr,
+        **metrics,
+    }
+
+
 def _normalize_resolved_docs(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     normalized: List[Dict[str, Any]] = []
     for doc in docs:
@@ -614,6 +899,11 @@ def _build_window_outcome_items(docs: List[Dict[str, Any]]) -> List[Dict[str, An
         status = str(doc.get("window_result_status") or "").strip().lower()
         if status not in {"hit", "miss"}:
             continue
+        suggestion = [
+            int(number)
+            for number in (doc.get("suggestion") or [])
+            if str(number).isdigit() and 0 <= int(number) <= 36
+        ]
         items.append(
             {
                 "sequence_index": index,
@@ -623,10 +913,31 @@ def _build_window_outcome_items(docs: List[Dict[str, Any]]) -> List[Dict[str, An
                 "window_attempt": int(doc.get("window_result_attempt") or 0) or None,
                 "resolved_attempt": int(doc.get("resolved_attempt") or 0) or None,
                 "resolved_number": doc.get("resolved_number"),
+                "resolved_rank_position": int(doc.get("resolved_rank_position") or 0) or None,
                 "hit": bool(doc.get("window_result_hit")) if status == "hit" else False,
+                "suggestion": suggestion,
+                "suggestion_size": int(doc.get("suggestion_size") or len(suggestion) or 0),
             }
         )
     return items
+
+
+def _build_window_hit_breakdown(docs: List[Dict[str, Any]], max_attempts: int = 4) -> Dict[str, int]:
+    breakdown = {str(attempt): 0 for attempt in range(1, max(1, int(max_attempts)) + 1)}
+    for doc in docs:
+        status = str(doc.get("window_result_status") or "").strip().lower()
+        if status != "hit":
+            continue
+        try:
+            attempt = int(doc.get("window_result_attempt") or 0)
+        except (TypeError, ValueError):
+            attempt = 0
+        if attempt <= 0:
+            continue
+        key = str(attempt)
+        if key in breakdown:
+            breakdown[key] += 1
+    return breakdown
 
 
 @router.get("/api/suggestion-monitor/overview")
@@ -642,6 +953,7 @@ async def get_suggestion_monitor_overview(
     end_hour: int | None = Query(default=None, ge=0, le=23),
 ) -> Dict[str, Any]:
     try:
+        await _ensure_monitor_indexes()
         paths = _variant_field_paths(ranking_variant)
         base_filter = _build_event_filter(
             roulette_id=roulette_id,
@@ -687,7 +999,10 @@ async def get_suggestion_monitor_overview(
             },
             {"$sort": {"_id": 1}},
         ]
-        per_attempt_rows = await suggestion_monitor_events_coll.aggregate(resolved_pipeline).to_list(length=None)
+        per_attempt_rows = await suggestion_monitor_events_coll.aggregate(
+            resolved_pipeline,
+            allowDiskUse=True,
+        ).to_list(length=None)
         per_attempt = {
             str(int(row["_id"])): int(row["count"])
             for row in per_attempt_rows
@@ -705,7 +1020,8 @@ async def get_suggestion_monitor_overview(
                         "count": {"$sum": 1},
                     }
                 },
-            ]
+            ],
+            allowDiskUse=True,
         ).to_list(length=None)
         attempt_options = _build_attempt_options_from_rows(
             [dict(row) for row in attempt_rows],
@@ -749,6 +1065,7 @@ async def get_suggestion_monitor_events(
     end_hour: int | None = Query(default=None, ge=0, le=23),
 ) -> Dict[str, Any]:
     try:
+        await _ensure_monitor_indexes()
         filter_query = _build_event_filter(
             roulette_id=roulette_id,
             config_key=config_key,
@@ -761,12 +1078,14 @@ async def get_suggestion_monitor_events(
             start_hour=start_hour,
             end_hour=end_hour,
         )
-        docs = await (
-            suggestion_monitor_events_coll.find(filter_query)
-            .sort("anchor_timestamp_utc", -1)
-            .limit(limit)
-            .to_list(length=limit)
-        )
+        docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {"$match": filter_query},
+                {"$sort": {"anchor_timestamp_utc": -1}},
+                {"$limit": int(limit)},
+            ],
+            allowDiskUse=True,
+        ).to_list(length=limit)
         items: List[Dict[str, Any]] = []
         for doc in docs:
             items.append(
@@ -813,6 +1132,7 @@ async def get_suggestion_monitor_latest(
     end_hour: int | None = Query(default=None, ge=0, le=23),
 ) -> Dict[str, Any]:
     try:
+        await _ensure_monitor_indexes()
         page_size = 50
         base_filter = _build_event_filter(
             roulette_id=roulette_id,
@@ -840,13 +1160,15 @@ async def get_suggestion_monitor_latest(
         total_pages = max(1, (total_count + page_size - 1) // page_size)
         current_page = min(max(1, int(page)), total_pages)
         skip = (current_page - 1) * page_size
-        docs = await (
-            suggestion_monitor_events_coll.find(filter_query)
-            .sort("anchor_timestamp_utc", -1)
-            .skip(skip)
-            .limit(page_size)
-            .to_list(length=page_size)
-        )
+        docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {"$match": filter_query},
+                {"$sort": {"anchor_timestamp_utc": -1}},
+                {"$skip": int(skip)},
+                {"$limit": int(page_size)},
+            ],
+            allowDiskUse=True,
+        ).to_list(length=page_size)
         docs_list = [dict(doc) for doc in docs]
         items = [_format_latest_event(doc) for doc in docs_list]
         if _variant_field_paths(ranking_variant)["label"] == "base_v1" and items:
@@ -854,7 +1176,7 @@ async def get_suggestion_monitor_latest(
             optimized_docs = await suggestion_monitor_events_coll.find(
                 {
                     "source_base_event_id": {"$in": base_event_ids},
-                    "ranking_variant": "oscillation_v1",
+                    "ranking_variant": "ranking_v2_top26",
                 },
                 {
                     "_id": 1,
@@ -885,7 +1207,8 @@ async def get_suggestion_monitor_latest(
                         "count": {"$sum": 1},
                     }
                 },
-            ]
+            ],
+            allowDiskUse=True,
         ).to_list(length=None)
         return {
             "roulette_id": roulette_id,
@@ -928,6 +1251,7 @@ async def get_suggestion_monitor_patterns(
     end_hour: int | None = Query(default=None, ge=0, le=23),
 ) -> Dict[str, Any]:
     try:
+        await _ensure_monitor_indexes()
         event_filter = _build_event_filter(
             roulette_id=roulette_id,
             config_key=config_key,
@@ -945,6 +1269,30 @@ async def get_suggestion_monitor_patterns(
             filter_query = {"suggestion_event_id": {"$in": event_ids}}
         else:
             filter_query = {"suggestion_event_id": {"$in": []}}
+        latest_dynamic_doc = await suggestion_monitor_events_coll.find_one(
+            event_filter,
+            {
+                "_id": 1,
+                "dynamic_weighting": 1,
+                "anchor_timestamp_utc": 1,
+            },
+            sort=[("anchor_timestamp_utc", -1)],
+        )
+        dynamic_weighting = (
+            latest_dynamic_doc.get("dynamic_weighting")
+            if isinstance(latest_dynamic_doc, dict) and isinstance(latest_dynamic_doc.get("dynamic_weighting"), dict)
+            else {}
+        )
+        dynamic_weights = {
+            str(pattern_id).strip(): float(weight)
+            for pattern_id, weight in dict(dynamic_weighting.get("weights") or {}).items()
+            if str(pattern_id).strip()
+        }
+        dynamic_details = {
+            str(pattern_id).strip(): dict(detail)
+            for pattern_id, detail in dict(dynamic_weighting.get("details") or {}).items()
+            if str(pattern_id).strip() and isinstance(detail, dict)
+        }
         pipeline = [
             {"$match": filter_query},
             {
@@ -979,7 +1327,10 @@ async def get_suggestion_monitor_patterns(
             {"$sort": {"covered_hits": -1, "signals": -1, "_id": 1}},
             {"$limit": limit},
         ]
-        rows = await suggestion_monitor_pattern_outcomes_coll.aggregate(pipeline).to_list(length=None)
+        rows = await suggestion_monitor_pattern_outcomes_coll.aggregate(
+            pipeline,
+            allowDiskUse=True,
+        ).to_list(length=None)
         items = []
         for row in rows:
             signals = int(row.get("signals", 0) or 0)
@@ -997,10 +1348,20 @@ async def get_suggestion_monitor_patterns(
                     "avg_resolved_attempt": round(float(row.get("avg_resolved_attempt") or 0.0), 4),
                 }
             )
+        items = _apply_dynamic_pattern_weights(items, dynamic_weights, dynamic_details)
         return {
             "roulette_id": roulette_id,
             "config_key": config_key,
             "ranking_variant": _variant_field_paths(ranking_variant)["label"],
+            "dynamic_weighting": {
+                "applied": bool(dynamic_weighting.get("applied", False)),
+                "weight_count": int(dynamic_weighting.get("weight_count", 0) or 0),
+                "source_event_id": (
+                    str(latest_dynamic_doc.get("_id"))
+                    if isinstance(latest_dynamic_doc, dict) and latest_dynamic_doc.get("_id") is not None
+                    else ""
+                ),
+            },
             "items": items,
         }
     except Exception as exc:
@@ -1020,6 +1381,7 @@ async def get_suggestion_monitor_hourly(
     end_hour: int | None = Query(default=None, ge=0, le=23),
 ) -> Dict[str, Any]:
     try:
+        await _ensure_monitor_indexes()
         paths = _variant_field_paths(ranking_variant)
         filter_query = _build_event_filter(
             roulette_id=roulette_id,
@@ -1059,7 +1421,10 @@ async def get_suggestion_monitor_hourly(
             },
             {"$sort": {"_id": 1}},
         ]
-        rows = await suggestion_monitor_events_coll.aggregate(pipeline).to_list(length=None)
+        rows = await suggestion_monitor_events_coll.aggregate(
+            pipeline,
+            allowDiskUse=True,
+        ).to_list(length=None)
         hours = []
         for hour in range(24):
             row = next((item for item in rows if int(item.get("_id", -1)) == hour), None)
@@ -1100,6 +1465,7 @@ async def get_suggestion_monitor_rank_timeline(
     end_hour: int | None = Query(default=None, ge=0, le=23),
 ) -> Dict[str, Any]:
     try:
+        await _ensure_monitor_indexes()
         paths = _variant_field_paths(ranking_variant)
         filter_query = _build_event_filter(
             roulette_id=roulette_id,
@@ -1114,23 +1480,25 @@ async def get_suggestion_monitor_rank_timeline(
             end_hour=end_hour,
         )
         total_resolved = await suggestion_monitor_events_coll.count_documents(filter_query)
-        docs = await (
-            suggestion_monitor_events_coll.find(
-                filter_query,
-                dict(paths["projection"]),
-            )
-            .sort("anchor_timestamp_utc", -1)
-            .limit(limit)
-            .to_list(length=limit)
-        )
+        docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {"$match": filter_query},
+                {"$sort": {"anchor_timestamp_utc": -1}},
+                {"$limit": int(limit)},
+                {"$project": dict(paths["projection"])},
+            ],
+            allowDiskUse=True,
+        ).to_list(length=limit)
         docs.reverse()
-        normalized_docs = _normalize_resolved_docs([dict(doc) for doc in docs])
+        docs_list = [dict(doc) for doc in docs]
+        normalized_docs = _normalize_resolved_docs(docs_list)
         items = _build_rank_timeline_items(normalized_docs)
         average_rank_position = (
             round(sum(int(item["rank_position"]) for item in items) / len(items), 4)
             if items
             else 0.0
         )
+        rank_ceiling = _resolve_rank_ceiling(paths, docs_list)
         return {
             "roulette_id": roulette_id,
             "config_key": config_key,
@@ -1146,8 +1514,75 @@ async def get_suggestion_monitor_rank_timeline(
             "displayed_points": len(items),
             "truncated": total_resolved > len(items),
             "average_rank_position": average_rank_position,
-            "rank_ceiling": int(paths["rank_ceiling"]),
+            "rank_ceiling": int(rank_ceiling),
             "items": items,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/suggestion-monitor/top-k-metrics")
+async def get_suggestion_monitor_top_k_metrics(
+    roulette_id: str = Query(default="pragmatic-auto-roulette"),
+    config_key: str | None = Query(default=None),
+    attempt_filter: str | None = Query(default=None),
+    ranking_variant: str | None = Query(default="ranking_v2_top26"),
+    shadow_action: str | None = Query(default=None),
+    start_date: str | None = Query(default=None),
+    end_date: str | None = Query(default=None),
+    start_hour: int | None = Query(default=None, ge=0, le=23),
+    end_hour: int | None = Query(default=None, ge=0, le=23),
+) -> Dict[str, Any]:
+    try:
+        await _ensure_monitor_indexes()
+        paths = _variant_field_paths(ranking_variant)
+        base_filter = _build_event_filter(
+            roulette_id=roulette_id,
+            config_key=config_key,
+            ranking_variant=ranking_variant,
+            shadow_action=shadow_action,
+            start_date=start_date,
+            end_date=end_date,
+            start_hour=start_hour,
+            end_hour=end_hour,
+        )
+        resolved_filter = _build_event_filter(
+            roulette_id=roulette_id,
+            config_key=config_key,
+            status="resolved",
+            attempt_filter=attempt_filter,
+            ranking_variant=ranking_variant,
+            shadow_action=shadow_action,
+            start_date=start_date,
+            end_date=end_date,
+            start_hour=start_hour,
+            end_hour=end_hour,
+        )
+        total_events = await suggestion_monitor_events_coll.count_documents(base_filter)
+        docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {"$match": resolved_filter},
+                {
+                    "$project": {
+                        "resolved_rank_position": 1,
+                        "resolved_attempt": 1,
+                    }
+                },
+            ],
+            allowDiskUse=True,
+        ).to_list(length=None)
+        metrics = _build_top_k_metrics([dict(doc) for doc in docs], total_events=total_events)
+        return {
+            "roulette_id": roulette_id,
+            "config_key": config_key,
+            "ranking_variant": paths["label"],
+            "attempt_filter": attempt_filter,
+            "shadow_action": shadow_action,
+            "start_date": start_date,
+            "end_date": end_date,
+            "start_hour": start_hour,
+            "end_hour": end_hour,
+            **metrics,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1158,6 +1593,7 @@ async def get_suggestion_monitor_window_outcome_timeline(
     roulette_id: str = Query(default="pragmatic-auto-roulette"),
     config_key: str | None = Query(default=None),
     limit: int = Query(default=240, ge=10, le=1000),
+    ranking_variant: str | None = Query(default="top26_selective_16x4_v1"),
     shadow_action: str | None = Query(default=None),
     start_date: str | None = Query(default=None),
     end_date: str | None = Query(default=None),
@@ -1165,10 +1601,12 @@ async def get_suggestion_monitor_window_outcome_timeline(
     end_hour: int | None = Query(default=None, ge=0, le=23),
 ) -> Dict[str, Any]:
     try:
+        await _ensure_monitor_indexes()
+        paths = _variant_field_paths(ranking_variant)
         filter_query = _build_event_filter(
             roulette_id=roulette_id,
             config_key=config_key,
-            ranking_variant="oscillation_v4_selective_compact",
+            ranking_variant=ranking_variant,
             shadow_action=shadow_action,
             start_date=start_date,
             end_date=end_date,
@@ -1207,39 +1645,87 @@ async def get_suggestion_monitor_window_outcome_timeline(
                 ]
             }
         )
-        docs = await (
-            suggestion_monitor_events_coll.find(
-                finalized_filter,
+        docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {"$match": finalized_filter},
+                {"$sort": {"anchor_timestamp_utc": -1}},
+                {"$limit": int(limit)},
                 {
-                    "anchor_number": 1,
-                    "anchor_timestamp_br": 1,
-                    "anchor_timestamp_utc": 1,
-                    "window_result_status": 1,
-                    "window_result_attempt": 1,
-                    "window_result_hit": 1,
-                    "resolved_attempt": 1,
-                    "resolved_number": 1,
+                    "$project": {
+                        "anchor_number": 1,
+                        "anchor_timestamp_br": 1,
+                        "anchor_timestamp_utc": 1,
+                        "suggestion": 1,
+                        "suggestion_size": 1,
+                        "window_result_status": 1,
+                        "window_result_attempt": 1,
+                        "window_result_hit": 1,
+                        "resolved_attempt": 1,
+                        "resolved_number": 1,
+                        "resolved_rank_position": 1,
+                    }
                 },
-            )
-            .sort("anchor_timestamp_utc", -1)
-            .limit(limit)
-            .to_list(length=limit)
-        )
+            ],
+            allowDiskUse=True,
+        ).to_list(length=limit)
+        pending_docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {
+                    "$match": {
+                        "$and": [
+                            filter_query,
+                            {"status": "pending"},
+                        ]
+                    }
+                },
+                {"$sort": {"anchor_timestamp_utc": -1}},
+                {"$limit": 20},
+                {
+                    "$project": {
+                        "anchor_number": 1,
+                        "anchor_timestamp_br": 1,
+                        "anchor_timestamp_utc": 1,
+                        "suggestion": 1,
+                        "suggestion_size": 1,
+                        "attempts_elapsed": 1,
+                        "window_result_status": 1,
+                    }
+                },
+            ],
+            allowDiskUse=True,
+        ).to_list(length=20)
         docs.reverse()
-        items = _build_window_outcome_items([dict(doc) for doc in docs])
+        docs_list = [dict(doc) for doc in docs]
+        items = _build_window_outcome_items(docs_list)
+        hits_by_attempt = _build_window_hit_breakdown(docs_list, max_attempts=4)
         return {
             "roulette_id": roulette_id,
             "config_key": config_key,
-            "ranking_variant": "oscillation_v4_selective_compact",
+            "ranking_variant": paths["label"],
             "total_events": total_events,
             "pending_events": pending_events,
             "unavailable_events": unavailable_events,
             "total_finalized": total_finalized,
             "total_hits": total_hits,
             "hit_rate": round(total_hits / total_finalized, 4) if total_finalized else 0.0,
+            "hits_by_attempt": hits_by_attempt,
             "displayed_points": len(items),
             "truncated": total_finalized > len(items),
             "items": items,
+            "pending_items": [
+                {
+                    "anchor_number": doc.get("anchor_number"),
+                    "anchor_timestamp_br": _serialize_datetime(doc.get("anchor_timestamp_br")),
+                    "attempts_elapsed": int(doc.get("attempts_elapsed") or 0),
+                    "suggestion": [
+                        int(number)
+                        for number in (doc.get("suggestion") or [])
+                        if str(number).isdigit() and 0 <= int(number) <= 36
+                    ],
+                    "suggestion_size": int(doc.get("suggestion_size") or 0),
+                }
+                for doc in pending_docs
+            ],
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1259,26 +1745,29 @@ async def get_suggestion_monitor_streaks(
     end_hour: int | None = Query(default=None, ge=0, le=23),
 ) -> Dict[str, Any]:
     try:
+        await _ensure_monitor_indexes()
         paths = _variant_field_paths(ranking_variant)
-        docs = await (
-            suggestion_monitor_events_coll.find(
-                _build_event_filter(
-                    roulette_id=roulette_id,
-                    config_key=config_key,
-                    status="resolved",
-                    attempt_filter=attempt_filter,
-                    ranking_variant=ranking_variant,
-                    shadow_action=shadow_action,
-                    start_date=start_date,
-                    end_date=end_date,
-                    start_hour=start_hour,
-                    end_hour=end_hour,
-                )
-            )
-            .sort("anchor_timestamp_utc", 1)
-            .limit(limit)
-            .to_list(length=limit)
-        )
+        docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {
+                    "$match": _build_event_filter(
+                        roulette_id=roulette_id,
+                        config_key=config_key,
+                        status="resolved",
+                        attempt_filter=attempt_filter,
+                        ranking_variant=ranking_variant,
+                        shadow_action=shadow_action,
+                        start_date=start_date,
+                        end_date=end_date,
+                        start_hour=start_hour,
+                        end_hour=end_hour,
+                    )
+                },
+                {"$sort": {"anchor_timestamp_utc": 1}},
+                {"$limit": int(limit)},
+            ],
+            allowDiskUse=True,
+        ).to_list(length=limit)
         normalized_docs = _normalize_resolved_docs([dict(doc) for doc in docs])
         streaks = _compute_first_hit_streaks(normalized_docs)
         return {
