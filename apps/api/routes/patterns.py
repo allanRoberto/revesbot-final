@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 import json
+import logging
 from pathlib import Path
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -37,6 +39,7 @@ from api.patterns.final_suggestion import (
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class OptimizedSuggestionRequest(BaseModel):
@@ -952,9 +955,221 @@ def _build_protected_policy_decision(
     }
 
 
+def _build_simple_suggestion_unavailable_payload(
+    *,
+    focus_number: int | None,
+    from_index: int,
+    max_numbers: int,
+    explanation: str,
+) -> Dict[str, Any]:
+    safe_focus_number = None
+    if focus_number is not None:
+        try:
+            focus_candidate = int(focus_number)
+        except (TypeError, ValueError):
+            focus_candidate = None
+        if focus_candidate is not None and 0 <= focus_candidate <= 36:
+            safe_focus_number = focus_candidate
+    safe_max_numbers = max(1, min(37, int(max_numbers)))
+    return {
+        "available": False,
+        "list": [],
+        "suggestion": [],
+        "ordered_suggestion": [],
+        "focus_number": safe_focus_number,
+        "from_index": max(0, int(from_index)),
+        "max_numbers": safe_max_numbers,
+        "pattern_count": 0,
+        "unique_numbers": 0,
+        "number_details": [],
+        "selected_number_details": [],
+        "top_support_count": 0,
+        "min_support_count": 0,
+        "avg_support_count": 0.0,
+        "top_weighted_support_score": 0.0,
+        "min_weighted_support_score": 0.0,
+        "avg_weighted_support_score": 0.0,
+        "contributions": [],
+        "explanation": explanation,
+        "weight_profile": None,
+        "block_bets_enabled": False,
+        "block_compaction": {"list": [], "added": [], "removed": [], "changed": False},
+        "block_compaction_applied": False,
+        "block_numbers_added": 0,
+        "block_numbers_removed": 0,
+        "ranking_locked": True,
+        "entry_shadow": simple_suggestion_entry_shadow.unavailable(
+            explanation,
+            suggestion_size=0,
+        ),
+    }
+
+
+def _compute_simple_suggestion_fast(payload: FinalSuggestionRequest) -> Dict[str, Any]:
+    started_at = time.perf_counter()
+    last_stage_at = started_at
+    stage_timings: Dict[str, float] = {}
+
+    def mark_stage(name: str) -> None:
+        nonlocal last_stage_at
+        now = time.perf_counter()
+        stage_timings[name] = round(now - last_stage_at, 4)
+        last_stage_at = now
+
+    normalized_history = [int(n) for n in payload.history if 0 <= int(n) <= 36]
+    if len(normalized_history) < 2:
+        return _build_simple_suggestion_unavailable_payload(
+            focus_number=payload.focus_number,
+            from_index=payload.from_index,
+            max_numbers=payload.max_numbers,
+            explanation="Historico insuficiente para avaliacao simples.",
+        )
+
+    from_index = max(0, min(int(payload.from_index), len(normalized_history) - 1))
+    focus_number = payload.focus_number
+    if focus_number is None:
+        focus_number = normalized_history[from_index]
+    if not (0 <= int(focus_number) <= 36):
+        focus_number = normalized_history[from_index]
+    focus_number = int(focus_number)
+
+    target_size = max(1, min(37, int(payload.max_numbers)))
+    protected_mode_enabled = bool(payload.protected_mode_enabled)
+    protected_suggestion_size = max(26, min(35, int(payload.protected_suggestion_size)))
+    if protected_mode_enabled:
+        protected_suggestion_size = 35
+    effective_target_size = protected_suggestion_size if protected_mode_enabled else target_size
+    optimized_max_numbers = max(1, min(37, int(payload.optimized_max_numbers)))
+
+    siege_window = max(2, min(20, int(payload.siege_window)))
+    siege_min_occurrences = max(1, min(10, int(payload.siege_min_occurrences)))
+    siege_min_streak = max(1, min(10, int(payload.siege_min_streak)))
+    siege_veto_relief = max(0.0, min(1.0, float(payload.siege_veto_relief)))
+
+    focus_context = build_focus_context(
+        history=normalized_history,
+        focus_number=focus_number,
+        from_index=from_index,
+    )
+    mark_stage("focus_context")
+    pulled_counts = focus_context["pulled_counts"]
+    bucket = focus_context["bucket"]
+    pulled_total = len(focus_context["pulled"])
+
+    base_list_ranked = build_base_suggestion(
+        bucket=bucket,
+        pulled_counts=pulled_counts,
+        total_pulled=pulled_total,
+        source_arr=normalized_history,
+        from_index=from_index,
+        siege_window=siege_window,
+        siege_min_occurrences=siege_min_occurrences,
+        siege_min_streak=siege_min_streak,
+        siege_veto_relief=siege_veto_relief,
+        preserve_ranking=True,
+    )
+    mark_stage("base_suggestion")
+
+    runtime_overrides = build_runtime_overrides(
+        runtime_overrides=payload.runtime_overrides,
+        siege_window=siege_window,
+        siege_min_occurrences=siege_min_occurrences,
+        siege_min_streak=siege_min_streak,
+    )
+    selected_profile_id = str(payload.weight_profile_id or "").strip() or None
+    selected_profile = pattern_weight_profiles.load_profile(selected_profile_id) if selected_profile_id else None
+    saved_profile_weights = selected_profile.get("weights", {}) if isinstance(selected_profile, dict) else {}
+    runtime_profile_weights = {
+        str(pattern_id).strip(): float(weight)
+        for pattern_id, weight in dict(payload.weight_profile_weights or {}).items()
+        if str(pattern_id).strip()
+    }
+    effective_profile_weights = _merge_effective_profile_weights(
+        saved_profile_weights=saved_profile_weights if isinstance(saved_profile_weights, dict) else {},
+        runtime_profile_weights=runtime_profile_weights,
+    )
+    dynamic_weighting_meta = {
+        "runtime_weight_count": len(runtime_profile_weights),
+        "runtime_weights_applied": bool(runtime_profile_weights),
+        "effective_weight_count": len(effective_profile_weights),
+        "top_runtime_weights": [
+            {"pattern_id": pattern_id, "weight": weight}
+            for pattern_id, weight in sorted(
+                runtime_profile_weights.items(),
+                key=lambda item: (-abs(float(item[1]) - 1.0), -float(item[1]), item[0]),
+            )[:12]
+        ],
+    }
+    mark_stage("profile_runtime")
+
+    optimized_result = pattern_engine.evaluate(
+        history=normalized_history,
+        base_suggestion=sorted(base_list_ranked),
+        focus_number=focus_number,
+        from_index=from_index,
+        max_numbers=optimized_max_numbers,
+        runtime_overrides=runtime_overrides,
+        weight_profile_id=selected_profile_id,
+        weight_profile_weights=effective_profile_weights,
+    )
+    mark_stage("pattern_engine")
+
+    simple_payload = _build_simple_suggestion_from_contributions(
+        optimized_result.get("contributions", []),
+        focus_number=focus_number,
+        from_index=from_index,
+        max_numbers=effective_target_size,
+        block_bets_enabled=bool(payload.block_bets_enabled),
+        pulled_counts=pulled_counts,
+        weight_profile_id=selected_profile_id,
+        weight_profile_weights=effective_profile_weights,
+        known_pattern_ids=[definition.id for definition in pattern_engine._load_patterns()],
+    )
+    simple_payload["dynamic_weighting"] = dynamic_weighting_meta
+    if isinstance(simple_payload.get("weight_profile"), dict):
+        simple_payload["weight_profile"].update(dynamic_weighting_meta)
+    simple_payload["entry_shadow"] = simple_suggestion_entry_shadow.evaluate(
+        simple_payload=simple_payload,
+        history=normalized_history,
+        from_index=from_index,
+        max_attempts=4,
+    )
+    mark_stage("simple_payload")
+
+    total_elapsed = time.perf_counter() - started_at
+    if total_elapsed >= 1.0:
+        log_level = logging.WARNING if total_elapsed >= 5.0 else logging.INFO
+        stage_summary = " | ".join(
+            f"{stage}={elapsed:.3f}s"
+            for stage, elapsed in stage_timings.items()
+        )
+        logger.log(
+            log_level,
+            "simple-suggestion fast timing | total=%.3fs | history=%d | from_index=%d | focus=%d | max_numbers=%d | optimized_max_numbers=%d | stages: %s",
+            total_elapsed,
+            len(normalized_history),
+            from_index,
+            focus_number,
+            effective_target_size,
+            optimized_max_numbers,
+            stage_summary,
+        )
+    return simple_payload
+
+
 async def _compute_final_suggestion(
     payload: FinalSuggestionRequest,
 ) -> Dict[str, Any]:
+    started_at = time.perf_counter()
+    last_stage_at = started_at
+    stage_timings: Dict[str, float] = {}
+
+    def mark_stage(name: str) -> None:
+        nonlocal last_stage_at
+        now = time.perf_counter()
+        stage_timings[name] = round(now - last_stage_at, 4)
+        last_stage_at = now
+
     normalized_history = [int(n) for n in payload.history if 0 <= int(n) <= 36]
     if len(normalized_history) < 2:
         optimized_payload: Dict[str, Any] = {
@@ -1071,6 +1286,7 @@ async def _compute_final_suggestion(
         focus_number=focus_number,
         from_index=from_index,
     )
+    mark_stage("focus_context")
     pulled_counts = focus_context["pulled_counts"]
     bucket = focus_context["bucket"]
     pulled_total = len(focus_context["pulled"])
@@ -1090,6 +1306,7 @@ async def _compute_final_suggestion(
         siege_veto_relief=siege_veto_relief,
         preserve_ranking=True,
     )
+    mark_stage("base_suggestion")
 
     runtime_overrides = build_runtime_overrides(
         runtime_overrides=payload.runtime_overrides,
@@ -1121,6 +1338,7 @@ async def _compute_final_suggestion(
             )[:12]
         ],
     }
+    mark_stage("profile_runtime")
 
     base_list_for_engine = sorted(base_list_ranked)
     optimized_result = pattern_engine.evaluate(
@@ -1133,6 +1351,7 @@ async def _compute_final_suggestion(
         weight_profile_id=selected_profile_id,
         weight_profile_weights=effective_profile_weights,
     )
+    mark_stage("pattern_engine")
 
     opt_list_sorted = _parse_optimized_suggestion_sorted(optimized_result)
     opt_confidence = int(optimized_result.get("confidence", {}).get("score", 0) or 0)
@@ -1164,6 +1383,7 @@ async def _compute_final_suggestion(
         inversion_penalty_factor=inversion_penalty_factor,
         assertiveness_compaction_enabled=not protected_mode_enabled,
     )
+    mark_stage("final_suggestion")
 
     wheel_temperature = analyze_wheel_temperature(
         normalized_history,
@@ -1267,6 +1487,7 @@ async def _compute_final_suggestion(
             overlap_window=entry_policy_overlap_window,
             high_confidence_cutoff=entry_policy_high_confidence_cutoff,
         )
+    mark_stage("entry_policy")
     optimized_supported = bool(optimized_result.get("available", False)) and bool(opt_list_ranked)
     gate_reasons: List[str] = []
     if not protected_mode_enabled:
@@ -1362,7 +1583,8 @@ async def _compute_final_suggestion(
         from_index=from_index,
         max_attempts=4,
     )
-    return {
+    mark_stage("simple_payload")
+    response_payload = {
         **final_result,
         "available": emission_gate_passed,
         "list": final_list,
@@ -1442,6 +1664,26 @@ async def _compute_final_suggestion(
         "simple_unique_numbers": int(simple_payload.get("unique_numbers", 0) or 0),
         "simple_entry_shadow": simple_payload.get("entry_shadow", {}),
     }
+    mark_stage("response_payload")
+    total_elapsed = time.perf_counter() - started_at
+    if total_elapsed >= 1.0:
+        log_level = logging.WARNING if total_elapsed >= 5.0 else logging.INFO
+        stage_summary = " | ".join(
+            f"{stage}={elapsed:.3f}s"
+            for stage, elapsed in stage_timings.items()
+        )
+        logger.log(
+            log_level,
+            "simple-suggestion timing | total=%.3fs | history=%d | from_index=%d | focus=%d | max_numbers=%d | optimized_max_numbers=%d | stages: %s",
+            total_elapsed,
+            len(normalized_history),
+            from_index,
+            focus_number,
+            target_size,
+            optimized_max_numbers,
+            stage_summary,
+        )
+    return response_payload
 
 
 @router.post("/api/patterns/optimized-suggestion")
@@ -1853,42 +2095,7 @@ async def get_simple_suggestion(payload: FinalSuggestionRequest):
     - confidence e score final do motor nao entram no ranking
     """
     try:
-        result = await _compute_final_suggestion(payload)
-        simple_payload = result.get("simple_payload", {})
-        if isinstance(simple_payload, dict):
-            return simple_payload
-        return {
-            "available": False,
-            "list": [],
-            "suggestion": [],
-            "ordered_suggestion": [],
-            "focus_number": payload.focus_number,
-            "from_index": max(0, int(payload.from_index)),
-            "max_numbers": max(1, min(37, int(payload.max_numbers))),
-            "pattern_count": 0,
-            "unique_numbers": 0,
-            "number_details": [],
-            "selected_number_details": [],
-            "top_support_count": 0,
-            "min_support_count": 0,
-            "avg_support_count": 0.0,
-            "top_weighted_support_score": 0.0,
-            "min_weighted_support_score": 0.0,
-            "avg_weighted_support_score": 0.0,
-            "contributions": [],
-            "explanation": "Sugestao simples indisponivel.",
-            "weight_profile": None,
-            "block_bets_enabled": bool(payload.block_bets_enabled),
-            "block_compaction": {"list": [], "added": [], "removed": [], "changed": False},
-            "block_compaction_applied": False,
-            "block_numbers_added": 0,
-            "block_numbers_removed": 0,
-            "ranking_locked": True,
-            "entry_shadow": simple_suggestion_entry_shadow.unavailable(
-                "Sugestao simples indisponivel.",
-                suggestion_size=0,
-            ),
-        }
+        return _compute_simple_suggestion_fast(payload)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

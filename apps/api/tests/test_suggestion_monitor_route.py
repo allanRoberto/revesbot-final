@@ -348,6 +348,87 @@ def test_build_window_outcome_items_exposes_strategy_suggestions() -> None:
     assert items[0]["suggestion_size"] == 4
 
 
+def test_build_window_outcome_items_exposes_ml_gate_context() -> None:
+    items = suggestion_monitor._build_window_outcome_items(
+        [
+            {
+                "anchor_number": 21,
+                "anchor_timestamp_br": datetime(2026, 4, 20, 10, 0, tzinfo=timezone.utc),
+                "window_result_status": "miss",
+                "window_result_attempt": 4,
+                "resolved_attempt": 4,
+                "resolved_number": 8,
+                "resolved_rank_position": 11,
+                "window_result_hit": False,
+                "suggestion": [8, 12, 17, 23],
+                "suggestion_size": 4,
+                "entry_shadow": {
+                    "recommendation": {
+                        "action": "wait",
+                        "label": "Aguardar",
+                        "reason": "Gate ML 0.511 < 0.520; entrada bloqueada.",
+                    }
+                },
+                "oscillation": {
+                    "ml_entry_gate": {
+                        "probability": 0.511,
+                        "threshold": 0.52,
+                        "should_enter": False,
+                        "trained_events": 9,
+                        "warmup_events": 12,
+                        "warmup_required": 6,
+                        "warmup_ready": True,
+                    }
+                },
+            }
+        ]
+    )
+
+    assert len(items) == 1
+    assert items[0]["gate_action"] == "wait"
+    assert items[0]["gate_probability"] == 0.511
+    assert items[0]["gate_threshold"] == 0.52
+    assert items[0]["gate_warmup_required"] == 6
+    assert items[0]["gate_warmup_ready"] is True
+
+
+def test_build_window_monitor_aux_items_exposes_unavailable_gate_context() -> None:
+    items = suggestion_monitor._build_window_monitor_aux_items(
+        [
+            {
+                "anchor_number": 9,
+                "anchor_timestamp_br": datetime(2026, 4, 20, 10, 1, tzinfo=timezone.utc),
+                "attempts_elapsed": 0,
+                "suggestion": [1, 2, 3],
+                "suggestion_size": 3,
+                "entry_shadow": {
+                    "recommendation": {
+                        "action": "wait",
+                        "label": "Aguardar",
+                        "reason": "Gate ML em aquecimento: 4/6 eventos treinados (threshold 0.520).",
+                    }
+                },
+                "oscillation": {
+                    "ml_entry_gate": {
+                        "probability": 0.503,
+                        "threshold": 0.52,
+                        "trained_events": 4,
+                        "warmup_events": 12,
+                        "warmup_required": 6,
+                        "warmup_ready": False,
+                    }
+                },
+            }
+        ]
+    )
+
+    assert len(items) == 1
+    assert items[0]["suggestion"] == [1, 2, 3]
+    assert items[0]["gate_label"] == "Aguardar"
+    assert items[0]["gate_trained_events"] == 4
+    assert items[0]["gate_warmup_ready"] is False
+
+
 def test_build_window_hit_breakdown_counts_hits_by_attempt() -> None:
     breakdown = suggestion_monitor._build_window_hit_breakdown(
         [

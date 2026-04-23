@@ -1556,6 +1556,7 @@
       const attemptBreakdownNode = qs(target.attemptBreakdownId);
       const items = Array.isArray(outcomeTimeline?.items) ? outcomeTimeline.items : [];
       const pendingItems = Array.isArray(outcomeTimeline?.pending_items) ? outcomeTimeline.pending_items : [];
+      const unavailableItems = Array.isArray(outcomeTimeline?.unavailable_items) ? outcomeTimeline.unavailable_items : [];
       const totalFinalized = Number(outcomeTimeline?.total_finalized || 0);
       const displayedPoints = Number(outcomeTimeline?.displayed_points || items.length || 0);
       const hitRate = Number(outcomeTimeline?.hit_rate || 0);
@@ -1579,69 +1580,100 @@
         }).join("");
       }
 
+      const buildGateMeta = (item) => {
+        const probability = Number(item?.gate_probability);
+        const threshold = Number(item?.gate_threshold);
+        const hasProbability = Number.isFinite(probability);
+        const hasThreshold = Number.isFinite(threshold);
+        const trainedEvents = Number(item?.gate_trained_events || 0);
+        const warmupRequired = Number(item?.gate_warmup_required || 0);
+        const warmupReady = item?.gate_warmup_ready === true;
+        const segments = [];
+        if (hasProbability && hasThreshold) {
+          segments.push(`gate ${probability.toFixed(3)} / ${threshold.toFixed(3)}`);
+        }
+        if (warmupRequired > 0) {
+          segments.push(`warmup ${trainedEvents}/${warmupRequired}${warmupReady ? " ok" : ""}`);
+        }
+        if (!segments.length && !item?.gate_reason) return "";
+        const reasonHtml = item?.gate_reason
+          ? `<div class="muted">${item.gate_reason}</div>`
+          : "";
+        return `
+          <div class="meta-inline">
+            ${segments.map((segment) => `<span>${segment}</span>`).join("")}
+          </div>
+          ${reasonHtml}
+        `;
+      };
+
       container.innerHTML = "";
       suggestionsBody.innerHTML = "";
-      if ((!items.length || !displayedPoints) && !pendingItems.length) {
+      if ((!items.length || !displayedPoints) && !pendingItems.length && !unavailableItems.length) {
         container.innerHTML = `<div class="timeline-empty">${target.emptyMessage} Total monitorado: ${totalEvents}. Pendentes: ${pendingEvents}. Sem entrada: ${unavailableEvents}.</div>`;
         suggestionsBody.innerHTML = `<tr><td colspan="4" class="muted">${target.emptyTableMessage}</td></tr>`;
         return;
       }
 
-      const width = Math.max(960, items.length * 26);
-      const height = 260;
-      const padding = { top: 24, right: 24, bottom: 34, left: 46 };
-      const plotWidth = width - padding.left - padding.right;
-      const plotHeight = height - padding.top - padding.bottom;
-      const xStep = items.length > 1 ? plotWidth / (items.length - 1) : 0;
-      const xForIndex = (index) => padding.left + (index * xStep);
-      const yForOutcome = (outcome) => padding.top + ((1 - outcome) * plotHeight);
+      if (!items.length || !displayedPoints) {
+        container.innerHTML = `<div class="timeline-empty">${target.emptyMessage} Total monitorado: ${totalEvents}. Pendentes: ${pendingEvents}. Sem entrada: ${unavailableEvents}.</div>`;
+      } else {
+        const width = Math.max(960, items.length * 26);
+        const height = 260;
+        const padding = { top: 24, right: 24, bottom: 34, left: 46 };
+        const plotWidth = width - padding.left - padding.right;
+        const plotHeight = height - padding.top - padding.bottom;
+        const xStep = items.length > 1 ? plotWidth / (items.length - 1) : 0;
+        const xForIndex = (index) => padding.left + (index * xStep);
+        const yForOutcome = (outcome) => padding.top + ((1 - outcome) * plotHeight);
 
-      const gridLines = [1, 0].map((value) => {
-        const y = yForOutcome(value);
-        const label = value === 1 ? "hit" : "miss";
-        return `
-          <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="timeline-grid-line" />
-          <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="timeline-axis-label">${label}</text>
+        const gridLines = [1, 0].map((value) => {
+          const y = yForOutcome(value);
+          const label = value === 1 ? "hit" : "miss";
+          return `
+            <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="timeline-grid-line" />
+            <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="timeline-axis-label">${label}</text>
+          `;
+        }).join("");
+
+        const xLabels = items.length > 1
+          ? `
+              <text x="${padding.left}" y="${height - 8}" text-anchor="start" class="timeline-axis-label">mais antigo</text>
+              <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="timeline-axis-label">mais recente</text>
+            `
+          : `<text x="${width / 2}" y="${height - 8}" text-anchor="middle" class="timeline-axis-label">1 ponto</text>`;
+
+        const linePath = items.map((item, index) => {
+          const x = xForIndex(index);
+          const y = yForOutcome(item.outcome === "hit" ? 1 : 0);
+          return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+        }).join(" ");
+
+        const points = items.map((item, index) => {
+          const x = xForIndex(index);
+          const isHit = item.outcome === "hit";
+          const y = yForOutcome(isHit ? 1 : 0);
+          const color = isHit ? "first" : "late";
+          const timestamp = item.anchor_timestamp_br || "-";
+          const suggestionLabel = Array.isArray(item.suggestion) && item.suggestion.length
+            ? item.suggestion.join(", ")
+            : "-";
+          return `
+            <circle cx="${x}" cy="${y}" r="5" class="timeline-point ${color}">
+              <title>${timestamp} | âncora ${item.anchor_number ?? "-"} | ${isHit ? "HIT" : "MISS"} | janela ${item.window_attempt ?? "-"} rodadas | sugestão: ${suggestionLabel}</title>
+            </circle>
+          `;
+        }).join("");
+
+        container.innerHTML = `
+          <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${target.ariaLabel}">
+            ${gridLines}
+            <path d="${linePath}" class="timeline-line"></path>
+            ${points}
+            ${xLabels}
+          </svg>
         `;
-      }).join("");
-
-      const xLabels = items.length > 1
-        ? `
-            <text x="${padding.left}" y="${height - 8}" text-anchor="start" class="timeline-axis-label">mais antigo</text>
-            <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="timeline-axis-label">mais recente</text>
-          `
-        : `<text x="${width / 2}" y="${height - 8}" text-anchor="middle" class="timeline-axis-label">1 ponto</text>`;
-
-      const linePath = items.map((item, index) => {
-        const x = xForIndex(index);
-        const y = yForOutcome(item.outcome === "hit" ? 1 : 0);
-        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-      }).join(" ");
-
-      const points = items.map((item, index) => {
-        const x = xForIndex(index);
-        const isHit = item.outcome === "hit";
-        const y = yForOutcome(isHit ? 1 : 0);
-        const color = isHit ? "first" : "late";
-        const timestamp = item.anchor_timestamp_br || "-";
-        const suggestionLabel = Array.isArray(item.suggestion) && item.suggestion.length
-          ? item.suggestion.join(", ")
-          : "-";
-        return `
-          <circle cx="${x}" cy="${y}" r="5" class="timeline-point ${color}">
-            <title>${timestamp} | âncora ${item.anchor_number ?? "-"} | ${isHit ? "HIT" : "MISS"} | janela ${item.window_attempt ?? "-"} rodadas | sugestão: ${suggestionLabel}</title>
-          </circle>
-        `;
-      }).join("");
-
-      container.innerHTML = `
-        <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${target.ariaLabel}">
-          ${gridLines}
-          <path d="${linePath}" class="timeline-line"></path>
-          ${points}
-          ${xLabels}
-        </svg>
-      `;
+      }
 
       const pendingRows = pendingItems.map((item) => {
         const suggestion = Array.isArray(item.suggestion) ? item.suggestion : [];
@@ -1660,6 +1692,30 @@
             </td>
             <td>
               <span class="badge badge-warning">${processingLabel}</span>
+              ${buildGateMeta(item)}
+            </td>
+            <td>
+              <span class="badge badge-muted">-</span>
+            </td>
+            <td>${suggestionHtml}</td>
+          </tr>
+        `;
+      });
+
+      const unavailableRows = unavailableItems.map((item) => {
+        const suggestion = Array.isArray(item.suggestion) ? item.suggestion : [];
+        const suggestionHtml = suggestion.length
+          ? `<div class="suggestion-numbers">${suggestion.map((n) => `<span class="ball">${n}</span>`).join("")}</div><span class="muted">${item.suggestion_size || suggestion.length} números</span>`
+          : `<span class="muted">Sem sugestão</span>`;
+        return `
+          <tr>
+            <td>
+              <strong>${item.anchor_number ?? "-"}</strong>
+              <div class="muted">${item.anchor_timestamp_br || "-"}</div>
+            </td>
+            <td>
+              <span class="badge badge-muted">${item.gate_label || "Sem entrada"}</span>
+              ${buildGateMeta(item)}
             </td>
             <td>
               <span class="badge badge-muted">-</span>
@@ -1684,6 +1740,7 @@
               <span class="badge ${item.outcome === "hit" ? "badge-success" : "badge-danger"}">
                 ${item.outcome === "hit" ? `Hit na ${item.window_attempt || "-"}ª` : "Miss"}
               </span>
+              ${buildGateMeta(item)}
             </td>
             <td>
               <span class="badge ${item.outcome === "hit" ? "badge-success" : "badge-muted"}">
@@ -1695,7 +1752,7 @@
         `;
       });
 
-      suggestionsBody.innerHTML = [...pendingRows, ...finalizedRows].join("");
+      suggestionsBody.innerHTML = [...unavailableRows, ...pendingRows, ...finalizedRows].join("");
     }
 
     function renderLatestEvents(items) {

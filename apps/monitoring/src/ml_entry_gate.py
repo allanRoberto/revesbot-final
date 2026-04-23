@@ -79,8 +79,8 @@ def build_default_ml_entry_gate_state(
     positive_class_weight: float = 5.5,
     negative_class_weight: float = 1.0,
     l2_decay: float = 0.001,
-    warmup_events: int = 20,
-    threshold: float = 0.58,
+    warmup_events: int = 12,
+    threshold: float = 0.52,
 ) -> Dict[str, Any]:
     return {
         "model_name": "ml_entry_gate_v1",
@@ -289,21 +289,27 @@ def build_ml_entry_gate_payload_from_ml_meta(
     top_suggestion = [int(item["number"]) for item in top_details]
     feature_row = build_ml_entry_gate_feature_row(ml_payload, suggestion_size=compact_limit)
     probability = _predict_probability(normalized_state, feature_row)
-    threshold = _clamp(_safe_float(normalized_state.get("threshold"), 0.58), 0.35, 0.9)
+    threshold = _clamp(_safe_float(normalized_state.get("threshold"), 0.52), 0.35, 0.9)
     trained_events = _safe_int(normalized_state.get("trained_events"), 0)
-    warmup_events = max(8, _safe_int(normalized_state.get("warmup_events"), 20))
-    warmup_ready = trained_events >= max(6, round(warmup_events * 0.35))
+    warmup_events = max(8, _safe_int(normalized_state.get("warmup_events"), 12))
+    warmup_required = max(6, round(warmup_events * 0.35))
+    warmup_ready = trained_events >= warmup_required
     should_enter = bool(warmup_ready and probability >= threshold)
+    if should_enter:
+        gate_reason = f"Gate ML {probability:.3f} >= {threshold:.3f}; entrada autorizada."
+    elif not warmup_ready:
+        gate_reason = (
+            f"Gate ML em aquecimento: {trained_events}/{warmup_required} eventos treinados "
+            f"(threshold {threshold:.3f})."
+        )
+    else:
+        gate_reason = f"Gate ML {probability:.3f} < {threshold:.3f}; entrada bloqueada."
 
     entry_shadow = dict(ml_payload.get("entry_shadow") or {}) if isinstance(ml_payload.get("entry_shadow"), Mapping) else {}
     entry_shadow["recommendation"] = {
         "action": "enter" if should_enter else "wait",
         "label": "Entrar" if should_enter else "Aguardar",
-        "reason": (
-            f"Gate ML {probability:.3f} >= {threshold:.3f}; entrada autorizada."
-            if should_enter
-            else f"Gate ML {probability:.3f} < {threshold:.3f} ou aquecimento insuficiente; entrada bloqueada."
-        ),
+        "reason": gate_reason,
     }
 
     return {
@@ -318,7 +324,9 @@ def build_ml_entry_gate_payload_from_ml_meta(
         "evaluation_window_attempts": int(max(1, evaluation_window_attempts)),
         "explanation": (
             "Gate operacional do ML Meta Rank. "
-            f"probability={probability:.3f} threshold={threshold:.3f} trained_events={trained_events} warmup_ready={str(warmup_ready).lower()}."
+            "probability="
+            f"{probability:.3f} threshold={threshold:.3f} trained_events={trained_events} "
+            f"warmup_ready={str(warmup_ready).lower()} warmup_required={warmup_required}."
         ),
         "oscillation": {
             "profile": "ml_entry_gate_12x4_v1",
@@ -330,6 +338,7 @@ def build_ml_entry_gate_payload_from_ml_meta(
                 "should_enter": bool(should_enter),
                 "trained_events": int(trained_events),
                 "warmup_events": int(warmup_events),
+                "warmup_required": int(warmup_required),
                 "warmup_ready": bool(warmup_ready),
                 "top12_suggestion": top_suggestion,
                 "suggestion_size": int(compact_limit),

@@ -486,6 +486,55 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return float(default)
 
 
+def _extract_ml_gate_context(doc: Dict[str, Any]) -> Dict[str, Any]:
+    entry_shadow = dict(doc.get("entry_shadow") or {}) if isinstance(doc.get("entry_shadow"), dict) else {}
+    recommendation = (
+        dict(entry_shadow.get("recommendation") or {})
+        if isinstance(entry_shadow.get("recommendation"), dict)
+        else {}
+    )
+    oscillation = dict(doc.get("oscillation") or {}) if isinstance(doc.get("oscillation"), dict) else {}
+    ml_entry_gate = (
+        dict(oscillation.get("ml_entry_gate") or {})
+        if isinstance(oscillation.get("ml_entry_gate"), dict)
+        else {}
+    )
+    probability = ml_entry_gate.get("probability")
+    threshold = ml_entry_gate.get("threshold")
+    return {
+        "gate_action": str(recommendation.get("action") or "").strip(),
+        "gate_label": str(recommendation.get("label") or "").strip(),
+        "gate_reason": str(recommendation.get("reason") or "").strip(),
+        "gate_probability": round(_safe_float(probability), 6) if probability is not None else None,
+        "gate_threshold": round(_safe_float(threshold), 6) if threshold is not None else None,
+        "gate_should_enter": (
+            bool(ml_entry_gate.get("should_enter"))
+            if "should_enter" in ml_entry_gate
+            else None
+        ),
+        "gate_trained_events": (
+            int(ml_entry_gate.get("trained_events") or 0)
+            if "trained_events" in ml_entry_gate
+            else None
+        ),
+        "gate_warmup_events": (
+            int(ml_entry_gate.get("warmup_events") or 0)
+            if "warmup_events" in ml_entry_gate
+            else None
+        ),
+        "gate_warmup_required": (
+            int(ml_entry_gate.get("warmup_required") or 0)
+            if "warmup_required" in ml_entry_gate
+            else None
+        ),
+        "gate_warmup_ready": (
+            bool(ml_entry_gate.get("warmup_ready"))
+            if "warmup_ready" in ml_entry_gate
+            else None
+        ),
+    }
+
+
 def _event_summary(doc: Dict[str, Any]) -> str:
     status = str(doc.get("status") or "").strip().lower()
     anchor = doc.get("anchor_number")
@@ -917,6 +966,28 @@ def _build_window_outcome_items(docs: List[Dict[str, Any]]) -> List[Dict[str, An
                 "hit": bool(doc.get("window_result_hit")) if status == "hit" else False,
                 "suggestion": suggestion,
                 "suggestion_size": int(doc.get("suggestion_size") or len(suggestion) or 0),
+                **_extract_ml_gate_context(doc),
+            }
+        )
+    return items
+
+
+def _build_window_monitor_aux_items(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    items: List[Dict[str, Any]] = []
+    for doc in docs:
+        suggestion = [
+            int(number)
+            for number in (doc.get("suggestion") or [])
+            if str(number).isdigit() and 0 <= int(number) <= 36
+        ]
+        items.append(
+            {
+                "anchor_number": doc.get("anchor_number"),
+                "anchor_timestamp_br": _serialize_datetime(doc.get("anchor_timestamp_br")),
+                "attempts_elapsed": int(doc.get("attempts_elapsed") or 0),
+                "suggestion": suggestion,
+                "suggestion_size": int(doc.get("suggestion_size") or len(suggestion) or 0),
+                **_extract_ml_gate_context(doc),
             }
         )
     return items
@@ -1663,6 +1734,8 @@ async def get_suggestion_monitor_window_outcome_timeline(
                         "resolved_attempt": 1,
                         "resolved_number": 1,
                         "resolved_rank_position": 1,
+                        "entry_shadow.recommendation": 1,
+                        "oscillation.ml_entry_gate": 1,
                     }
                 },
             ],
@@ -1689,6 +1762,35 @@ async def get_suggestion_monitor_window_outcome_timeline(
                         "suggestion_size": 1,
                         "attempts_elapsed": 1,
                         "window_result_status": 1,
+                        "entry_shadow.recommendation": 1,
+                        "oscillation.ml_entry_gate": 1,
+                    }
+                },
+            ],
+            allowDiskUse=True,
+        ).to_list(length=20)
+        unavailable_docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {
+                    "$match": {
+                        "$and": [
+                            filter_query,
+                            {"status": "unavailable"},
+                        ]
+                    }
+                },
+                {"$sort": {"anchor_timestamp_utc": -1}},
+                {"$limit": 20},
+                {
+                    "$project": {
+                        "anchor_number": 1,
+                        "anchor_timestamp_br": 1,
+                        "anchor_timestamp_utc": 1,
+                        "suggestion": 1,
+                        "suggestion_size": 1,
+                        "attempts_elapsed": 1,
+                        "entry_shadow.recommendation": 1,
+                        "oscillation.ml_entry_gate": 1,
                     }
                 },
             ],
@@ -1712,20 +1814,8 @@ async def get_suggestion_monitor_window_outcome_timeline(
             "displayed_points": len(items),
             "truncated": total_finalized > len(items),
             "items": items,
-            "pending_items": [
-                {
-                    "anchor_number": doc.get("anchor_number"),
-                    "anchor_timestamp_br": _serialize_datetime(doc.get("anchor_timestamp_br")),
-                    "attempts_elapsed": int(doc.get("attempts_elapsed") or 0),
-                    "suggestion": [
-                        int(number)
-                        for number in (doc.get("suggestion") or [])
-                        if str(number).isdigit() and 0 <= int(number) <= 36
-                    ],
-                    "suggestion_size": int(doc.get("suggestion_size") or 0),
-                }
-                for doc in pending_docs
-            ],
+            "pending_items": _build_window_monitor_aux_items([dict(doc) for doc in pending_docs]),
+            "unavailable_items": _build_window_monitor_aux_items([dict(doc) for doc in unavailable_docs]),
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

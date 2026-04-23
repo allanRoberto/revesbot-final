@@ -77,6 +77,16 @@ def test_build_ml_top12_reference_payload_uses_12_numbers_and_4_attempts() -> No
     assert payload["oscillation"]["ml_entry_gate"]["mode"] == "reference"
 
 
+def test_build_default_ml_entry_gate_state_uses_runtime_defaults() -> None:
+    state = build_default_ml_entry_gate_state(
+        roulette_id="pragmatic-auto-roulette",
+        config_key="cfg-gate",
+    )
+
+    assert state["warmup_events"] == 12
+    assert state["threshold"] == 0.52
+
+
 def test_build_ml_entry_gate_payload_enters_after_warmup_with_positive_bias() -> None:
     state = build_default_ml_entry_gate_state(
         roulette_id="pragmatic-auto-roulette",
@@ -100,6 +110,28 @@ def test_build_ml_entry_gate_payload_enters_after_warmup_with_positive_bias() ->
     assert payload["evaluation_window_attempts"] == 4
     assert payload["oscillation"]["profile"] == "ml_entry_gate_12x4_v1"
     assert payload["oscillation"]["ml_entry_gate"]["should_enter"] is True
+
+
+def test_build_ml_entry_gate_payload_reports_warmup_reason_before_unlock() -> None:
+    state = build_default_ml_entry_gate_state(
+        roulette_id="pragmatic-auto-roulette",
+        config_key="cfg-gate",
+    )
+    state["bias"] = 1.2
+    state["trained_events"] = 4
+
+    payload = build_ml_entry_gate_payload_from_ml_meta(
+        _ml_meta_payload(),
+        state,
+        roulette_id="pragmatic-auto-roulette",
+        config_key="cfg-gate",
+    )
+
+    assert payload is not None
+    assert payload["available"] is False
+    assert payload["entry_shadow"]["recommendation"]["action"] == "wait"
+    assert "aquecimento" in payload["entry_shadow"]["recommendation"]["reason"].lower()
+    assert payload["oscillation"]["ml_entry_gate"]["warmup_required"] == 6
 
 
 def test_train_ml_entry_gate_state_from_reference_event_updates_model() -> None:

@@ -22,8 +22,8 @@ const DEFAULT_AUTH_BASE_URL =
     ? "https://auth-dev.revesbot.com.br"
     : "https://auth.revesbot.com.br";
 const AUTH_BASE_URL = process.env.AUTH_BASE_URL || DEFAULT_AUTH_BASE_URL;
-const AUTH_EMAIL = "romulogoncalves95@gmail.com";
-const AUTH_PASSWORD = "497856Drs@";
+const AUTH_EMAIL = "allan.rsti@gmail.com";
+const AUTH_PASSWORD = "419300@Al";
 const AUTH_EMAIL_FALLBACK = process.env.AUTH_EMAIL || AUTH_EMAIL_FALLBACK;
 const AUTH_PASSWORD_FALLBACK = process.env.AUTH_PASSWORD || AUTH_PASSWORD_FALLBACK;
 const API_PORT = process.env.API_PORT || 3000;

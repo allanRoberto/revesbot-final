@@ -1,7 +1,5 @@
 import puppeteer from "puppeteer";
 
-declare const window: any;
-
 async function getWebSocketUrlWithPuppeteer(gameLink:any) {
     const browser = await puppeteer.launch({ 
         headless: true,
@@ -15,13 +13,14 @@ async function getWebSocketUrlWithPuppeteer(gameLink:any) {
         const webSocketUrls: string[] = [];
         
         await page.evaluateOnNewDocument(() => {
-            const originalWebSocket = window.WebSocket;
-            window.WebSocket = new Proxy(originalWebSocket, {
+            const pageGlobal = globalThis as any;
+            const originalWebSocket = pageGlobal.WebSocket;
+            pageGlobal.WebSocket = new Proxy(originalWebSocket, {
                 construct(target, args) {
                     const url = args[0];
                     console.log('WS_INTERCEPTED:', url);
-                    window.__wsUrls = window.__wsUrls || [];
-                    window.__wsUrls.push(url);
+                    pageGlobal.__wsUrls = pageGlobal.__wsUrls || [];
+                    pageGlobal.__wsUrls.push(url);
                     return new target(...args);
                 }
             });
@@ -35,15 +34,21 @@ async function getWebSocketUrlWithPuppeteer(gameLink:any) {
             }
         });
         
-        page.on('websocket', (ws: any) => {
-            webSocketUrls.push(ws.url());
+        page.on('websocket', (ws) => {
+            const websocketCandidate = ws as { url?: () => string };
+            if (typeof websocketCandidate.url === 'function') {
+                webSocketUrls.push(websocketCandidate.url());
+            }
         });
         
         await page.goto(gameLink, { waitUntil: 'networkidle2', timeout: 60000 });
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        const capturedUrls = await page.evaluate(() => window.__wsUrls || []);
-        const allUrls = [...new Set([...capturedUrls, ...webSocketUrls])];
+        const capturedUrls = await page.evaluate(() => {
+            const pageGlobal = globalThis as any;
+            return Array.isArray(pageGlobal.__wsUrls) ? pageGlobal.__wsUrls : [];
+        }) as string[];
+        const allUrls = [...new Set([...capturedUrls, ...webSocketUrls])] as string[];
         
         if (allUrls.length > 0) {
             const pragmaticUrl = allUrls.find(url => 

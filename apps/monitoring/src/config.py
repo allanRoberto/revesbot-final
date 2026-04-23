@@ -147,10 +147,10 @@ class Settings:
             os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_L2_DECAY", "0.001")
         )
         self.suggestion_monitor_ml_entry_gate_warmup_events = int(
-            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_WARMUP_EVENTS", "20")
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_WARMUP_EVENTS", "12")
         )
         self.suggestion_monitor_ml_entry_gate_threshold = float(
-            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_THRESHOLD", "0.58")
+            os.getenv("SUGGESTION_MONITOR_ML_ENTRY_GATE_THRESHOLD", "0.52")
         )
         self.suggestion_monitor_base_weight = float(
             os.getenv("SUGGESTION_MONITOR_BASE_WEIGHT", "0.5")

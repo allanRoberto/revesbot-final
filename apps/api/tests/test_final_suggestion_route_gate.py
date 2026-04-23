@@ -135,6 +135,54 @@ def test_compute_final_suggestion_exposes_simple_payload_based_on_pattern_votes(
     assert result["simple_entry_shadow"] == result["simple_payload"]["entry_shadow"]
 
 
+def test_get_simple_suggestion_uses_fast_path_without_final_pipeline(monkeypatch) -> None:
+    monkeypatch.setattr(
+        patterns,
+        "_compute_final_suggestion",
+        lambda payload: (_ for _ in ()).throw(AssertionError("final pipeline should not run")),
+    )
+    monkeypatch.setattr(patterns, "build_base_suggestion", lambda **kwargs: [4, 9, 15])
+    monkeypatch.setattr(patterns.pattern_weight_profiles, "load_profile", lambda profile_id: None)
+    monkeypatch.setattr(
+        patterns.pattern_engine,
+        "evaluate",
+        lambda **kwargs: {
+            "available": True,
+            "suggestion": [3, 7, 5],
+            "explanation": "ok",
+            "confidence": {"score": 88, "label": "Alta"},
+            "confidence_breakdown": {
+                "calibrated_confidence_v2": 74,
+            },
+            "contributions": [
+                {"pattern_id": "p1", "pattern_name": "Pattern 1", "numbers": [3, 5]},
+                {"pattern_id": "p2", "pattern_name": "Pattern 2", "numbers": [3]},
+                {"pattern_id": "p3", "pattern_name": "Pattern 3", "numbers": [7, 3]},
+                {"pattern_id": "p4", "pattern_name": "Pattern 4", "numbers": [7]},
+            ],
+            "negative_contributions": [],
+            "pending_patterns": [],
+            "number_details": [],
+            "adaptive_weights": [],
+        },
+    )
+
+    payload = FinalSuggestionRequest(
+        history=[4, 9, 15, 22, 31, 18],
+        focus_number=4,
+        from_index=0,
+        max_numbers=3,
+        block_bets_enabled=False,
+    )
+
+    result = asyncio.run(patterns.get_simple_suggestion(payload))
+
+    assert result["available"] is True
+    assert result["list"] == [3, 7, 5]
+    assert result["pattern_count"] == 4
+    assert result["entry_shadow"]["available"] is True
+
+
 def test_compute_final_suggestion_blocks_when_entry_policy_recommends_wait(monkeypatch) -> None:
     monkeypatch.setattr(patterns, "build_base_suggestion", lambda **kwargs: [4, 9, 15])
     monkeypatch.setattr(patterns.pattern_weight_profiles, "load_profile", lambda profile_id: None)

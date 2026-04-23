@@ -136,6 +136,20 @@ class SuggestionMonitorWorker:
         self.session: aiohttp.ClientSession | None = None
         self._startup_reconcile_done = False
 
+    def _sync_ml_entry_gate_runtime_config(self) -> bool:
+        changed = False
+        desired_warmup_events = int(self.ml_entry_gate_warmup_events)
+        desired_threshold = round(float(self.ml_entry_gate_threshold), 6)
+        current_warmup_events = int(self.ml_entry_gate_state.get("warmup_events") or 0)
+        current_threshold = round(float(self.ml_entry_gate_state.get("threshold") or 0.0), 6)
+        if current_warmup_events != desired_warmup_events:
+            self.ml_entry_gate_state["warmup_events"] = desired_warmup_events
+            changed = True
+        if current_threshold != desired_threshold:
+            self.ml_entry_gate_state["threshold"] = desired_threshold
+            changed = True
+        return changed
+
     async def run(self) -> None:
         if not settings.suggestion_monitor_enabled:
             logger.warning("Suggestion monitor desabilitado por configuracao.")
@@ -463,6 +477,8 @@ class SuggestionMonitorWorker:
             warmup_events=self.ml_entry_gate_warmup_events,
             threshold=self.ml_entry_gate_threshold,
         )
+        if self._sync_ml_entry_gate_runtime_config():
+            await asyncio.to_thread(self.repo.save_model_state, self.ml_entry_gate_state)
         if self.ml_entry_gate_enabled and int(self.ml_entry_gate_state.get("trained_events") or 0) <= 0:
             bootstrap_ml_events = await asyncio.to_thread(
                 self.repo.get_recent_resolved_events,

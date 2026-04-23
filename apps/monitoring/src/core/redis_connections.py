@@ -44,7 +44,7 @@ def _build_signal_redis_url() -> str:
         return direct
 
     host = (os.getenv("REDIS_SIGNALS_HOST") or os.getenv("REDIS_HOST") or "127.0.0.1").strip()
-    port = _env_int("REDIS_SIGNALS_PORT", _env_int("REDIS_PORT", 6379))
+    port = _env_int("REDIS_SIGNALS_PORT", _env_int("REDIS_PORT", 6380))
     db = _env_int("REDIS_SIGNALS_DB", _env_int("REDIS_DB", 0))
     user = (os.getenv("REDIS_SIGNALS_USER") or os.getenv("REDIS_USER") or "").strip()
     password = (os.getenv("REDIS_SIGNALS_PASSWORD") or os.getenv("REDIS_PASSWORD") or "").strip()
