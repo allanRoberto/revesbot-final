@@ -6,10 +6,11 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from redis.exceptions import RedisError
 from starlette.websockets import WebSocketState
 
 from api.core.db import format_timestamp_br
-from api.core.redis_client import r
+from api.core.redis_client import create_pubsub_redis_client, r
 
 
 STREAM_NEW = "streams:signals:new"
@@ -29,6 +30,20 @@ _RESULT_CHANNEL_ALIASES = {
 
 router = APIRouter()
 _invalid_contract_counts: dict[str, int] = {}
+
+
+async def _close_async_resource(resource) -> None:
+    if resource is None:
+        return
+    close_method = getattr(resource, "aclose", None)
+    if close_method is not None:
+        await close_method()
+        return
+    close_method = getattr(resource, "close", None)
+    if close_method is not None:
+        maybe_result = close_method()
+        if asyncio.iscoroutine(maybe_result):
+            await maybe_result
 
 
 def _warn_invalid_contract(contract: str, reason: str, context: str = "") -> None:
@@ -134,14 +149,16 @@ def _normalize_stream_payload(stream_name: str, message_id: str, fields):
 async def websocket_endpoint(websocket: WebSocket):
     channel = _resolve_result_channel(websocket.query_params.get("channel"))
     await websocket.accept()
-    pubsub = r.pubsub()
+    pubsub_client = create_pubsub_redis_client()
+    pubsub = pubsub_client.pubsub()
     await pubsub.subscribe(channel)
     disconnected = False
     try:
-        async for message in pubsub.listen():
-            if message["type"] == "message":
+        try:
+            async for message in pubsub.listen():
+                if message["type"] != "message":
+                    continue
                 data = _normalize_result_event(message.get("data"), channel)
-               
                 if not data:
                     continue
                 try:
@@ -149,13 +166,22 @@ async def websocket_endpoint(websocket: WebSocket):
                 except WebSocketDisconnect:
                     disconnected = True
                     break
+        except RedisError as exc:
+            logging.warning("[ws] Redis pubsub interrompido em %s: %s", channel, exc)
     finally:
         try:
-            await pubsub.unsubscribe(channel)
-            await pubsub.close()
-        finally:
-            if not disconnected and websocket.client_state != WebSocketState.DISCONNECTED:
+            await _close_async_resource(pubsub)
+        except Exception as exc:
+            logging.warning("[ws] Falha ao fechar pubsub em %s: %s", channel, exc)
+        try:
+            await _close_async_resource(pubsub_client)
+        except Exception as exc:
+            logging.warning("[ws] Falha ao fechar cliente Redis do pubsub em %s: %s", channel, exc)
+        if not disconnected and websocket.client_state != WebSocketState.DISCONNECTED:
+            try:
                 await websocket.close()
+            except Exception:
+                pass
 
 
 @router.websocket("/ws/signals")

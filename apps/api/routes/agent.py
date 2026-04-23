@@ -17,12 +17,6 @@ from pydantic import BaseModel, Field
 from api.core.db import agent_sessions_coll, agent_templates_coll, history_coll
 from api.helpers.roulettes_list import roulettes
 
-from openai import OpenAI
-try:
-    from anthropic import Anthropic
-except Exception:  # pragma: no cover - optional dependency
-    Anthropic = None
-
 
 router = APIRouter()
 logger = logging.getLogger("agent")
@@ -53,9 +47,9 @@ else:
             "gpt-4o-mini",
         ]
 
-openai_client = OpenAI()
-anthropic_client = Anthropic() if LLM_PROVIDER == "anthropic" and Anthropic else None
 roulette_lookup = {r["slug"]: r for r in roulettes}
+_openai_client: Any | None = None
+_anthropic_client: Any | None = None
 
 DEFAULT_PRICING = {
     # OpenAI (USD per 1M tokens)
@@ -416,8 +410,31 @@ def _estimate_cost(provider: str, model: str, usage: Dict[str, Any]) -> Optional
     return round(input_cost + output_cost, 6)
 
 
+def _get_openai_client() -> Any:
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
+
+        _openai_client = OpenAI()
+    return _openai_client
+
+
+def _get_anthropic_client() -> Any:
+    global _anthropic_client
+    if LLM_PROVIDER != "anthropic":
+        return None
+    if _anthropic_client is None:
+        try:
+            from anthropic import Anthropic
+        except Exception as exc:  # pragma: no cover - optional dependency
+            raise RuntimeError("Anthropic client not available. Install 'anthropic' and set ANTHROPIC_API_KEY.") from exc
+        _anthropic_client = Anthropic()
+    return _anthropic_client
+
+
 def _call_llm_sync(model: str, prompt: str) -> Dict[str, Any]:
     if LLM_PROVIDER == "anthropic":
+        anthropic_client = _get_anthropic_client()
         if not anthropic_client:
             raise RuntimeError("Anthropic client not available. Install 'anthropic' and set ANTHROPIC_API_KEY.")
         resp = anthropic_client.messages.create(
@@ -435,7 +452,7 @@ def _call_llm_sync(model: str, prompt: str) -> Dict[str, Any]:
         }
         return {"text": "\n".join(parts).strip(), "usage": usage}
 
-    response = openai_client.responses.create(
+    response = _get_openai_client().responses.create(
         model=model,
         input=prompt,
     )

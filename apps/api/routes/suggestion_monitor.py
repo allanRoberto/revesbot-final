@@ -27,6 +27,8 @@ DEFAULT_MONITOR_RANK_CEILING = max(
     1,
     min(37, int(os.getenv("SUGGESTION_MONITOR_MAX_NUMBERS", "37") or "37")),
 )
+DEFAULT_ANALYTICS_WINDOWS = (50, 100, 200)
+DEFAULT_GATE_CALIBRATION_LIMIT = 400
 
 
 def _build_base_filter(roulette_id: str, config_key: str | None = None) -> Dict[str, Any]:
@@ -484,6 +486,44 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return float(default)
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _round_or_none(value: float | None, digits: int = 4) -> float | None:
+    if value is None:
+        return None
+    return round(float(value), digits)
+
+
+def _merge_filter_with_condition(filter_query: Dict[str, Any], condition: Dict[str, Any]) -> Dict[str, Any]:
+    if not filter_query:
+        return dict(condition)
+    merged = dict(filter_query)
+    merged.update(condition)
+    return merged
+
+
+def _parse_window_sizes(raw_value: str | None) -> List[int]:
+    if not str(raw_value or "").strip():
+        return list(DEFAULT_ANALYTICS_WINDOWS)
+    windows: List[int] = []
+    seen: set[int] = set()
+    for chunk in str(raw_value).split(","):
+        try:
+            value = int(str(chunk).strip())
+        except (TypeError, ValueError):
+            continue
+        if value < 10 or value > 1000 or value in seen:
+            continue
+        seen.add(value)
+        windows.append(value)
+    return windows or list(DEFAULT_ANALYTICS_WINDOWS)
 
 
 def _extract_ml_gate_context(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -1011,6 +1051,335 @@ def _build_window_hit_breakdown(docs: List[Dict[str, Any]], max_attempts: int = 
     return breakdown
 
 
+def _build_rolling_metric_snapshots(
+    docs: List[Dict[str, Any]],
+    *,
+    windows: List[int],
+) -> List[Dict[str, Any]]:
+    normalized_docs = _normalize_resolved_docs(list(docs or []))
+    snapshots: List[Dict[str, Any]] = []
+    for window in windows:
+        sample = normalized_docs[: max(1, int(window))]
+        metrics = _build_top_k_metrics(sample, total_events=len(sample))
+        first_hits = sum(1 for doc in sample if int(doc.get("resolved_attempt") or 0) == 1)
+        snapshots.append(
+            {
+                "window": int(window),
+                "sample_size": len(sample),
+                "first_hit_rate": round(first_hits / len(sample), 4) if sample else 0.0,
+                **metrics,
+            }
+        )
+    return snapshots
+
+
+def _headline_window(windows: List[int]) -> int:
+    return 100 if 100 in windows else (windows[0] if windows else 100)
+
+
+def _anchor_pair_key(doc: Dict[str, Any]) -> str:
+    history_id = str(doc.get("anchor_history_id") or "").strip()
+    if history_id:
+        return f"history:{history_id}"
+    timestamp = _serialize_datetime(doc.get("anchor_timestamp_utc")) or _serialize_datetime(doc.get("anchor_timestamp_br")) or ""
+    return f"fallback:{doc.get('anchor_number')}|{timestamp}"
+
+
+def _build_gate_reference_pairs(
+    reference_docs: List[Dict[str, Any]],
+    gate_docs: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    gate_map = {
+        _anchor_pair_key(dict(doc)): dict(doc)
+        for doc in list(gate_docs or [])
+        if isinstance(doc, dict)
+    }
+    pairs: List[Dict[str, Any]] = []
+    for reference_doc in list(reference_docs or []):
+        reference = dict(reference_doc)
+        gate = gate_map.get(_anchor_pair_key(reference))
+        gate_context = _extract_ml_gate_context(gate or {})
+        gate_should_enter = gate_context.get("gate_should_enter")
+        if gate_should_enter is None and gate is not None:
+            gate_should_enter = bool(gate.get("available"))
+        pairs.append(
+            {
+                "anchor_history_id": str(reference.get("anchor_history_id") or "").strip(),
+                "anchor_number": reference.get("anchor_number"),
+                "reference_hit": bool(reference.get("window_result_hit")),
+                "reference_attempt": _safe_int(reference.get("window_result_attempt"), 0),
+                "matched": gate is not None,
+                "gate_should_enter": bool(gate_should_enter) if gate_should_enter is not None else False,
+                "gate_probability": gate_context.get("gate_probability"),
+                "gate_threshold": gate_context.get("gate_threshold"),
+                "gate_trained_events": gate_context.get("gate_trained_events"),
+                "gate_warmup_ready": gate_context.get("gate_warmup_ready"),
+                "gate_reason": gate_context.get("gate_reason"),
+            }
+        )
+    return pairs
+
+
+def _build_gate_uplift_windows(
+    pairs: List[Dict[str, Any]],
+    *,
+    windows: List[int],
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for window in windows:
+        subset = list(pairs[: max(1, int(window))])
+        total_candidates = len(subset)
+        matched = [item for item in subset if bool(item.get("matched"))]
+        matched_count = len(matched)
+        entered = [item for item in matched if bool(item.get("gate_should_enter"))]
+        blocked = [item for item in matched if not bool(item.get("gate_should_enter"))]
+        reference_hits_total = sum(1 for item in matched if bool(item.get("reference_hit")))
+        entered_hits = sum(1 for item in entered if bool(item.get("reference_hit")))
+        blocked_hits = sum(1 for item in blocked if bool(item.get("reference_hit")))
+        blocked_misses = max(0, len(blocked) - blocked_hits)
+        reference_hit_rate = (reference_hits_total / matched_count) if matched_count else None
+        gate_hit_rate = (entered_hits / len(entered)) if entered else None
+        activation_rate = (len(entered) / matched_count) if matched_count else None
+        avoided_miss_rate = (blocked_misses / len(blocked)) if blocked else None
+        blocked_hit_rate = (blocked_hits / len(blocked)) if blocked else None
+        rows.append(
+            {
+                "window": int(window),
+                "total_candidates": total_candidates,
+                "matched_candidates": matched_count,
+                "coverage_rate": _round_or_none((matched_count / total_candidates) if total_candidates else None),
+                "entries": len(entered),
+                "blocked": len(blocked),
+                "activation_rate": _round_or_none(activation_rate),
+                "reference_hit_rate": _round_or_none(reference_hit_rate),
+                "gate_hit_rate": _round_or_none(gate_hit_rate),
+                "uplift_vs_reference": _round_or_none(
+                    (gate_hit_rate - reference_hit_rate)
+                    if gate_hit_rate is not None and reference_hit_rate is not None
+                    else None
+                ),
+                "avoided_miss_rate": _round_or_none(avoided_miss_rate),
+                "blocked_hit_opportunity_rate": _round_or_none(blocked_hit_rate),
+            }
+        )
+    return rows
+
+
+def _probability_bucket_bounds(probability: float, *, step: float = 0.05) -> Dict[str, Any]:
+    bounded = max(0.0, min(0.999999, float(probability)))
+    lower = int(bounded / step) * step
+    upper = min(1.0, lower + step)
+    return {
+        "lower": round(lower, 2),
+        "upper": round(upper, 2),
+        "label": f"{lower:.2f} - {upper:.2f}",
+    }
+
+
+def _build_gate_calibration_buckets(
+    pairs: List[Dict[str, Any]],
+    *,
+    limit: int = DEFAULT_GATE_CALIBRATION_LIMIT,
+) -> Dict[str, Any]:
+    aggregates: Dict[str, Dict[str, Any]] = {}
+    samples = [
+        item
+        for item in list(pairs[: max(20, int(limit))])
+        if item.get("matched") and item.get("gate_probability") is not None
+    ]
+    for item in samples:
+        bucket = _probability_bucket_bounds(_safe_float(item.get("gate_probability"), 0.0))
+        label = str(bucket["label"])
+        current = aggregates.setdefault(
+            label,
+            {
+                "label": label,
+                "lower": bucket["lower"],
+                "upper": bucket["upper"],
+                "count": 0,
+                "predicted_sum": 0.0,
+                "threshold_sum": 0.0,
+                "actual_hits": 0,
+                "entered": 0,
+            },
+        )
+        current["count"] += 1
+        current["predicted_sum"] += _safe_float(item.get("gate_probability"), 0.0)
+        current["threshold_sum"] += _safe_float(item.get("gate_threshold"), 0.0)
+        current["actual_hits"] += 1 if bool(item.get("reference_hit")) else 0
+        current["entered"] += 1 if bool(item.get("gate_should_enter")) else 0
+
+    items: List[Dict[str, Any]] = []
+    for aggregate in sorted(aggregates.values(), key=lambda item: float(item["lower"])):
+        count = int(aggregate["count"] or 0)
+        predicted = (float(aggregate["predicted_sum"]) / count) if count else 0.0
+        actual_rate = (int(aggregate["actual_hits"]) / count) if count else 0.0
+        enter_rate = (int(aggregate["entered"]) / count) if count else 0.0
+        threshold_mean = (float(aggregate["threshold_sum"]) / count) if count else 0.0
+        items.append(
+            {
+                "bucket": aggregate["label"],
+                "lower": aggregate["lower"],
+                "upper": aggregate["upper"],
+                "count": count,
+                "predicted_probability": round(predicted, 4),
+                "actual_hit_rate": round(actual_rate, 4),
+                "calibration_gap": round(actual_rate - predicted, 4),
+                "enter_rate": round(enter_rate, 4),
+                "threshold_mean": round(threshold_mean, 4),
+            }
+        )
+
+    total_samples = len(samples)
+    predicted_avg = (sum(float(item.get("gate_probability") or 0.0) for item in samples) / total_samples) if total_samples else 0.0
+    actual_avg = (sum(1 for item in samples if bool(item.get("reference_hit"))) / total_samples) if total_samples else 0.0
+    enter_avg = (sum(1 for item in samples if bool(item.get("gate_should_enter"))) / total_samples) if total_samples else 0.0
+    return {
+        "sample_size": total_samples,
+        "predicted_probability_mean": round(predicted_avg, 4) if total_samples else 0.0,
+        "actual_hit_rate_mean": round(actual_avg, 4) if total_samples else 0.0,
+        "calibration_gap_mean": round(actual_avg - predicted_avg, 4) if total_samples else 0.0,
+        "enter_rate_mean": round(enter_avg, 4) if total_samples else 0.0,
+        "items": items,
+    }
+
+
+def _metric_docs_from_pairs(rows: List[Dict[str, Any]], *, rank_key: str, attempt_key: str) -> List[Dict[str, Any]]:
+    docs: List[Dict[str, Any]] = []
+    for row in rows:
+        rank = _safe_int(row.get(rank_key), 0)
+        attempt = _safe_int(row.get(attempt_key), 0)
+        if rank <= 0 or attempt <= 0:
+            continue
+        docs.append({"resolved_rank_position": rank, "resolved_attempt": attempt})
+    return docs
+
+
+def _build_ml_variant_pair_rows(
+    ml_docs: List[Dict[str, Any]],
+    top26_docs: List[Dict[str, Any]],
+    base_docs: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    top26_map = {
+        _anchor_pair_key(dict(doc)): dict(doc)
+        for doc in list(top26_docs or [])
+        if isinstance(doc, dict)
+    }
+    base_map = {
+        _anchor_pair_key(dict(doc)): dict(doc)
+        for doc in list(base_docs or [])
+        if isinstance(doc, dict)
+    }
+    rows: List[Dict[str, Any]] = []
+    for ml_doc in list(ml_docs or []):
+        ml = dict(ml_doc)
+        pair_key = _anchor_pair_key(ml)
+        top26 = top26_map.get(pair_key)
+        base = base_map.get(pair_key)
+        if top26 is None or base is None:
+            continue
+        rows.append(
+            {
+                "anchor_history_id": str(ml.get("anchor_history_id") or "").strip(),
+                "anchor_number": ml.get("anchor_number"),
+                "anchor_timestamp_br": _serialize_datetime(ml.get("anchor_timestamp_br")),
+                "anchor_timestamp_utc": _serialize_datetime(ml.get("anchor_timestamp_utc")),
+                "ml_rank": _safe_int(ml.get("resolved_rank_position"), 0),
+                "ml_attempt": _safe_int(ml.get("resolved_attempt"), 0),
+                "top26_rank": _safe_int(top26.get("resolved_rank_position"), 0),
+                "top26_attempt": _safe_int(top26.get("resolved_attempt"), 0),
+                "base_rank": _safe_int(base.get("resolved_rank_position"), 0),
+                "base_attempt": _safe_int(base.get("resolved_attempt"), 0),
+            }
+        )
+    return rows
+
+
+def _build_ml_trend_points(
+    rows: List[Dict[str, Any]],
+    *,
+    rolling_window: int,
+) -> Dict[str, Any]:
+    normalized_rows = list(rows or [])
+    if len(normalized_rows) < max(5, int(rolling_window)):
+        return {"items": [], "latest": None}
+    items: List[Dict[str, Any]] = []
+    window = max(10, int(rolling_window))
+    for end_index in range(window - 1, len(normalized_rows)):
+        sample = normalized_rows[end_index - window + 1 : end_index + 1]
+        ml_metrics = _build_top_k_metrics(_metric_docs_from_pairs(sample, rank_key="ml_rank", attempt_key="ml_attempt"), total_events=len(sample))
+        top26_metrics = _build_top_k_metrics(_metric_docs_from_pairs(sample, rank_key="top26_rank", attempt_key="top26_attempt"), total_events=len(sample))
+        base_metrics = _build_top_k_metrics(_metric_docs_from_pairs(sample, rank_key="base_rank", attempt_key="base_attempt"), total_events=len(sample))
+        anchor = sample[-1]
+        items.append(
+            {
+                "sequence_index": len(items) + 1,
+                "anchor_timestamp_br": anchor.get("anchor_timestamp_br"),
+                "sample_size": len(sample),
+                "ml_mean_rank": _round_or_none(ml_metrics.get("mean_rank"), 4),
+                "top26_mean_rank": _round_or_none(top26_metrics.get("mean_rank"), 4),
+                "base_mean_rank": _round_or_none(base_metrics.get("mean_rank"), 4),
+                "mean_rank_gain_vs_top26": _round_or_none(
+                    _safe_float(top26_metrics.get("mean_rank"), 0.0) - _safe_float(ml_metrics.get("mean_rank"), 0.0),
+                    4,
+                ),
+                "mean_rank_gain_vs_base": _round_or_none(
+                    _safe_float(base_metrics.get("mean_rank"), 0.0) - _safe_float(ml_metrics.get("mean_rank"), 0.0),
+                    4,
+                ),
+                "ml_hit_at_26": _round_or_none(ml_metrics.get("hit_at_26"), 4),
+                "hit_at_26_uplift_vs_top26": _round_or_none(
+                    _safe_float(ml_metrics.get("hit_at_26"), 0.0) - _safe_float(top26_metrics.get("hit_at_26"), 0.0),
+                    4,
+                ),
+                "mrr_uplift_vs_top26": _round_or_none(
+                    _safe_float(ml_metrics.get("mrr"), 0.0) - _safe_float(top26_metrics.get("mrr"), 0.0),
+                    6,
+                ),
+            }
+        )
+    return {"items": items, "latest": items[-1] if items else None}
+
+
+def _build_gate_uplift_trend_points(
+    pairs: List[Dict[str, Any]],
+    *,
+    rolling_window: int,
+) -> Dict[str, Any]:
+    rows = [item for item in list(pairs or []) if bool(item.get("matched"))]
+    if len(rows) < max(5, int(rolling_window)):
+        return {"items": [], "latest": None}
+    items: List[Dict[str, Any]] = []
+    window = max(10, int(rolling_window))
+    for end_index in range(window - 1, len(rows)):
+        sample = rows[end_index - window + 1 : end_index + 1]
+        matched_count = len(sample)
+        entered = [item for item in sample if bool(item.get("gate_should_enter"))]
+        reference_hits = sum(1 for item in sample if bool(item.get("reference_hit")))
+        gate_hits = sum(1 for item in entered if bool(item.get("reference_hit")))
+        activation_rate = (len(entered) / matched_count) if matched_count else None
+        reference_hit_rate = (reference_hits / matched_count) if matched_count else None
+        gate_hit_rate = (gate_hits / len(entered)) if entered else None
+        latest = sample[-1]
+        items.append(
+            {
+                "sequence_index": len(items) + 1,
+                "anchor_number": latest.get("anchor_number"),
+                "sample_size": matched_count,
+                "activation_rate": _round_or_none(activation_rate),
+                "reference_hit_rate": _round_or_none(reference_hit_rate),
+                "gate_hit_rate": _round_or_none(gate_hit_rate),
+                "uplift_vs_reference": _round_or_none(
+                    (gate_hit_rate - reference_hit_rate)
+                    if gate_hit_rate is not None and reference_hit_rate is not None
+                    else None
+                ),
+                "anchor_history_id": latest.get("anchor_history_id"),
+            }
+        )
+    return {"items": items, "latest": items[-1] if items else None}
+
+
 @router.get("/api/suggestion-monitor/overview")
 async def get_suggestion_monitor_overview(
     roulette_id: str = Query(default="pragmatic-auto-roulette"),
@@ -1047,56 +1416,97 @@ async def get_suggestion_monitor_overview(
             start_hour=start_hour,
             end_hour=end_hour,
         )
-        total_events = await suggestion_monitor_events_coll.count_documents(filter_query)
-        pending_events = await suggestion_monitor_events_coll.count_documents({**filter_query, str(paths["status"]): "pending"})
-        resolved_events = await suggestion_monitor_events_coll.count_documents({**filter_query, str(paths["status"]): "resolved"})
-        unavailable_events = await suggestion_monitor_events_coll.count_documents(
-            {**filter_query, str(paths["status"]): {"$in": ["unavailable", "generation_error"]}}
-        )
-        first_hit_events = await suggestion_monitor_events_coll.count_documents(
-            {
-                **filter_query,
-                str(paths["status"]): "resolved",
-                str(paths["resolved_attempt"]): 1,
-            }
-        )
-        resolved_pipeline = [
-            {"$match": {**filter_query, str(paths["status"]): "resolved"}},
-            {
-                "$group": {
-                    "_id": f"${paths['resolved_attempt']}",
-                    "count": {"$sum": 1},
-                }
-            },
-            {"$sort": {"_id": 1}},
-        ]
-        per_attempt_rows = await suggestion_monitor_events_coll.aggregate(
-            resolved_pipeline,
-            allowDiskUse=True,
-        ).to_list(length=None)
-        per_attempt = {
-            str(int(row["_id"])): int(row["count"])
-            for row in per_attempt_rows
-            if row.get("_id") is not None
-        }
-        attempt_rows = await suggestion_monitor_events_coll.aggregate(
+        facet_rows = await suggestion_monitor_events_coll.aggregate(
             [
-                {"$match": base_filter},
                 {
-                    "$group": {
-                        "_id": {
-                            "status": f"${paths['status']}",
-                            "resolved_attempt": f"${paths['resolved_attempt']}",
-                        },
-                        "count": {"$sum": 1},
+                    "$facet": {
+                        "summary": [
+                            {"$match": filter_query},
+                            {
+                                "$group": {
+                                    "_id": None,
+                                    "total_events": {"$sum": 1},
+                                    "pending_events": {
+                                        "$sum": {
+                                            "$cond": [{"$eq": [f"${paths['status']}", "pending"]}, 1, 0]
+                                        }
+                                    },
+                                    "resolved_events": {
+                                        "$sum": {
+                                            "$cond": [{"$eq": [f"${paths['status']}", "resolved"]}, 1, 0]
+                                        }
+                                    },
+                                    "unavailable_events": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {"$in": [f"${paths['status']}", ["unavailable", "generation_error"]]},
+                                                1,
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                    "first_hit_events": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {
+                                                    "$and": [
+                                                        {"$eq": [f"${paths['status']}", "resolved"]},
+                                                        {"$eq": [f"${paths['resolved_attempt']}", 1]},
+                                                    ]
+                                                },
+                                                1,
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                }
+                            },
+                        ],
+                        "resolved_by_attempt": [
+                            {"$match": _merge_filter_with_condition(filter_query, {str(paths["status"]): "resolved"})},
+                            {"$group": {"_id": f"${paths['resolved_attempt']}", "count": {"$sum": 1}}},
+                            {"$sort": {"_id": 1}},
+                        ],
+                        "attempt_rows": [
+                            {"$match": base_filter},
+                            {
+                                "$group": {
+                                    "_id": {
+                                        "status": f"${paths['status']}",
+                                        "resolved_attempt": f"${paths['resolved_attempt']}",
+                                    },
+                                    "count": {"$sum": 1},
+                                }
+                            },
+                        ],
+                        "base_total": [
+                            {"$match": base_filter},
+                            {"$count": "count"},
+                        ],
                     }
-                },
+                }
             ],
             allowDiskUse=True,
-        ).to_list(length=None)
+        ).to_list(length=1)
+        facet = facet_rows[0] if facet_rows else {}
+        summary_row = (facet.get("summary") or [{}])[0] or {}
+        total_events = int(summary_row.get("total_events") or 0)
+        pending_events = int(summary_row.get("pending_events") or 0)
+        resolved_events = int(summary_row.get("resolved_events") or 0)
+        unavailable_events = int(summary_row.get("unavailable_events") or 0)
+        first_hit_events = int(summary_row.get("first_hit_events") or 0)
+
+        per_attempt = {
+            str(int(row["_id"])): int(row["count"])
+            for row in list(facet.get("resolved_by_attempt") or [])
+            if row.get("_id") is not None
+        }
+        attempt_rows = [dict(row) for row in list(facet.get("attempt_rows") or [])]
+        base_total_rows = list(facet.get("base_total") or [])
+        base_total_events = int((base_total_rows[0] or {}).get("count") or 0) if base_total_rows else 0
         attempt_options = _build_attempt_options_from_rows(
-            [dict(row) for row in attempt_rows],
-            await suggestion_monitor_events_coll.count_documents(base_filter),
+            attempt_rows,
+            base_total_events,
         )
 
         return {
@@ -1654,6 +2064,322 @@ async def get_suggestion_monitor_top_k_metrics(
             "start_hour": start_hour,
             "end_hour": end_hour,
             **metrics,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/suggestion-monitor/ml-evolution")
+async def get_suggestion_monitor_ml_evolution(
+    roulette_id: str = Query(default="pragmatic-auto-roulette"),
+    config_key: str | None = Query(default=None),
+    windows: str | None = Query(default=None),
+    shadow_action: str | None = Query(default=None),
+    start_date: str | None = Query(default=None),
+    end_date: str | None = Query(default=None),
+    start_hour: int | None = Query(default=None, ge=0, le=23),
+    end_hour: int | None = Query(default=None, ge=0, le=23),
+) -> Dict[str, Any]:
+    try:
+        await _ensure_monitor_indexes()
+        window_sizes = _parse_window_sizes(windows)
+        max_window = max(window_sizes) if window_sizes else max(DEFAULT_ANALYTICS_WINDOWS)
+        variant_specs = [
+            ("base", "Ranking Bruto"),
+            ("ranking_v2_top26", "Ranking V2 Top26"),
+            ("time_window_prior_v1", "Prior Temporal"),
+            ("ml_meta_rank_v1", "ML Meta Rank"),
+        ]
+        headline_window = _headline_window(window_sizes)
+        variants: List[Dict[str, Any]] = []
+        for variant_key, label in variant_specs:
+            resolved_filter = _build_event_filter(
+                roulette_id=roulette_id,
+                config_key=config_key,
+                status="resolved",
+                ranking_variant=variant_key,
+                shadow_action=shadow_action,
+                start_date=start_date,
+                end_date=end_date,
+                start_hour=start_hour,
+                end_hour=end_hour,
+            )
+            total_resolved = await suggestion_monitor_events_coll.count_documents(resolved_filter)
+            docs = await suggestion_monitor_events_coll.aggregate(
+                [
+                    {"$match": resolved_filter},
+                    {"$sort": {"anchor_timestamp_utc": -1}},
+                    {"$limit": int(max_window)},
+                    {
+                        "$project": {
+                            "resolved_rank_position": 1,
+                            "resolved_attempt": 1,
+                            "suggestion_size": 1,
+                        }
+                    },
+                ],
+                allowDiskUse=True,
+            ).to_list(length=max_window)
+            docs_list = [dict(doc) for doc in docs]
+            rolling = _build_rolling_metric_snapshots(docs_list, windows=window_sizes)
+            headline = next((item for item in rolling if int(item["window"]) == headline_window), rolling[0] if rolling else None)
+            variants.append(
+                {
+                    "ranking_variant": _variant_field_paths(variant_key)["label"],
+                    "label": label,
+                    "total_resolved": total_resolved,
+                    "rolling": rolling,
+                    "headline": headline,
+                }
+            )
+        return {
+            "roulette_id": roulette_id,
+            "config_key": config_key,
+            "windows": window_sizes,
+            "headline_window": headline_window,
+            "variants": variants,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/suggestion-monitor/ml-gate-analytics")
+async def get_suggestion_monitor_ml_gate_analytics(
+    roulette_id: str = Query(default="pragmatic-auto-roulette"),
+    config_key: str | None = Query(default=None),
+    windows: str | None = Query(default=None),
+    calibration_limit: int = Query(default=DEFAULT_GATE_CALIBRATION_LIMIT, ge=50, le=2000),
+    shadow_action: str | None = Query(default=None),
+    start_date: str | None = Query(default=None),
+    end_date: str | None = Query(default=None),
+    start_hour: int | None = Query(default=None, ge=0, le=23),
+    end_hour: int | None = Query(default=None, ge=0, le=23),
+) -> Dict[str, Any]:
+    try:
+        await _ensure_monitor_indexes()
+        window_sizes = _parse_window_sizes(windows)
+        fetch_limit = max(max(window_sizes) if window_sizes else 0, int(calibration_limit))
+        reference_filter = {
+            "$and": [
+                _build_event_filter(
+                    roulette_id=roulette_id,
+                    config_key=config_key,
+                    ranking_variant="ml_top12_reference_12x4_v1",
+                    shadow_action=shadow_action,
+                    start_date=start_date,
+                    end_date=end_date,
+                    start_hour=start_hour,
+                    end_hour=end_hour,
+                ),
+                {"window_result_finalized": True},
+            ]
+        }
+        reference_docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {"$match": reference_filter},
+                {"$sort": {"anchor_timestamp_utc": -1}},
+                {"$limit": int(fetch_limit)},
+                {
+                    "$project": {
+                        "anchor_history_id": 1,
+                        "anchor_number": 1,
+                        "anchor_timestamp_utc": 1,
+                        "window_result_hit": 1,
+                        "window_result_attempt": 1,
+                    }
+                },
+            ],
+            allowDiskUse=True,
+        ).to_list(length=fetch_limit)
+        reference_list = [dict(doc) for doc in reference_docs]
+        anchor_history_ids = [
+            str(doc.get("anchor_history_id") or "").strip()
+            for doc in reference_list
+            if str(doc.get("anchor_history_id") or "").strip()
+        ]
+        gate_docs: List[Dict[str, Any]] = []
+        if anchor_history_ids:
+            gate_filter: Dict[str, Any] = {
+                "roulette_id": roulette_id,
+                "ranking_variant": "ml_entry_gate_12x4_v1",
+                "anchor_history_id": {"$in": anchor_history_ids},
+            }
+            if config_key:
+                gate_filter["config_key"] = config_key
+            gate_docs = [
+                dict(doc)
+                for doc in await suggestion_monitor_events_coll.find(
+                    gate_filter,
+                    {
+                        "anchor_history_id": 1,
+                        "anchor_number": 1,
+                        "anchor_timestamp_utc": 1,
+                        "available": 1,
+                        "entry_shadow.recommendation": 1,
+                        "oscillation.ml_entry_gate": 1,
+                    },
+                ).to_list(length=len(anchor_history_ids))
+            ]
+        pairs = _build_gate_reference_pairs(reference_list, gate_docs)
+        uplift_windows = _build_gate_uplift_windows(pairs, windows=window_sizes)
+        calibration = _build_gate_calibration_buckets(pairs, limit=calibration_limit)
+        matched_pairs = sum(1 for item in pairs if bool(item.get("matched")))
+        return {
+            "roulette_id": roulette_id,
+            "config_key": config_key,
+            "windows": window_sizes,
+            "reference_candidates": len(reference_list),
+            "matched_pairs": matched_pairs,
+            "uplift_windows": uplift_windows,
+            "calibration": calibration,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/suggestion-monitor/ml-trend")
+async def get_suggestion_monitor_ml_trend(
+    roulette_id: str = Query(default="pragmatic-auto-roulette"),
+    config_key: str | None = Query(default=None),
+    rolling_window: int = Query(default=50, ge=10, le=400),
+    limit: int = Query(default=320, ge=50, le=1200),
+    shadow_action: str | None = Query(default=None),
+    start_date: str | None = Query(default=None),
+    end_date: str | None = Query(default=None),
+    start_hour: int | None = Query(default=None, ge=0, le=23),
+    end_hour: int | None = Query(default=None, ge=0, le=23),
+) -> Dict[str, Any]:
+    try:
+        await _ensure_monitor_indexes()
+        ml_filter = _build_event_filter(
+            roulette_id=roulette_id,
+            config_key=config_key,
+            status="resolved",
+            ranking_variant="ml_meta_rank_v1",
+            shadow_action=shadow_action,
+            start_date=start_date,
+            end_date=end_date,
+            start_hour=start_hour,
+            end_hour=end_hour,
+        )
+        projection = {
+            "anchor_history_id": 1,
+            "anchor_number": 1,
+            "anchor_timestamp_br": 1,
+            "anchor_timestamp_utc": 1,
+            "resolved_rank_position": 1,
+            "resolved_attempt": 1,
+        }
+        ml_docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {"$match": ml_filter},
+                {"$sort": {"anchor_timestamp_utc": -1}},
+                {"$limit": int(limit)},
+                {"$project": projection},
+            ],
+            allowDiskUse=True,
+        ).to_list(length=limit)
+        ml_list = [dict(doc) for doc in ml_docs]
+        anchor_history_ids = [
+            str(doc.get("anchor_history_id") or "").strip()
+            for doc in ml_list
+            if str(doc.get("anchor_history_id") or "").strip()
+        ]
+        if not anchor_history_ids:
+            return {
+                "roulette_id": roulette_id,
+                "config_key": config_key,
+                "rolling_window": rolling_window,
+                "ml_meta_rank": {"items": [], "latest": None},
+                "ml_gate": {"items": [], "latest": None},
+            }
+        common_filter: Dict[str, Any] = {
+            "roulette_id": roulette_id,
+            "anchor_history_id": {"$in": anchor_history_ids},
+            "status": "resolved",
+        }
+        if config_key:
+            common_filter["config_key"] = config_key
+        top26_docs = await suggestion_monitor_events_coll.find(
+            {**common_filter, "ranking_variant": "ranking_v2_top26"},
+            projection,
+        ).to_list(length=len(anchor_history_ids))
+        base_docs = await suggestion_monitor_events_coll.find(
+            {
+                **common_filter,
+                "$or": [
+                    {"ranking_variant": "base_v1"},
+                    {"ranking_variant": {"$exists": False}},
+                ],
+            },
+            projection,
+        ).to_list(length=len(anchor_history_ids))
+        ml_rows = _build_ml_variant_pair_rows(ml_list, [dict(doc) for doc in top26_docs], [dict(doc) for doc in base_docs])
+        ml_rows.sort(key=lambda item: (str(item.get("anchor_timestamp_utc") or ""), str(item.get("anchor_history_id") or "")))
+        ml_trend = _build_ml_trend_points(ml_rows, rolling_window=rolling_window)
+
+        reference_filter = {
+            "$and": [
+                _build_event_filter(
+                    roulette_id=roulette_id,
+                    config_key=config_key,
+                    ranking_variant="ml_top12_reference_12x4_v1",
+                    shadow_action=shadow_action,
+                    start_date=start_date,
+                    end_date=end_date,
+                    start_hour=start_hour,
+                    end_hour=end_hour,
+                ),
+                {"window_result_finalized": True},
+            ]
+        }
+        reference_docs = await suggestion_monitor_events_coll.aggregate(
+            [
+                {"$match": reference_filter},
+                {"$sort": {"anchor_timestamp_utc": 1}},
+                {"$limit": int(limit)},
+                {
+                    "$project": {
+                        "anchor_history_id": 1,
+                        "anchor_number": 1,
+                        "anchor_timestamp_utc": 1,
+                        "window_result_hit": 1,
+                        "window_result_attempt": 1,
+                    }
+                },
+            ],
+            allowDiskUse=True,
+        ).to_list(length=limit)
+        reference_list = [dict(doc) for doc in reference_docs]
+        gate_docs = await suggestion_monitor_events_coll.find(
+            {
+                "roulette_id": roulette_id,
+                "ranking_variant": "ml_entry_gate_12x4_v1",
+                "anchor_history_id": {"$in": [
+                    str(doc.get("anchor_history_id") or "").strip()
+                    for doc in reference_list
+                    if str(doc.get("anchor_history_id") or "").strip()
+                ]},
+                **({"config_key": config_key} if config_key else {}),
+            },
+            {
+                "anchor_history_id": 1,
+                "anchor_number": 1,
+                "anchor_timestamp_utc": 1,
+                "available": 1,
+                "entry_shadow.recommendation": 1,
+                "oscillation.ml_entry_gate": 1,
+            },
+        ).to_list(length=len(reference_list))
+        pairs = _build_gate_reference_pairs(reference_list, [dict(doc) for doc in gate_docs])
+        gate_trend = _build_gate_uplift_trend_points(pairs, rolling_window=rolling_window)
+        return {
+            "roulette_id": roulette_id,
+            "config_key": config_key,
+            "rolling_window": int(rolling_window),
+            "limit": int(limit),
+            "ml_meta_rank": ml_trend,
+            "ml_gate": gate_trend,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

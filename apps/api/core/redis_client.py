@@ -94,6 +94,17 @@ signals_r = r if SIGNALS_REDIS_URL == REDIS_URL else redis.from_url(
 )
 
 
+def create_pubsub_redis_client():
+    return redis.from_url(
+        REDIS_URL,
+        decode_responses=True,
+        socket_timeout=None,
+        socket_connect_timeout=REDIS_CONNECT_TIMEOUT,
+        retry_on_timeout=REDIS_RETRY_ON_TIMEOUT,
+        health_check_interval=0,
+    )
+
+
 def get_redis_client():
     return r
 
@@ -113,6 +124,7 @@ def get_signals_redis_url() -> str:
 __all__ = [
     "r",
     "signals_r",
+    "create_pubsub_redis_client",
     "get_redis_client",
     "get_redis_url",
     "get_signals_redis_client",

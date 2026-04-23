@@ -4,6 +4,7 @@ import pytz
 import json
 import logging
 import certifi
+import time
 
 
 
@@ -46,12 +47,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import  JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from api.core.db import mongo_db, history_coll
+from api.core.db import mongo_db, history_coll, ensure_suggestion_monitor_indexes
 from fastapi.responses import HTMLResponse
 
 from api.helpers.roulettes_list import roulettes
 
 roulette_lookup = {r['slug']: r for r in roulettes}
+pragmatic_roulette_slugs = [r["slug"] for r in roulettes if str(r.get("slug", "")).startswith("pragmatic")]
+roulette_lookup_by_name = {str(r.get("name", "")): dict(r) for r in roulettes}
+_roulettes_cache: Dict[str, Any] = {"expires_at": 0.0, "items": None}
+_ROULETTES_CACHE_TTL_SECONDS = 60.0
 
 import asyncio
 
@@ -74,6 +79,41 @@ from api.routes.suggestion_monitor import router as suggestion_monitor_router
 
 # Guarde a task globalmente
 listener_task = None
+
+
+def get_roulette_flag(name_or_slug: str) -> str:
+    text = str(name_or_slug or "").lower()
+    if "brazil" in text or "brazilian" in text:
+        return "🇧🇷"
+    if "korean" in text:
+        return "🇰🇷"
+    if "turkish" in text:
+        return "🇹🇷"
+    if "italian" in text or "italia" in text:
+        return "🇮🇹"
+    if "romanian" in text:
+        return "🇷🇴"
+    if "german" in text:
+        return "🇩🇪"
+    if "russian" in text:
+        return "🇷🇺"
+    if "vietnamese" in text:
+        return "🇻🇳"
+    if "macao" in text:
+        return "🇲🇴"
+    return "🎯"
+
+
+def get_display_name(name_or_slug: str) -> str:
+    raw = str(name_or_slug or "").strip()
+    if not raw:
+        return "-"
+    if raw in roulette_lookup_by_name:
+        return str(roulette_lookup_by_name[raw].get("name") or raw)
+    lookup = roulette_lookup.get(raw)
+    if lookup:
+        return str(lookup.get("name") or raw)
+    return raw.replace("-", " ").title()
 
 # Função para formatar timestamps para horário de Brasília
 def format_timestamp_br(timestamp: int) -> str:
@@ -111,6 +151,26 @@ app.include_router(suggestion_monitor_router)
 base_dir = os.path.dirname(__file__)
 app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
+
+
+async def _warm_api_runtime() -> None:
+    try:
+        await mongo_db.command("ping")
+    except Exception as exc:
+        logging.error(f"Warmup Mongo ping falhou: {exc}")
+    try:
+        await ensure_suggestion_monitor_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices do monitor falhou: {exc}")
+    try:
+        await get_roulettes_list()
+    except Exception as exc:
+        logging.error(f"Warmup de cache de roletas falhou: {exc}")
+
+
+@app.on_event("startup")
+async def schedule_api_warmup() -> None:
+    asyncio.create_task(_warm_api_runtime())
 
 
 async def get_mongo_history(slug: str, limit: int = 10000) -> List[int]:
@@ -151,27 +211,41 @@ async def get_roulettes_list():
     Retorna lista de todas as roletas Pragmatic com contagem de números
     """
     try:
-        # Pipeline de agregação para contar números por roleta Pragmatic
+        now = time.monotonic()
+        cached_items = _roulettes_cache.get("items")
+        if isinstance(cached_items, list) and float(_roulettes_cache.get("expires_at") or 0.0) > now:
+            return cached_items
+
         pipeline = [
-            {"$match": {"roulette_id": {"$regex": "pragmatic", "$options": "i"}}},
-            {"$group": {"_id": "$roulette_name", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}}
+            {"$match": {"roulette_id": {"$in": pragmatic_roulette_slugs}}},
+            {"$group": {"_id": "$roulette_id", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
         ]
-        
-        # Executar agregação
-        cursor = history_coll.aggregate(pipeline)
-        roulettes_data = await cursor.to_list(length=None)
-        
-        # Enriquecer dados com flags e nomes amigáveis
+
+        rows = await history_coll.aggregate(pipeline, allowDiskUse=True).to_list(length=None)
+        count_by_slug = {
+            str(row.get("_id") or "").strip(): int(row.get("count") or 0)
+            for row in rows
+            if str(row.get("_id") or "").strip()
+        }
+
         enriched_roulettes = []
-        for r in roulettes_data:
+        for roulette in roulettes:
+            slug = str(roulette.get("slug") or "").strip()
+            if slug not in pragmatic_roulette_slugs:
+                continue
+            display_name = str(roulette.get("name") or slug)
             enriched_roulettes.append({
-                "name": r["_id"],
-                "count": r["count"],
-                "flag": get_roulette_flag(r["_id"]),
-                "displayName": get_display_name(r["_id"])
+                "slug": slug,
+                "name": display_name,
+                "count": count_by_slug.get(slug, 0),
+                "flag": get_roulette_flag(display_name or slug),
+                "displayName": get_display_name(display_name or slug),
             })
-        
+
+        enriched_roulettes.sort(key=lambda item: (-int(item.get("count") or 0), str(item.get("displayName") or item.get("name") or "")))
+        _roulettes_cache["items"] = enriched_roulettes
+        _roulettes_cache["expires_at"] = now + _ROULETTES_CACHE_TTL_SECONDS
         return enriched_roulettes
         
     except Exception as e:

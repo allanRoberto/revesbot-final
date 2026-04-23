@@ -429,6 +429,193 @@ def test_build_window_monitor_aux_items_exposes_unavailable_gate_context() -> No
     assert items[0]["gate_warmup_ready"] is False
 
 
+def test_build_rolling_metric_snapshots_computes_recent_windows() -> None:
+    docs = [
+        {"resolved_attempt": 1, "resolved_rank_position": 4},
+        {"resolved_attempt": 2, "resolved_rank_position": 9},
+        {"resolved_attempt": 1, "resolved_rank_position": 14},
+        {"resolved_attempt": 3, "resolved_rank_position": 21},
+        {"resolved_attempt": 4, "resolved_rank_position": 27},
+    ]
+
+    snapshots = suggestion_monitor._build_rolling_metric_snapshots(docs, windows=[3, 5])
+
+    assert [item["window"] for item in snapshots] == [3, 5]
+    assert snapshots[0]["sample_size"] == 3
+    assert snapshots[0]["mean_rank"] == 9.0
+    assert snapshots[0]["hit_at_12"] == 0.6667
+    assert snapshots[0]["first_hit_rate"] == 0.6667
+    assert snapshots[1]["sample_size"] == 5
+    assert snapshots[1]["hit_at_26"] == 0.8
+
+
+def test_build_gate_reference_pairs_matches_gate_context_by_anchor() -> None:
+    pairs = suggestion_monitor._build_gate_reference_pairs(
+        [
+            {
+                "anchor_history_id": "h-1",
+                "anchor_number": 12,
+                "window_result_hit": True,
+                "window_result_attempt": 2,
+            }
+        ],
+        [
+            {
+                "anchor_history_id": "h-1",
+                "available": False,
+                "entry_shadow": {
+                    "recommendation": {
+                        "action": "wait",
+                        "label": "Aguardar",
+                        "reason": "Gate ML 0.510 < 0.520; entrada bloqueada.",
+                    }
+                },
+                "oscillation": {
+                    "ml_entry_gate": {
+                        "probability": 0.51,
+                        "threshold": 0.52,
+                        "should_enter": False,
+                        "trained_events": 14,
+                        "warmup_ready": True,
+                    }
+                },
+            }
+        ],
+    )
+
+    assert len(pairs) == 1
+    assert pairs[0]["matched"] is True
+    assert pairs[0]["reference_hit"] is True
+    assert pairs[0]["gate_probability"] == 0.51
+    assert pairs[0]["gate_should_enter"] is False
+
+
+def test_build_gate_uplift_windows_computes_filtering_gain() -> None:
+    rows = suggestion_monitor._build_gate_uplift_windows(
+        [
+            {"matched": True, "reference_hit": True, "gate_should_enter": True},
+            {"matched": True, "reference_hit": False, "gate_should_enter": True},
+            {"matched": True, "reference_hit": False, "gate_should_enter": False},
+            {"matched": True, "reference_hit": False, "gate_should_enter": False},
+        ],
+        windows=[4],
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["matched_candidates"] == 4
+    assert rows[0]["entries"] == 2
+    assert rows[0]["activation_rate"] == 0.5
+    assert rows[0]["reference_hit_rate"] == 0.25
+    assert rows[0]["gate_hit_rate"] == 0.5
+    assert rows[0]["uplift_vs_reference"] == 0.25
+    assert rows[0]["avoided_miss_rate"] == 1.0
+
+
+def test_build_gate_calibration_buckets_groups_probabilities() -> None:
+    calibration = suggestion_monitor._build_gate_calibration_buckets(
+        [
+            {"matched": True, "reference_hit": True, "gate_should_enter": True, "gate_probability": 0.57, "gate_threshold": 0.52},
+            {"matched": True, "reference_hit": False, "gate_should_enter": True, "gate_probability": 0.58, "gate_threshold": 0.52},
+            {"matched": True, "reference_hit": False, "gate_should_enter": False, "gate_probability": 0.49, "gate_threshold": 0.52},
+        ],
+        limit=10,
+    )
+
+    assert calibration["sample_size"] == 3
+    assert calibration["items"][0]["bucket"] == "0.45 - 0.50"
+    assert calibration["items"][0]["count"] == 1
+    assert calibration["items"][1]["bucket"] == "0.55 - 0.60"
+    assert calibration["items"][1]["count"] == 2
+
+
+def test_build_ml_variant_pair_rows_aligns_ml_top26_and_base_by_anchor() -> None:
+    rows = suggestion_monitor._build_ml_variant_pair_rows(
+        [
+            {
+                "anchor_history_id": "h-1",
+                "anchor_number": 5,
+                "anchor_timestamp_br": "2026-04-22 10:00:00",
+                "anchor_timestamp_utc": "2026-04-22T13:00:00+00:00",
+                "resolved_rank_position": 4,
+                "resolved_attempt": 1,
+            }
+        ],
+        [
+            {
+                "anchor_history_id": "h-1",
+                "resolved_rank_position": 9,
+                "resolved_attempt": 2,
+            }
+        ],
+        [
+            {
+                "anchor_history_id": "h-1",
+                "resolved_rank_position": 13,
+                "resolved_attempt": 3,
+            }
+        ],
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["ml_rank"] == 4
+    assert rows[0]["top26_rank"] == 9
+    assert rows[0]["base_rank"] == 13
+    assert rows[0]["ml_attempt"] == 1
+    assert rows[0]["top26_attempt"] == 2
+    assert rows[0]["base_attempt"] == 3
+
+
+def test_build_ml_trend_points_computes_rolling_rank_gains() -> None:
+    rows = [
+        {
+            "anchor_history_id": f"h-{index}",
+            "anchor_timestamp_br": f"2026-04-22 10:{index:02d}:00",
+            "anchor_timestamp_utc": f"2026-04-22T13:{index:02d}:00+00:00",
+            "ml_rank": 3,
+            "ml_attempt": 1,
+            "top26_rank": 8,
+            "top26_attempt": 2,
+            "base_rank": 12,
+            "base_attempt": 3,
+        }
+        for index in range(10)
+    ]
+
+    trend = suggestion_monitor._build_ml_trend_points(rows, rolling_window=10)
+
+    assert len(trend["items"]) == 1
+    latest = trend["latest"]
+    assert latest["sample_size"] == 10
+    assert latest["ml_mean_rank"] == 3.0
+    assert latest["top26_mean_rank"] == 8.0
+    assert latest["base_mean_rank"] == 12.0
+    assert latest["mean_rank_gain_vs_top26"] == 5.0
+    assert latest["mean_rank_gain_vs_base"] == 9.0
+    assert latest["mrr_uplift_vs_top26"] > 0
+
+
+def test_build_gate_uplift_trend_points_computes_rolling_uplift() -> None:
+    pairs = [
+        {
+            "matched": True,
+            "anchor_number": index,
+            "reference_hit": index in {1, 2, 7},
+            "gate_should_enter": index <= 4,
+        }
+        for index in range(1, 11)
+    ]
+
+    trend = suggestion_monitor._build_gate_uplift_trend_points(pairs, rolling_window=10)
+
+    assert len(trend["items"]) == 1
+    latest = trend["latest"]
+    assert latest["sample_size"] == 10
+    assert latest["activation_rate"] == 0.4
+    assert latest["reference_hit_rate"] == 0.3
+    assert latest["gate_hit_rate"] == 0.5
+    assert latest["uplift_vs_reference"] == 0.2
+
+
 def test_build_window_hit_breakdown_counts_hits_by_attempt() -> None:
     breakdown = suggestion_monitor._build_window_hit_breakdown(
         [

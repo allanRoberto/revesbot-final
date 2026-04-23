@@ -785,6 +785,116 @@
       </div>
     </section>
 
+    <section class="table-card">
+      <h2>Evolução do ML Meta Rank</h2>
+      <div class="timeline-meta">
+        <span id="mlEvolutionHeadlineMeta">janela de referência 100</span>
+        <span id="mlEvolutionVariantsMeta">0 variantes</span>
+      </div>
+      <div class="table-scroll" style="margin-top:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Variante</th>
+              <th>Janela</th>
+              <th>Amostra</th>
+              <th>Mean Rank</th>
+              <th>MRR</th>
+              <th>Hit@12</th>
+              <th>Hit@26</th>
+              <th>1º Tiro</th>
+            </tr>
+          </thead>
+          <tbody id="mlEvolutionRollingBody"></tbody>
+        </table>
+      </div>
+      <div class="timeline-note">
+        A leitura correta aqui é comparar o `ML Meta Rank` contra `Ranking Bruto`, `Ranking V2 Top26` e `Prior Temporal` nas janelas móveis mais recentes. Se o ML estiver melhorando, o `mean rank` tende a cair e `MRR` / `hit@12` / `hit@26` tendem a subir.
+      </div>
+    </section>
+
+    <section class="table-card">
+      <h2>ML Gate vs Referência</h2>
+      <div class="timeline-meta">
+        <span id="mlGateAnalyticsPairsMeta">0 pares</span>
+        <span id="mlGateAnalyticsCalibrationMeta">0 buckets</span>
+      </div>
+      <div class="table-scroll" style="margin-top:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Janela</th>
+              <th>Pares</th>
+              <th>Entradas</th>
+              <th>Ativação</th>
+              <th>Hit Ref</th>
+              <th>Hit Gate</th>
+              <th>Uplift</th>
+              <th>Misses Evitados</th>
+              <th>Hits Bloqueados</th>
+            </tr>
+          </thead>
+          <tbody id="mlGateUpliftBody"></tbody>
+        </table>
+      </div>
+      <div class="table-scroll" style="margin-top:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Bucket</th>
+              <th>Amostras</th>
+              <th>Prob. Média</th>
+              <th>Hit Real</th>
+              <th>Gap</th>
+              <th>Taxa Entrar</th>
+              <th>Threshold Médio</th>
+            </tr>
+          </thead>
+          <tbody id="mlGateCalibrationBody"></tbody>
+        </table>
+      </div>
+      <div class="timeline-note">
+        O gate não muda os 12 números da referência; ele só decide se entra ou espera. Então o ganho real aparece como filtragem: `hit gate` acima do `hit ref`, com taxa de ativação controlada e calibração coerente entre probabilidade prevista e hit real.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Tendência Rolling do ML Meta Rank</h2>
+      <div class="timeline-meta">
+        <span id="mlTrendHeadlineMeta">rolling 50</span>
+        <span id="mlTrendLatestMeta">ganho vs top26 +0.00 posições</span>
+        <span id="mlTrendUpliftMeta">hit@26 uplift +0.00% | MRR uplift +0.0000</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#0f766e"></span>Ganho de mean rank vs Top26</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#2563eb"></span>Ganho de mean rank vs Base</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="mlTrendChart"></div>
+      </div>
+      <div class="timeline-note">
+        Valores positivos significam melhora: o `ML Meta Rank` está trazendo o acerto para posições menores do que o `Ranking V2 Top26` e a linha-base bruta nas janelas móveis mais recentes.
+      </div>
+    </section>
+
+    <section class="table-card timeline-card">
+      <h2>Tendência de Uplift do ML Gate</h2>
+      <div class="timeline-meta">
+        <span id="mlGateTrendHeadlineMeta">rolling 50</span>
+        <span id="mlGateTrendLatestMeta">uplift +0.00%</span>
+        <span id="mlGateTrendActivationMeta">ativação 0.00% | ref 0.00% | gate 0.00%</span>
+      </div>
+      <div class="timeline-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>Uplift do gate vs referência</span>
+      </div>
+      <div class="timeline-chart-wrap">
+        <div class="timeline-chart" id="mlGateTrendChart"></div>
+      </div>
+      <div class="timeline-note">
+        Esta linha mostra se o gate está realmente filtrando melhor ao longo do tempo. Acima de zero significa que a taxa de hit quando entra ficou melhor do que a taxa da referência na mesma janela móvel.
+      </div>
+    </section>
+
     <section class="table-card timeline-card">
       <h2>Timeline de Hit ou Miss ML Top12 Referência 12x4</h2>
       <div class="timeline-meta">
@@ -999,6 +1109,27 @@
 
     function formatPct(value) {
       return `${(Number(value || 0) * 100).toFixed(1)}%`;
+    }
+
+    function formatSignedPct(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return "-";
+      return `${number >= 0 ? "+" : ""}${(number * 100).toFixed(1)}%`;
+    }
+
+    function formatSignedFixed(value, digits = 2) {
+      const number = Number(value);
+      return Number.isFinite(number) ? `${number >= 0 ? "+" : ""}${number.toFixed(digits)}` : "-";
+    }
+
+    function formatMaybePct(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? `${(number * 100).toFixed(1)}%` : "-";
+    }
+
+    function formatMaybeFixed(value, digits = 4) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number.toFixed(digits) : "-";
     }
 
     function badgeClass(status) {
@@ -1896,6 +2027,256 @@
       });
     }
 
+    function renderMlEvolution(analytics) {
+      const body = qs("mlEvolutionRollingBody");
+      const headlineMeta = qs("mlEvolutionHeadlineMeta");
+      const variantsMeta = qs("mlEvolutionVariantsMeta");
+      body.innerHTML = "";
+      const variants = Array.isArray(analytics?.variants) ? analytics.variants : [];
+      const headlineWindow = Number(analytics?.headline_window || 100);
+      headlineMeta.textContent = `janela de referência ${headlineWindow}`;
+      variantsMeta.textContent = `${variants.length} variantes`;
+      if (!variants.length) {
+        body.innerHTML = `<tr><td colspan="8" class="muted">Sem dados suficientes para medir a evolução do ML.</td></tr>`;
+        return;
+      }
+
+      const rows = [];
+      variants.forEach((variant) => {
+        const rolling = Array.isArray(variant?.rolling) ? variant.rolling : [];
+        rolling.forEach((snapshot) => {
+          const isMl = String(variant?.ranking_variant || "") === "ml_meta_rank_v1";
+          rows.push(`
+            <tr>
+              <td><span class="badge ${isMl ? "badge-accent" : "badge-muted"}">${variant?.label || variant?.ranking_variant || "-"}</span></td>
+              <td>${snapshot?.window ?? "-"}</td>
+              <td>${snapshot?.sample_size ?? 0}</td>
+              <td>${formatMaybeFixed(snapshot?.mean_rank, 2)}</td>
+              <td>${formatMaybeFixed(snapshot?.mrr, 4)}</td>
+              <td>${formatMaybePct(snapshot?.hit_at_12)}</td>
+              <td>${formatMaybePct(snapshot?.hit_at_26)}</td>
+              <td>${formatMaybePct(snapshot?.first_hit_rate)}</td>
+            </tr>
+          `);
+        });
+      });
+      body.innerHTML = rows.join("");
+    }
+
+    function renderMlGateAnalytics(analytics) {
+      const upliftBody = qs("mlGateUpliftBody");
+      const calibrationBody = qs("mlGateCalibrationBody");
+      const pairsMeta = qs("mlGateAnalyticsPairsMeta");
+      const calibrationMeta = qs("mlGateAnalyticsCalibrationMeta");
+      upliftBody.innerHTML = "";
+      calibrationBody.innerHTML = "";
+
+      const upliftRows = Array.isArray(analytics?.uplift_windows) ? analytics.uplift_windows : [];
+      const calibration = analytics?.calibration && typeof analytics.calibration === "object"
+        ? analytics.calibration
+        : { items: [], sample_size: 0 };
+      const calibrationRows = Array.isArray(calibration.items) ? calibration.items : [];
+
+      pairsMeta.textContent = `${Number(analytics?.matched_pairs || 0)} pares sobre ${Number(analytics?.reference_candidates || 0)} candidatos`;
+      calibrationMeta.textContent = `${Number(calibrationRows.length || 0)} buckets | ${Number(calibration.sample_size || 0)} amostras`;
+
+      if (!upliftRows.length) {
+        upliftBody.innerHTML = `<tr><td colspan="9" class="muted">Sem dados suficientes para medir uplift do gate.</td></tr>`;
+      } else {
+        upliftBody.innerHTML = upliftRows.map((row) => {
+          const upliftValue = Number(row?.uplift_vs_reference);
+          const upliftClass = !Number.isFinite(upliftValue)
+            ? "delta-neutral"
+            : upliftValue > 0 ? "delta-positive" : upliftValue < 0 ? "delta-negative" : "delta-neutral";
+          return `
+            <tr>
+              <td>${row?.window ?? "-"}</td>
+              <td>${row?.matched_candidates ?? 0}</td>
+              <td>${row?.entries ?? 0}</td>
+              <td>${formatMaybePct(row?.activation_rate)}</td>
+              <td>${formatMaybePct(row?.reference_hit_rate)}</td>
+              <td>${formatMaybePct(row?.gate_hit_rate)}</td>
+              <td><span class="${upliftClass}">${formatSignedPct(row?.uplift_vs_reference)}</span></td>
+              <td>${formatMaybePct(row?.avoided_miss_rate)}</td>
+              <td>${formatMaybePct(row?.blocked_hit_opportunity_rate)}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      if (!calibrationRows.length) {
+        calibrationBody.innerHTML = `<tr><td colspan="7" class="muted">Sem amostra suficiente para calibrar o gate.</td></tr>`;
+        return;
+      }
+
+      calibrationBody.innerHTML = calibrationRows.map((row) => {
+        const gapValue = Number(row?.calibration_gap);
+        const gapClass = !Number.isFinite(gapValue)
+          ? "delta-neutral"
+          : gapValue > 0 ? "delta-positive" : gapValue < 0 ? "delta-negative" : "delta-neutral";
+        return `
+          <tr>
+            <td>${row?.bucket || "-"}</td>
+            <td>${row?.count ?? 0}</td>
+            <td>${formatMaybePct(row?.predicted_probability)}</td>
+            <td>${formatMaybePct(row?.actual_hit_rate)}</td>
+            <td><span class="${gapClass}">${formatSignedPct(row?.calibration_gap)}</span></td>
+            <td>${formatMaybePct(row?.enter_rate)}</td>
+            <td>${formatMaybePct(row?.threshold_mean)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderRollingTrendChart({
+      chartId,
+      items,
+      series,
+      ariaLabel,
+      emptyMessage,
+      valueFormatter,
+    }) {
+      const container = qs(chartId);
+      container.innerHTML = "";
+      const safeItems = Array.isArray(items) ? items : [];
+      const safeSeries = Array.isArray(series) ? series : [];
+      const numericValues = safeItems.flatMap((item) => safeSeries
+        .map((definition) => Number(item?.[definition.key]))
+        .filter((value) => Number.isFinite(value)));
+
+      if (!safeItems.length || !safeSeries.length || !numericValues.length) {
+        container.innerHTML = `<div class="timeline-empty">${emptyMessage}</div>`;
+        return;
+      }
+
+      const width = Math.max(960, safeItems.length * 28);
+      const height = 280;
+      const padding = { top: 24, right: 24, bottom: 34, left: 60 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const xStep = safeItems.length > 1 ? plotWidth / (safeItems.length - 1) : 0;
+      let minValue = Math.min(...numericValues, 0);
+      let maxValue = Math.max(...numericValues, 0);
+      if (Math.abs(maxValue - minValue) < 0.0001) {
+        const pad = Math.max(0.5, Math.abs(maxValue || 1) * 0.2);
+        minValue -= pad;
+        maxValue += pad;
+      }
+
+      const yForValue = (value) => padding.top + (((maxValue - value) / (maxValue - minValue)) * plotHeight);
+      const xForIndex = (index) => padding.left + (index * xStep);
+      const rawTicks = [maxValue, 0, minValue]
+        .filter((value, index, source) => Number.isFinite(value)
+          && source.findIndex((other) => Number.isFinite(other) && Math.abs(Number(other) - Number(value)) < 0.0001) === index)
+        .sort((left, right) => right - left);
+
+      const gridLines = rawTicks.map((value) => {
+        const y = yForValue(value);
+        return `
+          <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="timeline-grid-line" />
+          <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="timeline-axis-label">${valueFormatter(value)}</text>
+        `;
+      }).join("");
+
+      const xLabels = safeItems.length > 1
+        ? `
+            <text x="${padding.left}" y="${height - 8}" text-anchor="start" class="timeline-axis-label">mais antigo</text>
+            <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="timeline-axis-label">mais recente</text>
+          `
+        : `<text x="${width / 2}" y="${height - 8}" text-anchor="middle" class="timeline-axis-label">1 ponto</text>`;
+
+      const paths = safeSeries.map((definition) => {
+        const validItems = safeItems
+          .map((item, index) => ({ item, index, value: Number(item?.[definition.key]) }))
+          .filter((entry) => Number.isFinite(entry.value));
+        if (!validItems.length) return "";
+        const path = validItems.map((entry, index) => {
+          const x = xForIndex(entry.index);
+          const y = yForValue(entry.value);
+          return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+        }).join(" ");
+        return `<path d="${path}" fill="none" stroke="${definition.color}" stroke-width="${definition.strokeWidth || 2.5}" stroke-linejoin="round" stroke-linecap="round" ${definition.dasharray ? `stroke-dasharray="${definition.dasharray}"` : ""}></path>`;
+      }).join("");
+
+      const latestMarkers = safeSeries.map((definition) => {
+        const validItems = safeItems
+          .map((item, index) => ({ item, index, value: Number(item?.[definition.key]) }))
+          .filter((entry) => Number.isFinite(entry.value));
+        if (!validItems.length) return "";
+        const latest = validItems[validItems.length - 1];
+        const tooltip = `${latest.item?.anchor_timestamp_br || `ponto ${latest.index + 1}`} | ${definition.label}: ${valueFormatter(latest.value)}`;
+        return `
+          <circle cx="${xForIndex(latest.index)}" cy="${yForValue(latest.value)}" r="5" fill="${definition.color}" stroke="#ffffff" stroke-width="2">
+            <title>${tooltip}</title>
+          </circle>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${ariaLabel}">
+          ${gridLines}
+          ${paths}
+          ${latestMarkers}
+          ${xLabels}
+        </svg>
+      `;
+    }
+
+    function renderMlTrend(trend) {
+      const headlineMeta = qs("mlTrendHeadlineMeta");
+      const latestMeta = qs("mlTrendLatestMeta");
+      const upliftMeta = qs("mlTrendUpliftMeta");
+      const rollingWindow = Number(trend?.rolling_window || 50);
+      const payload = trend?.ml_meta_rank && typeof trend.ml_meta_rank === "object"
+        ? trend.ml_meta_rank
+        : { items: [], latest: null };
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      const latest = payload.latest && typeof payload.latest === "object" ? payload.latest : {};
+
+      headlineMeta.textContent = `rolling ${rollingWindow} | ${items.length} pontos`;
+      latestMeta.textContent = `ganho vs top26 ${formatSignedFixed(latest?.mean_rank_gain_vs_top26, 2)} posições`;
+      upliftMeta.textContent = `hit@26 uplift ${formatSignedPct(latest?.hit_at_26_uplift_vs_top26)} | MRR uplift ${formatSignedFixed(latest?.mrr_uplift_vs_top26, 4)}`;
+
+      renderRollingTrendChart({
+        chartId: "mlTrendChart",
+        items,
+        series: [
+          { key: "mean_rank_gain_vs_top26", label: "Ganho vs Top26", color: "#0f766e" },
+          { key: "mean_rank_gain_vs_base", label: "Ganho vs Base", color: "#2563eb", dasharray: "7 5", strokeWidth: 2.25 },
+        ],
+        ariaLabel: "Tendência rolling de ganho do ML Meta Rank",
+        emptyMessage: "Sem dados suficientes para desenhar a tendência rolling do ML Meta Rank.",
+        valueFormatter: (value) => formatSignedFixed(value, 2),
+      });
+    }
+
+    function renderMlGateTrend(trend) {
+      const headlineMeta = qs("mlGateTrendHeadlineMeta");
+      const latestMeta = qs("mlGateTrendLatestMeta");
+      const activationMeta = qs("mlGateTrendActivationMeta");
+      const rollingWindow = Number(trend?.rolling_window || 50);
+      const payload = trend?.ml_gate && typeof trend.ml_gate === "object"
+        ? trend.ml_gate
+        : { items: [], latest: null };
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      const latest = payload.latest && typeof payload.latest === "object" ? payload.latest : {};
+
+      headlineMeta.textContent = `rolling ${rollingWindow} | ${items.length} pontos`;
+      latestMeta.textContent = `uplift ${formatSignedPct(latest?.uplift_vs_reference)}`;
+      activationMeta.textContent = `ativação ${formatMaybePct(latest?.activation_rate)} | ref ${formatMaybePct(latest?.reference_hit_rate)} | gate ${formatMaybePct(latest?.gate_hit_rate)}`;
+
+      renderRollingTrendChart({
+        chartId: "mlGateTrendChart",
+        items,
+        series: [
+          { key: "uplift_vs_reference", label: "Uplift", color: "#dc2626" },
+        ],
+        ariaLabel: "Tendência rolling de uplift do ML Gate",
+        emptyMessage: "Sem dados suficientes para desenhar a tendência rolling do ML Gate.",
+        valueFormatter: (value) => formatSignedPct(value),
+      });
+    }
+
     async function refreshDashboard() {
       if (state.refreshPromise) {
         state.refreshQueued = true;
@@ -1904,28 +2285,34 @@
 
       state.refreshPromise = (async () => {
         const filters = buildFilterParams();
-      const [
-        baseOverview,
-        top26Metrics,
-        compactOutcomeTimeline,
-        dynamicOutcomeTimeline,
-        mlReferenceOutcomeTimeline,
-        mlGateOutcomeTimeline,
-        latest,
-        hourly,
-        baseRankTimeline,
-        top26RankTimeline,
-        timeWindowRankTimeline,
-        mlMetaRankTimeline,
-        patterns,
-        streaks,
-      ] = await Promise.all([
+        const [
+          baseOverview,
+          top26Metrics,
+          compactOutcomeTimeline,
+          dynamicOutcomeTimeline,
+          mlReferenceOutcomeTimeline,
+          mlGateOutcomeTimeline,
+          mlEvolution,
+          mlGateAnalytics,
+          mlTrend,
+          latest,
+          hourly,
+          baseRankTimeline,
+          top26RankTimeline,
+          timeWindowRankTimeline,
+          mlMetaRankTimeline,
+          patterns,
+          streaks,
+        ] = await Promise.all([
           fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "base" }),
           fetchJson("/api/suggestion-monitor/top-k-metrics", { ...filters, ranking_variant: "ranking_v2_top26" }),
           fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "top26_selective_16x4_v1" }),
           fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "top26_selective_16x4_dynamic_v1" }),
           fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "ml_top12_reference_12x4_v1" }),
           fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "ml_entry_gate_12x4_v1" }),
+          fetchJson("/api/suggestion-monitor/ml-evolution", { ...filters }),
+          fetchJson("/api/suggestion-monitor/ml-gate-analytics", { ...filters }),
+          fetchJson("/api/suggestion-monitor/ml-trend", { ...filters }),
           fetchJson("/api/suggestion-monitor/latest", { ...filters, page: state.currentPage, ranking_variant: "base" }),
           fetchJson("/api/suggestion-monitor/hourly", { ...filters, ranking_variant: "base" }),
           fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "base" }),
@@ -1967,6 +2354,10 @@
           averageMetaId: "mlMetaRankTimelineAverageMeta",
           rankCeiling: 37,
         });
+        renderMlEvolution(mlEvolution);
+        renderMlGateAnalytics(mlGateAnalytics);
+        renderMlTrend(mlTrend);
+        renderMlGateTrend(mlTrend);
         renderWindowOutcomeTimeline(compactOutcomeTimeline, {
           chartId: "compactOutcomeTimelineChart",
           suggestionsBodyId: "compactOutcomeSuggestionsBody",
@@ -2023,6 +2414,9 @@
           dynamicOutcomeTimeline,
           mlReferenceOutcomeTimeline,
           mlGateOutcomeTimeline,
+          mlEvolution,
+          mlGateAnalytics,
+          mlTrend,
           hourly,
           baseRankTimeline,
           top26RankTimeline,
