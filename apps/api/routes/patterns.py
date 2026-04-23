@@ -2095,7 +2095,7 @@ async def get_simple_suggestion(payload: FinalSuggestionRequest):
     - confidence e score final do motor nao entram no ranking
     """
     try:
-        return _compute_simple_suggestion_fast(payload)
+        return await asyncio.to_thread(_compute_simple_suggestion_fast, payload)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

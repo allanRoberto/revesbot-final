@@ -399,6 +399,13 @@
       color: var(--danger);
     }
 
+    .status-line.info {
+      display: block;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+    }
+
     .card h2, .table-card h2 {
       margin: 0 0 14px;
       font-size: 1.05rem;
@@ -1092,6 +1099,10 @@
       optimisticLatestEvent: null,
       currentPage: 1,
       totalPages: 1,
+      refreshToken: 0,
+      hasLoadedDashboard: false,
+      dashboardSnapshot: null,
+      dashboardSnapshotKey: "",
     };
 
     function qs(id) {
@@ -1160,6 +1171,15 @@
         start_hour: qs("startHour").value || "",
         end_hour: qs("endHour").value || "",
       };
+    }
+
+    function buildRefreshKey(filters) {
+      return JSON.stringify({
+        roulette_id: getSelectedRouletteId(),
+        config_key: qs("configKey").value.trim() || "",
+        page: state.currentPage,
+        ...filters,
+      });
     }
 
     function getSelectedRouletteId() {
@@ -1491,37 +1511,107 @@
       return response.json();
     }
 
+    async function fetchDashboardBatch(filters, requests) {
+      const results = await Promise.allSettled(
+        requests.map(([_, path, extraParams]) => fetchJson(path, { ...filters, ...extraParams })),
+      );
+      const data = {};
+      const errors = [];
+      results.forEach((result, index) => {
+        const [key] = requests[index];
+        if (result.status === "fulfilled") {
+          data[key] = result.value;
+        } else {
+          errors.push({ key, error: result.reason });
+        }
+      });
+      return { data, errors };
+    }
+
+    function logDashboardStageErrors(stageLabel, errors) {
+      errors.forEach(({ key, error }) => {
+        console.error(`suggestion-monitor ${stageLabel} error (${key})`, error);
+      });
+    }
+
+    function isCurrentRefresh(token) {
+      return state.refreshToken === token;
+    }
+
+    function setTableLoading(bodyId, colspan, message) {
+      const node = qs(bodyId);
+      if (!node) return;
+      node.innerHTML = `<tr><td colspan="${colspan}" class="muted">${message}</td></tr>`;
+    }
+
+    function setChartLoading(chartId, message) {
+      const node = qs(chartId);
+      if (!node) return;
+      node.innerHTML = `<div class="timeline-empty">${message}</div>`;
+    }
+
+    function showInitialDashboardLoadingState() {
+      setTableLoading("latestEventsBody", 6, "Carregando últimas sugestões...");
+      setTableLoading("patternsBody", 10, "Carregando padrões monitorados...");
+      setTableLoading("mlEvolutionRollingBody", 8, "Carregando evolução do ML...");
+      setTableLoading("mlGateUpliftBody", 9, "Carregando uplift do gate...");
+      setTableLoading("mlGateCalibrationBody", 7, "Carregando calibração do gate...");
+      setChartLoading("hourlyHeatmap", "Carregando mapa horário...");
+      setChartLoading("rankTimelineChart", "Carregando timeline base...");
+      setChartLoading("top26RankTimelineChart", "Carregando timeline Top26...");
+      setChartLoading("timeWindowRankTimelineChart", "Carregando timeline temporal...");
+      setChartLoading("mlMetaRankTimelineChart", "Carregando timeline ML Meta Rank...");
+      setChartLoading("compactOutcomeTimelineChart", "Carregando estratégia fixa...");
+      setChartLoading("dynamicOutcomeTimelineChart", "Carregando estratégia dinâmica...");
+      setChartLoading("mlReferenceOutcomeTimelineChart", "Carregando referência ML Top12...");
+      setChartLoading("mlGateOutcomeTimelineChart", "Carregando gate ML...");
+      setChartLoading("mlTrendChart", "Carregando tendência do ML Meta Rank...");
+      setChartLoading("mlGateTrendChart", "Carregando tendência do ML Gate...");
+    }
+
     function renderOverview(baseOverview, baseStreaks, baseTimeline, top26Timeline, top26Metrics, compactOutcomeTimeline, dynamicOutcomeTimeline) {
-      qs("metricTotal").textContent = baseOverview.total_events || 0;
-      qs("metricUnavailable").textContent = `${baseOverview.unavailable_events || 0} indisponíveis`;
-      qs("metricPending").textContent = baseOverview.pending_events || 0;
-      qs("metricResolved").textContent = `${baseOverview.resolved_events || 0} resolvidos`;
-      qs("metricFirstHitRate").textContent = formatPct(baseOverview.hit_first_attempt_rate || 0);
-      qs("metricTop26HitAt26").textContent = formatPct(top26Metrics?.hit_at_26 || 0);
-      qs("metricTop26Mrr").textContent = Number(top26Metrics?.mrr || 0).toFixed(4);
-      qs("metricTop26MeanRank").textContent = Number(top26Metrics?.mean_rank || top26Timeline?.average_rank_position || 0).toFixed(2);
-      qs("metricCompactHitRate").textContent = formatPct(compactOutcomeTimeline?.hit_rate || 0);
-      qs("metricCompactHitLabel").textContent = `${compactOutcomeTimeline?.total_hits || 0} hits em ${compactOutcomeTimeline?.total_finalized || 0} janelas`;
-      qs("metricBaseRankAverage").textContent = Number(baseTimeline?.average_rank_position || 0).toFixed(2);
-      qs("metricCompactFinalized").textContent = Number(compactOutcomeTimeline?.total_finalized || 0);
-      qs("metricDynamicHitRate").textContent = formatPct(dynamicOutcomeTimeline?.hit_rate || 0);
-      qs("metricDynamicHitLabel").textContent = `${dynamicOutcomeTimeline?.total_hits || 0} hits em ${dynamicOutcomeTimeline?.total_finalized || 0} janelas`;
-      qs("metricDynamicFinalized").textContent = Number(dynamicOutcomeTimeline?.total_finalized || 0);
-      qs("metricCurrentStreak").textContent = baseStreaks.current_first_hit_streak || 0;
-      qs("metricMaxStreak").textContent = `Máxima histórica: ${baseStreaks.max_first_hit_streak || 0}`;
-      qs("metricCurrentUnpaidStreak").textContent = baseStreaks.current_unpaid_streak || 0;
-      qs("metricMaxUnpaidStreak").textContent = `Máxima histórica: ${baseStreaks.max_unpaid_streak || 0}`;
-      qs("streakCurrent").textContent = baseStreaks.current_first_hit_streak || 0;
-      qs("streakMax").textContent = baseStreaks.max_first_hit_streak || 0;
-      qs("streakMaxPaidOccurrences").textContent = baseStreaks.max_first_hit_streak_occurrences || 0;
-      qs("streakCurrentUnpaid").textContent = baseStreaks.current_unpaid_streak || 0;
-      qs("streakMaxUnpaid").textContent = baseStreaks.max_unpaid_streak || 0;
-      qs("streakMaxUnpaidOccurrences").textContent = baseStreaks.max_unpaid_streak_occurrences || 0;
-      qs("streakAnalyzed").textContent = baseStreaks.events_analyzed || 0;
+      const safeBaseOverview = baseOverview && typeof baseOverview === "object" ? baseOverview : {};
+      const safeBaseStreaks = baseStreaks && typeof baseStreaks === "object" ? baseStreaks : {};
+      const safeBaseTimeline = baseTimeline && typeof baseTimeline === "object" ? baseTimeline : {};
+      const safeTop26Timeline = top26Timeline && typeof top26Timeline === "object" ? top26Timeline : {};
+      const safeTop26Metrics = top26Metrics && typeof top26Metrics === "object" ? top26Metrics : {};
+      const safeCompactOutcomeTimeline = compactOutcomeTimeline && typeof compactOutcomeTimeline === "object"
+        ? compactOutcomeTimeline
+        : {};
+      const safeDynamicOutcomeTimeline = dynamicOutcomeTimeline && typeof dynamicOutcomeTimeline === "object"
+        ? dynamicOutcomeTimeline
+        : {};
+
+      qs("metricTotal").textContent = safeBaseOverview.total_events || 0;
+      qs("metricUnavailable").textContent = `${safeBaseOverview.unavailable_events || 0} indisponíveis`;
+      qs("metricPending").textContent = safeBaseOverview.pending_events || 0;
+      qs("metricResolved").textContent = `${safeBaseOverview.resolved_events || 0} resolvidos`;
+      qs("metricFirstHitRate").textContent = formatPct(safeBaseOverview.hit_first_attempt_rate || 0);
+      qs("metricTop26HitAt26").textContent = formatPct(safeTop26Metrics.hit_at_26 || 0);
+      qs("metricTop26Mrr").textContent = Number(safeTop26Metrics.mrr || 0).toFixed(4);
+      qs("metricTop26MeanRank").textContent = Number(safeTop26Metrics.mean_rank || safeTop26Timeline.average_rank_position || 0).toFixed(2);
+      qs("metricCompactHitRate").textContent = formatPct(safeCompactOutcomeTimeline.hit_rate || 0);
+      qs("metricCompactHitLabel").textContent = `${safeCompactOutcomeTimeline.total_hits || 0} hits em ${safeCompactOutcomeTimeline.total_finalized || 0} janelas`;
+      qs("metricBaseRankAverage").textContent = Number(safeBaseTimeline.average_rank_position || 0).toFixed(2);
+      qs("metricCompactFinalized").textContent = Number(safeCompactOutcomeTimeline.total_finalized || 0);
+      qs("metricDynamicHitRate").textContent = formatPct(safeDynamicOutcomeTimeline.hit_rate || 0);
+      qs("metricDynamicHitLabel").textContent = `${safeDynamicOutcomeTimeline.total_hits || 0} hits em ${safeDynamicOutcomeTimeline.total_finalized || 0} janelas`;
+      qs("metricDynamicFinalized").textContent = Number(safeDynamicOutcomeTimeline.total_finalized || 0);
+      qs("metricCurrentStreak").textContent = safeBaseStreaks.current_first_hit_streak || 0;
+      qs("metricMaxStreak").textContent = `Máxima histórica: ${safeBaseStreaks.max_first_hit_streak || 0}`;
+      qs("metricCurrentUnpaidStreak").textContent = safeBaseStreaks.current_unpaid_streak || 0;
+      qs("metricMaxUnpaidStreak").textContent = `Máxima histórica: ${safeBaseStreaks.max_unpaid_streak || 0}`;
+      qs("streakCurrent").textContent = safeBaseStreaks.current_first_hit_streak || 0;
+      qs("streakMax").textContent = safeBaseStreaks.max_first_hit_streak || 0;
+      qs("streakMaxPaidOccurrences").textContent = safeBaseStreaks.max_first_hit_streak_occurrences || 0;
+      qs("streakCurrentUnpaid").textContent = safeBaseStreaks.current_unpaid_streak || 0;
+      qs("streakMaxUnpaid").textContent = safeBaseStreaks.max_unpaid_streak || 0;
+      qs("streakMaxUnpaidOccurrences").textContent = safeBaseStreaks.max_unpaid_streak_occurrences || 0;
+      qs("streakAnalyzed").textContent = safeBaseStreaks.events_analyzed || 0;
 
       const streakSequence = qs("streakSequence");
       streakSequence.innerHTML = "";
-      (baseStreaks.recent_sequence || []).forEach((value) => {
+      (safeBaseStreaks.recent_sequence || []).forEach((value) => {
         const node = document.createElement("span");
         node.className = `badge ${value ? "badge-success" : "badge-danger"}`;
         node.textContent = value ? "1º" : "late";
@@ -1530,8 +1620,8 @@
 
       const paidStreakDistribution = qs("paidStreakDistribution");
       paidStreakDistribution.innerHTML = "";
-      const paidDistribution = Array.isArray(baseStreaks.first_hit_streak_distribution)
-        ? baseStreaks.first_hit_streak_distribution
+      const paidDistribution = Array.isArray(safeBaseStreaks.first_hit_streak_distribution)
+        ? safeBaseStreaks.first_hit_streak_distribution
         : [];
       if (!paidDistribution.length) {
         const node = document.createElement("span");
@@ -1549,8 +1639,8 @@
 
       const unpaidStreakDistribution = qs("unpaidStreakDistribution");
       unpaidStreakDistribution.innerHTML = "";
-      const distribution = Array.isArray(baseStreaks.unpaid_streak_distribution)
-        ? baseStreaks.unpaid_streak_distribution
+      const distribution = Array.isArray(safeBaseStreaks.unpaid_streak_distribution)
+        ? safeBaseStreaks.unpaid_streak_distribution
         : [];
       if (!distribution.length) {
         const node = document.createElement("span");
@@ -2285,146 +2375,188 @@
 
       state.refreshPromise = (async () => {
         const filters = buildFilterParams();
-        const [
-          baseOverview,
-          top26Metrics,
-          compactOutcomeTimeline,
-          dynamicOutcomeTimeline,
-          mlReferenceOutcomeTimeline,
-          mlGateOutcomeTimeline,
-          mlEvolution,
-          mlGateAnalytics,
-          mlTrend,
-          latest,
-          hourly,
-          baseRankTimeline,
-          top26RankTimeline,
-          timeWindowRankTimeline,
-          mlMetaRankTimeline,
-          patterns,
-          streaks,
-        ] = await Promise.all([
-          fetchJson("/api/suggestion-monitor/overview", { ...filters, ranking_variant: "base" }),
-          fetchJson("/api/suggestion-monitor/top-k-metrics", { ...filters, ranking_variant: "ranking_v2_top26" }),
-          fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "top26_selective_16x4_v1" }),
-          fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "top26_selective_16x4_dynamic_v1" }),
-          fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "ml_top12_reference_12x4_v1" }),
-          fetchJson("/api/suggestion-monitor/window-outcome-timeline", { ...filters, ranking_variant: "ml_entry_gate_12x4_v1" }),
-          fetchJson("/api/suggestion-monitor/ml-evolution", { ...filters }),
-          fetchJson("/api/suggestion-monitor/ml-gate-analytics", { ...filters }),
-          fetchJson("/api/suggestion-monitor/ml-trend", { ...filters }),
-          fetchJson("/api/suggestion-monitor/latest", { ...filters, page: state.currentPage, ranking_variant: "base" }),
-          fetchJson("/api/suggestion-monitor/hourly", { ...filters, ranking_variant: "base" }),
-          fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "base" }),
-          fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "ranking_v2_top26" }),
-          fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "time_window_prior_v1" }),
-          fetchJson("/api/suggestion-monitor/rank-timeline", { ...filters, ranking_variant: "ml_meta_rank_v1" }),
-          fetchJson("/api/suggestion-monitor/patterns", { ...filters, limit: 100, ranking_variant: "base" }),
-          fetchJson("/api/suggestion-monitor/streaks", { ...filters, ranking_variant: "base" }),
-        ]);
+        const refreshKey = buildRefreshKey(filters);
+        const refreshToken = state.refreshToken + 1;
+        state.refreshToken = refreshToken;
+        const reuseSnapshot = refreshKey === state.dashboardSnapshotKey
+          && state.dashboardSnapshot
+          && typeof state.dashboardSnapshot === "object";
+        const snapshot = reuseSnapshot ? { ...state.dashboardSnapshot } : {};
 
-        syncAttemptOptions(buildAttemptOptions(baseOverview, latest));
-        renderOverview(baseOverview, streaks, baseRankTimeline, top26RankTimeline, top26Metrics, compactOutcomeTimeline, dynamicOutcomeTimeline);
-        renderHourlyHeatmap(hourly.items || []);
-        renderRankTimeline(baseRankTimeline, {
-          chartId: "rankTimelineChart",
-          resolvedMetaId: "rankTimelineResolvedMeta",
-          displayedMetaId: "rankTimelineDisplayedMeta",
-          averageMetaId: "rankTimelineAverageMeta",
-          rankCeiling: 37,
+        if (!reuseSnapshot && !state.hasLoadedDashboard) {
+          showInitialDashboardLoadingState();
+          setStatus("Carregando eventos recentes do dashboard...", "info");
+        }
+
+        const primaryStage = await fetchDashboardBatch(filters, [
+          ["latest", "/api/suggestion-monitor/latest", { page: state.currentPage, ranking_variant: "base" }],
+          ["hourly", "/api/suggestion-monitor/hourly", { ranking_variant: "base" }],
+        ]);
+        logDashboardStageErrors("primary", primaryStage.errors);
+        if (!isCurrentRefresh(refreshToken)) return null;
+
+        Object.assign(snapshot, primaryStage.data);
+        state.dashboardSnapshot = snapshot;
+        state.dashboardSnapshotKey = refreshKey;
+
+        if (!snapshot.baseOverview && !snapshot.latest && !snapshot.hourly) {
+          const firstError = primaryStage.errors[0]?.error;
+          throw firstError instanceof Error ? firstError : new Error("Falha ao carregar dashboard.");
+        }
+
+        syncAttemptOptions(buildAttemptOptions(snapshot.baseOverview, snapshot.latest));
+        if (snapshot.baseOverview || reuseSnapshot) {
+          renderOverview(
+            snapshot.baseOverview,
+            snapshot.streaks,
+            snapshot.baseRankTimeline,
+            snapshot.top26RankTimeline,
+            snapshot.top26Metrics,
+            snapshot.compactOutcomeTimeline,
+            snapshot.dynamicOutcomeTimeline,
+          );
+        }
+        if (snapshot.hourly) {
+          renderHourlyHeatmap(snapshot.hourly.items || []);
+        }
+        if (snapshot.latest) {
+          renderLatestEvents(snapshot.latest.items || []);
+          renderPagination(snapshot.latest);
+        }
+        state.hasLoadedDashboard = true;
+        void (async () => {
+          const secondaryStage = await fetchDashboardBatch(filters, [
+            ["baseOverview", "/api/suggestion-monitor/overview", { ranking_variant: "base" }],
+            ["top26Metrics", "/api/suggestion-monitor/top-k-metrics", { ranking_variant: "ranking_v2_top26" }],
+            ["compactOutcomeTimeline", "/api/suggestion-monitor/window-outcome-timeline", { ranking_variant: "top26_selective_16x4_v1" }],
+            ["dynamicOutcomeTimeline", "/api/suggestion-monitor/window-outcome-timeline", { ranking_variant: "top26_selective_16x4_dynamic_v1" }],
+            ["mlReferenceOutcomeTimeline", "/api/suggestion-monitor/window-outcome-timeline", { ranking_variant: "ml_top12_reference_12x4_v1" }],
+            ["mlGateOutcomeTimeline", "/api/suggestion-monitor/window-outcome-timeline", { ranking_variant: "ml_entry_gate_12x4_v1" }],
+            ["baseRankTimeline", "/api/suggestion-monitor/rank-timeline", { ranking_variant: "base" }],
+            ["top26RankTimeline", "/api/suggestion-monitor/rank-timeline", { ranking_variant: "ranking_v2_top26" }],
+            ["timeWindowRankTimeline", "/api/suggestion-monitor/rank-timeline", { ranking_variant: "time_window_prior_v1" }],
+            ["mlMetaRankTimeline", "/api/suggestion-monitor/rank-timeline", { ranking_variant: "ml_meta_rank_v1" }],
+            ["streaks", "/api/suggestion-monitor/streaks", { ranking_variant: "base" }],
+          ]);
+          logDashboardStageErrors("secondary", secondaryStage.errors);
+          if (!isCurrentRefresh(refreshToken)) return;
+
+          Object.assign(snapshot, secondaryStage.data);
+          state.dashboardSnapshot = snapshot;
+
+          renderOverview(
+            snapshot.baseOverview,
+            snapshot.streaks,
+            snapshot.baseRankTimeline,
+            snapshot.top26RankTimeline,
+            snapshot.top26Metrics,
+            snapshot.compactOutcomeTimeline,
+            snapshot.dynamicOutcomeTimeline,
+          );
+          renderRankTimeline(snapshot.baseRankTimeline, {
+            chartId: "rankTimelineChart",
+            resolvedMetaId: "rankTimelineResolvedMeta",
+            displayedMetaId: "rankTimelineDisplayedMeta",
+            averageMetaId: "rankTimelineAverageMeta",
+            rankCeiling: 37,
+          });
+          renderRankTimeline(snapshot.top26RankTimeline, {
+            chartId: "top26RankTimelineChart",
+            resolvedMetaId: "top26RankTimelineResolvedMeta",
+            displayedMetaId: "top26RankTimelineDisplayedMeta",
+            averageMetaId: "top26RankTimelineAverageMeta",
+            rankCeiling: 37,
+          });
+          renderRankTimeline(snapshot.timeWindowRankTimeline, {
+            chartId: "timeWindowRankTimelineChart",
+            resolvedMetaId: "timeWindowRankTimelineResolvedMeta",
+            displayedMetaId: "timeWindowRankTimelineDisplayedMeta",
+            averageMetaId: "timeWindowRankTimelineAverageMeta",
+            rankCeiling: 37,
+          });
+          renderRankTimeline(snapshot.mlMetaRankTimeline, {
+            chartId: "mlMetaRankTimelineChart",
+            resolvedMetaId: "mlMetaRankTimelineResolvedMeta",
+            displayedMetaId: "mlMetaRankTimelineDisplayedMeta",
+            averageMetaId: "mlMetaRankTimelineAverageMeta",
+            rankCeiling: 37,
+          });
+          renderWindowOutcomeTimeline(snapshot.compactOutcomeTimeline, {
+            chartId: "compactOutcomeTimelineChart",
+            suggestionsBodyId: "compactOutcomeSuggestionsBody",
+            attemptBreakdownId: "compactOutcomeAttemptBreakdown",
+            finalizedMetaId: "compactOutcomeFinalizedMeta",
+            displayedMetaId: "compactOutcomeDisplayedMeta",
+            hitRateMetaId: "compactOutcomeHitRateMeta",
+            emptyMessage: "Nenhuma janela finalizada para montar a timeline da estratégia fixa com os filtros atuais.",
+            emptyTableMessage: "Nenhuma janela finalizada da estratégia fixa top26 de descida com os filtros atuais.",
+            ariaLabel: "Timeline de hit ou miss da estratégia fixa top26 em 4 tentativas",
+          });
+          renderWindowOutcomeTimeline(snapshot.dynamicOutcomeTimeline, {
+            chartId: "dynamicOutcomeTimelineChart",
+            suggestionsBodyId: "dynamicOutcomeSuggestionsBody",
+            attemptBreakdownId: "dynamicOutcomeAttemptBreakdown",
+            finalizedMetaId: "dynamicOutcomeFinalizedMeta",
+            displayedMetaId: "dynamicOutcomeDisplayedMeta",
+            hitRateMetaId: "dynamicOutcomeHitRateMeta",
+            emptyMessage: "Nenhuma janela finalizada para montar a timeline da estratégia dinâmica com os filtros atuais.",
+            emptyTableMessage: "Nenhuma janela finalizada da estratégia dinâmica top26 de descida com os filtros atuais.",
+            ariaLabel: "Timeline de hit ou miss da estratégia dinâmica top26 em 4 tentativas",
+          });
+          renderWindowOutcomeTimeline(snapshot.mlReferenceOutcomeTimeline, {
+            chartId: "mlReferenceOutcomeTimelineChart",
+            suggestionsBodyId: "mlReferenceOutcomeSuggestionsBody",
+            attemptBreakdownId: "mlReferenceOutcomeAttemptBreakdown",
+            finalizedMetaId: "mlReferenceOutcomeFinalizedMeta",
+            displayedMetaId: "mlReferenceOutcomeDisplayedMeta",
+            hitRateMetaId: "mlReferenceOutcomeHitRateMeta",
+            emptyMessage: "Nenhuma janela finalizada para montar a timeline da referência ML Top12 com os filtros atuais.",
+            emptyTableMessage: "Nenhuma janela finalizada da referência ML Top12 12x4 com os filtros atuais.",
+            ariaLabel: "Timeline de hit ou miss da referência ML Top12 em 4 tentativas",
+          });
+          renderWindowOutcomeTimeline(snapshot.mlGateOutcomeTimeline, {
+            chartId: "mlGateOutcomeTimelineChart",
+            suggestionsBodyId: "mlGateOutcomeSuggestionsBody",
+            attemptBreakdownId: "mlGateOutcomeAttemptBreakdown",
+            finalizedMetaId: "mlGateOutcomeFinalizedMeta",
+            displayedMetaId: "mlGateOutcomeDisplayedMeta",
+            hitRateMetaId: "mlGateOutcomeHitRateMeta",
+            emptyMessage: "Nenhuma janela finalizada para montar a timeline do gate ML com os filtros atuais.",
+            emptyTableMessage: "Nenhuma janela finalizada do ML Entry Gate 12x4 com os filtros atuais.",
+            ariaLabel: "Timeline de hit ou miss do gate ML em 4 tentativas",
+          });
+
+          const analyticsStage = await fetchDashboardBatch(filters, [
+            ["mlEvolution", "/api/suggestion-monitor/ml-evolution", {}],
+            ["mlGateAnalytics", "/api/suggestion-monitor/ml-gate-analytics", {}],
+            ["mlTrend", "/api/suggestion-monitor/ml-trend", {}],
+            ["patterns", "/api/suggestion-monitor/patterns", { limit: 100, ranking_variant: "base" }],
+          ]);
+          logDashboardStageErrors("analytics", analyticsStage.errors);
+          if (!isCurrentRefresh(refreshToken)) return;
+
+          Object.assign(snapshot, analyticsStage.data);
+          state.dashboardSnapshot = snapshot;
+
+          renderMlEvolution(snapshot.mlEvolution);
+          renderMlGateAnalytics(snapshot.mlGateAnalytics);
+          renderMlTrend(snapshot.mlTrend);
+          renderMlGateTrend(snapshot.mlTrend);
+          renderPatterns(snapshot.patterns?.items || []);
+
+          const totalErrors = primaryStage.errors.length + secondaryStage.errors.length + analyticsStage.errors.length;
+          if (totalErrors) {
+            setStatus(`Dashboard carregado parcialmente. ${totalErrors} seção(ões) falharam ao responder.`, "error");
+          } else if (isCurrentRefresh(refreshToken)) {
+            clearStatus();
+          }
+        })().catch((error) => {
+          console.error("suggestion-monitor background refresh error", error);
+          if (isCurrentRefresh(refreshToken)) {
+            setStatus(`Falha ao completar análises do dashboard: ${error.message}`, "error");
+          }
         });
-        renderRankTimeline(top26RankTimeline, {
-          chartId: "top26RankTimelineChart",
-          resolvedMetaId: "top26RankTimelineResolvedMeta",
-          displayedMetaId: "top26RankTimelineDisplayedMeta",
-          averageMetaId: "top26RankTimelineAverageMeta",
-          rankCeiling: 37,
-        });
-        renderRankTimeline(timeWindowRankTimeline, {
-          chartId: "timeWindowRankTimelineChart",
-          resolvedMetaId: "timeWindowRankTimelineResolvedMeta",
-          displayedMetaId: "timeWindowRankTimelineDisplayedMeta",
-          averageMetaId: "timeWindowRankTimelineAverageMeta",
-          rankCeiling: 37,
-        });
-        renderRankTimeline(mlMetaRankTimeline, {
-          chartId: "mlMetaRankTimelineChart",
-          resolvedMetaId: "mlMetaRankTimelineResolvedMeta",
-          displayedMetaId: "mlMetaRankTimelineDisplayedMeta",
-          averageMetaId: "mlMetaRankTimelineAverageMeta",
-          rankCeiling: 37,
-        });
-        renderMlEvolution(mlEvolution);
-        renderMlGateAnalytics(mlGateAnalytics);
-        renderMlTrend(mlTrend);
-        renderMlGateTrend(mlTrend);
-        renderWindowOutcomeTimeline(compactOutcomeTimeline, {
-          chartId: "compactOutcomeTimelineChart",
-          suggestionsBodyId: "compactOutcomeSuggestionsBody",
-          attemptBreakdownId: "compactOutcomeAttemptBreakdown",
-          finalizedMetaId: "compactOutcomeFinalizedMeta",
-          displayedMetaId: "compactOutcomeDisplayedMeta",
-          hitRateMetaId: "compactOutcomeHitRateMeta",
-          emptyMessage: "Nenhuma janela finalizada para montar a timeline da estratégia fixa com os filtros atuais.",
-          emptyTableMessage: "Nenhuma janela finalizada da estratégia fixa top26 de descida com os filtros atuais.",
-          ariaLabel: "Timeline de hit ou miss da estratégia fixa top26 em 4 tentativas",
-        });
-        renderWindowOutcomeTimeline(dynamicOutcomeTimeline, {
-          chartId: "dynamicOutcomeTimelineChart",
-          suggestionsBodyId: "dynamicOutcomeSuggestionsBody",
-          attemptBreakdownId: "dynamicOutcomeAttemptBreakdown",
-          finalizedMetaId: "dynamicOutcomeFinalizedMeta",
-          displayedMetaId: "dynamicOutcomeDisplayedMeta",
-          hitRateMetaId: "dynamicOutcomeHitRateMeta",
-          emptyMessage: "Nenhuma janela finalizada para montar a timeline da estratégia dinâmica com os filtros atuais.",
-          emptyTableMessage: "Nenhuma janela finalizada da estratégia dinâmica top26 de descida com os filtros atuais.",
-          ariaLabel: "Timeline de hit ou miss da estratégia dinâmica top26 em 4 tentativas",
-        });
-        renderWindowOutcomeTimeline(mlReferenceOutcomeTimeline, {
-          chartId: "mlReferenceOutcomeTimelineChart",
-          suggestionsBodyId: "mlReferenceOutcomeSuggestionsBody",
-          attemptBreakdownId: "mlReferenceOutcomeAttemptBreakdown",
-          finalizedMetaId: "mlReferenceOutcomeFinalizedMeta",
-          displayedMetaId: "mlReferenceOutcomeDisplayedMeta",
-          hitRateMetaId: "mlReferenceOutcomeHitRateMeta",
-          emptyMessage: "Nenhuma janela finalizada para montar a timeline da referência ML Top12 com os filtros atuais.",
-          emptyTableMessage: "Nenhuma janela finalizada da referência ML Top12 12x4 com os filtros atuais.",
-          ariaLabel: "Timeline de hit ou miss da referência ML Top12 em 4 tentativas",
-        });
-        renderWindowOutcomeTimeline(mlGateOutcomeTimeline, {
-          chartId: "mlGateOutcomeTimelineChart",
-          suggestionsBodyId: "mlGateOutcomeSuggestionsBody",
-          attemptBreakdownId: "mlGateOutcomeAttemptBreakdown",
-          finalizedMetaId: "mlGateOutcomeFinalizedMeta",
-          displayedMetaId: "mlGateOutcomeDisplayedMeta",
-          hitRateMetaId: "mlGateOutcomeHitRateMeta",
-          emptyMessage: "Nenhuma janela finalizada para montar a timeline do gate ML com os filtros atuais.",
-          emptyTableMessage: "Nenhuma janela finalizada do ML Entry Gate 12x4 com os filtros atuais.",
-          ariaLabel: "Timeline de hit ou miss do gate ML em 4 tentativas",
-        });
-        renderLatestEvents(latest.items || []);
-        renderPatterns(patterns.items || []);
-        renderPagination(latest);
-        clearStatus();
-        return {
-          latest,
-          baseOverview,
-          top26Metrics,
-          compactOutcomeTimeline,
-          dynamicOutcomeTimeline,
-          mlReferenceOutcomeTimeline,
-          mlGateOutcomeTimeline,
-          mlEvolution,
-          mlGateAnalytics,
-          mlTrend,
-          hourly,
-          baseRankTimeline,
-          top26RankTimeline,
-          timeWindowRankTimeline,
-          mlMetaRankTimeline,
-          patterns,
-          streaks,
-        };
+        return snapshot;
       })();
 
       let snapshot = null;

@@ -22,6 +22,27 @@ def _roulette_filter(roulette_id: str) -> Dict[str, Any]:
     }
 
 
+def _roulette_query_variants(roulette_id: str) -> List[Dict[str, Any]]:
+    safe_roulette_id = str(roulette_id or "").strip()
+    if not safe_roulette_id:
+        return []
+    return [
+        {"roulette_id": safe_roulette_id},
+        {"slug": safe_roulette_id},
+    ]
+
+
+def _combine_query(
+    roulette_query: Mapping[str, Any],
+    *conditions: Mapping[str, Any],
+) -> Dict[str, Any]:
+    clauses: List[Dict[str, Any]] = [dict(roulette_query)]
+    clauses.extend(dict(condition) for condition in conditions if condition)
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
+
+
 def _offset_document_id(config_key: str) -> str:
     digest = sha1(config_key.encode("utf-8")).hexdigest()[:12]
     return f"smonitor-offset:{digest}"
@@ -131,13 +152,14 @@ class SuggestionMonitorRepository:
         return document
 
     def get_latest_history_doc(self, roulette_id: str) -> Dict[str, Any] | None:
-        doc = self.history_coll.find_one(
-            _roulette_filter(roulette_id),
-            sort=[("timestamp", DESCENDING), ("_id", DESCENDING)],
-        )
-        if not isinstance(doc, Mapping):
-            return None
-        return normalize_history_doc(doc)
+        for roulette_query in _roulette_query_variants(roulette_id):
+            doc = self.history_coll.find_one(
+                dict(roulette_query),
+                sort=[("timestamp", DESCENDING), ("_id", DESCENDING)],
+            )
+            if isinstance(doc, Mapping):
+                return normalize_history_doc(doc)
+        return None
 
     def get_new_history_docs(
         self,
@@ -148,28 +170,26 @@ class SuggestionMonitorRepository:
         limit: int = 500,
     ) -> List[Dict[str, Any]]:
         object_id = _to_object_id(last_history_id)
-        roulette_query = _roulette_filter(roulette_id)
+        time_query: Dict[str, Any]
         if object_id is not None:
-            filter_query: Dict[str, Any] = {
-                "$and": [
-                    roulette_query,
-                    {
-                        "$or": [
-                            {"timestamp": {"$gt": last_history_timestamp_utc}},
-                            {"timestamp": last_history_timestamp_utc, "_id": {"$gt": object_id}},
-                        ]
-                    },
+            time_query = {
+                "$or": [
+                    {"timestamp": {"$gt": last_history_timestamp_utc}},
+                    {"timestamp": last_history_timestamp_utc, "_id": {"$gt": object_id}},
                 ]
             }
         else:
-            filter_query = {"$and": [roulette_query, {"timestamp": {"$gt": last_history_timestamp_utc}}]}
+            time_query = {"timestamp": {"$gt": last_history_timestamp_utc}}
 
-        docs = list(
-            self.history_coll.find(filter_query)
-            .sort([("timestamp", ASCENDING), ("_id", ASCENDING)])
-            .limit(int(limit))
-        )
-        return [normalize_history_doc(doc) for doc in docs if isinstance(doc, Mapping)]
+        for roulette_query in _roulette_query_variants(roulette_id):
+            docs = list(
+                self.history_coll.find(_combine_query(roulette_query, time_query))
+                .sort([("timestamp", ASCENDING), ("_id", ASCENDING)])
+                .limit(int(limit))
+            )
+            if docs:
+                return [normalize_history_doc(doc) for doc in docs if isinstance(doc, Mapping)]
+        return []
 
     def count_new_history_docs(
         self,
@@ -179,22 +199,20 @@ class SuggestionMonitorRepository:
         last_history_id: str,
     ) -> int:
         object_id = _to_object_id(last_history_id)
-        roulette_query = _roulette_filter(roulette_id)
         if object_id is not None:
-            filter_query: Dict[str, Any] = {
-                "$and": [
-                    roulette_query,
-                    {
-                        "$or": [
-                            {"timestamp": {"$gt": last_history_timestamp_utc}},
-                            {"timestamp": last_history_timestamp_utc, "_id": {"$gt": object_id}},
-                        ]
-                    },
+            time_query: Dict[str, Any] = {
+                "$or": [
+                    {"timestamp": {"$gt": last_history_timestamp_utc}},
+                    {"timestamp": last_history_timestamp_utc, "_id": {"$gt": object_id}},
                 ]
             }
         else:
-            filter_query = {"$and": [roulette_query, {"timestamp": {"$gt": last_history_timestamp_utc}}]}
-        return int(self.history_coll.count_documents(filter_query))
+            time_query = {"timestamp": {"$gt": last_history_timestamp_utc}}
+        for roulette_query in _roulette_query_variants(roulette_id):
+            count = int(self.history_coll.count_documents(_combine_query(roulette_query, time_query)))
+            if count > 0:
+                return count
+        return 0
 
     def mark_pending_events_unavailable(
         self,
@@ -232,28 +250,25 @@ class SuggestionMonitorRepository:
         limit: int,
     ) -> List[Dict[str, Any]]:
         object_id = _to_object_id(anchor_history_id)
-        roulette_query = _roulette_filter(roulette_id)
         if object_id is not None:
-            filter_query: Dict[str, Any] = {
-                "$and": [
-                    roulette_query,
-                    {
-                        "$or": [
-                            {"timestamp": {"$lt": anchor_history_timestamp_utc}},
-                            {"timestamp": anchor_history_timestamp_utc, "_id": {"$lte": object_id}},
-                        ]
-                    },
+            time_query: Dict[str, Any] = {
+                "$or": [
+                    {"timestamp": {"$lt": anchor_history_timestamp_utc}},
+                    {"timestamp": anchor_history_timestamp_utc, "_id": {"$lte": object_id}},
                 ]
             }
         else:
-            filter_query = {"$and": [roulette_query, {"timestamp": {"$lte": anchor_history_timestamp_utc}}]}
+            time_query = {"timestamp": {"$lte": anchor_history_timestamp_utc}}
 
-        docs = list(
-            self.history_coll.find(filter_query)
-            .sort([("timestamp", DESCENDING), ("_id", DESCENDING)])
-            .limit(int(limit))
-        )
-        return [normalize_history_doc(doc) for doc in docs if isinstance(doc, Mapping)]
+        for roulette_query in _roulette_query_variants(roulette_id):
+            docs = list(
+                self.history_coll.find(_combine_query(roulette_query, time_query))
+                .sort([("timestamp", DESCENDING), ("_id", DESCENDING)])
+                .limit(int(limit))
+            )
+            if docs:
+                return [normalize_history_doc(doc) for doc in docs if isinstance(doc, Mapping)]
+        return []
 
     def get_history_docs_by_time_window_days(
         self,
@@ -275,19 +290,17 @@ class SuggestionMonitorRepository:
             start_br, end_br = build_daily_window_bounds(day_reference_br, minute_span=minute_span)
             start_utc = start_br.astimezone(timezone.utc)
             end_utc = end_br.astimezone(timezone.utc)
-            docs = list(
-                self.history_coll.find(
-                    {
-                        "$and": [
-                            _roulette_filter(roulette_id),
-                            {"timestamp": {"$gte": start_utc, "$lt": end_utc}},
-                        ]
-                    }
-                ).sort([("timestamp", ASCENDING), ("_id", ASCENDING)])
-            )
-            docs_by_day[day_reference_br.strftime("%Y-%m-%d")] = [
-                dict(doc) for doc in docs if isinstance(doc, Mapping)
-            ]
+            day_docs: List[Dict[str, Any]] = []
+            time_query = {"timestamp": {"$gte": start_utc, "$lt": end_utc}}
+            for roulette_query in _roulette_query_variants(roulette_id):
+                docs = list(
+                    self.history_coll.find(_combine_query(roulette_query, time_query))
+                    .sort([("timestamp", ASCENDING), ("_id", ASCENDING)])
+                )
+                if docs:
+                    day_docs = [dict(doc) for doc in docs if isinstance(doc, Mapping)]
+                    break
+            docs_by_day[day_reference_br.strftime("%Y-%m-%d")] = day_docs
         return docs_by_day
 
     def load_pending_events(self, *, roulette_id: str, config_key: str) -> List[Dict[str, Any]]:

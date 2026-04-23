@@ -123,6 +123,38 @@ def format_timestamp_br(timestamp: int) -> str:
 
 app = FastAPI()
 
+
+@app.middleware("http")
+async def log_slow_http_requests(request: Request, call_next):
+    started_at = time.perf_counter()
+    pid = os.getpid()
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+        logging.error(
+            "API request failed | pid=%s | method=%s | path=%s | elapsed_ms=%.2f | error=%s",
+            pid,
+            request.method,
+            request.url.path,
+            elapsed_ms,
+            exc,
+        )
+        raise
+
+    elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+    if elapsed_ms >= 2000.0:
+        logging.error(
+            "API request slow | pid=%s | method=%s | path=%s | status=%s | elapsed_ms=%.2f | query=%s",
+            pid,
+            request.method,
+            request.url.path,
+            response.status_code,
+            elapsed_ms,
+            str(request.url.query or "").strip(),
+        )
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

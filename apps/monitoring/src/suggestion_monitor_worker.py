@@ -133,7 +133,6 @@ class SuggestionMonitorWorker:
         self.resolved_top26_history_limit = max(8, self.dynamic_weights_lookback)
         self.resolved_ml_history_limit = max(8, self.dynamic_weights_lookback)
         self.results_redis = None
-        self.session: aiohttp.ClientSession | None = None
         self._startup_reconcile_done = False
 
     def _sync_ml_entry_gate_runtime_config(self) -> bool:
@@ -210,43 +209,38 @@ class SuggestionMonitorWorker:
         logger.info("Suggestion monitor | indices Mongo garantidos.")
         await self._bootstrap_state()
 
-        timeout = aiohttp.ClientTimeout(total=self.api_timeout_seconds)
         self.results_redis = aioredis.from_url(settings.results_redis_url, decode_responses=True)
+        pubsub = self.results_redis.pubsub()
+        await pubsub.subscribe(settings.result_channel, settings.suggestion_monitor_control_channel)
+        logger.info(
+            "Suggestion monitor ativo para %s via %s",
+            self.roulette_id,
+            settings.result_channel,
+        )
+        last_reconcile_monotonic = 0.0
 
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            self.session = session
-            pubsub = self.results_redis.pubsub()
-            await pubsub.subscribe(settings.result_channel, settings.suggestion_monitor_control_channel)
-            logger.info(
-                "Suggestion monitor ativo para %s via %s",
-                self.roulette_id,
-                settings.result_channel,
-            )
-            last_reconcile_monotonic = 0.0
-
-            try:
-                await self._reconcile_new_history(reason="startup", log_empty=True)
-                last_reconcile_monotonic = time.monotonic()
-                while True:
-                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-                    if self._is_control_message(message):
-                        await self._handle_control_message(message)
-                        last_reconcile_monotonic = time.monotonic()
-                        continue
-                    if self._message_matches_target(message):
-                        logger.info("Suggestion monitor | trigger Redis recebido para %s.", self.roulette_id)
-                        await self._reconcile_new_history(reason="redis")
-                        last_reconcile_monotonic = time.monotonic()
-                        continue
-                    now = time.monotonic()
-                    if now - last_reconcile_monotonic >= self.poll_interval_seconds:
-                        await self._reconcile_new_history(reason="poll")
-                        last_reconcile_monotonic = now
-            finally:
-                await pubsub.unsubscribe(settings.result_channel, settings.suggestion_monitor_control_channel)
-                await pubsub.close()
-                await self.results_redis.close()
-                self.session = None
+        try:
+            await self._reconcile_new_history(reason="startup", log_empty=True)
+            last_reconcile_monotonic = time.monotonic()
+            while True:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if self._is_control_message(message):
+                    await self._handle_control_message(message)
+                    last_reconcile_monotonic = time.monotonic()
+                    continue
+                if self._message_matches_target(message):
+                    logger.info("Suggestion monitor | trigger Redis recebido para %s.", self.roulette_id)
+                    await self._reconcile_new_history(reason="redis")
+                    last_reconcile_monotonic = time.monotonic()
+                    continue
+                now = time.monotonic()
+                if now - last_reconcile_monotonic >= self.poll_interval_seconds:
+                    await self._reconcile_new_history(reason="poll")
+                    last_reconcile_monotonic = now
+        finally:
+            await pubsub.unsubscribe(settings.result_channel, settings.suggestion_monitor_control_channel)
+            await pubsub.close()
+            await self.results_redis.close()
 
     @staticmethod
     def _parse_message_payload(message: Any) -> Dict[str, Any] | None:
@@ -631,6 +625,7 @@ class SuggestionMonitorWorker:
         self._startup_reconcile_done = True
 
     async def _process_history_doc(self, history_doc: Mapping[str, Any]) -> None:
+        started_at = time.perf_counter()
         if not self._history_doc_matches_target(history_doc):
             logger.warning(
                 "Suggestion monitor | resultado ignorado por roulette_id divergente. target=%s recebido=%s history_id=%s",
@@ -643,6 +638,7 @@ class SuggestionMonitorWorker:
         await self._resolve_pending_with_result(history_doc)
         resolved_now = max(0, pending_before - len(self.pending_events))
 
+        history_started_at = time.perf_counter()
         history_docs = await asyncio.to_thread(
             self.repo.get_history_window_up_to,
             roulette_id=self.roulette_id,
@@ -650,11 +646,37 @@ class SuggestionMonitorWorker:
             anchor_history_id=history_doc["history_id"],
             limit=self.history_window_size,
         )
+        history_elapsed_ms = (time.perf_counter() - history_started_at) * 1000.0
         history_values = [int(item["value"]) for item in history_docs]
+        fetch_started_at = time.perf_counter()
         simple_payload, status_override, error_message = await self._fetch_simple_suggestion(
             history_values=history_values,
             focus_number=int(history_doc["value"]),
         )
+        fetch_elapsed_ms = (time.perf_counter() - fetch_started_at) * 1000.0
+        total_elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+        if status_override == "generation_error":
+            logger.warning(
+                "Suggestion monitor stage timings | history_id=%s | numero=%s | history_ms=%.2f | fetch_ms=%.2f | total_ms=%.2f | history_len=%d | api=%s | detalhe=%s",
+                history_doc.get("history_id"),
+                history_doc.get("value"),
+                history_elapsed_ms,
+                fetch_elapsed_ms,
+                total_elapsed_ms,
+                len(history_values),
+                self.base_url,
+                error_message or "-",
+            )
+        elif total_elapsed_ms >= 3000.0:
+            logger.info(
+                "Suggestion monitor stage timings | history_id=%s | numero=%s | history_ms=%.2f | fetch_ms=%.2f | total_ms=%.2f | history_len=%d",
+                history_doc.get("history_id"),
+                history_doc.get("value"),
+                history_elapsed_ms,
+                fetch_elapsed_ms,
+                total_elapsed_ms,
+                len(history_values),
+            )
         if status_override is None and isinstance(simple_payload, Mapping):
             simple_payload = apply_rank_confidence_feedback(
                 simple_payload,
@@ -1080,9 +1102,6 @@ class SuggestionMonitorWorker:
         history_values: List[int],
         focus_number: int,
     ) -> tuple[Dict[str, Any] | None, str | None, str | None]:
-        if self.session is None:
-            return None, "generation_error", "Sessao HTTP indisponivel."
-
         url = f"{self.base_url}{self.simple_path}"
         runtime_dynamic_summary = (
             build_realtime_pattern_weights(
@@ -1136,53 +1155,73 @@ class SuggestionMonitorWorker:
             "protected_swap_enabled": bool(settings.suggestion_monitor_protected_swap_enabled),
             "cold_count": int(settings.suggestion_monitor_cold_count),
         }
+        started_at = time.perf_counter()
         try:
-            async with self.session.post(url, json=payload) as response:
-                body_text = await response.text()
-                if response.status >= 400:
-                    if response.status == 404:
-                        logger.error(
-                            "Suggestion monitor HTTP 404 | endpoint=%s | resposta=%s",
-                            url,
-                            body_text[:300],
+            timeout = aiohttp.ClientTimeout(
+                total=self.api_timeout_seconds,
+                connect=min(10.0, self.api_timeout_seconds),
+            )
+            connector = aiohttp.TCPConnector(
+                force_close=True,
+                enable_cleanup_closed=True,
+                ttl_dns_cache=300,
+            )
+            async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+                async with session.post(url, json=payload, headers={"Connection": "close"}) as response:
+                    body_text = await response.text()
+                    if response.status >= 400:
+                        if response.status == 404:
+                            logger.error(
+                                "Suggestion monitor HTTP 404 | endpoint=%s | resposta=%s",
+                                url,
+                                body_text[:300],
+                            )
+                        return None, "generation_error", (
+                            f"API simple-suggestion respondeu {response.status} em {url}: {body_text[:300]}"
                         )
-                    return None, "generation_error", (
-                        f"API simple-suggestion respondeu {response.status} em {url}: {body_text[:300]}"
+                    try:
+                        data = json.loads(body_text)
+                    except json.JSONDecodeError:
+                        return None, "generation_error", f"Resposta JSON invalida da API simple-suggestion em {url}."
+                    if not isinstance(data, dict):
+                        return None, "generation_error", f"Resposta inesperada da API simple-suggestion em {url}."
+                    data = dict(data)
+                    data["dynamic_weighting"] = {
+                        "enabled": bool(runtime_dynamic_summary.get("enabled", False)),
+                        "applied": bool(runtime_dynamic_summary.get("applied", False)),
+                        "weight_count": int(runtime_dynamic_summary.get("weight_count", 0) or 0),
+                        "weights": {
+                            str(pattern_id): float(weight)
+                            for pattern_id, weight in dict(runtime_dynamic_summary.get("weights") or {}).items()
+                            if str(pattern_id).strip()
+                        },
+                        "top_weights": [
+                            item
+                            for item in (runtime_dynamic_summary.get("top_weights") or [])
+                            if isinstance(item, Mapping)
+                        ],
+                        "details": {
+                            str(pattern_id): dict(detail)
+                            for pattern_id, detail in dict(runtime_dynamic_summary.get("details") or {}).items()
+                            if str(pattern_id).strip() and isinstance(detail, Mapping)
+                        },
+                    }
+                    logger.info(
+                        "Suggestion monitor dynamic weights | applied=%s | count=%d | top=%s",
+                        data["dynamic_weighting"]["applied"],
+                        data["dynamic_weighting"]["weight_count"],
+                        data["dynamic_weighting"]["top_weights"][:3],
                     )
-                try:
-                    data = json.loads(body_text)
-                except json.JSONDecodeError:
-                    return None, "generation_error", f"Resposta JSON invalida da API simple-suggestion em {url}."
-                if not isinstance(data, dict):
-                    return None, "generation_error", f"Resposta inesperada da API simple-suggestion em {url}."
-                data = dict(data)
-                data["dynamic_weighting"] = {
-                    "enabled": bool(runtime_dynamic_summary.get("enabled", False)),
-                    "applied": bool(runtime_dynamic_summary.get("applied", False)),
-                    "weight_count": int(runtime_dynamic_summary.get("weight_count", 0) or 0),
-                    "weights": {
-                        str(pattern_id): float(weight)
-                        for pattern_id, weight in dict(runtime_dynamic_summary.get("weights") or {}).items()
-                        if str(pattern_id).strip()
-                    },
-                    "top_weights": [
-                        item
-                        for item in (runtime_dynamic_summary.get("top_weights") or [])
-                        if isinstance(item, Mapping)
-                    ],
-                    "details": {
-                        str(pattern_id): dict(detail)
-                        for pattern_id, detail in dict(runtime_dynamic_summary.get("details") or {}).items()
-                        if str(pattern_id).strip() and isinstance(detail, Mapping)
-                    },
-                }
-                logger.info(
-                    "Suggestion monitor dynamic weights | applied=%s | count=%d | top=%s",
-                    data["dynamic_weighting"]["applied"],
-                    data["dynamic_weighting"]["weight_count"],
-                    data["dynamic_weighting"]["top_weights"][:3],
-                )
-                return data, None, None
+                    elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+                    if elapsed_ms >= 1000.0:
+                        logger.warning(
+                            "Suggestion monitor simple-suggestion lento | elapsed_ms=%.2f | history=%d | from_index=%d | focus=%d",
+                            elapsed_ms,
+                            len(history_values),
+                            0,
+                            int(focus_number),
+                        )
+                    return data, None, None
         except asyncio.TimeoutError:
             return None, "generation_error", f"Timeout ao consultar simple-suggestion em {url}."
         except aiohttp.ClientError as exc:

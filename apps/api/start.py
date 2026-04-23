@@ -14,4 +14,5 @@ if str(APPS_ROOT) not in sys.path:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8081))  # App Engine define essa variável
-    uvicorn.run("api.main:app", host="0.0.0.0", port=port)
+    workers = max(1, int(os.environ.get("API_WORKERS", "1") or "1"))
+    uvicorn.run("api.main:app", host="0.0.0.0", port=port, workers=workers)
