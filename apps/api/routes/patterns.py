@@ -26,6 +26,21 @@ from api.services.final_suggestion_signal_policy import final_suggestion_signal_
 from api.services.final_suggestion_entry_intelligence import final_suggestion_entry_intelligence
 from api.services.final_suggestion_protection import build_protected_coverage_suggestion
 from api.services.simple_suggestion_entry_shadow import simple_suggestion_entry_shadow
+from api.services.simple_suggestion_occurrence_fusion import (
+    DEFAULT_OCCURRENCE_FUSION_WEIGHT,
+    DEFAULT_OCCURRENCE_HISTORY_LIMIT,
+    DEFAULT_OCCURRENCE_INVERT_CHECK_WINDOW,
+    DEFAULT_OCCURRENCE_OVERLAP_BONUS,
+    DEFAULT_OCCURRENCE_PATTERN_WEIGHT,
+    DEFAULT_OCCURRENCE_RANKING_SIZE,
+    DEFAULT_OCCURRENCE_WINDOW_AFTER,
+    DEFAULT_OCCURRENCE_WINDOW_BEFORE,
+    apply_occurrence_rerank_to_simple_suggestion,
+)
+from api.services.suggestion_assertiveness import (
+    evaluate_final_signal_assertiveness,
+    evaluate_simple_signal_assertiveness,
+)
 from api.patterns.final_suggestion import (
     _compact_final_list_into_blocks,
     analyze_wheel_temperature,
@@ -109,6 +124,17 @@ class FinalSuggestionRequest(BaseModel):
     protected_recent_anchor_count: int = 3
     protected_swap_enabled: bool = False
     cold_count: int = 18
+    occurrence_fusion_enabled: bool = True
+    occurrence_history_limit: int = DEFAULT_OCCURRENCE_HISTORY_LIMIT
+    occurrence_window_before: int = DEFAULT_OCCURRENCE_WINDOW_BEFORE
+    occurrence_window_after: int = DEFAULT_OCCURRENCE_WINDOW_AFTER
+    occurrence_ranking_size: int = DEFAULT_OCCURRENCE_RANKING_SIZE
+    occurrence_invert_check_window: int = DEFAULT_OCCURRENCE_INVERT_CHECK_WINDOW
+    occurrence_pattern_weight: float = DEFAULT_OCCURRENCE_PATTERN_WEIGHT
+    occurrence_weight: float = DEFAULT_OCCURRENCE_FUSION_WEIGHT
+    occurrence_overlap_bonus: float = DEFAULT_OCCURRENCE_OVERLAP_BONUS
+    assertiveness_gate_enabled: bool = True
+    assertiveness_min_score: int = 55
 
 
 class ActiveSignalRequest(BaseModel):
@@ -160,6 +186,17 @@ class FinalSuggestionPolicyRequest(BaseModel):
     policy_switch_min_score_delta: float = 6.0
     policy_switch_min_confidence_delta: int = 4
     active_signal: ActiveSignalRequest | None = None
+    occurrence_fusion_enabled: bool = True
+    occurrence_history_limit: int = DEFAULT_OCCURRENCE_HISTORY_LIMIT
+    occurrence_window_before: int = DEFAULT_OCCURRENCE_WINDOW_BEFORE
+    occurrence_window_after: int = DEFAULT_OCCURRENCE_WINDOW_AFTER
+    occurrence_ranking_size: int = DEFAULT_OCCURRENCE_RANKING_SIZE
+    occurrence_invert_check_window: int = DEFAULT_OCCURRENCE_INVERT_CHECK_WINDOW
+    occurrence_pattern_weight: float = DEFAULT_OCCURRENCE_PATTERN_WEIGHT
+    occurrence_weight: float = DEFAULT_OCCURRENCE_FUSION_WEIGHT
+    occurrence_overlap_bonus: float = DEFAULT_OCCURRENCE_OVERLAP_BONUS
+    assertiveness_gate_enabled: bool = True
+    assertiveness_min_score: int = 55
 
 
 class PatternTrainingRunRequest(BaseModel):
@@ -971,7 +1008,7 @@ def _build_simple_suggestion_unavailable_payload(
         if focus_candidate is not None and 0 <= focus_candidate <= 36:
             safe_focus_number = focus_candidate
     safe_max_numbers = max(1, min(37, int(max_numbers)))
-    return {
+    payload = {
         "available": False,
         "list": [],
         "suggestion": [],
@@ -1003,6 +1040,33 @@ def _build_simple_suggestion_unavailable_payload(
             suggestion_size=0,
         ),
     }
+    payload["signal_quality"] = evaluate_simple_signal_assertiveness(payload)
+    return payload
+
+
+def _apply_occurrence_fusion_to_simple_payload(
+    *,
+    simple_payload: Dict[str, Any],
+    history: List[int],
+    focus_number: int,
+    from_index: int,
+    request_payload: FinalSuggestionRequest,
+) -> Dict[str, Any]:
+    return apply_occurrence_rerank_to_simple_suggestion(
+        simple_payload=simple_payload,
+        history=history,
+        focus_number=focus_number,
+        from_index=from_index,
+        enabled=bool(request_payload.occurrence_fusion_enabled),
+        history_limit=int(request_payload.occurrence_history_limit),
+        window_before=int(request_payload.occurrence_window_before),
+        window_after=int(request_payload.occurrence_window_after),
+        ranking_size=int(request_payload.occurrence_ranking_size),
+        invert_check_window=int(request_payload.occurrence_invert_check_window),
+        pattern_weight=float(request_payload.occurrence_pattern_weight),
+        occurrence_weight=float(request_payload.occurrence_weight),
+        overlap_bonus=float(request_payload.occurrence_overlap_bonus),
+    )
 
 
 def _compute_simple_suggestion_fast(payload: FinalSuggestionRequest) -> Dict[str, Any]:
@@ -1125,6 +1189,13 @@ def _compute_simple_suggestion_fast(payload: FinalSuggestionRequest) -> Dict[str
         weight_profile_weights=effective_profile_weights,
         known_pattern_ids=[definition.id for definition in pattern_engine._load_patterns()],
     )
+    simple_payload = _apply_occurrence_fusion_to_simple_payload(
+        simple_payload=simple_payload,
+        history=normalized_history,
+        focus_number=focus_number,
+        from_index=from_index,
+        request_payload=payload,
+    )
     simple_payload["dynamic_weighting"] = dynamic_weighting_meta
     if isinstance(simple_payload.get("weight_profile"), dict):
         simple_payload["weight_profile"].update(dynamic_weighting_meta)
@@ -1134,6 +1205,7 @@ def _compute_simple_suggestion_fast(payload: FinalSuggestionRequest) -> Dict[str
         from_index=from_index,
         max_attempts=4,
     )
+    simple_payload["signal_quality"] = evaluate_simple_signal_assertiveness(simple_payload)
     mark_stage("simple_payload")
 
     total_elapsed = time.perf_counter() - started_at
@@ -1216,6 +1288,7 @@ async def _compute_final_suggestion(
                 suggestion_size=0,
             ),
         }
+        simple_payload["signal_quality"] = evaluate_simple_signal_assertiveness(simple_payload)
         return {
             "available": False,
             "list": [],
@@ -1245,6 +1318,34 @@ async def _compute_final_suggestion(
             "simple_pattern_count": 0,
             "simple_unique_numbers": 0,
             "simple_entry_shadow": simple_payload["entry_shadow"],
+            "simple_signal_quality": simple_payload["signal_quality"],
+            "signal_quality": {
+                "enabled": bool(payload.assertiveness_gate_enabled),
+                "passed": False,
+                "blocked": True,
+                "protected_mode_bypass": False,
+                "min_score": max(0, min(100, int(payload.assertiveness_min_score))),
+                "score": 0,
+                "label": "Baixa",
+                "recommendation": {
+                    "action": "skip",
+                    "label": "Bloquear",
+                    "reason": "Historico insuficiente para avaliar a assertividade do sinal.",
+                },
+                "components": {
+                    "candidate_confidence_score": 0,
+                    "optimized_confidence_score": 0,
+                    "simple_quality_score": 0,
+                    "policy_quality": 0.0,
+                    "policy_action": "",
+                    "occurrence_overlap_count": 0,
+                    "occurrence_inverted_detected": False,
+                    "shadow_action": "skip",
+                    "candidate_size": 0,
+                },
+                "simple_quality": simple_payload["signal_quality"],
+                "reasons": ["Historico insuficiente para avaliacao de assertividade."],
+            },
         }
 
     from_index = max(0, min(int(payload.from_index), len(normalized_history) - 1))
@@ -1352,6 +1453,36 @@ async def _compute_final_suggestion(
         weight_profile_weights=effective_profile_weights,
     )
     mark_stage("pattern_engine")
+
+    simple_payload = _build_simple_suggestion_from_contributions(
+        optimized_result.get("contributions", []),
+        focus_number=focus_number,
+        from_index=from_index,
+        max_numbers=effective_target_size,
+        block_bets_enabled=bool(payload.block_bets_enabled),
+        pulled_counts=pulled_counts,
+        weight_profile_id=selected_profile_id,
+        weight_profile_weights=effective_profile_weights,
+        known_pattern_ids=[definition.id for definition in pattern_engine._load_patterns()],
+    )
+    simple_payload = _apply_occurrence_fusion_to_simple_payload(
+        simple_payload=simple_payload,
+        history=normalized_history,
+        focus_number=focus_number,
+        from_index=from_index,
+        request_payload=payload,
+    )
+    simple_payload["dynamic_weighting"] = dynamic_weighting_meta
+    if isinstance(simple_payload.get("weight_profile"), dict):
+        simple_payload["weight_profile"].update(dynamic_weighting_meta)
+    simple_payload["entry_shadow"] = simple_suggestion_entry_shadow.evaluate(
+        simple_payload=simple_payload,
+        history=normalized_history,
+        from_index=from_index,
+        max_attempts=4,
+    )
+    simple_payload["signal_quality"] = evaluate_simple_signal_assertiveness(simple_payload)
+    mark_stage("simple_payload")
 
     opt_list_sorted = _parse_optimized_suggestion_sorted(optimized_result)
     opt_confidence = int(optimized_result.get("confidence", {}).get("score", 0) or 0)
@@ -1488,6 +1619,18 @@ async def _compute_final_suggestion(
             high_confidence_cutoff=entry_policy_high_confidence_cutoff,
         )
     mark_stage("entry_policy")
+    signal_quality = evaluate_final_signal_assertiveness(
+        enabled=bool(payload.assertiveness_gate_enabled),
+        min_score=max(0, min(100, int(payload.assertiveness_min_score))),
+        candidate_list=candidate_list,
+        candidate_confidence=candidate_confidence_obj,
+        optimized_available=bool(optimized_result.get("available", False)),
+        optimized_confidence_effective=opt_confidence_effective,
+        simple_payload=simple_payload,
+        entry_policy=entry_policy,
+        protected_mode_enabled=protected_mode_enabled,
+    )
+    mark_stage("signal_quality")
     optimized_supported = bool(optimized_result.get("available", False)) and bool(opt_list_ranked)
     gate_reasons: List[str] = []
     if not protected_mode_enabled:
@@ -1507,6 +1650,16 @@ async def _compute_final_suggestion(
                 gate_reasons.append(f"Política de entrada recomendou esperar {wait_spins} giro(s).")
             else:
                 gate_reasons.append("Política de entrada recomendou aguardar antes de emitir.")
+        if bool(signal_quality.get("enabled")) and not bool(signal_quality.get("passed", True)):
+            quality_reason = str(
+                signal_quality.get("recommendation", {}).get("reason")
+                or "Meta gate de assertividade bloqueou a entrada."
+            ).strip()
+            score = int(signal_quality.get("score", 0) or 0)
+            min_score = int(signal_quality.get("min_score", 0) or 0)
+            gate_reasons.append(
+                f"Assertividade insuficiente ({score}<{min_score}). {quality_reason}"
+            )
     emission_gate_passed = bool(candidate_list) if protected_mode_enabled else bool(final_result.get("available", False)) and not gate_reasons
     final_list = candidate_list if emission_gate_passed else []
     final_protections = candidate_protections if emission_gate_passed else []
@@ -1522,6 +1675,10 @@ async def _compute_final_suggestion(
         "entry_policy_action": str(entry_policy.get("action", "")),
         "entry_policy_wait_spins": int(entry_policy.get("recommended_wait_spins", 0) or 0),
         "used_confidence_v2": bool(final_gate_use_confidence_v2 and opt_confidence_v2 > 0),
+        "assertiveness_enabled": bool(signal_quality.get("enabled", False)),
+        "assertiveness_score": int(signal_quality.get("score", 0) or 0),
+        "assertiveness_min_score": int(signal_quality.get("min_score", 0) or 0),
+        "assertiveness_action": str(signal_quality.get("recommendation", {}).get("action", "")),
     }
     explanation = str(final_result.get("explanation", "") or "").strip()
     if protected_mode_enabled:
@@ -1563,27 +1720,6 @@ async def _compute_final_suggestion(
         ),
         "dynamic_weighting": dynamic_weighting_meta,
     }
-    simple_payload = _build_simple_suggestion_from_contributions(
-        optimized_result.get("contributions", []),
-        focus_number=focus_number,
-        from_index=from_index,
-        max_numbers=effective_target_size,
-        block_bets_enabled=bool(payload.block_bets_enabled),
-        pulled_counts=pulled_counts,
-        weight_profile_id=selected_profile_id,
-        weight_profile_weights=effective_profile_weights,
-        known_pattern_ids=[definition.id for definition in pattern_engine._load_patterns()],
-    )
-    simple_payload["dynamic_weighting"] = dynamic_weighting_meta
-    if isinstance(simple_payload.get("weight_profile"), dict):
-        simple_payload["weight_profile"].update(dynamic_weighting_meta)
-    simple_payload["entry_shadow"] = simple_suggestion_entry_shadow.evaluate(
-        simple_payload=simple_payload,
-        history=normalized_history,
-        from_index=from_index,
-        max_attempts=4,
-    )
-    mark_stage("simple_payload")
     response_payload = {
         **final_result,
         "available": emission_gate_passed,
@@ -1600,6 +1736,7 @@ async def _compute_final_suggestion(
         "block_bets_enabled": bool(payload.block_bets_enabled),
         "entry_policy_enabled": entry_policy_enabled,
         "entry_policy": entry_policy,
+        "signal_quality": signal_quality,
         "emission_gate": emission_gate,
         "candidate_available": bool(final_result.get("available", False)),
         "candidate_list": candidate_list,
@@ -1662,7 +1799,14 @@ async def _compute_final_suggestion(
         "simple_number_details": simple_payload.get("number_details", []),
         "simple_pattern_count": int(simple_payload.get("pattern_count", 0) or 0),
         "simple_unique_numbers": int(simple_payload.get("unique_numbers", 0) or 0),
+        "simple_pre_fusion_list": simple_payload.get("pre_fusion_list", []),
+        "simple_occurrence_fusion": simple_payload.get("occurrence_fusion", {}),
+        "simple_occurrence_ranking": simple_payload.get("occurrence_ranking", []),
+        "simple_occurrence_overlap_count": int(simple_payload.get("occurrence_overlap_count", 0) or 0),
+        "simple_occurrence_overlap_numbers": simple_payload.get("occurrence_overlap_numbers", []),
+        "simple_occurrence_inverted_detected": bool(simple_payload.get("occurrence_inverted_detected", False)),
         "simple_entry_shadow": simple_payload.get("entry_shadow", {}),
+        "simple_signal_quality": simple_payload.get("signal_quality", {}),
     }
     mark_stage("response_payload")
     total_elapsed = time.perf_counter() - started_at
@@ -2133,6 +2277,17 @@ async def get_final_suggestion_policy(payload: FinalSuggestionPolicyRequest):
             protected_recent_anchor_count=payload.protected_recent_anchor_count,
             protected_swap_enabled=payload.protected_swap_enabled,
             cold_count=payload.cold_count,
+            occurrence_fusion_enabled=payload.occurrence_fusion_enabled,
+            occurrence_history_limit=payload.occurrence_history_limit,
+            occurrence_window_before=payload.occurrence_window_before,
+            occurrence_window_after=payload.occurrence_window_after,
+            occurrence_ranking_size=payload.occurrence_ranking_size,
+            occurrence_invert_check_window=payload.occurrence_invert_check_window,
+            occurrence_pattern_weight=payload.occurrence_pattern_weight,
+            occurrence_weight=payload.occurrence_weight,
+            occurrence_overlap_bonus=payload.occurrence_overlap_bonus,
+            assertiveness_gate_enabled=payload.assertiveness_gate_enabled,
+            assertiveness_min_score=payload.assertiveness_min_score,
         )
         result = await _compute_final_suggestion(suggestion_payload)
         candidate_list = [int(n) for n in (result.get("candidate_suggestion") or result.get("candidate_list") or []) if 0 <= int(n) <= 36]

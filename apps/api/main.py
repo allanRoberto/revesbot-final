@@ -47,7 +47,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import  JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from api.core.db import mongo_db, history_coll, ensure_suggestion_monitor_indexes
+from api.core.db import (
+    mongo_db,
+    history_coll,
+    ensure_occurrence_analysis_indexes,
+    ensure_suggestion_monitor_indexes,
+)
 from fastapi.responses import HTMLResponse
 
 from api.helpers.roulettes_list import roulettes
@@ -73,6 +78,7 @@ from api.routes.assertiveness_replay import router as assertiveness_replay_route
 from api.routes.decoder_lab import router as decoder_lab_router
 from api.routes.ai_shadow import router as ai_shadow_router
 from api.routes.monitor_replay import router as monitor_replay_router
+from api.routes.occurrence_ranking import router as occurrence_ranking_router
 from api.routes.suggestion_monitor import router as suggestion_monitor_router
 
 
@@ -176,6 +182,7 @@ app.include_router(assertiveness_replay_router)
 app.include_router(decoder_lab_router)
 app.include_router(ai_shadow_router)
 app.include_router(monitor_replay_router)
+app.include_router(occurrence_ranking_router)
 app.include_router(suggestion_monitor_router)
 
  
@@ -194,6 +201,10 @@ async def _warm_api_runtime() -> None:
         await ensure_suggestion_monitor_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices do monitor falhou: {exc}")
+    try:
+        await ensure_occurrence_analysis_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices da análise de ocorrências falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:

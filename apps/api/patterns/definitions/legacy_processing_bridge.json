@@ -18,6 +18,7 @@
     "sub_pattern_weight": 1.0,
     "excluded_patterns": [
       "api_monitor",
+      "api",
       "alinhamento",
       "alinhamento_final",
       "alinhamento_total",

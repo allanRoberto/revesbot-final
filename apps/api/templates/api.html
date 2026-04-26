@@ -2571,6 +2571,58 @@
               <label class="ui-label">Inversão: fator de penalidade (0 a 1)</label>
               <input type="number" id="cfg-inversion-penalty" class="ui-input" min="0" max="1" step="0.05" value="0.3" />
             </div>
+            <div class="ui-field ui-field--wide">
+              <label class="ui-label">Fusão com padrão de ocorrência</label>
+              <label class="ui-switch">
+                <input type="checkbox" id="cfg-occurrence-fusion-enabled" checked />
+                <span class="ui-switch-control" aria-hidden="true"></span>
+                <span class="ui-switch-label">Usar o ranking de ocorrências para reranquear a sugestão simples</span>
+              </label>
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Ocorrência: histórico usado</label>
+              <input type="number" id="cfg-occurrence-history-limit" class="ui-input" min="1" max="50000" step="1" value="2000" />
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Ocorrência: janela antes</label>
+              <input type="number" id="cfg-occurrence-window-before" class="ui-input" min="0" max="100" step="1" value="5" />
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Ocorrência: janela depois</label>
+              <input type="number" id="cfg-occurrence-window-after" class="ui-input" min="0" max="100" step="1" value="3" />
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Ocorrência: top N</label>
+              <input type="number" id="cfg-occurrence-ranking-size" class="ui-input" min="1" max="37" step="1" value="18" />
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Ocorrência: checagem invertida</label>
+              <input type="number" id="cfg-occurrence-invert-check-window" class="ui-input" min="0" max="100" step="1" value="0" />
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Peso patterns da simple (%)</label>
+              <input type="number" id="cfg-occurrence-pattern-weight" class="ui-input" min="0" max="100" step="1" value="75" />
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Peso ocorrência (%)</label>
+              <input type="number" id="cfg-occurrence-weight" class="ui-input" min="0" max="100" step="1" value="25" />
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Bônus por overlap</label>
+              <input type="number" id="cfg-occurrence-overlap-bonus" class="ui-input" min="0" max="0.5" step="0.01" value="0.05" />
+            </div>
+            <div class="ui-field ui-field--wide">
+              <label class="ui-label">Gate de assertividade</label>
+              <label class="ui-switch">
+                <input type="checkbox" id="cfg-assertiveness-gate-enabled" checked />
+                <span class="ui-switch-control" aria-hidden="true"></span>
+                <span class="ui-switch-label">Usar a qualidade do sinal para liberar ou segurar a entrada</span>
+              </label>
+            </div>
+            <div class="ui-field">
+              <label class="ui-label">Assertividade: score mínimo</label>
+              <input type="number" id="cfg-assertiveness-min-score" class="ui-input" min="0" max="100" step="1" value="55" />
+            </div>
           </div>
         </div>
 
@@ -2643,6 +2695,17 @@
     let inversionContextWindow = 15;      // Quantos números anteriores verificar
     let inversionPenaltyFactor = 0.3;     // Fator de penalidade (0.3 = reduz 70% do score)
     let inversionEnabled = true;          // Habilitar/desabilitar filtro de inversão
+    let occurrenceFusionEnabled = true;
+    let occurrenceHistoryLimit = 2000;
+    let occurrenceWindowBefore = 5;
+    let occurrenceWindowAfter = 3;
+    let occurrenceRankingSize = 18;
+    let occurrenceInvertCheckWindow = 0;
+    let occurrencePatternWeight = 0.75;
+    let occurrenceWeight = 0.25;
+    let occurrenceOverlapBonus = 0.05;
+    let assertivenessGateEnabled = true;
+    let assertivenessMinScore = 55;
     let countMode        = false;
     let heatmapMode      = false;
     let countStartIndex  = null;
@@ -2935,6 +2998,38 @@ countContainers.forEach(({ selector, itemClass }) => {
     if (!Number.isInteger(inversionContextWindow) || inversionContextWindow < 1 || inversionContextWindow > 50) inversionContextWindow = 15;
     inversionPenaltyFactor = parseFloat(loadConfig("inversionPenaltyFactor", String(inversionPenaltyFactor)));
     if (!Number.isFinite(inversionPenaltyFactor) || inversionPenaltyFactor < 0 || inversionPenaltyFactor > 1) inversionPenaltyFactor = 0.3;
+    occurrenceFusionEnabled = loadConfig("occurrenceFusionEnabled", "true") === "true";
+    occurrenceHistoryLimit = parseInt(loadConfig("occurrenceHistoryLimit", String(occurrenceHistoryLimit)), 10);
+    if (!Number.isInteger(occurrenceHistoryLimit) || occurrenceHistoryLimit < 1 || occurrenceHistoryLimit > 50000) occurrenceHistoryLimit = 2000;
+    occurrenceWindowBefore = parseInt(loadConfig("occurrenceWindowBefore", String(occurrenceWindowBefore)), 10);
+    if (!Number.isInteger(occurrenceWindowBefore) || occurrenceWindowBefore < 0 || occurrenceWindowBefore > 100) occurrenceWindowBefore = 5;
+    occurrenceWindowAfter = parseInt(loadConfig("occurrenceWindowAfter", String(occurrenceWindowAfter)), 10);
+    if (!Number.isInteger(occurrenceWindowAfter) || occurrenceWindowAfter < 0 || occurrenceWindowAfter > 100) occurrenceWindowAfter = 3;
+    occurrenceRankingSize = parseInt(loadConfig("occurrenceRankingSize", String(occurrenceRankingSize)), 10);
+    if (!Number.isInteger(occurrenceRankingSize) || occurrenceRankingSize < 1 || occurrenceRankingSize > 37) occurrenceRankingSize = 18;
+    occurrenceInvertCheckWindow = parseInt(loadConfig("occurrenceInvertCheckWindow", String(occurrenceInvertCheckWindow)), 10);
+    if (!Number.isInteger(occurrenceInvertCheckWindow) || occurrenceInvertCheckWindow < 0 || occurrenceInvertCheckWindow > 100) occurrenceInvertCheckWindow = 0;
+    occurrencePatternWeight = parseFloat(loadConfig("occurrencePatternWeight", String(occurrencePatternWeight)));
+    occurrenceWeight = parseFloat(loadConfig("occurrenceWeight", String(occurrenceWeight)));
+    if (!Number.isFinite(occurrencePatternWeight) || occurrencePatternWeight < 0) occurrencePatternWeight = 0.75;
+    if (!Number.isFinite(occurrenceWeight) || occurrenceWeight < 0) occurrenceWeight = 0.25;
+    {
+      const occurrenceWeightSum = occurrencePatternWeight + occurrenceWeight;
+      if (occurrenceWeightSum > 0) {
+        occurrencePatternWeight = occurrencePatternWeight / occurrenceWeightSum;
+        occurrenceWeight = occurrenceWeight / occurrenceWeightSum;
+      } else {
+        occurrencePatternWeight = 0.75;
+        occurrenceWeight = 0.25;
+      }
+    }
+    occurrenceOverlapBonus = parseFloat(loadConfig("occurrenceOverlapBonus", String(occurrenceOverlapBonus)));
+    if (!Number.isFinite(occurrenceOverlapBonus) || occurrenceOverlapBonus < 0 || occurrenceOverlapBonus > 0.5) occurrenceOverlapBonus = 0.05;
+    assertivenessGateEnabled = loadConfig("assertivenessGateEnabled", "true") === "true";
+    assertivenessMinScore = parseInt(loadConfig("assertivenessMinScore", String(assertivenessMinScore)), 10);
+    if (!Number.isInteger(assertivenessMinScore) || assertivenessMinScore < 0 || assertivenessMinScore > 100) {
+      assertivenessMinScore = 55;
+    }
 
     // Atualiza as variáveis CSS de início
     const root = document.documentElement;
@@ -3013,6 +3108,28 @@ countContainers.forEach(({ selector, itemClass }) => {
     if (inversionWindowInput) inversionWindowInput.value = String(inversionContextWindow);
     const inversionPenaltyInput = document.getElementById("cfg-inversion-penalty");
     if (inversionPenaltyInput) inversionPenaltyInput.value = String(inversionPenaltyFactor);
+    const occurrenceFusionEnabledCheck = document.getElementById("cfg-occurrence-fusion-enabled");
+    if (occurrenceFusionEnabledCheck) occurrenceFusionEnabledCheck.checked = occurrenceFusionEnabled;
+    const occurrenceHistoryLimitInput = document.getElementById("cfg-occurrence-history-limit");
+    if (occurrenceHistoryLimitInput) occurrenceHistoryLimitInput.value = String(occurrenceHistoryLimit);
+    const occurrenceWindowBeforeInput = document.getElementById("cfg-occurrence-window-before");
+    if (occurrenceWindowBeforeInput) occurrenceWindowBeforeInput.value = String(occurrenceWindowBefore);
+    const occurrenceWindowAfterInput = document.getElementById("cfg-occurrence-window-after");
+    if (occurrenceWindowAfterInput) occurrenceWindowAfterInput.value = String(occurrenceWindowAfter);
+    const occurrenceRankingSizeInput = document.getElementById("cfg-occurrence-ranking-size");
+    if (occurrenceRankingSizeInput) occurrenceRankingSizeInput.value = String(occurrenceRankingSize);
+    const occurrenceInvertCheckWindowInput = document.getElementById("cfg-occurrence-invert-check-window");
+    if (occurrenceInvertCheckWindowInput) occurrenceInvertCheckWindowInput.value = String(occurrenceInvertCheckWindow);
+    const occurrencePatternWeightInput = document.getElementById("cfg-occurrence-pattern-weight");
+    if (occurrencePatternWeightInput) occurrencePatternWeightInput.value = String(Math.round(occurrencePatternWeight * 100));
+    const occurrenceWeightInput = document.getElementById("cfg-occurrence-weight");
+    if (occurrenceWeightInput) occurrenceWeightInput.value = String(Math.round(occurrenceWeight * 100));
+    const occurrenceOverlapBonusInput = document.getElementById("cfg-occurrence-overlap-bonus");
+    if (occurrenceOverlapBonusInput) occurrenceOverlapBonusInput.value = String(occurrenceOverlapBonus);
+    const assertivenessGateEnabledCheck = document.getElementById("cfg-assertiveness-gate-enabled");
+    if (assertivenessGateEnabledCheck) assertivenessGateEnabledCheck.checked = assertivenessGateEnabled;
+    const assertivenessMinScoreInput = document.getElementById("cfg-assertiveness-min-score");
+    if (assertivenessMinScoreInput) assertivenessMinScoreInput.value = String(assertivenessMinScore);
 
 
     function getColor(num) {
@@ -3052,6 +3169,17 @@ countContainers.forEach(({ selector, itemClass }) => {
     const selInversionEnabled = document.getElementById("cfg-inversion-enabled");
     const selInversionWindow = document.getElementById("cfg-inversion-window");
     const selInversionPenalty = document.getElementById("cfg-inversion-penalty");
+    const selOccurrenceFusionEnabled = document.getElementById("cfg-occurrence-fusion-enabled");
+    const selOccurrenceHistoryLimit = document.getElementById("cfg-occurrence-history-limit");
+    const selOccurrenceWindowBefore = document.getElementById("cfg-occurrence-window-before");
+    const selOccurrenceWindowAfter = document.getElementById("cfg-occurrence-window-after");
+    const selOccurrenceRankingSize = document.getElementById("cfg-occurrence-ranking-size");
+    const selOccurrenceInvertCheckWindow = document.getElementById("cfg-occurrence-invert-check-window");
+    const selOccurrencePatternWeight = document.getElementById("cfg-occurrence-pattern-weight");
+    const selOccurrenceWeight = document.getElementById("cfg-occurrence-weight");
+    const selOccurrenceOverlapBonus = document.getElementById("cfg-occurrence-overlap-bonus");
+    const selAssertivenessGateEnabled = document.getElementById("cfg-assertiveness-gate-enabled");
+    const selAssertivenessMinScore = document.getElementById("cfg-assertiveness-min-score");
     const selBotEnabled = document.getElementById("cfg-bot-enabled");
     const selBotApiUrl = document.getElementById("cfg-bot-api-url");
     const selBotHealthUrl = document.getElementById("cfg-bot-health-url");
@@ -3596,6 +3724,17 @@ countContainers.forEach(({ selector, itemClass }) => {
       const storedInversionEnabled = loadConfig("inversionEnabled", "true") === "true";
       const storedInversionWindow = parseInt(loadConfig("inversionContextWindow", "15"), 10);
       const storedInversionPenalty = parseFloat(loadConfig("inversionPenaltyFactor", "0.3"));
+      const storedOccurrenceFusionEnabled = loadConfig("occurrenceFusionEnabled", "true") === "true";
+      const storedOccurrenceHistoryLimit = parseInt(loadConfig("occurrenceHistoryLimit", "2000"), 10);
+      const storedOccurrenceWindowBefore = parseInt(loadConfig("occurrenceWindowBefore", "5"), 10);
+      const storedOccurrenceWindowAfter = parseInt(loadConfig("occurrenceWindowAfter", "3"), 10);
+      const storedOccurrenceRankingSize = parseInt(loadConfig("occurrenceRankingSize", "18"), 10);
+      const storedOccurrenceInvertCheckWindow = parseInt(loadConfig("occurrenceInvertCheckWindow", "0"), 10);
+      const storedOccurrencePatternWeight = parseFloat(loadConfig("occurrencePatternWeight", "0.75"));
+      const storedOccurrenceWeight = parseFloat(loadConfig("occurrenceWeight", "0.25"));
+      const storedOccurrenceOverlapBonus = parseFloat(loadConfig("occurrenceOverlapBonus", "0.05"));
+      const storedAssertivenessGateEnabled = loadConfig("assertivenessGateEnabled", "true") === "true";
+      const storedAssertivenessMinScore = parseInt(loadConfig("assertivenessMinScore", "55"), 10);
       const storedBotEnabled = loadConfig("botAutomationEnabled", botAutomationEnabled ? "true" : "false") === "true";
       const storedBotApiUrl = loadConfig("botApiUrl", botApiUrl);
       const storedBotHealthUrl = loadConfig("botHealthUrl", botHealthUrl);
@@ -3609,6 +3748,22 @@ countContainers.forEach(({ selector, itemClass }) => {
       if (selInversionEnabled) selInversionEnabled.checked = storedInversionEnabled;
       if (selInversionWindow) selInversionWindow.value = String(storedInversionWindow);
       if (selInversionPenalty) selInversionPenalty.value = String(storedInversionPenalty);
+      if (selOccurrenceFusionEnabled) selOccurrenceFusionEnabled.checked = storedOccurrenceFusionEnabled;
+      if (selOccurrenceHistoryLimit) selOccurrenceHistoryLimit.value = String(Number.isInteger(storedOccurrenceHistoryLimit) ? storedOccurrenceHistoryLimit : 2000);
+      if (selOccurrenceWindowBefore) selOccurrenceWindowBefore.value = String(Number.isInteger(storedOccurrenceWindowBefore) ? storedOccurrenceWindowBefore : 5);
+      if (selOccurrenceWindowAfter) selOccurrenceWindowAfter.value = String(Number.isInteger(storedOccurrenceWindowAfter) ? storedOccurrenceWindowAfter : 3);
+      if (selOccurrenceRankingSize) selOccurrenceRankingSize.value = String(Number.isInteger(storedOccurrenceRankingSize) ? storedOccurrenceRankingSize : 18);
+      if (selOccurrenceInvertCheckWindow) selOccurrenceInvertCheckWindow.value = String(Number.isInteger(storedOccurrenceInvertCheckWindow) ? storedOccurrenceInvertCheckWindow : 0);
+      if (selOccurrencePatternWeight) selOccurrencePatternWeight.value = String(Math.round((Number.isFinite(storedOccurrencePatternWeight) ? storedOccurrencePatternWeight : 0.75) * 100));
+      if (selOccurrenceWeight) selOccurrenceWeight.value = String(Math.round((Number.isFinite(storedOccurrenceWeight) ? storedOccurrenceWeight : 0.25) * 100));
+      if (selOccurrenceOverlapBonus) selOccurrenceOverlapBonus.value = String(Number.isFinite(storedOccurrenceOverlapBonus) ? storedOccurrenceOverlapBonus : 0.05);
+      if (selAssertivenessGateEnabled) selAssertivenessGateEnabled.checked = storedAssertivenessGateEnabled;
+      if (selAssertivenessMinScore) {
+        const safeAssertivenessMinScore = Number.isInteger(storedAssertivenessMinScore)
+          ? Math.min(100, Math.max(0, storedAssertivenessMinScore))
+          : 55;
+        selAssertivenessMinScore.value = String(safeAssertivenessMinScore);
+      }
 
       // Também recarrega outras configurações
       if (selMaxHistory) selMaxHistory.value = String(maxHistory);
@@ -3801,6 +3956,54 @@ countContainers.forEach(({ selector, itemClass }) => {
         inversionPenaltyFactor = parseFloat(selInversionPenalty.value);
         if (!Number.isFinite(inversionPenaltyFactor) || inversionPenaltyFactor < 0 || inversionPenaltyFactor > 1) inversionPenaltyFactor = 0.3;
       }
+      if (selOccurrenceFusionEnabled) occurrenceFusionEnabled = selOccurrenceFusionEnabled.checked;
+      if (selOccurrenceHistoryLimit) {
+        occurrenceHistoryLimit = parseInt(selOccurrenceHistoryLimit.value, 10);
+        if (!Number.isInteger(occurrenceHistoryLimit) || occurrenceHistoryLimit < 1 || occurrenceHistoryLimit > 50000) occurrenceHistoryLimit = 2000;
+      }
+      if (selOccurrenceWindowBefore) {
+        occurrenceWindowBefore = parseInt(selOccurrenceWindowBefore.value, 10);
+        if (!Number.isInteger(occurrenceWindowBefore) || occurrenceWindowBefore < 0 || occurrenceWindowBefore > 100) occurrenceWindowBefore = 5;
+      }
+      if (selOccurrenceWindowAfter) {
+        occurrenceWindowAfter = parseInt(selOccurrenceWindowAfter.value, 10);
+        if (!Number.isInteger(occurrenceWindowAfter) || occurrenceWindowAfter < 0 || occurrenceWindowAfter > 100) occurrenceWindowAfter = 3;
+      }
+      if (selOccurrenceRankingSize) {
+        occurrenceRankingSize = parseInt(selOccurrenceRankingSize.value, 10);
+        if (!Number.isInteger(occurrenceRankingSize) || occurrenceRankingSize < 1 || occurrenceRankingSize > 37) occurrenceRankingSize = 18;
+      }
+      if (selOccurrenceInvertCheckWindow) {
+        occurrenceInvertCheckWindow = parseInt(selOccurrenceInvertCheckWindow.value, 10);
+        if (!Number.isInteger(occurrenceInvertCheckWindow) || occurrenceInvertCheckWindow < 0 || occurrenceInvertCheckWindow > 100) occurrenceInvertCheckWindow = 0;
+      }
+      {
+        const rawOccurrencePatternPct = parseFloat(selOccurrencePatternWeight?.value);
+        const rawOccurrencePct = parseFloat(selOccurrenceWeight?.value);
+        let occurrencePatternPct = Number.isFinite(rawOccurrencePatternPct) ? Math.max(0, rawOccurrencePatternPct) : 75;
+        let occurrencePct = Number.isFinite(rawOccurrencePct) ? Math.max(0, rawOccurrencePct) : 25;
+        const totalOccurrencePct = occurrencePatternPct + occurrencePct;
+        if (totalOccurrencePct > 0) {
+          occurrencePatternWeight = occurrencePatternPct / totalOccurrencePct;
+          occurrenceWeight = occurrencePct / totalOccurrencePct;
+        } else {
+          occurrencePatternWeight = 0.75;
+          occurrenceWeight = 0.25;
+        }
+      }
+      if (selOccurrenceOverlapBonus) {
+        occurrenceOverlapBonus = parseFloat(selOccurrenceOverlapBonus.value);
+        if (!Number.isFinite(occurrenceOverlapBonus) || occurrenceOverlapBonus < 0 || occurrenceOverlapBonus > 0.5) occurrenceOverlapBonus = 0.05;
+      }
+      if (selAssertivenessGateEnabled) {
+        assertivenessGateEnabled = !!selAssertivenessGateEnabled.checked;
+      }
+      if (selAssertivenessMinScore) {
+        assertivenessMinScore = parseInt(selAssertivenessMinScore.value, 10);
+        if (!Number.isInteger(assertivenessMinScore) || assertivenessMinScore < 0 || assertivenessMinScore > 100) {
+          assertivenessMinScore = 55;
+        }
+      }
 
       if (selBotEnabled) {
         botAutomationEnabled = !!selBotEnabled.checked;
@@ -3854,6 +4057,17 @@ countContainers.forEach(({ selector, itemClass }) => {
       saveConfig("inversionEnabled", inversionEnabled ? "true" : "false");
       saveConfig("inversionContextWindow", inversionContextWindow);
       saveConfig("inversionPenaltyFactor", inversionPenaltyFactor);
+      saveConfig("occurrenceFusionEnabled", occurrenceFusionEnabled ? "true" : "false");
+      saveConfig("occurrenceHistoryLimit", occurrenceHistoryLimit);
+      saveConfig("occurrenceWindowBefore", occurrenceWindowBefore);
+      saveConfig("occurrenceWindowAfter", occurrenceWindowAfter);
+      saveConfig("occurrenceRankingSize", occurrenceRankingSize);
+      saveConfig("occurrenceInvertCheckWindow", occurrenceInvertCheckWindow);
+      saveConfig("occurrencePatternWeight", occurrencePatternWeight);
+      saveConfig("occurrenceWeight", occurrenceWeight);
+      saveConfig("occurrenceOverlapBonus", occurrenceOverlapBonus);
+      saveConfig("assertivenessGateEnabled", assertivenessGateEnabled ? "true" : "false");
+      saveConfig("assertivenessMinScore", assertivenessMinScore);
       saveConfig("botAutomationEnabled", botAutomationEnabled ? "true" : "false");
       saveConfig("botApiUrl", botApiUrl);
       saveConfig("botHealthUrl", botHealthUrl);
@@ -3861,6 +4075,8 @@ countContainers.forEach(({ selector, itemClass }) => {
 
       if (selFinalBaseWeight) selFinalBaseWeight.value = String(Math.round(finalBaseWeight * 100));
       if (selFinalOptimizedWeight) selFinalOptimizedWeight.value = String(Math.round(finalOptimizedWeight * 100));
+      if (selOccurrencePatternWeight) selOccurrencePatternWeight.value = String(Math.round(occurrencePatternWeight * 100));
+      if (selOccurrenceWeight) selOccurrenceWeight.value = String(Math.round(occurrenceWeight * 100));
 
       tooltipCache.clear();
       finalSuggestionApiCache.clear();
@@ -4339,6 +4555,17 @@ countContainers.forEach(({ selector, itemClass }) => {
         inversionEnabled ? 1 : 0,
         inversionContextWindow,
         Number(inversionPenaltyFactor).toFixed(3),
+        occurrenceFusionEnabled ? 1 : 0,
+        occurrenceHistoryLimit,
+        occurrenceWindowBefore,
+        occurrenceWindowAfter,
+        occurrenceRankingSize,
+        occurrenceInvertCheckWindow,
+        Number(occurrencePatternWeight).toFixed(4),
+        Number(occurrenceWeight).toFixed(4),
+        Number(occurrenceOverlapBonus).toFixed(3),
+        assertivenessGateEnabled ? 1 : 0,
+        assertivenessMinScore,
         selectedWeightProfileId || "",
       ].join("|");
     }
@@ -4398,6 +4625,52 @@ countContainers.forEach(({ selector, itemClass }) => {
           expected_value: { net_units: 0 },
           recommendation: { action: "wait", label: "Shadow indisponível", reason: reason },
         },
+        signal_quality: {
+          enabled: true,
+          available: false,
+          passed: false,
+          blocked: true,
+          protected_mode_bypass: false,
+          min_score: 0,
+          score: 0,
+          label: "Baixa",
+          recommendation: { action: "wait", label: "Esperar", reason },
+          components: {},
+          reasons: [reason],
+        },
+      };
+    }
+
+    function normalizeSignalQuality(rawSignalQuality, fallbackReason = "Qualidade do sinal indisponível.", fallbackOptions = {}) {
+      const raw = rawSignalQuality && typeof rawSignalQuality === "object" ? rawSignalQuality : {};
+      const recommendation = raw.recommendation && typeof raw.recommendation === "object" ? raw.recommendation : {};
+      const defaultAction = typeof fallbackOptions.defaultAction === "string" && fallbackOptions.defaultAction
+        ? fallbackOptions.defaultAction
+        : "wait";
+      const action = typeof recommendation.action === "string" && recommendation.action
+        ? recommendation.action
+        : defaultAction;
+      const labelByAction = action === "enter" ? "Entrar" : (action === "skip" ? "Bloquear" : "Esperar");
+      return {
+        enabled: raw.enabled !== undefined ? !!raw.enabled : (fallbackOptions.enabled !== undefined ? !!fallbackOptions.enabled : true),
+        available: raw.available !== undefined ? !!raw.available : (fallbackOptions.available !== undefined ? !!fallbackOptions.available : false),
+        passed: raw.passed !== undefined ? !!raw.passed : (fallbackOptions.passed !== undefined ? !!fallbackOptions.passed : false),
+        blocked: raw.blocked !== undefined ? !!raw.blocked : (fallbackOptions.blocked !== undefined ? !!fallbackOptions.blocked : false),
+        protected_mode_bypass: !!raw.protected_mode_bypass,
+        min_score: Number.isFinite(Number(raw.min_score))
+          ? Number(raw.min_score)
+          : (Number.isFinite(Number(fallbackOptions.min_score)) ? Number(fallbackOptions.min_score) : 0),
+        score: Number.isFinite(Number(raw.score))
+          ? Number(raw.score)
+          : (Number.isFinite(Number(fallbackOptions.score)) ? Number(fallbackOptions.score) : 0),
+        label: typeof raw.label === "string" && raw.label ? raw.label : (fallbackOptions.label || "Baixa"),
+        recommendation: {
+          action,
+          label: typeof recommendation.label === "string" && recommendation.label ? recommendation.label : labelByAction,
+          reason: typeof recommendation.reason === "string" && recommendation.reason ? recommendation.reason : fallbackReason,
+        },
+        components: raw.components && typeof raw.components === "object" ? raw.components : {},
+        reasons: Array.isArray(raw.reasons) ? raw.reasons : [fallbackReason],
       };
     }
 
@@ -4445,6 +4718,17 @@ countContainers.forEach(({ selector, itemClass }) => {
         inversion_enabled: inversionEnabled,
         inversion_context_window: inversionContextWindow,
         inversion_penalty_factor: inversionPenaltyFactor,
+        occurrence_fusion_enabled: occurrenceFusionEnabled,
+        occurrence_history_limit: occurrenceHistoryLimit,
+        occurrence_window_before: occurrenceWindowBefore,
+        occurrence_window_after: occurrenceWindowAfter,
+        occurrence_ranking_size: occurrenceRankingSize,
+        occurrence_invert_check_window: occurrenceInvertCheckWindow,
+        occurrence_pattern_weight: occurrencePatternWeight,
+        occurrence_weight: occurrenceWeight,
+        occurrence_overlap_bonus: occurrenceOverlapBonus,
+        assertiveness_gate_enabled: assertivenessGateEnabled,
+        assertiveness_min_score: assertivenessMinScore,
         weight_profile_id: selectedWeightProfileId || null,
         protected_mode_enabled: protectedModeEnabled,
         protected_suggestion_size: protectedSuggestionSize,
@@ -4541,6 +4825,13 @@ countContainers.forEach(({ selector, itemClass }) => {
         : (resultPayload.simple_entry_shadow && typeof resultPayload.simple_entry_shadow === "object"
           ? resultPayload.simple_entry_shadow
           : null);
+      const simpleSignalQuality = normalizeSignalQuality(
+        simplePayload.signal_quality && typeof simplePayload.signal_quality === "object"
+          ? simplePayload.signal_quality
+          : resultPayload.simple_signal_quality,
+        "Qualidade da simple indisponível.",
+        { available: !!simplePayload.available, enabled: true }
+      );
       const normalizedSimple = {
         available: typeof simplePayload.available === "boolean" ? simplePayload.available : !!resultPayload.simple_available,
         list: simpleSuggestionOrdered,
@@ -4575,7 +4866,19 @@ countContainers.forEach(({ selector, itemClass }) => {
               expected_value: { net_units: 0 },
               recommendation: { action: "wait", label: "Shadow indisponível", reason: "Shadow indisponível." },
             },
+        signal_quality: simpleSignalQuality,
       };
+      const normalizedSignalQuality = normalizeSignalQuality(
+        resultPayload.signal_quality && typeof resultPayload.signal_quality === "object"
+          ? resultPayload.signal_quality
+          : data.signal_quality,
+        "Gate de assertividade indisponível.",
+        {
+          available: !!(typeof data.available === "boolean" ? data.available : resultPayload.available),
+          enabled: assertivenessGateEnabled,
+          min_score: assertivenessMinScore,
+        }
+      );
       return {
         available: typeof data.available === "boolean" ? !!data.available : !!resultPayload.available,
         list: finalSuggestionDisplay,
@@ -4622,6 +4925,7 @@ countContainers.forEach(({ selector, itemClass }) => {
         cold_numbers_considered: Array.isArray(resultPayload.cold_numbers_considered) ? resultPayload.cold_numbers_considered : [],
         policyDecision,
         policyCandidate,
+        signal_quality: normalizedSignalQuality,
         simple: normalizedSimple,
       };
     }
@@ -4702,6 +5006,11 @@ countContainers.forEach(({ selector, itemClass }) => {
             cold_numbers_considered: [],
             policyDecision: buildDefaultPolicyDecision("Falha ao calcular política de entrada."),
             policyCandidate: {},
+            signal_quality: normalizeSignalQuality(
+              null,
+              "Falha ao calcular assertividade do sinal.",
+              { enabled: assertivenessGateEnabled, min_score: assertivenessMinScore }
+            ),
             simple: buildEmptySimpleSuggestion("Falha ao calcular sugestão simples."),
           });
           if (fromIndex === 0 && Number.isInteger(focusNumber)) {
@@ -4826,6 +5135,11 @@ countContainers.forEach(({ selector, itemClass }) => {
         protected_wait_reason: "",
         policyDecision: buildDefaultPolicyDecision("Calculando política de entrada..."),
         policyCandidate: {},
+        signal_quality: normalizeSignalQuality(
+          null,
+          "Calculando assertividade do sinal...",
+          { enabled: assertivenessGateEnabled, min_score: assertivenessMinScore }
+        ),
         simple: buildEmptySimpleSuggestion("Calculando sugestão simples..."),
       };
       requestFinalSuggestionApi(sourceArr, num, startIdx, finalSuggestionCount);
@@ -5214,6 +5528,71 @@ countContainers.forEach(({ selector, itemClass }) => {
         : 0;
       const simpleShadowReason = String(simpleEntryShadowRecommendation.reason || "").trim();
       const simpleShadowExpectedValueLabel = `${simpleShadowExpectedValue >= 0 ? "+" : ""}${simpleShadowExpectedValue.toFixed(2)}`;
+      const simpleSignalQuality = normalizeSignalQuality(
+        simpleSuggestion?.signal_quality,
+        "Qualidade da simple indisponível.",
+        { available: isSimpleApiReady, enabled: true }
+      );
+      const finalSignalQuality = normalizeSignalQuality(
+        finalSuggestionApi?.signal_quality,
+        "Gate de assertividade indisponível.",
+        {
+          available: !!finalSuggestionApi?.available,
+          enabled: assertivenessGateEnabled,
+          min_score: assertivenessMinScore,
+        }
+      );
+      const buildSignalQualityCardHtml = (title, signalQuality, { showMinScore = false, mode = "quality" } = {}) => {
+        const action = String(signalQuality?.recommendation?.action || "wait").toLowerCase();
+        const enabled = !!signalQuality?.enabled;
+        const label = String(signalQuality?.recommendation?.label || (action === "enter" ? "Entrar" : (action === "skip" ? "Bloquear" : "Esperar")));
+        const reason = String(signalQuality?.recommendation?.reason || "Qualidade indisponível.").trim();
+        const reasons = Array.isArray(signalQuality?.reasons)
+          ? signalQuality.reasons.filter((item) => typeof item === "string" && item.trim()).slice(0, 2)
+          : [];
+        const theme = !enabled
+          ? "background: linear-gradient(135deg, #475569 0%, #334155 100%); color: #e2e8f0;"
+          : (action === "enter"
+            ? "background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ecfdf5;"
+            : (action === "skip"
+              ? "background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); color: #fef2f2;"
+              : "background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); color: #fffbeb;"));
+        const score = Number.isFinite(Number(signalQuality?.score)) ? Number(signalQuality.score) : 0;
+        const minScore = Number.isFinite(Number(signalQuality?.min_score)) ? Number(signalQuality.min_score) : 0;
+        const scoreLine = showMinScore
+          ? `Score ${score}% (${signalQuality?.label || "Baixa"}) | Corte ${minScore}%`
+          : `Score ${score}% (${signalQuality?.label || "Baixa"})`;
+        const availabilityLine = mode === "gate"
+          ? (enabled
+            ? (signalQuality?.passed ? "Liberado para entrada" : "Segurado pelo gate")
+            : "Gate desativado para esta leitura")
+          : (action === "enter"
+            ? "Contexto favorável para entrada"
+            : (action === "skip"
+              ? "Sinal fraco para entrada imediata"
+              : "Pede confirmação adicional"));
+        return `
+          <div class="tt-list" style="margin-top: 8px; border: 1px solid rgba(148, 163, 184, 0.22);">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+              <span style="font-weight: 700;">${title}</span>
+              <span style="padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; ${theme}">
+                ${label}
+              </span>
+            </div>
+            <div style="font-size: 11px; color: #cbd5e1; margin-top: 6px;">
+              ${scoreLine} | ${availabilityLine}
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
+              ${reason}
+            </div>
+            ${reasons.length ? `
+              <div style="font-size: 10px; color: #94a3b8; margin-top: 6px;">
+                ${reasons.join(" | ")}
+              </div>
+            ` : ""}
+          </div>
+        `;
+      };
       const simpleShadowHtml = isSimpleApiReady ? `
         <div class="tt-list" style="margin-top: 8px; border: 1px solid rgba(148, 163, 184, 0.22);">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
@@ -5249,6 +5628,8 @@ countContainers.forEach(({ selector, itemClass }) => {
         ${isSimpleApiReady ? `<div class="tt-list">Apoio do topo: ${simpleTopSupportCount} pattern(s)</div>` : ""}
         ${isSimpleApiReady ? `<div class="tt-list">Apoio mínimo na lista: ${simpleMinSupportCount}</div>` : ""}
         ${isSimpleApiReady ? `<div class="tt-list">Apoio médio da lista: ${simpleAvgSupportCount.toFixed(2)}</div>` : ""}
+        ${buildSignalQualityCardHtml("Qualidade da Simple", simpleSignalQuality)}
+        ${buildSignalQualityCardHtml("Gate de Assertividade", finalSignalQuality, { showMinScore: true, mode: "gate" })}
         ${simpleShadowHtml}
       `;
       const simpleTopVotes = Array.isArray(simpleSuggestion?.number_details)

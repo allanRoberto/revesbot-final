@@ -33,9 +33,13 @@ suggestion_monitor_events_coll = mongo_db["suggestion_monitor_events"]
 suggestion_monitor_attempts_coll = mongo_db["suggestion_monitor_attempts"]
 suggestion_monitor_offsets_coll = mongo_db["suggestion_monitor_offsets"]
 suggestion_monitor_pattern_outcomes_coll = mongo_db["suggestion_monitor_pattern_outcomes"]
+occurrence_analysis_runs_coll = mongo_db["occurrence_analysis_runs"]
+occurrence_analysis_events_coll = mongo_db["occurrence_analysis_events"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
+_occurrence_analysis_indexes_ready = False
+_occurrence_analysis_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -112,3 +116,52 @@ async def ensure_suggestion_monitor_indexes() -> None:
         )
 
         _suggestion_monitor_indexes_ready = True
+
+
+async def ensure_occurrence_analysis_indexes() -> None:
+    global _occurrence_analysis_indexes_ready
+    if _occurrence_analysis_indexes_ready:
+        return
+    async with _occurrence_analysis_indexes_lock:
+        if _occurrence_analysis_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            occurrence_analysis_runs_coll,
+            [("run_id", ASCENDING)],
+            name="occ_runs_run_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            occurrence_analysis_runs_coll,
+            [("roulette_id", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="occ_runs_roulette_created_desc",
+        )
+        await _create_index_if_missing(
+            occurrence_analysis_runs_coll,
+            [("mode", ASCENDING), ("status", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="occ_runs_mode_status_created_desc",
+        )
+        await _create_index_if_missing(
+            occurrence_analysis_events_coll,
+            [("event_id", ASCENDING)],
+            name="occ_events_event_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            occurrence_analysis_events_coll,
+            [("run_id", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="occ_events_run_created_desc",
+        )
+        await _create_index_if_missing(
+            occurrence_analysis_events_coll,
+            [("roulette_id", ASCENDING), ("status", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="occ_events_roulette_status_created_desc",
+        )
+        await _create_index_if_missing(
+            occurrence_analysis_events_coll,
+            [("roulette_id", ASCENDING), ("mode", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="occ_events_roulette_mode_created_desc",
+        )
+
+        _occurrence_analysis_indexes_ready = True

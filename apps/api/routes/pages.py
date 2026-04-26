@@ -39,6 +39,25 @@ async def assertiveness_replay_page():
         return f.read()
 
 
+@router.get("/occurrences-lab", response_class=HTMLResponse)
+async def occurrences_lab_page():
+    with open(os.path.join(templates_dir, "occurrences_lab.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/occurrences-runs", response_class=HTMLResponse)
+@router.get("/occurrences-live-runs", response_class=HTMLResponse)
+async def occurrences_runs_page():
+    with open(os.path.join(templates_dir, "occurrences_live_runs.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/occurrences-runs/{run_id}", response_class=HTMLResponse)
+async def occurrence_run_detail_page(run_id: str):
+    with open(os.path.join(templates_dir, "occurrences_run_detail.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/analizador", response_class=HTMLResponse)
 async def analizador_page():
     """

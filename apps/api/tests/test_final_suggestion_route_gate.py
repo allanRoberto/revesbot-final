@@ -181,6 +181,118 @@ def test_get_simple_suggestion_uses_fast_path_without_final_pipeline(monkeypatch
     assert result["list"] == [3, 7, 5]
     assert result["pattern_count"] == 4
     assert result["entry_shadow"]["available"] is True
+    assert "signal_quality" in result
+    assert result["signal_quality"]["available"] is True
+
+
+def test_get_simple_suggestion_reranks_selected_list_by_occurrence_overlap(monkeypatch) -> None:
+    monkeypatch.setattr(
+        patterns,
+        "_compute_final_suggestion",
+        lambda payload: (_ for _ in ()).throw(AssertionError("final pipeline should not run")),
+    )
+    monkeypatch.setattr(patterns, "build_base_suggestion", lambda **kwargs: [4, 9, 15])
+    monkeypatch.setattr(patterns.pattern_weight_profiles, "load_profile", lambda profile_id: None)
+    monkeypatch.setattr(
+        patterns.pattern_engine,
+        "evaluate",
+        lambda **kwargs: {
+            "available": True,
+            "suggestion": [3, 7, 5],
+            "explanation": "ok",
+            "confidence": {"score": 88, "label": "Alta"},
+            "confidence_breakdown": {
+                "calibrated_confidence_v2": 74,
+            },
+            "contributions": [
+                {"pattern_id": "p1", "pattern_name": "Pattern 1", "numbers": [3, 5]},
+                {"pattern_id": "p2", "pattern_name": "Pattern 2", "numbers": [3]},
+                {"pattern_id": "p3", "pattern_name": "Pattern 3", "numbers": [7]},
+                {"pattern_id": "p4", "pattern_name": "Pattern 4", "numbers": [7]},
+            ],
+            "negative_contributions": [],
+            "pending_patterns": [],
+            "number_details": [],
+            "adaptive_weights": [],
+        },
+    )
+
+    payload = FinalSuggestionRequest(
+        history=[4, 7, 9, 4, 7, 8, 4, 3, 6],
+        focus_number=4,
+        from_index=0,
+        max_numbers=3,
+        block_bets_enabled=False,
+        occurrence_fusion_enabled=True,
+        occurrence_window_before=1,
+        occurrence_window_after=1,
+        occurrence_ranking_size=3,
+        occurrence_invert_check_window=0,
+    )
+
+    result = asyncio.run(patterns.get_simple_suggestion(payload))
+
+    assert result["available"] is True
+    assert result["pre_fusion_list"] == [3, 7, 5]
+    assert result["list"] == [7, 3, 5]
+    assert result["selected_number_details"][0]["number"] == 7
+    assert result["selected_number_details"][0]["occurrence_overlap"] is True
+    assert result["occurrence_overlap_count"] == 2
+    assert result["occurrence_ranking"][:2] == [7, 3]
+
+
+def test_get_simple_suggestion_keeps_signal_when_occurrence_is_inverted(monkeypatch) -> None:
+    monkeypatch.setattr(
+        patterns,
+        "_compute_final_suggestion",
+        lambda payload: (_ for _ in ()).throw(AssertionError("final pipeline should not run")),
+    )
+    monkeypatch.setattr(patterns, "build_base_suggestion", lambda **kwargs: [4, 9, 15])
+    monkeypatch.setattr(patterns.pattern_weight_profiles, "load_profile", lambda profile_id: None)
+    monkeypatch.setattr(
+        patterns.pattern_engine,
+        "evaluate",
+        lambda **kwargs: {
+            "available": True,
+            "suggestion": [3, 7, 5],
+            "explanation": "ok",
+            "confidence": {"score": 88, "label": "Alta"},
+            "confidence_breakdown": {
+                "calibrated_confidence_v2": 74,
+            },
+            "contributions": [
+                {"pattern_id": "p1", "pattern_name": "Pattern 1", "numbers": [3, 5]},
+                {"pattern_id": "p2", "pattern_name": "Pattern 2", "numbers": [3]},
+                {"pattern_id": "p3", "pattern_name": "Pattern 3", "numbers": [7]},
+                {"pattern_id": "p4", "pattern_name": "Pattern 4", "numbers": [7]},
+            ],
+            "negative_contributions": [],
+            "pending_patterns": [],
+            "number_details": [],
+            "adaptive_weights": [],
+        },
+    )
+
+    payload = FinalSuggestionRequest(
+        history=[4, 7, 9, 4, 7, 8, 4, 3, 6],
+        focus_number=4,
+        from_index=0,
+        max_numbers=3,
+        block_bets_enabled=False,
+        occurrence_fusion_enabled=True,
+        occurrence_window_before=1,
+        occurrence_window_after=1,
+        occurrence_ranking_size=3,
+        occurrence_invert_check_window=2,
+    )
+
+    result = asyncio.run(patterns.get_simple_suggestion(payload))
+
+    assert result["available"] is True
+    assert result["list"] == [7, 3, 5]
+    assert result["occurrence_inverted_detected"] is True
+    assert result["occurrence_invert_hit_count"] > 0
+    assert result["occurrence_fusion"]["applied"] is True
 
 
 def test_compute_final_suggestion_blocks_when_entry_policy_recommends_wait(monkeypatch) -> None:
@@ -289,6 +401,83 @@ def test_compute_final_suggestion_blocks_when_candidate_confidence_is_below_mini
     assert result["emission_gate"]["min_confidence"] == 40
     assert result["emission_gate"]["candidate_confidence"] == 35
     assert any("Confidence final abaixo do mínimo" in reason for reason in result["emission_gate"]["reasons"])
+
+
+def test_compute_final_suggestion_blocks_when_assertiveness_gate_recommends_wait(monkeypatch) -> None:
+    monkeypatch.setattr(patterns, "build_base_suggestion", lambda **kwargs: [4, 9, 15])
+    monkeypatch.setattr(patterns.pattern_weight_profiles, "load_profile", lambda profile_id: None)
+    monkeypatch.setattr(
+        patterns.pattern_engine,
+        "evaluate",
+        lambda **kwargs: {
+            "available": True,
+            "suggestion": [4, 9, 15],
+            "explanation": "ok",
+            "confidence": {"score": 82, "label": "Alta"},
+            "confidence_breakdown": {
+                "calibrated_confidence_v2": 71,
+            },
+            "contributions": [{"pattern_id": "p1", "pattern_name": "Pattern 1", "numbers": [4, 9, 15]}],
+            "negative_contributions": [],
+            "pending_patterns": [],
+            "number_details": [],
+            "adaptive_weights": [],
+        },
+    )
+    monkeypatch.setattr(
+        patterns,
+        "build_final_suggestion",
+        lambda **kwargs: {
+            "available": True,
+            "list": [4, 9, 15],
+            "protections": [],
+            "confidence": {"score": 66, "label": "Alta"},
+            "explanation": "ok",
+            "breakdown": {},
+        },
+    )
+    monkeypatch.setattr(
+        patterns,
+        "evaluate_final_signal_assertiveness",
+        lambda **kwargs: {
+            "enabled": True,
+            "passed": False,
+            "blocked": True,
+            "protected_mode_bypass": False,
+            "min_score": 55,
+            "score": 48,
+            "label": "Baixa",
+            "recommendation": {
+                "action": "wait",
+                "label": "Esperar",
+                "reason": "Meta gate encontrou qualidade operacional insuficiente.",
+            },
+            "components": {},
+            "simple_quality": {},
+            "reasons": ["entry shadow ainda sem timing suficiente"],
+        },
+    )
+
+    payload = FinalSuggestionRequest(
+        history=[4, 9, 15, 22, 31, 18],
+        focus_number=4,
+        from_index=0,
+        max_numbers=3,
+        entry_policy_enabled=False,
+        final_gate_require_optimized=False,
+        assertiveness_gate_enabled=True,
+        assertiveness_min_score=55,
+    )
+
+    result = asyncio.run(patterns._compute_final_suggestion(payload))
+
+    assert result["available"] is False
+    assert result["signal_quality"]["score"] == 48
+    assert result["signal_quality"]["recommendation"]["action"] == "wait"
+    assert result["emission_gate"]["assertiveness_enabled"] is True
+    assert result["emission_gate"]["assertiveness_score"] == 48
+    assert result["emission_gate"]["assertiveness_action"] == "wait"
+    assert any("Assertividade insuficiente" in reason for reason in result["emission_gate"]["reasons"])
 
 
 def test_compute_final_suggestion_applies_protected_mode_and_cold_metadata(monkeypatch) -> None:

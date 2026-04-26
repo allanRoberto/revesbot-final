@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Execucoes de Ocorrencias</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #0f172a;
+      --accent-soft: #f1f5f9;
+      --warm: #d97706;
+      --warm-soft: rgba(217, 119, 6, 0.12);
+      --danger: #dc2626;
+      --danger-soft: rgba(220, 38, 38, 0.12);
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.05);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px 18px 48px;
+    }
+
+    .hero, .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 28px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 14px 0 10px;
+      font-size: 36px;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      padding: 22px;
+    }
+
+    .panel h2, .panel h3 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    .subtle {
+      margin: -4px 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font: inherit;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.98);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button, a.button-link {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover, a.button-link:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.75; cursor: wait; transform: none; }
+
+    .primary { background: var(--accent); color: white; }
+    .secondary { background: #ffffff; color: var(--text); border: 1px solid var(--border); }
+    .warning { background: var(--warm-soft); color: var(--warm); }
+    .danger { background: var(--danger-soft); color: var(--danger); }
+
+    .status {
+      min-height: 20px;
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--accent); }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #ffffff;
+      padding: 16px;
+    }
+
+    .card .label {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .card .value {
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .card .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1080px;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tbody tr[data-run-id] {
+      cursor: pointer;
+    }
+
+    tbody tr[data-run-id]:hover {
+      background: #f8fafc;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.running,
+    .badge.finished,
+    .badge.completed,
+    .badge.resolved,
+    .badge.success {
+      color: #16a34a;
+      background: rgba(22, 163, 74, 0.12);
+    }
+
+    .badge.pending,
+    .badge.scheduled,
+    .badge.warning {
+      color: var(--warm);
+      background: var(--warm-soft);
+    }
+
+    .badge.failed,
+    .badge.cancelled_inverted,
+    .badge.cancelled,
+    .badge.stopped,
+    .badge.idle {
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 18px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 34px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(24, 33, 39, 0.08);
+      background: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .chip .count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .chip-number {
+      min-width: 24px;
+      min-height: 24px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      padding: 0 6px;
+      font-weight: 800;
+    }
+
+    .num-red { background: var(--red); }
+    .num-black { background: var(--black); }
+    .num-green { background: var(--green); }
+
+    .attempt-track {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .attempt-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #d8ddd9;
+      box-shadow: inset 0 0 0 1px rgba(24, 33, 39, 0.08);
+    }
+
+    .attempt-dot.hit { background: var(--green); }
+    .attempt-dot.miss { background: var(--danger); }
+    .attempt-dot.pending { background: #d8ddd9; }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .muted { color: var(--muted); }
+
+    .empty {
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.72);
+      font-size: 14px;
+    }
+
+    .timing-note {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      .page { padding: 18px 12px 34px; }
+      .hero, .panel { padding: 18px; }
+      h1 { font-size: 30px; }
+      .grid { grid-template-columns: 1fr; }
+      table { min-width: 760px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="eyebrow">Occurrence Runs</div>
+      <h1>Execucoes de ocorrencias</h1>
+      <p>
+        Veja lives e replays em um unico lugar. A listagem mostra tipo, status, data de criacao,
+        tamanho do ranking monitorado, janela de jogadas e hits acumulados. Ao clicar em uma run,
+        voce abre a pagina especifica com os detalhes completos e pode excluir a execucao quando ela nao estiver em andamento.
+      </p>
+    </section>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>Filtros</h2>
+        <div class="grid">
+          <div>
+            <label for="roulette-id">Roleta</label>
+            <select id="roulette-id"></select>
+          </div>
+          <div>
+            <label for="mode-filter">Tipo</label>
+            <select id="mode-filter">
+              <option value="">Todos</option>
+              <option value="live">Live</option>
+              <option value="replay">Replay</option>
+            </select>
+          </div>
+          <div>
+            <label for="status-filter">Status</label>
+            <select id="status-filter">
+              <option value="">Todas</option>
+              <option value="running">Em andamento</option>
+              <option value="scheduled">Agendada</option>
+              <option value="completed">Concluida</option>
+              <option value="finished">Encerrada</option>
+              <option value="stopped">Parada</option>
+              <option value="failed">Falhou</option>
+            </select>
+          </div>
+          <div>
+            <label for="limit-input">Limite</label>
+            <input id="limit-input" type="number" min="1" max="200" value="60">
+          </div>
+          <div>
+            <label for="auto-refresh">Atualizacao</label>
+            <select id="auto-refresh">
+              <option value="on">Automatica</option>
+              <option value="off">Manual</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <a class="button-link primary" href="/occurrences-lab#live-section">Nova live</a>
+          <a class="button-link secondary" href="/occurrences-lab#replay-section">Novo replay</a>
+          <button id="refresh-btn" class="primary">Atualizar lista</button>
+          <button id="cleanup-btn" class="danger">Excluir runs encerradas</button>
+          <a class="button-link secondary" href="/occurrences-lab">Voltar ao lab</a>
+        </div>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Runs registradas</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Roleta</th>
+                <th>Status</th>
+                <th>Criado em</th>
+                <th>Ranking monitorado</th>
+                <th>Jogadas monitoradas</th>
+                <th>Hits</th>
+                <th>Run id</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="runs-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'occurrenceLiveRunsPageV1';
+    const DEFAULT_ROULETTE = '';
+
+    const rouletteSelect = document.getElementById('roulette-id');
+    const modeFilter = document.getElementById('mode-filter');
+    const statusFilter = document.getElementById('status-filter');
+    const limitInput = document.getElementById('limit-input');
+    const autoRefreshSelect = document.getElementById('auto-refresh');
+    const statusEl = document.getElementById('status');
+    const runsBody = document.getElementById('runs-body');
+
+    const state = {
+      pollHandle: null,
+      lastRuns: [],
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function safeNumber(value, fallback = 0) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function pct(value) {
+      return `${(safeNumber(value) * 100).toFixed(2)}%`;
+    }
+
+    function setStatus(message, tone = '') {
+      statusEl.className = `status ${tone}`.trim();
+      statusEl.textContent = message || '';
+    }
+
+    function dateTime(value) {
+      if (!value) return '-';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return String(value);
+      return parsed.toLocaleString('pt-BR');
+    }
+
+    function badge(value) {
+      const label = String(value || 'unknown');
+      const tone = label.toLowerCase();
+      return `<span class="badge ${escapeHtml(tone)}">${escapeHtml(label.replaceAll('_', ' '))}</span>`;
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        roulette_id: rouletteSelect.value,
+        mode: modeFilter.value,
+        status: statusFilter.value,
+        limit: limitInput.value,
+        auto_refresh: autoRefreshSelect.value,
+      }));
+    }
+
+    function restoreState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const payload = JSON.parse(raw);
+        rouletteSelect.dataset.savedValue = payload.roulette_id || DEFAULT_ROULETTE;
+        modeFilter.value = payload.mode || '';
+        statusFilter.value = payload.status || '';
+        limitInput.value = payload.limit || '60';
+        autoRefreshSelect.value = payload.auto_refresh || 'on';
+      } catch (error) {
+        console.warn('Falha ao restaurar estado da pagina de lives', error);
+      }
+    }
+
+    async function fetchJson(url, options = undefined) {
+      const response = await fetch(url, options);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || payload.message || `HTTP ${response.status}`);
+      }
+      return payload;
+    }
+
+    async function loadRoulettes() {
+      const data = await fetchJson('/api/roulettes-list');
+      rouletteSelect.innerHTML = `
+        <option value="">Todas as roletas</option>
+        ${data.map((roulette) => `<option value="${escapeHtml(roulette.id)}">${escapeHtml(roulette.name)} (${escapeHtml(roulette.count)})</option>`).join('')}
+      `;
+      const saved = rouletteSelect.dataset.savedValue || DEFAULT_ROULETTE;
+      if (saved && Array.from(rouletteSelect.options).some((option) => option.value === saved)) {
+        rouletteSelect.value = saved;
+      }
+    }
+
+    function canDeleteRun(run) {
+      const status = String(run?.status || '').toLowerCase();
+      return !['running', 'scheduled'].includes(status);
+    }
+
+    function renderRuns(items) {
+      state.lastRuns = Array.isArray(items) ? items : [];
+      runsBody.innerHTML = state.lastRuns.map((run) => `
+        <tr data-run-id="${escapeHtml(run.run_id)}">
+          <td>${badge(run.mode || '-')}</td>
+          <td>${escapeHtml(run.roulette_id || '-')}</td>
+          <td>${badge(run.status || '-')}</td>
+          <td>${escapeHtml(dateTime(run.created_at_utc))}</td>
+          <td class="mono">${escapeHtml(run.config?.ranking_size ?? '-')}</td>
+          <td class="mono">${escapeHtml(run.config?.attempts_window ?? '-')}</td>
+          <td class="mono">${escapeHtml(run.total_hits ?? 0)}</td>
+          <td class="mono">${escapeHtml(run.run_id || '-')}</td>
+          <td>
+            <a class="button-link secondary open-run-btn" href="/occurrences-runs/${encodeURIComponent(run.run_id)}" data-run-id="${escapeHtml(run.run_id)}">Abrir</a>
+            ${canDeleteRun(run) ? `<button class="danger delete-run-btn" data-run-id="${escapeHtml(run.run_id)}">Excluir</button>` : ''}
+          </td>
+        </tr>
+      `).join('') || `<tr><td colspan="9" class="muted">Nenhuma run encontrada com os filtros atuais.</td></tr>`;
+    }
+
+    async function refreshRuns() {
+      saveState();
+      const params = new URLSearchParams({ limit: String(safeNumber(limitInput.value, 60)) });
+      if (rouletteSelect.value) params.set('roulette_id', rouletteSelect.value);
+      if (modeFilter.value) params.set('mode', modeFilter.value);
+      if (statusFilter.value) params.set('status', statusFilter.value);
+      const payload = await fetchJson(`/api/occurrences/runs?${params.toString()}`);
+      renderRuns(payload.items || []);
+    }
+
+    async function cleanupFinishedRuns() {
+      saveState();
+      setStatus('Excluindo runs encerradas...');
+      const body = {};
+      if (rouletteSelect.value) body.roulette_id = rouletteSelect.value;
+      if (modeFilter.value) body.mode = modeFilter.value;
+      try {
+        const payload = await fetchJson('/api/occurrences/runs/cleanup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        setStatus(`Runs excluidas: ${payload.deleted_run_count} run(s), ${payload.deleted_event_count} evento(s).`, 'success');
+        await refreshRuns();
+      } catch (error) {
+        setStatus(`Falha ao excluir runs encerradas: ${error.message}`, 'error');
+      }
+    }
+
+    async function deleteRun(runId) {
+      if (!runId) return;
+      const confirmed = window.confirm('Excluir esta run e todos os eventos associados?');
+      if (!confirmed) return;
+      setStatus('Excluindo run...');
+      try {
+        const payload = await fetchJson(`/api/occurrences/runs/${encodeURIComponent(runId)}`, {
+          method: 'DELETE',
+        });
+        setStatus(`Run excluida. ${payload.deleted_event_count} evento(s) removido(s).`, 'success');
+        await refreshRuns();
+      } catch (error) {
+        setStatus(`Falha ao excluir run: ${error.message}`, 'error');
+      }
+    }
+
+    function attachEvents() {
+      document.getElementById('refresh-btn').addEventListener('click', async () => {
+        setStatus('Atualizando runs...');
+        try {
+          await refreshRuns();
+          setStatus(`Lista atualizada em ${dateTime(new Date().toISOString())}.`, 'success');
+        } catch (error) {
+          setStatus(`Falha ao atualizar lista: ${error.message}`, 'error');
+        }
+      });
+
+      document.getElementById('cleanup-btn').addEventListener('click', cleanupFinishedRuns);
+
+      [rouletteSelect, modeFilter, statusFilter, limitInput, autoRefreshSelect].forEach((input) => {
+        input.addEventListener('change', async () => {
+          saveState();
+          try {
+            await refreshRuns();
+          } catch (error) {
+            setStatus(`Falha ao aplicar filtro: ${error.message}`, 'error');
+          }
+        });
+      });
+
+      runsBody.addEventListener('click', async (event) => {
+        const deleteButton = event.target.closest('.delete-run-btn');
+        if (deleteButton) {
+          await deleteRun(deleteButton.dataset.runId);
+          return;
+        }
+        const row = event.target.closest('tr[data-run-id]');
+        if (row) {
+          window.location.href = `/occurrences-runs/${encodeURIComponent(row.dataset.runId)}`;
+        }
+      });
+    }
+
+    function startPolling() {
+      if (state.pollHandle) clearInterval(state.pollHandle);
+      state.pollHandle = setInterval(async () => {
+        if (document.hidden) return;
+        if (autoRefreshSelect.value !== 'on') return;
+        try {
+          await refreshRuns();
+        } catch (error) {
+          console.warn('Falha no polling das lives de ocorrencias', error);
+        }
+      }, 4000);
+    }
+
+    async function boot() {
+      restoreState();
+      attachEvents();
+      await loadRoulettes();
+      await refreshRuns();
+      startPolling();
+    }
+
+    boot().catch((error) => {
+      setStatus(`Falha ao carregar a pagina: ${error.message}`, 'error');
+    });
+  </script>
+</body>
+</html>

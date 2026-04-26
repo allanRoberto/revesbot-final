@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Occurrence Lab</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --panel-strong: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #0f172a;
+      --accent-soft: #f1f5f9;
+      --warm: #d97706;
+      --warm-soft: rgba(217, 119, 6, 0.12);
+      --danger: #dc2626;
+      --danger-soft: rgba(220, 38, 38, 0.12);
+      --success: #16a34a;
+      --success-soft: rgba(22, 163, 74, 0.12);
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.05);
+      --red: #dc2626;
+      --black: #111827;
+      --green: #16a34a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 30px 18px 48px;
+    }
+
+    .hero,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 28px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 14px 0 10px;
+      font-size: 36px;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 900px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      padding: 22px;
+    }
+
+    .panel h2,
+    .panel h3 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    .panel h3 {
+      font-size: 17px;
+      margin-bottom: 12px;
+    }
+
+    .subtle {
+      margin: -4px 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font: inherit;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.98);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: rgba(15, 23, 42, 0.18);
+      box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button,
+    a.button-link {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
+    }
+
+    button:hover,
+    a.button-link:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.75; cursor: wait; transform: none; }
+
+    .primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .secondary {
+      background: #ffffff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .warning {
+      background: var(--warm-soft);
+      color: var(--warm);
+    }
+
+    .danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .status {
+      min-height: 20px;
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--success); }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff 0%, var(--panel-strong) 100%);
+      padding: 16px;
+    }
+
+    .card .label {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .card .value {
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .card .sub {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 18px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 34px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .chip .count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .chip-number {
+      min-width: 24px;
+      min-height: 24px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      padding: 0 6px;
+      font-weight: 800;
+    }
+
+    .num-red { background: var(--red); }
+    .num-black { background: var(--black); }
+    .num-green { background: var(--green); }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .meta {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.72);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .meta strong {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 780px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.running,
+    .badge.resolved,
+    .badge.completed,
+    .badge.finished,
+    .badge.success {
+      color: var(--success);
+      background: var(--success-soft);
+    }
+
+    .badge.pending,
+    .badge.scheduled,
+    .badge.warning {
+      color: var(--warm);
+      background: var(--warm-soft);
+    }
+
+    .badge.failed,
+    .badge.miss,
+    .badge.cancelled,
+    .badge.cancelled_inverted,
+    .badge.stopped,
+    .badge.idle {
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .empty {
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.72);
+      font-size: 14px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .attempt-track {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .attempt-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #cfd6d0;
+      box-shadow: inset 0 0 0 1px rgba(25, 33, 39, 0.08);
+    }
+
+    .attempt-dot.hit {
+      background: var(--green);
+    }
+
+    .attempt-dot.miss {
+      background: var(--danger);
+    }
+
+    .attempt-dot.pending {
+      background: #d8ddd9;
+    }
+
+    .timing-note {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 760px) {
+      .page { padding: 18px 12px 34px; }
+      .hero, .panel { padding: 18px; }
+      h1 { font-size: 30px; }
+      .grid, .grid-3, .meta-grid, .split {
+        grid-template-columns: 1fr;
+      }
+      table { min-width: 640px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="eyebrow">Occurrence Control</div>
+      <h1>Lab de ocorrencias</h1>
+      <p>
+        Painel unico para validar a logica do tooltip, rodar replay historico, iniciar o monitor ao vivo
+        e acompanhar os eventos resolvidos em tempo real sem depender do websocket no navegador.
+      </p>
+    </section>
+
+    <div class="layout">
+      <section id="config-section" class="panel">
+        <h2>Configuracoes</h2>
+        <p class="subtle">Defina os parametros da estrategia, rode o replay, acompanhe o live e atualize os dados da run selecionada.</p>
+        <div class="grid-3">
+          <div>
+            <label for="roulette-id">Roleta</label>
+            <select id="roulette-id"></select>
+          </div>
+          <div>
+            <label for="history-limit">Historico usado</label>
+            <input id="history-limit" type="number" min="100" max="50000" value="2000">
+          </div>
+          <div>
+            <label for="entries-limit">Entradas do replay</label>
+            <input id="entries-limit" type="number" min="1" max="5000" value="300">
+          </div>
+          <div>
+            <label for="window-before">Janela antes</label>
+            <input id="window-before" type="number" min="0" max="100" value="5">
+          </div>
+          <div>
+            <label for="window-after">Janela depois</label>
+            <input id="window-after" type="number" min="0" max="100" value="3">
+          </div>
+          <div>
+            <label for="ranking-size">Ranking top N</label>
+            <input id="ranking-size" type="number" min="1" max="37" value="18">
+          </div>
+          <div>
+            <label for="attempts-window">Janela de monitoramento</label>
+            <input id="attempts-window" type="number" min="1" max="100" value="10">
+          </div>
+          <div>
+            <label for="invert-check-window">Checagem invertida</label>
+            <input id="invert-check-window" type="number" min="0" max="100" value="0">
+          </div>
+          <div>
+            <label for="focus-filter">Filtrar numero foco</label>
+            <input id="focus-filter" type="number" min="0" max="36" placeholder="Opcional">
+          </div>
+          <div>
+            <label for="preview-limit">Preview de eventos</label>
+            <input id="preview-limit" type="number" min="1" max="100" value="25">
+          </div>
+        </div>
+        <div class="actions">
+          <button id="replay-btn" class="primary">Rodar replay</button>
+          <button id="live-start-btn" class="warning">Iniciar live</button>
+          <button id="live-stop-btn" class="danger">Parar live</button>
+          <button id="live-refresh-btn" class="secondary">Atualizar live</button>
+          <button id="cleanup-lived-btn" class="danger">Excluir runs encerradas</button>
+          <button id="refresh-dashboard-btn" class="secondary">Atualizar painel</button>
+          <a class="button-link secondary" href="/occurrences-runs">Ver todas as runs</a>
+        </div>
+        <div id="global-status" class="status"></div>
+        <div id="replay-status" class="status"></div>
+        <div id="live-status" class="status"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Dados da run selecionada</h2>
+        <div id="run-detail-empty" class="empty">Selecione ou gere uma run para carregar os eventos.</div>
+        <div id="run-detail-content" style="display:none;">
+          <div id="run-detail-cards" class="cards" style="margin-bottom:16px;"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Criado em</th>
+                  <th>Gatilho (Ancora)</th>
+                  <th>Ranking</th>
+                  <th>Status</th>
+                  <th>Acerto</th>
+                  <th>Primeiro acerto em</th>
+                  <th>Resumo</th>
+                </tr>
+              </thead>
+              <tbody id="run-events-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="live-section" class="panel">
+        <h2>Live agora</h2>
+        <div id="live-cards" class="cards" style="margin-bottom:16px;"></div>
+        <div id="live-meta" class="meta-grid" style="margin-bottom:16px;"></div>
+        <h3>Eventos recentes do monitor live</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Criado em</th>
+                <th>Gatilho (Ancora)</th>
+                <th>Ranking</th>
+                <th>Status</th>
+                <th>Acerto</th>
+                <th>Primeiro acerto em</th>
+                <th>Resumo</th>
+              </tr>
+            </thead>
+            <tbody id="live-events-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="replay-section" class="panel">
+        <h2>Ultimo replay</h2>
+        <div id="replay-empty" class="empty">Nenhum replay executado nesta sessao.</div>
+        <div id="replay-content" style="display:none;">
+          <div id="replay-cards" class="cards" style="margin-bottom:16px;"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Criado em</th>
+                  <th>Gatilho (Ancora)</th>
+                  <th>Ranking</th>
+                  <th>Status</th>
+                  <th>Acerto</th>
+                  <th>Primeiro acerto em</th>
+                  <th>Resumo</th>
+                </tr>
+              </thead>
+              <tbody id="replay-events-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Runs gravadas</h2>
+        <p class="subtle">As runs ficam persistidas no Mongo. Clique em uma run para abrir os detalhes.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Modo</th>
+                <th>Status</th>
+                <th>Criada em</th>
+                <th>Entradas</th>
+                <th>Hits</th>
+                <th>Hit rate</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="runs-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Ranking pontual</h2>
+        <p class="subtle">Inspecao pontual do numero foco usando a mesma logica da rota de ocorrencias.</p>
+        <div class="grid">
+          <div>
+            <label for="focus-number">Numero foco</label>
+            <input id="focus-number" type="number" min="0" max="36" placeholder="Vazio = numero do indice">
+          </div>
+          <div>
+            <label for="from-index">From index</label>
+            <input id="from-index" type="number" min="0" max="49999" value="0">
+          </div>
+        </div>
+        <div class="actions">
+          <button id="snapshot-btn" class="primary">Calcular ranking</button>
+        </div>
+        <div id="snapshot-status" class="status"></div>
+        <div id="snapshot-empty" class="empty">Nenhum ranking calculado ainda.</div>
+        <div id="snapshot-content" style="display:none;">
+          <div id="snapshot-cards" class="cards" style="margin-bottom:16px;"></div>
+          <h3>Ranking</h3>
+          <div id="snapshot-ranking" class="chip-row" style="margin-bottom:16px;"></div>
+          <div class="split">
+            <div>
+              <h3>Tentativas observadas</h3>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tentativa</th>
+                      <th>Numero</th>
+                      <th>Hit</th>
+                      <th>Rank</th>
+                    </tr>
+                  </thead>
+                  <tbody id="snapshot-attempts-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <h3>Metadados</h3>
+              <div id="snapshot-meta" class="meta-grid"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'occurrencesLabStateV1';
+    const DEFAULT_ROULETTE = 'pragmatic-auto-roulette';
+    const redNumbers = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+
+    const rouletteSelect = document.getElementById('roulette-id');
+    const historyLimitInput = document.getElementById('history-limit');
+    const windowBeforeInput = document.getElementById('window-before');
+    const windowAfterInput = document.getElementById('window-after');
+    const rankingSizeInput = document.getElementById('ranking-size');
+    const attemptsWindowInput = document.getElementById('attempts-window');
+    const invertCheckWindowInput = document.getElementById('invert-check-window');
+    const focusNumberInput = document.getElementById('focus-number');
+    const fromIndexInput = document.getElementById('from-index');
+    const entriesLimitInput = document.getElementById('entries-limit');
+    const focusFilterInput = document.getElementById('focus-filter');
+    const previewLimitInput = document.getElementById('preview-limit');
+
+    const globalStatusEl = document.getElementById('global-status');
+    const snapshotStatusEl = document.getElementById('snapshot-status');
+    const replayStatusEl = document.getElementById('replay-status');
+    const liveStatusEl = document.getElementById('live-status');
+
+    const snapshotEmptyEl = document.getElementById('snapshot-empty');
+    const snapshotContentEl = document.getElementById('snapshot-content');
+    const snapshotCardsEl = document.getElementById('snapshot-cards');
+    const snapshotRankingEl = document.getElementById('snapshot-ranking');
+    const snapshotAttemptsBody = document.getElementById('snapshot-attempts-body');
+    const snapshotMetaEl = document.getElementById('snapshot-meta');
+
+    const replayEmptyEl = document.getElementById('replay-empty');
+    const replayContentEl = document.getElementById('replay-content');
+    const replayCardsEl = document.getElementById('replay-cards');
+    const replayEventsBody = document.getElementById('replay-events-body');
+
+    const liveCardsEl = document.getElementById('live-cards');
+    const liveMetaEl = document.getElementById('live-meta');
+    const liveEventsBody = document.getElementById('live-events-body');
+
+    const runsBody = document.getElementById('runs-body');
+    const runDetailEmptyEl = document.getElementById('run-detail-empty');
+    const runDetailContentEl = document.getElementById('run-detail-content');
+    const runDetailCardsEl = document.getElementById('run-detail-cards');
+    const runEventsBody = document.getElementById('run-events-body');
+
+    const state = {
+      selectedRunId: null,
+      pollHandle: null,
+      lastReplayRunId: null,
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function setStatus(el, message, tone = '') {
+      el.className = `status ${tone}`.trim();
+      el.textContent = message || '';
+    }
+
+    function safeNumber(value, fallback = 0) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function pct(value) {
+      return `${(safeNumber(value) * 100).toFixed(2)}%`;
+    }
+
+    function dateTime(value) {
+      if (!value) return '-';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return String(value);
+      return parsed.toLocaleString('pt-BR');
+    }
+
+    function numberClass(value) {
+      const number = safeNumber(value, -1);
+      if (number === 0) return 'num-green';
+      return redNumbers.has(number) ? 'num-red' : 'num-black';
+    }
+
+    function badge(value) {
+      const label = String(value || 'unknown');
+      const tone = label.toLowerCase();
+      const humanLabel = label.replaceAll('_', ' ');
+      return `<span class="badge ${escapeHtml(tone)}">${escapeHtml(humanLabel)}</span>`;
+    }
+
+    function numberBubble(value) {
+      const number = safeNumber(value, -1);
+      return `<span class="chip-number ${numberClass(number)}">${escapeHtml(number)}</span>`;
+    }
+
+    function rankingChips(items) {
+      if (!Array.isArray(items) || !items.length) {
+        return '<span class="muted">Sem ranking.</span>';
+      }
+      return items.map((item) => {
+        const number = typeof item === 'object' ? item.number : item;
+        const count = typeof item === 'object' ? item.count : null;
+        return `
+          <span class="chip">
+            ${numberBubble(number)}
+            <span>${escapeHtml(number)}</span>
+            ${count !== null ? `<span class="count">${escapeHtml(count)}x</span>` : ''}
+          </span>
+        `;
+      }).join('');
+    }
+
+    function formatNumbers(numbers) {
+      if (!Array.isArray(numbers) || !numbers.length) return '<span class="muted">-</span>';
+      return numbers.map((number) => numberBubble(number)).join('');
+    }
+
+    function getEventAttemptsWindow(event) {
+      return safeNumber(event?.evaluation?.attempts_window, safeNumber(event?.attempts_window, safeNumber(attemptsWindowInput.value, 10)));
+    }
+
+    function getEventAttempts(event) {
+      if (Array.isArray(event?.evaluation?.attempts) && event.evaluation.attempts.length) {
+        return event.evaluation.attempts;
+      }
+      return Array.isArray(event?.attempts) ? event.attempts : [];
+    }
+
+    function getEventHitAttempts(event) {
+      if (Array.isArray(event?.evaluation?.hit_attempts) && event.evaluation.hit_attempts.length) {
+        return event.evaluation.hit_attempts.map((value) => safeNumber(value, 0)).filter((value) => value > 0);
+      }
+      return Array.isArray(event?.hit_attempts) ? event.hit_attempts.map((value) => safeNumber(value, 0)).filter((value) => value > 0) : [];
+    }
+
+    function getFirstHitInfo(event) {
+      const hitAttempts = getEventHitAttempts(event);
+      const first = hitAttempts[0] || null;
+      const nextGap = hitAttempts.length >= 2 ? hitAttempts[1] - hitAttempts[0] : null;
+      return { first, nextGap };
+    }
+
+    function buildAttemptDots(event) {
+      const attempts = getEventAttempts(event);
+      const attemptsWindow = getEventAttemptsWindow(event);
+      const attemptsByNumber = new Map(
+        attempts.map((item) => [safeNumber(item.attempt, 0), item])
+      );
+
+      return Array.from({ length: attemptsWindow }, (_, index) => {
+        const attemptNo = index + 1;
+        const attempt = attemptsByNumber.get(attemptNo);
+        let tone = 'pending';
+        let title = `Jogada ${attemptNo}: pendente`;
+        if (attempt) {
+          tone = attempt.hit ? 'hit' : 'miss';
+          title = `Jogada ${attemptNo}: ${attempt.hit ? 'acerto' : 'erro'}${attempt.number !== undefined ? ` (${attempt.number})` : ''}`;
+        }
+        return `<span class="attempt-dot ${tone}" title="${escapeHtml(title)}"></span>`;
+      }).join('');
+    }
+
+    function renderEventRows(items, emptyMessage) {
+      if (!Array.isArray(items) || !items.length) {
+        return `<tr><td colspan="7" class="muted">${escapeHtml(emptyMessage)}</td></tr>`;
+      }
+
+      return items.map((event) => {
+        const firstHit = getFirstHitInfo(event);
+        const isCancelledInverted = String(event.status || '').toLowerCase() === 'cancelled_inverted';
+        const invertedOffset = safeNumber(event?.inverted_evaluation?.first_hit_offset, 0) || null;
+        const firstHitText = isCancelledInverted ? 'Cancelada' : (firstHit.first ? `Jogada ${firstHit.first}` : 'Sem acerto');
+        const secondHitText = isCancelledInverted
+          ? (invertedOffset ? `Invertida em -${invertedOffset}` : 'Batida invertida')
+          : (firstHit.nextGap ? `Proximo em +${firstHit.nextGap}` : (firstHit.first ? 'Sem 2o acerto' : '-'));
+        const createdAt = event.created_at_utc || event.anchor_timestamp_utc || null;
+        return `
+          <tr>
+            <td>${escapeHtml(dateTime(createdAt))}</td>
+            <td>${numberBubble(event.anchor_number)}</td>
+            <td>${rankingChips(event.ranking_details || event.ranking || [])}</td>
+            <td>${badge(event.status || '-')}</td>
+            <td><span class="attempt-track">${buildAttemptDots(event)}</span></td>
+            <td>
+              ${escapeHtml(firstHitText)}
+              <span class="timing-note">${escapeHtml(secondHitText)}</span>
+            </td>
+            <td>${escapeHtml(event.summary || '-')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function computeRunTimingStats(events) {
+      const firstHits = [];
+      const secondGaps = [];
+
+      (Array.isArray(events) ? events : []).forEach((event) => {
+        const hitAttempts = getEventHitAttempts(event);
+        if (hitAttempts.length >= 1) {
+          firstHits.push(hitAttempts[0]);
+        }
+        if (hitAttempts.length >= 2) {
+          secondGaps.push(hitAttempts[1] - hitAttempts[0]);
+        }
+      });
+
+      const avg = (values) => {
+        if (!values.length) return null;
+        return values.reduce((sum, value) => sum + value, 0) / values.length;
+      };
+
+      return {
+        avgFirstHit: avg(firstHits),
+        avgSecondGap: avg(secondGaps),
+        firstHitSamples: firstHits.length,
+        secondGapSamples: secondGaps.length,
+      };
+    }
+
+    function renderCards(target, cards) {
+      target.innerHTML = cards.map((card) => `
+        <div class="card">
+          <div class="label">${escapeHtml(card.label)}</div>
+          <div class="value">${escapeHtml(card.value)}</div>
+          <div class="sub">${card.sub || ''}</div>
+        </div>
+      `).join('');
+    }
+
+    function commonPayload() {
+      return {
+        roulette_id: rouletteSelect.value,
+        history_limit: safeNumber(historyLimitInput.value, 2000),
+        window_before: safeNumber(windowBeforeInput.value, 5),
+        window_after: safeNumber(windowAfterInput.value, 3),
+        ranking_size: safeNumber(rankingSizeInput.value, 18),
+        attempts_window: safeNumber(attemptsWindowInput.value, 10),
+        invert_check_window: safeNumber(invertCheckWindowInput.value, 0),
+      };
+    }
+
+    function snapshotPayload() {
+      const focusRaw = focusNumberInput.value.trim();
+      return {
+        ...commonPayload(),
+        from_index: safeNumber(fromIndexInput.value, 0),
+        focus_number: focusRaw === '' ? null : safeNumber(focusRaw, 0),
+      };
+    }
+
+    function replayPayload() {
+      const focusRaw = focusFilterInput.value.trim();
+      return {
+        ...commonPayload(),
+        entries_limit: safeNumber(entriesLimitInput.value, 300),
+        focus_number_filter: focusRaw === '' ? null : safeNumber(focusRaw, 0),
+        persist: true,
+        include_event_preview: true,
+        event_preview_limit: safeNumber(previewLimitInput.value, 25),
+      };
+    }
+
+    function livePayload() {
+      return {
+        ...commonPayload(),
+        api_base_url: window.location.origin,
+      };
+    }
+
+    function saveState() {
+      const payload = {
+        roulette_id: rouletteSelect.value,
+        history_limit: historyLimitInput.value,
+        window_before: windowBeforeInput.value,
+        window_after: windowAfterInput.value,
+        ranking_size: rankingSizeInput.value,
+        attempts_window: attemptsWindowInput.value,
+        invert_check_window: invertCheckWindowInput.value,
+        focus_number: focusNumberInput.value,
+        from_index: fromIndexInput.value,
+        entries_limit: entriesLimitInput.value,
+        focus_filter: focusFilterInput.value,
+        preview_limit: previewLimitInput.value,
+        selected_run_id: state.selectedRunId,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    function restoreState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const payload = JSON.parse(raw);
+        historyLimitInput.value = payload.history_limit || '2000';
+        windowBeforeInput.value = payload.window_before || '5';
+        windowAfterInput.value = payload.window_after || '3';
+        rankingSizeInput.value = payload.ranking_size || '18';
+        attemptsWindowInput.value = payload.attempts_window || '10';
+        invertCheckWindowInput.value = payload.invert_check_window || '0';
+        focusNumberInput.value = payload.focus_number || '';
+        fromIndexInput.value = payload.from_index || '0';
+        entriesLimitInput.value = payload.entries_limit || '300';
+        focusFilterInput.value = payload.focus_filter || '';
+        previewLimitInput.value = payload.preview_limit || '25';
+        state.selectedRunId = payload.selected_run_id || null;
+        rouletteSelect.dataset.savedValue = payload.roulette_id || DEFAULT_ROULETTE;
+      } catch (error) {
+        console.warn('Falha ao restaurar estado do occurrence lab', error);
+      }
+    }
+
+    async function fetchJson(url, options = undefined) {
+      const response = await fetch(url, options);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || payload.message || `HTTP ${response.status}`);
+      }
+      return payload;
+    }
+
+    async function loadRoulettes() {
+      const data = await fetchJson('/api/roulettes-list');
+      rouletteSelect.innerHTML = data.map((roulette) => `
+        <option value="${escapeHtml(roulette.id)}">${escapeHtml(roulette.name)} (${escapeHtml(roulette.count)})</option>
+      `).join('');
+
+      const saved = rouletteSelect.dataset.savedValue || DEFAULT_ROULETTE;
+      const hasSaved = Array.from(rouletteSelect.options).some((option) => option.value === saved);
+      rouletteSelect.value = hasSaved ? saved : (rouletteSelect.options[0]?.value || '');
+    }
+
+    function renderSnapshot(result) {
+      snapshotEmptyEl.style.display = 'none';
+      snapshotContentEl.style.display = 'block';
+
+      renderCards(snapshotCardsEl, [
+        { label: 'Numero foco', value: result.focus_number ?? '-', sub: `From index ${result.from_index}` },
+        { label: 'Ocorrencias', value: result.occurrence_count ?? 0, sub: `${result.history_size ?? 0} numeros no recorte` },
+        { label: 'Puxadas', value: result.pulled_total ?? 0, sub: `Janela -${result.window_before} / +${result.window_after}` },
+        { label: 'Hits', value: result.evaluation?.hit_count ?? 0, sub: `${result.evaluation?.summary || '-'}` },
+        {
+          label: 'Batida invertida',
+          value: result.cancelled_reason === 'inverted_hit' ? 'Cancelada' : 'Livre',
+          sub: `${result.invert_check_window ?? 0} numero(s) anteriores verificados`,
+        },
+      ]);
+
+      snapshotRankingEl.innerHTML = rankingChips(result.ranking_details || result.ranking || []);
+      snapshotAttemptsBody.innerHTML = (result.evaluation?.attempts || []).map((attempt) => `
+        <tr>
+          <td class="mono">${escapeHtml(attempt.attempt)}</td>
+          <td>${numberBubble(attempt.number)}</td>
+          <td>${badge(attempt.hit ? 'hit' : 'miss')}</td>
+          <td class="mono">${attempt.rank_position ?? '-'}</td>
+        </tr>
+      `).join('') || `
+        <tr><td colspan="4" class="muted">Nenhuma tentativa disponivel.</td></tr>
+      `;
+
+      snapshotMetaEl.innerHTML = `
+        <div class="meta">
+          <strong>Ocorrencias</strong>
+          <span class="mono">${escapeHtml((result.occurrences || []).join(', ') || '-')}</span>
+        </div>
+        <div class="meta">
+          <strong>Future numbers</strong>
+          <span>${formatNumbers(result.evaluation?.future_numbers || [])}</span>
+        </div>
+        <div class="meta">
+          <strong>Hit attempts</strong>
+          <span class="mono">${escapeHtml((result.evaluation?.hit_attempts || []).join(', ') || '-')}</span>
+        </div>
+        <div class="meta">
+          <strong>Checagem invertida</strong>
+          <span>${escapeHtml(result.inverted_evaluation?.summary || 'Desativada')}</span>
+        </div>
+        <div class="meta">
+          <strong>Explicacao</strong>
+          <span>${escapeHtml(result.explanation || '-')}</span>
+        </div>
+      `;
+    }
+
+    function renderReplayResult(result) {
+      replayEmptyEl.style.display = 'none';
+      replayContentEl.style.display = 'block';
+      const timing = computeRunTimingStats(result.events_preview || []);
+
+      renderCards(replayCardsEl, [
+        { label: 'Run id', value: result.run_id || '-', sub: `${result.preview_event_count || 0} evento(s) em preview` },
+        {
+          label: 'Entradas',
+          value: result.entries_processed ?? result.entries_analyzed ?? 0,
+          sub: `${result.entries_analyzed ?? 0} validadas | ${result.cancelled_inverted_events ?? 0} canceladas`,
+        },
+        { label: 'Hit rate por evento', value: pct(result.event_hit_rate), sub: `${result.events_with_hits ?? 0} eventos com hit` },
+        { label: 'Hit rate agregado', value: pct(result.aggregate_hit_rate), sub: `${result.total_hits ?? 0} hits / ${result.total_attempts ?? 0} tentativas` },
+        { label: '1o acerto medio', value: timing.avgFirstHit ? `${timing.avgFirstHit.toFixed(2)} jog.` : '-', sub: `${timing.firstHitSamples} evento(s) com acerto` },
+        { label: 'Proximo acerto apos o 1o', value: timing.avgSecondGap ? `+${timing.avgSecondGap.toFixed(2)} jog.` : '-', sub: `${timing.secondGapSamples} evento(s) com 2 acertos` },
+      ]);
+
+      replayEventsBody.innerHTML = renderEventRows(
+        result.events_preview || [],
+        'Nenhum evento de preview retornado.'
+      );
+    }
+
+    function renderLiveStatus(payload) {
+      const process = payload.process_status || {};
+      const run = payload.latest_live_run || null;
+      const recentEvents = payload.recent_events || [];
+
+      renderCards(liveCardsEl, [
+        { label: 'Processo', value: process.state || 'idle', sub: `PID ${process.pid || '-'} | ${process.roulette_id || rouletteSelect.value || '-'}` },
+        { label: 'Run ativa', value: run?.run_id || '-', sub: `Status ${run?.status || '-'}` },
+        { label: 'Pendentes', value: run?.pending_events ?? 0, sub: `${run?.resolved_events ?? 0} resolvidos` },
+        { label: 'Canceladas invertidas', value: run?.cancelled_inverted_events ?? 0, sub: `${run?.entries_processed ?? run?.generated_events ?? 0} gatilhos processados` },
+        { label: 'Hit rate evento', value: pct(run?.event_hit_rate || 0), sub: `${run?.events_with_hits ?? 0} com hit` },
+        { label: 'Hit rate agregado', value: pct(run?.aggregate_hit_rate || 0), sub: `${run?.total_hits ?? 0} hits / ${run?.total_attempts ?? 0} tentativas` },
+        { label: 'Gerados', value: run?.generated_events ?? 0, sub: `${payload.total_recent_events ?? 0} eventos salvos` },
+      ]);
+
+      liveMetaEl.innerHTML = `
+        <div class="meta">
+          <strong>Process started</strong>
+          <span>${escapeHtml(dateTime(process.started_at))}</span>
+        </div>
+        <div class="meta">
+          <strong>Process finished</strong>
+          <span>${escapeHtml(dateTime(process.finished_at))}</span>
+        </div>
+        <div class="meta">
+          <strong>API base</strong>
+          <span class="mono">${escapeHtml(process.api_base_url || window.location.origin)}</span>
+        </div>
+        <div class="meta">
+          <strong>Log path</strong>
+          <span class="mono">${escapeHtml(process.log_path || '-')}</span>
+        </div>
+      `;
+
+      liveEventsBody.innerHTML = renderEventRows(
+        recentEvents,
+        'Sem eventos live gravados ainda.'
+      );
+    }
+
+    function renderRuns(items) {
+      runsBody.innerHTML = items.map((run) => `
+        <tr>
+          <td>${badge(run.mode || '-')}</td>
+          <td>${badge(run.status || '-')}</td>
+          <td>${escapeHtml(dateTime(run.created_at_utc))}</td>
+          <td class="mono">${escapeHtml(run.entries_analyzed ?? run.generated_events ?? 0)}</td>
+          <td class="mono">${escapeHtml(run.total_hits ?? 0)}</td>
+          <td>${escapeHtml(pct(run.event_hit_rate || 0))}</td>
+          <td>
+            <button class="secondary load-run-btn" data-run-id="${escapeHtml(run.run_id)}">Ver</button>
+          </td>
+        </tr>
+      `).join('') || `
+        <tr><td colspan="7" class="muted">Nenhuma run encontrada para esta roleta.</td></tr>
+      `;
+    }
+
+    function renderRunDetail(payload) {
+      const run = payload.run || null;
+      const events = payload.events || [];
+      if (!run) {
+        clearRunDetail('Selecione uma run para carregar os detalhes.');
+        return;
+      }
+
+      runDetailEmptyEl.style.display = 'none';
+      runDetailContentEl.style.display = 'block';
+      const timing = computeRunTimingStats(events);
+
+      renderCards(runDetailCardsEl, [
+        { label: 'Run id', value: run.run_id || '-', sub: `${run.mode || '-'} | ${run.status || '-'}` },
+        {
+          label: 'Entradas',
+          value: run.entries_processed ?? run.generated_events ?? run.entries_analyzed ?? 0,
+          sub: `${run.entries_analyzed ?? 0} validadas | ${run.cancelled_inverted_events ?? 0} canceladas`,
+        },
+        { label: 'Hits totais', value: run.total_hits ?? 0, sub: `${run.total_attempts ?? 0} tentativas` },
+        { label: 'Hit rate evento', value: pct(run.event_hit_rate || 0), sub: `${run.events_with_hits ?? 0} eventos com hit` },
+        { label: '1o acerto medio', value: timing.avgFirstHit ? `${timing.avgFirstHit.toFixed(2)} jog.` : '-', sub: `${timing.firstHitSamples} evento(s) com acerto` },
+        { label: 'Proximo acerto apos o 1o', value: timing.avgSecondGap ? `+${timing.avgSecondGap.toFixed(2)} jog.` : '-', sub: `${timing.secondGapSamples} evento(s) com 2 acertos` },
+        { label: 'Hit rate agregado', value: pct(run.aggregate_hit_rate || 0), sub: `${run.avg_hits_per_event ?? 0} media hits/evento` },
+        { label: 'Criada em', value: dateTime(run.created_at_utc), sub: `Atualizada ${dateTime(run.updated_at_utc)}` },
+      ]);
+
+      runEventsBody.innerHTML = renderEventRows(
+        events,
+        'Nenhum evento retornado para esta run.'
+      );
+    }
+
+    function clearRunDetail(message = 'Selecione uma run para carregar os detalhes.') {
+      runDetailEmptyEl.textContent = message;
+      runDetailEmptyEl.style.display = 'block';
+      runDetailContentEl.style.display = 'none';
+      runDetailCardsEl.innerHTML = '';
+      runEventsBody.innerHTML = '';
+    }
+
+    async function runSnapshot() {
+      saveState();
+      document.getElementById('snapshot-btn').disabled = true;
+      setStatus(snapshotStatusEl, 'Calculando ranking de ocorrencias...');
+      try {
+        const result = await fetchJson('/api/occurrences/ranking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(snapshotPayload()),
+        });
+        renderSnapshot(result);
+        setStatus(snapshotStatusEl, `Ranking calculado para o foco ${result.focus_number}.`, 'success');
+      } catch (error) {
+        setStatus(snapshotStatusEl, `Falha no ranking: ${error.message}`, 'error');
+      } finally {
+        document.getElementById('snapshot-btn').disabled = false;
+      }
+    }
+
+    async function runReplay() {
+      saveState();
+      document.getElementById('replay-btn').disabled = true;
+      setStatus(replayStatusEl, 'Executando replay de ocorrencias no backend...');
+      try {
+        const result = await fetchJson('/api/occurrences/replay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(replayPayload()),
+        });
+        renderReplayResult(result);
+        if (result.run_id) {
+          state.lastReplayRunId = result.run_id;
+          state.selectedRunId = result.run_id;
+          await loadRunDetail(result.run_id);
+        }
+        await refreshRuns();
+        setStatus(replayStatusEl, `Replay concluido. Run ${result.run_id || 'nao persistida'}.`, 'success');
+      } catch (error) {
+        setStatus(replayStatusEl, `Falha no replay: ${error.message}`, 'error');
+      } finally {
+        document.getElementById('replay-btn').disabled = false;
+      }
+    }
+
+    async function startLive() {
+      saveState();
+      document.getElementById('live-start-btn').disabled = true;
+      setStatus(liveStatusEl, 'Iniciando monitor ao vivo...');
+      try {
+        const payload = await fetchJson('/api/occurrences/live/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(livePayload()),
+        });
+        setStatus(liveStatusEl, payload.message || 'Monitor live iniciado.', 'success');
+        await refreshLive();
+        await refreshRuns();
+      } catch (error) {
+        setStatus(liveStatusEl, `Falha ao iniciar monitor live: ${error.message}`, 'error');
+      } finally {
+        document.getElementById('live-start-btn').disabled = false;
+      }
+    }
+
+    async function stopLive() {
+      saveState();
+      document.getElementById('live-stop-btn').disabled = true;
+      setStatus(liveStatusEl, 'Parando monitor ao vivo...');
+      try {
+        const payload = await fetchJson('/api/occurrences/live/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roulette_id: rouletteSelect.value }),
+        });
+        setStatus(liveStatusEl, payload.message || 'Monitor live interrompido.', 'success');
+        await refreshLive();
+        await refreshRuns();
+      } catch (error) {
+        setStatus(liveStatusEl, `Falha ao parar monitor live: ${error.message}`, 'error');
+      } finally {
+        document.getElementById('live-stop-btn').disabled = false;
+      }
+    }
+
+    async function cleanupFinishedLives() {
+      saveState();
+      document.getElementById('cleanup-lived-btn').disabled = true;
+      setStatus(liveStatusEl, 'Excluindo runs encerradas...');
+      try {
+        const body = {};
+        if (rouletteSelect.value) body.roulette_id = rouletteSelect.value;
+        const payload = await fetchJson('/api/occurrences/runs/cleanup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (state.selectedRunId && payload.deleted_run_ids?.includes(state.selectedRunId)) {
+          state.selectedRunId = null;
+        }
+        await refreshDashboard();
+        setStatus(
+          liveStatusEl,
+          `Runs excluidas: ${payload.deleted_run_count} run(s), ${payload.deleted_event_count} evento(s).`,
+          'success'
+        );
+      } catch (error) {
+        setStatus(liveStatusEl, `Falha ao excluir runs encerradas: ${error.message}`, 'error');
+      } finally {
+        document.getElementById('cleanup-lived-btn').disabled = false;
+      }
+    }
+
+    async function refreshLive() {
+      if (!rouletteSelect.value) return;
+      const payload = await fetchJson(`/api/occurrences/live/status/${encodeURIComponent(rouletteSelect.value)}?events_limit=30`);
+      renderLiveStatus(payload);
+      if (payload.latest_live_run?.run_id && !state.selectedRunId) {
+        state.selectedRunId = payload.latest_live_run.run_id;
+      }
+    }
+
+    async function refreshRuns() {
+      if (!rouletteSelect.value) return;
+      const payload = await fetchJson(`/api/occurrences/runs?roulette_id=${encodeURIComponent(rouletteSelect.value)}&limit=14`);
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      renderRuns(items);
+      if (state.selectedRunId) {
+        const exists = items.some((item) => item.run_id === state.selectedRunId);
+        if (!exists) {
+          state.selectedRunId = null;
+          saveState();
+          clearRunDetail('A run selecionada nao existe mais. Escolha outra na lista.');
+        }
+      }
+    }
+
+    async function loadRunDetail(runId) {
+      if (!runId) return;
+      state.selectedRunId = runId;
+      saveState();
+      try {
+        const payload = await fetchJson(`/api/occurrences/runs/${encodeURIComponent(runId)}?events_limit=60`);
+        renderRunDetail(payload);
+        return true;
+      } catch (error) {
+        const message = String(error.message || error);
+        if (message.includes('Run de ocorrencias nao encontrado')) {
+          state.selectedRunId = null;
+          saveState();
+          clearRunDetail('A run selecionada foi removida ou nao existe mais.');
+          return false;
+        }
+        throw error;
+      }
+    }
+
+    async function refreshDashboard() {
+      saveState();
+      setStatus(globalStatusEl, 'Atualizando painel...');
+      try {
+        await Promise.all([refreshLive(), refreshRuns()]);
+        if (state.selectedRunId) {
+          const loaded = await loadRunDetail(state.selectedRunId);
+          if (!loaded) {
+            setStatus(globalStatusEl, 'Painel atualizado. A run antiga foi removida da selecao.', 'success');
+            return;
+          }
+        }
+        setStatus(globalStatusEl, `Painel atualizado em ${dateTime(new Date().toISOString())}.`, 'success');
+      } catch (error) {
+        setStatus(globalStatusEl, `Falha ao atualizar painel: ${error.message}`, 'error');
+      }
+    }
+
+    function attachEvents() {
+      document.getElementById('snapshot-btn').addEventListener('click', runSnapshot);
+      document.getElementById('replay-btn').addEventListener('click', runReplay);
+      document.getElementById('live-start-btn').addEventListener('click', startLive);
+      document.getElementById('live-stop-btn').addEventListener('click', stopLive);
+      document.getElementById('live-refresh-btn').addEventListener('click', refreshLive);
+      document.getElementById('cleanup-lived-btn').addEventListener('click', cleanupFinishedLives);
+      document.getElementById('refresh-dashboard-btn').addEventListener('click', refreshDashboard);
+
+      rouletteSelect.addEventListener('change', async () => {
+        state.selectedRunId = null;
+        saveState();
+        await refreshDashboard();
+      });
+
+      runsBody.addEventListener('click', async (event) => {
+        const button = event.target.closest('.load-run-btn');
+        if (!button) return;
+        await loadRunDetail(button.dataset.runId);
+      });
+
+      [
+        historyLimitInput,
+        windowBeforeInput,
+        windowAfterInput,
+        rankingSizeInput,
+        attemptsWindowInput,
+        focusNumberInput,
+        fromIndexInput,
+        entriesLimitInput,
+        focusFilterInput,
+        previewLimitInput,
+      ].forEach((input) => {
+        input.addEventListener('change', saveState);
+      });
+    }
+
+    function startPolling() {
+      if (state.pollHandle) clearInterval(state.pollHandle);
+      state.pollHandle = setInterval(async () => {
+        if (document.hidden) return;
+        try {
+          await Promise.all([refreshLive(), refreshRuns()]);
+          if (state.selectedRunId) {
+            await loadRunDetail(state.selectedRunId);
+          }
+        } catch (error) {
+          console.warn('Falha no polling do occurrence lab', error);
+        }
+      }, 3000);
+    }
+
+    async function boot() {
+      restoreState();
+      attachEvents();
+      await loadRoulettes();
+      await refreshDashboard();
+      startPolling();
+    }
+
+    boot().catch((error) => {
+      setStatus(globalStatusEl, `Falha ao carregar a pagina: ${error.message}`, 'error');
+    });
+  </script>
+</body>
+</html>
