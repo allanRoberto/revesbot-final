@@ -27,7 +27,7 @@ Construir um sistema em **Python** que:
 
 ## 2 Estrutura de programação 
 
-### Formação dos padrões:  src/signals
+### Formação dos padrões:  apps/signals
 
     - Todo padrão serve para todas as roleta, os padrões são processados em todas as roletas da lista *roulette_list* o padrão recebe 3 parametros que são : (roulette) que armazena os dados de cada roleta, e (numbers) que é o histórico dos últimos 500 números daquela roleta em questão, ele processa o padrão e retorna o sinal, caso naquele giro não tenha formado o sinal ele retorna None. 
 
@@ -46,11 +46,11 @@ Construir um sistema em **Python** que:
 
     O arquivo simulate.py faz a simulação dos números, ele faz uma consulta inicial na api e inverte a lista, publica um por um em outro canal, o new_result_simulate. 
 
-### Execução do Sinal : src/monitoring
+### Execução do Sinal : apps/monitoring
 
     - Nesse módulo monitoramos o sinal gerado no canal do Redis, ficamos ouvindo as mensagens e quando um sinal chega e realizamos seu processamento (processor_monitoring.py), o processamento fica responsável por gerenciar o status, processar spins e monitorar o sinal pós finalizado. 
 
-    - Para iniciar o monitoramento eu utilizo o comando no terminal : python -m src.signal_listener. Quando quero resetar os sinais cadastrados eu uso o clear_signals.py
+    - Para iniciar o monitoramento eu utilizo o comando no terminal : `cd apps/monitoring && python3 main.py`. Quando quero resetar os sinais cadastrados eu uso o `clear_signals.sh`
 
     - Cada sinal é processado em uma task separada para não interromper o processamento dos outros padrões concorrentes. 
 

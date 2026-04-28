@@ -9,21 +9,21 @@ from typing import Any, Dict, List, Mapping
 import aiohttp
 import redis.asyncio as aioredis
 
-from src.config import settings
-from src.ml_entry_gate import (
+from .config import settings
+from .ml_entry_gate import (
     build_default_ml_entry_gate_state,
     build_ml_entry_gate_payload_from_ml_meta,
     build_ml_top12_reference_payload_from_ml_meta,
     train_ml_entry_gate_state_from_ml_meta_event,
     train_ml_entry_gate_state_from_reference_event,
 )
-from src.ml_meta_rank import (
+from .ml_meta_rank import (
     build_default_ml_meta_rank_state,
     build_ml_meta_rank_payload_from_context,
     train_ml_meta_rank_state_from_resolved_event,
 )
-from src.suggestion_monitor_repo import SuggestionMonitorRepository
-from src.suggestion_monitor_runtime import (
+from .suggestion_monitor_repo import SuggestionMonitorRepository
+from .suggestion_monitor_runtime import (
     build_attempt_document,
     build_config_key,
     build_event_resolution_fields,

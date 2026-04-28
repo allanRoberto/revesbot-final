@@ -29,7 +29,9 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Entrypoint final: `apps/collector/main.py`
 - Comando local: `cd apps/collector && python3 main.py`
 - Comando de produção: `cd apps/collector && python3 main.py`
-- Comando PM2: `ainda não versionado nesta etapa`
+- Comando PM2 nesta etapa:
+  - develop: `DEPLOY_STAGE=develop pm2 startOrReload infra/pm2/ecosystem.config.js --only collector-dev --update-env`
+  - main: `DEPLOY_STAGE=main pm2 startOrReload infra/pm2/ecosystem.config.js --only collector-prod --update-env`
 - Dependências relevantes:
   - Redis: `REDIS_CONNECT`
   - MongoDB: `MONGO_URL`
@@ -45,7 +47,9 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Entrypoint final: `apps/signals/main.py`
 - Comando local: `cd apps/signals && python3 main.py`
 - Comando de produção: `cd apps/signals && python3 main.py`
-- Comando PM2: `ainda não versionado nesta etapa`
+- Comando PM2 nesta etapa:
+  - develop: `DEPLOY_STAGE=develop pm2 startOrReload infra/pm2/ecosystem.config.js --only signals-dev --update-env`
+  - main: `DEPLOY_STAGE=main pm2 startOrReload infra/pm2/ecosystem.config.js --only signals-prod --update-env`
 - Dependências relevantes:
   - Redis (estado de sinais): `REDIS_SIGNALS_CONNECT` (fallback: `REDIS_CONNECT`)
   - Redis (resultados/pubsub): `REDIS_RESULTS_CONNECT` (fallback: Redis de sinais)
@@ -60,9 +64,11 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Função: consumo de sinais ativos e monitoramento de ciclo de vida
 - Linguagem: Python
 - Entrypoint final: `apps/monitoring/main.py`
-- Comando local: `cd apps/monitoring && PYTHONPATH=. python3 main.py`
-- Comando de produção: `cd apps/monitoring && PYTHONPATH=. python3 main.py`
-- Comando PM2: `ainda não versionado nesta etapa`
+- Comando local: `cd apps/monitoring && python3 main.py`
+- Comando de produção: `cd apps/monitoring && python3 main.py`
+- Comando PM2 nesta etapa:
+  - develop: `DEPLOY_STAGE=develop pm2 startOrReload infra/pm2/ecosystem.config.js --only monitoring-dev --update-env`
+  - main: `DEPLOY_STAGE=main pm2 startOrReload infra/pm2/ecosystem.config.js --only monitoring-prod --update-env`
 - Dependências relevantes:
   - Redis (estado de sinais/streams): `REDIS_SIGNALS_CONNECT` (fallback: `REDIS_CONNECT`)
   - Redis (resultados/pubsub): `REDIS_RESULTS_CONNECT` (fallback: Redis de sinais)
@@ -100,7 +106,9 @@ Este documento consolida o runtime operacional após a reorganização estrutura
 - Entrypoint final: `apps/bot_automatico/main.js`
 - Comando local: `cd apps/bot_automatico && npm run start`
 - Comando de produção: `cd apps/bot_automatico && npm run start`
-- Comando PM2: `pm2 start infra/pm2/ecosystem.config.js --only bot_automatico`
+- Comando PM2 nesta etapa:
+  - develop: `DEPLOY_STAGE=develop pm2 startOrReload infra/pm2/ecosystem.config.js --only bot_automatico-dev --update-env`
+  - main: `DEPLOY_STAGE=main pm2 startOrReload infra/pm2/ecosystem.config.js --only bot_automatico-prod --update-env`
 - Dependências relevantes:
   - API auth: `AUTH_BASE_URL`
   - Porta HTTP do bot: `API_PORT` (default 3000)

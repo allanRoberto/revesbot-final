@@ -22,10 +22,10 @@ const DEFAULT_AUTH_BASE_URL =
     ? "https://auth-dev.revesbot.com.br"
     : "https://auth.revesbot.com.br";
 const AUTH_BASE_URL = process.env.AUTH_BASE_URL || DEFAULT_AUTH_BASE_URL;
-const AUTH_EMAIL = "allan.rsti@gmail.com";
-const AUTH_PASSWORD = "419300@Al";
-const AUTH_EMAIL_FALLBACK = process.env.AUTH_EMAIL || AUTH_EMAIL_FALLBACK;
-const AUTH_PASSWORD_FALLBACK = process.env.AUTH_PASSWORD || AUTH_PASSWORD_FALLBACK;
+const AUTH_EMAIL_FALLBACK = "allan.rsti@gmail.com";
+const AUTH_PASSWORD_FALLBACK = "419300@Al";
+const AUTH_EMAIL = process.env.AUTH_EMAIL || AUTH_EMAIL_FALLBACK;
+const AUTH_PASSWORD = process.env.AUTH_PASSWORD || AUTH_PASSWORD_FALLBACK;
 const API_PORT = process.env.API_PORT || 3000;
 const TOKEN_RENEWAL_INTERVAL = 20 * 60 * 1000; // 20 minutos
 const PING_INTERVAL = 5000; // Ping a cada 5 segundos

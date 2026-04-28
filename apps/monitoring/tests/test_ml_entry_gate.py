@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.ml_entry_gate import (
+from apps.monitoring.src.ml_entry_gate import (
     build_default_ml_entry_gate_state,
     build_ml_entry_gate_payload_from_ml_meta,
     build_ml_top12_reference_payload_from_ml_meta,

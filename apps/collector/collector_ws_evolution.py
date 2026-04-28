@@ -251,6 +251,18 @@ class Evolution:
                                         "timestamp": now
                                     })
                                     logger.info(f"Documento inserido com _id={res.inserted_id}")
+                                    # Publica o resultado antes do housekeeping do Mongo para reduzir latencia no front.
+                                    r.publish("new_result", json.dumps({
+                                        "slug": slug,
+                                        "result": result,
+                                        "full_result": {
+                                            "_id": str(res.inserted_id),
+                                            "roulette_id": slug,
+                                            "roulette_name": slug,
+                                            "value": result,
+                                            "timestamp": now.isoformat(),
+                                        },
+                                    }))
 
                                 except Exception as e:
                                     logger.error(f"Erro ao inserir documento no MongoDB: {e}", exc_info=True)
@@ -266,8 +278,6 @@ class Evolution:
                                     )
                                     ids = [d["_id"] for d in antigos]
                                     collection.delete_many({"_id": {"$in": ids}})
-
-                                r.publish("new_result", json.dumps({"slug": slug, "result": result}))
                                 logger.info(f"[{slug}] ✅ Resultado salvo: {result}")
                             else:
                                 logger.warning(f"No results found for {game_name}")

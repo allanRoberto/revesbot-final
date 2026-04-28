@@ -8,7 +8,8 @@ from typing import Any, Dict, Iterable, List, Mapping
 from zoneinfo import ZoneInfo
 
 from api.services.base_suggestion import WHEEL_INDEX, WHEEL_ORDER
-from src.time_window_prior import compute_time_window_priors, rerank_with_time_window_prior
+
+from .time_window_prior import compute_time_window_priors, rerank_with_time_window_prior
 
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")

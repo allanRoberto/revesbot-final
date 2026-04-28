@@ -110,24 +110,11 @@ class Pragmatic :
             if game_id_str:
                 self.last_game_id_by_slug[slug] = game_id_str
 
-            # trim para 500
-            count = collection.count_documents({"roulette_id": slug})
-            if count > 200000:
-                exced = count - 200000
-                antigos = collection.find(
-                    {"roulette_id": slug},
-                    sort=[("timestamp", 1)],
-                    limit=exced
-                )
-                ids = [d["_id"] for d in antigos]
-
-                collection.delete_many({"_id": {"$in": ids}})
-
             # Configurar timezone Brasil
             tz_br = pytz.timezone("America/Sao_Paulo")
-
             br_time = now.astimezone(tz_br)
 
+            # Publica o resultado antes do housekeeping do Mongo para reduzir latencia no front.
             r.publish("new_result", json.dumps({"slug": slug, "result": result, "full_result" : {
                 "_id": str(full_result.inserted_id),
                 "roulette_id": slug,
@@ -143,6 +130,19 @@ class Pragmatic :
                 "day_of_week": br_time.strftime("%A"),
                 "formatted": br_time.strftime("%d/%m/%Y %H:%M:%S"),
             }}))
+
+            # trim para 500
+            count = collection.count_documents({"roulette_id": slug})
+            if count > 200000:
+                exced = count - 200000
+                antigos = collection.find(
+                    {"roulette_id": slug},
+                    sort=[("timestamp", 1)],
+                    limit=exced
+                )
+                ids = [d["_id"] for d in antigos]
+
+                collection.delete_many({"_id": {"$in": ids}})
           
                 
             print(f"[{slug}] ✅ Resultado salvo: {result} (gameId: {game_id})")

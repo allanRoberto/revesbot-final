@@ -2,23 +2,47 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from pprint import pprint
 from time import sleep
 from typing import Any, Dict, List
 
 import requests
 
-from src.config import settings
-from src.mongo import mongo_db
-from src.time_window_prior import (
-    BR_TZ,
-    build_daily_window_bounds,
-    build_reference_time,
-    compute_time_window_priors,
-    rerank_with_time_window_prior,
-)
+
+SCRIPT_ROOT = Path(__file__).resolve().parent
+MONITORING_ROOT = SCRIPT_ROOT.parent
+REPO_ROOT = MONITORING_ROOT.parent.parent
+APPS_ROOT = REPO_ROOT / "apps"
+
+for candidate in (REPO_ROOT, APPS_ROOT, MONITORING_ROOT):
+    candidate_str = str(candidate)
+    if candidate_str not in sys.path:
+        sys.path.insert(0, candidate_str)
+
+try:
+    from apps.monitoring.src.config import settings
+    from apps.monitoring.src.mongo import mongo_db
+    from apps.monitoring.src.time_window_prior import (
+        BR_TZ,
+        build_daily_window_bounds,
+        build_reference_time,
+        compute_time_window_priors,
+        rerank_with_time_window_prior,
+    )
+except ImportError:
+    from src.config import settings
+    from src.mongo import mongo_db
+    from src.time_window_prior import (
+        BR_TZ,
+        build_daily_window_bounds,
+        build_reference_time,
+        compute_time_window_priors,
+        rerank_with_time_window_prior,
+    )
 
 LOCAL_DEFAULT_API_BASE_URL = "http://localhost:8081"
 

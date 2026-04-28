@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.ml_meta_rank import (
+from apps.monitoring.src.ml_meta_rank import (
     build_default_ml_meta_rank_state,
     build_ml_meta_rank_payload_from_context,
     train_ml_meta_rank_state_from_resolved_event,

@@ -122,12 +122,25 @@ class Results :
 
             now = datetime.datetime.now(UTC)
 
-            collection.insert_one({
+            inserted = collection.insert_one({
                 "roulette_id": slug,
                 "roulette_name" : slug,
                 "value": result,
                 "timestamp": now
             })
+
+            # Publica o resultado antes do housekeeping do Mongo para reduzir latencia no front.
+            r.publish("new_result", json.dumps({
+                "slug": slug,
+                "result": result,
+                "full_result": {
+                    "_id": str(inserted.inserted_id),
+                    "roulette_id": slug,
+                    "roulette_name": slug,
+                    "value": result,
+                    "timestamp": now.isoformat(),
+                },
+            }))
 
             # trim para 500
             count = collection.count_documents({"roulette_id": slug})
@@ -141,8 +154,6 @@ class Results :
                 ids = [d["_id"] for d in antigos]
 
                 collection.delete_many({"_id": {"$in": ids}})
-
-            r.publish("new_result", json.dumps({"slug": slug, "result": result}))
 
             print(f"[{slug}] ✅ Resultado salvo: {result} (gameId: {game})")
         

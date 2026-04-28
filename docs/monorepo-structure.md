@@ -37,6 +37,8 @@ revesbot-final/
 - `src/` no root foi reduzido a compatibilidade temporária.
 - `apps/monitoring/src` permanece como legado interno nesta etapa para evitar
   quebra de imports e entrypoints.
+- Os entrypoints de `apps/monitoring` foram estabilizados para execução tanto do
+  diretório do app quanto do root do repositório.
 
 ## Próximas etapas sugeridas
 

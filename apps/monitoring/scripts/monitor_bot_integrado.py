@@ -477,7 +477,7 @@ if __name__ == "__main__":
         print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Bot online em {BOT_API_URL}")
     else:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️  Bot OFFLINE - apostas serão apenas salvas em arquivo")
-        print(f"[{datetime.now().strftime('%H:%M:%S')}]    Inicie o bot com: cd src/bot-automatico && node main.js")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}]    Inicie o bot com: cd apps/bot_automatico && node main.js")
 
     thread_heartbeat = threading.Thread(target=exibir_heartbeat, daemon=True)
     thread_heartbeat.start()

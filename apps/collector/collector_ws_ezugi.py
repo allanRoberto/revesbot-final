@@ -93,12 +93,25 @@ class Ezugi :
 
                         now = datetime.datetime.now(UTC)
 
-                        collection.insert_one({
+                        inserted = collection.insert_one({
                             "roulette_id": table_name,
                             "roulette_name" : table_name,
                             "value": winning_number,
                             "timestamp": now
                         })
+
+                        # Publica o resultado antes do housekeeping do Mongo para reduzir latencia no front.
+                        r.publish("new_result", json.dumps({
+                            "slug": table_name,
+                            "result": winning_number,
+                            "full_result": {
+                                "_id": str(inserted.inserted_id),
+                                "roulette_id": table_name,
+                                "roulette_name": table_name,
+                                "value": winning_number,
+                                "timestamp": now.isoformat(),
+                            },
+                        }))
 
                         # trim para 500
                         count = collection.count_documents({"roulette_id": table_name})
@@ -111,8 +124,6 @@ class Ezugi :
                             )
                             ids = [d["_id"] for d in antigos]
                             collection.delete_many({"_id": {"$in": ids}})
-
-                        r.publish("new_result", json.dumps({"slug": table_name, "result": winning_number}))
                         print(f"[{table_name}] ✅ Resultado salvo: {winning_number}")
 
                 elif "TablesList" in data:
@@ -121,13 +132,27 @@ class Ezugi :
                             table_name = self.desiredArgs[table["tableId"]]
                             if "WinningNumber" in table:
                                 winning_number = int(table["WinningNumber"])
+                                now = datetime.datetime.now(UTC)
 
-                                collection.insert_one({
+                                inserted = collection.insert_one({
                                     "roulette_id": table_name,
                                     "roulette_name" : table_name,
                                     "value": winning_number,
                                     "timestamp": now
                                 })
+
+                                # Publica o resultado antes do housekeeping do Mongo para reduzir latencia no front.
+                                r.publish("new_result", json.dumps({
+                                    "slug": table_name,
+                                    "result": winning_number,
+                                    "full_result": {
+                                        "_id": str(inserted.inserted_id),
+                                        "roulette_id": table_name,
+                                        "roulette_name": table_name,
+                                        "value": winning_number,
+                                        "timestamp": now.isoformat(),
+                                    },
+                                }))
 
                                 # trim para 500
                                 count = collection.count_documents({"roulette_id": table_name})
@@ -140,8 +165,7 @@ class Ezugi :
                                     )
                                     ids = [d["_id"] for d in antigos]
                                     collection.delete_many({"_id": {"$in": ids}})
-                               
-                                r.publish("new_result", json.dumps({"slug": table_name, "result": winning_number}))
+
                                 print(f"[{table_name}] ✅ Resultado salvo: {winning_number}")
 
             except json.JSONDecodeError:

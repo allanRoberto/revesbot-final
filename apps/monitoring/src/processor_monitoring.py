@@ -19,9 +19,14 @@ from typing import Optional
 
 import redis.asyncio as aioredis
 from redis.exceptions import ResponseError
-from src.config import settings
-from src.models import Signal
-from core.redis import save_signal
+
+from .config import settings
+from .models import Signal
+
+try:
+    from apps.monitoring.core.redis import save_signal
+except ImportError:
+    from core.redis import save_signal
 
 def get_figure(number):
     figure_mapping = {

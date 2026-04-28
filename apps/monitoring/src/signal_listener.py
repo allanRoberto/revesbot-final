@@ -5,8 +5,8 @@ import logging
 import redis.asyncio as aioredis
 from pydantic import ValidationError
 
-from src.config import settings
-from src.processor_monitoring import SignalProcessor
+from .config import settings
+from .processor_monitoring import SignalProcessor
 
 logger = logging.getLogger(__name__)
 

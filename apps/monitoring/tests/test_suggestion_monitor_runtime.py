@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from src.suggestion_monitor_runtime import (
+from apps.monitoring.src.suggestion_monitor_runtime import (
     apply_rank_confidence_feedback,
     build_attempt_document,
     build_config_key,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from src.time_window_prior import (
+from apps.monitoring.src.time_window_prior import (
     build_daily_window_bounds,
     compute_time_window_priors,
     get_region_numbers,

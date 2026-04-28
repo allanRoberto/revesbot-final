@@ -5,7 +5,8 @@ Configuração da aplicação via variáveis de ambiente, sem validações exter
 import os
 
 from dotenv import load_dotenv
-from src.core.redis_connections import get_results_redis_url, get_signals_redis_url
+
+from .core.redis_connections import get_results_redis_url, get_signals_redis_url
 
 
 # ─── Config ────────────────────────────────────────────────────────────────────

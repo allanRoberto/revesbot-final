@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from math import exp
 from typing import Any, Dict, Iterable, List, Mapping
 
-from src.time_window_prior import WHEEL_INDEX
+from .time_window_prior import WHEEL_INDEX
 
 
 ML_META_RANK_VERSION = 1
