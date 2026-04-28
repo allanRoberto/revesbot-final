@@ -35,11 +35,15 @@ suggestion_monitor_offsets_coll = mongo_db["suggestion_monitor_offsets"]
 suggestion_monitor_pattern_outcomes_coll = mongo_db["suggestion_monitor_pattern_outcomes"]
 occurrence_analysis_runs_coll = mongo_db["occurrence_analysis_runs"]
 occurrence_analysis_events_coll = mongo_db["occurrence_analysis_events"]
+suggestion_snapshots_coll = mongo_db["suggestion_snapshots"]
+suggestion_snapshot_configs_coll = mongo_db["suggestion_snapshot_configs"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
 _occurrence_analysis_indexes_ready = False
 _occurrence_analysis_indexes_lock = asyncio.Lock()
+_suggestion_snapshot_indexes_ready = False
+_suggestion_snapshot_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -165,3 +169,43 @@ async def ensure_occurrence_analysis_indexes() -> None:
         )
 
         _occurrence_analysis_indexes_ready = True
+
+
+async def ensure_suggestion_snapshot_indexes() -> None:
+    global _suggestion_snapshot_indexes_ready
+    if _suggestion_snapshot_indexes_ready:
+        return
+    async with _suggestion_snapshot_indexes_lock:
+        if _suggestion_snapshot_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            suggestion_snapshots_coll,
+            [("snapshot_id", ASCENDING)],
+            name="suggestion_snapshots_snapshot_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            suggestion_snapshots_coll,
+            [("roulette_id", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="suggestion_snapshots_roulette_anchor_ts_desc",
+        )
+        await _create_index_if_missing(
+            suggestion_snapshots_coll,
+            [("roulette_id", ASCENDING), ("anchor_history_id", ASCENDING), ("config_key", ASCENDING)],
+            name="suggestion_snapshots_anchor_config",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            suggestion_snapshots_coll,
+            [("config_key", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="suggestion_snapshots_config_created_desc",
+        )
+        await _create_index_if_missing(
+            suggestion_snapshot_configs_coll,
+            [("config_id", ASCENDING)],
+            name="suggestion_snapshot_configs_config_id",
+            unique=True,
+        )
+
+        _suggestion_snapshot_indexes_ready = True

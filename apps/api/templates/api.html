@@ -783,10 +783,8 @@
   }
 
   .number-tooltip {
-    position: fixed;
-    z-index: 9999;
-    max-width: 750px;
-    min-width: 600px;
+    width: min(750px, calc(100vw - 24px));
+    min-width: min(600px, calc(100vw - 24px));
     max-height: calc(100vh - 20px);
     overflow-y: auto;
     background: #111827;
@@ -797,7 +795,41 @@
     font-size: 11px;
     line-height: 1.35;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-    display: none;
+  }
+
+  .tippy-box[data-theme~='number-tooltip'] {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  .tippy-box[data-theme~='number-tooltip'] > .tippy-content {
+    padding: 0;
+  }
+
+  .tippy-box[data-theme~='number-tooltip'] > .tippy-arrow {
+    color: #111827;
+  }
+
+  @media (max-width: 767px) {
+    .number-tooltip {
+      width: calc(100vw - 24px);
+      min-width: calc(100vw - 24px);
+      max-height: calc(100vh - 24px);
+      padding: 8px;
+    }
+
+    .number-tooltip .tt-suggestion-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .number-tooltip .tt-pulled {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .number-tooltip .tt-compare-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .number-tooltip::-webkit-scrollbar {
@@ -834,6 +866,57 @@
   .number-tooltip .tt-list {
     color: #e5e7eb;
     margin-top: 2px;
+  }
+
+  .number-tooltip .tt-snapshot-card {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.2);
+  }
+
+  .number-tooltip .tt-snapshot-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .number-tooltip .tt-snapshot-label {
+    font-weight: 700;
+    font-size: 12px;
+    color: #e2e8f0;
+  }
+
+  .number-tooltip .tt-snapshot-badge {
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .number-tooltip .tt-snapshot-badge.hit {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #eff6ff;
+  }
+
+  .number-tooltip .tt-snapshot-badge.created {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ecfdf5;
+  }
+
+  .number-tooltip .tt-snapshot-badge.pending {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+    color: #f8fafc;
+  }
+
+  .number-tooltip .tt-snapshot-meta {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.45;
   }
 
   .number-tooltip .tt-suggestion-grid {
@@ -2611,6 +2694,10 @@
               <label class="ui-label">Bônus por overlap</label>
               <input type="number" id="cfg-occurrence-overlap-bonus" class="ui-input" min="0" max="0.5" step="0.01" value="0.05" />
             </div>
+            <div class="ui-field">
+              <label class="ui-label">Ocorrência: troca na cauda</label>
+              <input type="number" id="cfg-occurrence-tail-replace-limit" class="ui-input" min="0" max="10" step="1" value="2" />
+            </div>
             <div class="ui-field ui-field--wide">
               <label class="ui-label">Gate de assertividade</label>
               <label class="ui-switch">
@@ -2660,13 +2747,25 @@
 
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
   <script src="/static/js/roulette-racetrack_3.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+  <script src="https://unpkg.com/@popperjs/core@2"></script>
+  <script src="https://unpkg.com/tippy.js@6"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
 
     // Histórico completo vindo do Jinja
-    let history = [{% for num in numbers %}{{ num }}{% if not loop.last %}, {% endif %}{% endfor %}];
+    let historyEntries = {{ (history_entries or []) | tojson }};
+    if (!Array.isArray(historyEntries) || !historyEntries.length) {
+      historyEntries = [{% for num in numbers %}{ value: {{ num }}, _id: null }{% if not loop.last %}, {% endif %}{% endfor %}];
+    }
+    historyEntries = historyEntries.map((item) => ({
+      _id: item && item._id ? String(item._id) : "",
+      value: Number.isInteger(Number(item?.value)) ? parseInt(item.value, 10) : -1,
+      timestamp: item && item.timestamp ? String(item.timestamp) : "",
+    })).filter((item) => item.value >= 0 && item.value <= 36);
+    let history = historyEntries.map((item) => item.value);
     // 0) Defaults iniciais
     let cfgColorBlack = "#2c3e50";
     let cfgColorRed = "#e74c3c";
@@ -2704,6 +2803,7 @@
     let occurrencePatternWeight = 0.75;
     let occurrenceWeight = 0.25;
     let occurrenceOverlapBonus = 0.05;
+    let occurrenceTailReplaceLimit = 2;
     let assertivenessGateEnabled = true;
     let assertivenessMinScore = 55;
     let countMode        = false;
@@ -3025,6 +3125,8 @@ countContainers.forEach(({ selector, itemClass }) => {
     }
     occurrenceOverlapBonus = parseFloat(loadConfig("occurrenceOverlapBonus", String(occurrenceOverlapBonus)));
     if (!Number.isFinite(occurrenceOverlapBonus) || occurrenceOverlapBonus < 0 || occurrenceOverlapBonus > 0.5) occurrenceOverlapBonus = 0.05;
+    occurrenceTailReplaceLimit = parseInt(loadConfig("occurrenceTailReplaceLimit", String(occurrenceTailReplaceLimit)), 10);
+    if (!Number.isInteger(occurrenceTailReplaceLimit) || occurrenceTailReplaceLimit < 0 || occurrenceTailReplaceLimit > 10) occurrenceTailReplaceLimit = 2;
     assertivenessGateEnabled = loadConfig("assertivenessGateEnabled", "true") === "true";
     assertivenessMinScore = parseInt(loadConfig("assertivenessMinScore", String(assertivenessMinScore)), 10);
     if (!Number.isInteger(assertivenessMinScore) || assertivenessMinScore < 0 || assertivenessMinScore > 100) {
@@ -3126,6 +3228,8 @@ countContainers.forEach(({ selector, itemClass }) => {
     if (occurrenceWeightInput) occurrenceWeightInput.value = String(Math.round(occurrenceWeight * 100));
     const occurrenceOverlapBonusInput = document.getElementById("cfg-occurrence-overlap-bonus");
     if (occurrenceOverlapBonusInput) occurrenceOverlapBonusInput.value = String(occurrenceOverlapBonus);
+    const occurrenceTailReplaceLimitInput = document.getElementById("cfg-occurrence-tail-replace-limit");
+    if (occurrenceTailReplaceLimitInput) occurrenceTailReplaceLimitInput.value = String(occurrenceTailReplaceLimit);
     const assertivenessGateEnabledCheck = document.getElementById("cfg-assertiveness-gate-enabled");
     if (assertivenessGateEnabledCheck) assertivenessGateEnabledCheck.checked = assertivenessGateEnabled;
     const assertivenessMinScoreInput = document.getElementById("cfg-assertiveness-min-score");
@@ -3178,6 +3282,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     const selOccurrencePatternWeight = document.getElementById("cfg-occurrence-pattern-weight");
     const selOccurrenceWeight = document.getElementById("cfg-occurrence-weight");
     const selOccurrenceOverlapBonus = document.getElementById("cfg-occurrence-overlap-bonus");
+    const selOccurrenceTailReplaceLimit = document.getElementById("cfg-occurrence-tail-replace-limit");
     const selAssertivenessGateEnabled = document.getElementById("cfg-assertiveness-gate-enabled");
     const selAssertivenessMinScore = document.getElementById("cfg-assertiveness-min-score");
     const selBotEnabled = document.getElementById("cfg-bot-enabled");
@@ -3342,24 +3447,234 @@ countContainers.forEach(({ selector, itemClass }) => {
     const patternMetricsPending = new Map();
     let lastRenderedHistoryKey = "";
     let historyRefreshTimer = null;
-    const numberTooltip = document.createElement("div");
-    numberTooltip.id = "number-tooltip";
-    numberTooltip.className = "number-tooltip";
-    document.body.appendChild(numberTooltip);
-
+    let historyRefreshDeferredWhileTooltip = false;
     let showRangeLow = false;
     let showRangeHigh = false;
     let wsPaused = false;
     let wsPendingNumbers = [];
     let currentTooltipContext = null;
+    let currentTooltipInstance = null;
+    let currentTooltipReference = null;
+    let currentTooltipFixedRect = null;
+    let currentTooltipFreezeContent = false;
+    let currentTooltipFrozenApi = null;
+    let currentTooltipFrozenApiKey = "";
+    let currentTooltipFrozenHtml = "";
     const OPTIMIZED_MAX_NUMBERS = 37;
 
+    function cloneTooltipPayload(payload) {
+      if (!payload || typeof payload !== "object") return null;
+      try {
+        return JSON.parse(JSON.stringify(payload));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function normalizeHistoryEntry(entryLike, fallbackValue = null) {
+      const rawValue = entryLike && entryLike.value !== undefined ? entryLike.value : fallbackValue;
+      const value = Number.isInteger(Number(rawValue)) ? parseInt(rawValue, 10) : null;
+      if (!Number.isInteger(value) || value < 0 || value > 36) return null;
+      return {
+        _id: entryLike && entryLike._id ? String(entryLike._id) : "",
+        value,
+        timestamp: entryLike && entryLike.timestamp ? String(entryLike.timestamp) : "",
+      };
+    }
+
+    function freezeCurrentTooltipPayload() {
+      if (!currentTooltipContext || !currentTooltipContext.finalApiKey) return;
+      const cached = finalSuggestionApiCache.get(currentTooltipContext.finalApiKey);
+      currentTooltipFrozenApi = cloneTooltipPayload(cached);
+      currentTooltipFrozenApiKey = currentTooltipContext.finalApiKey || "";
+      currentTooltipFrozenHtml = currentTooltipInstance?.props?.content || "";
+    }
+
+    function clearScheduledHistoryRefresh() {
+      if (!historyRefreshTimer) return;
+      clearTimeout(historyRefreshTimer);
+      historyRefreshTimer = null;
+    }
+
     function scheduleHistoryRefresh() {
+      if (isNumberTooltipVisible() && currentTooltipContext) {
+        historyRefreshDeferredWhileTooltip = true;
+        clearScheduledHistoryRefresh();
+        return;
+      }
       if (historyRefreshTimer) return;
       historyRefreshTimer = setTimeout(() => {
         historyRefreshTimer = null;
-        renderHistory();
+        historyRefreshDeferredWhileTooltip = false;
+        requestLiveHistoryRender();
       }, 120);
+    }
+
+    function isNumberTooltipVisible() {
+      return !!(currentTooltipInstance && currentTooltipInstance.state && currentTooltipInstance.state.isShown);
+    }
+
+    function requestLiveHistoryRender() {
+      if (isNumberTooltipVisible() && currentTooltipContext) {
+        clearScheduledHistoryRefresh();
+        currentTooltipFreezeContent = true;
+        freezeCurrentTooltipPayload();
+      }
+      renderHistory({
+        preserveOpenTooltip: isNumberTooltipVisible() && !!currentTooltipContext,
+      });
+    }
+
+    function destroyNumberTooltip({ clearContext = true, flushDeferredRender = true } = {}) {
+      const shouldFlushDeferredHistory = flushDeferredRender && historyRefreshDeferredWhileTooltip;
+      if (currentTooltipInstance) {
+        const instance = currentTooltipInstance;
+        currentTooltipInstance = null;
+        currentTooltipReference = null;
+        currentTooltipFixedRect = null;
+        try {
+          instance.destroy();
+        } catch (_) {}
+      }
+      if (clearContext) {
+        currentTooltipContext = null;
+      }
+      currentTooltipFreezeContent = false;
+      currentTooltipFrozenApi = null;
+      currentTooltipFrozenApiKey = "";
+      currentTooltipFrozenHtml = "";
+      if (flushDeferredRender) {
+        historyRefreshDeferredWhileTooltip = false;
+      }
+      if (shouldFlushDeferredHistory) {
+        scheduleHistoryRefresh();
+      }
+    }
+
+    function refreshActiveTooltipContent() {
+      if (!currentTooltipContext || !currentTooltipInstance) return;
+      if (currentTooltipFreezeContent && isNumberTooltipVisible()) return;
+      currentTooltipInstance.setContent(
+        buildNumberTooltipHtml(
+          currentTooltipContext.num,
+          currentTooltipContext.fromIndex,
+          currentTooltipContext.sourceArr,
+          currentTooltipContext.fromIndex === 0,
+          currentTooltipContext.historyId || ""
+        )
+      );
+      if (currentTooltipInstance.popperInstance?.update) {
+        currentTooltipInstance.popperInstance.update();
+      }
+      if (typeof checkBotHealth === "function") {
+        setTimeout(() => checkBotHealth(), 0);
+      }
+    }
+
+    function cloneClientRect(rectLike) {
+      if (!rectLike) return null;
+      const left = Number(rectLike.left ?? rectLike.x ?? 0);
+      const top = Number(rectLike.top ?? rectLike.y ?? 0);
+      const width = Number(rectLike.width ?? Math.max(0, Number(rectLike.right ?? left) - left));
+      const height = Number(rectLike.height ?? Math.max(0, Number(rectLike.bottom ?? top) - top));
+      const right = Number(rectLike.right ?? (left + width));
+      const bottom = Number(rectLike.bottom ?? (top + height));
+      return {
+        x: left,
+        y: top,
+        left,
+        top,
+        right,
+        bottom,
+        width,
+        height,
+        toJSON() {
+          return {
+            x: this.x,
+            y: this.y,
+            left: this.left,
+            top: this.top,
+            right: this.right,
+            bottom: this.bottom,
+            width: this.width,
+            height: this.height,
+          };
+        },
+      };
+    }
+
+    function pinActiveTooltipReference() {
+      if (!currentTooltipInstance || !isNumberTooltipVisible()) return;
+      const sourceRect = currentTooltipReference?.getBoundingClientRect?.() || currentTooltipFixedRect;
+      const frozenRect = cloneClientRect(sourceRect);
+      if (!frozenRect) return;
+      currentTooltipFixedRect = frozenRect;
+      currentTooltipReference = null;
+      currentTooltipInstance.setProps({
+        getReferenceClientRect: () => currentTooltipFixedRect,
+      });
+      if (currentTooltipInstance.popperInstance?.update) {
+        currentTooltipInstance.popperInstance.update();
+      }
+    }
+
+    function openNumberTooltip(referenceEl, html) {
+      if (!window.tippy) {
+        console.warn("Tippy.js indisponível; tooltip não pôde ser aberto.");
+        return;
+      }
+      destroyNumberTooltip({ clearContext: false, flushDeferredRender: false });
+      currentTooltipReference = referenceEl;
+      currentTooltipFixedRect = null;
+      currentTooltipFreezeContent = false;
+      currentTooltipFrozenApi = null;
+      currentTooltipFrozenApiKey = "";
+      currentTooltipFrozenHtml = "";
+      currentTooltipInstance = tippy(referenceEl, {
+        content: html,
+        allowHTML: true,
+        trigger: "manual",
+        interactive: true,
+        appendTo: () => document.body,
+        placement: "bottom-start",
+        theme: "number-tooltip",
+        maxWidth: "none",
+        zIndex: 9999,
+        arrow: true,
+        offset: [0, 10],
+        interactiveBorder: 12,
+        popperOptions: {
+          strategy: "fixed",
+          modifiers: [
+            {
+              name: "flip",
+              options: {
+                fallbackPlacements: ["bottom", "bottom-end", "top-start", "top", "top-end"],
+              },
+            },
+            {
+              name: "preventOverflow",
+              options: {
+                boundary: "viewport",
+                padding: 8,
+                altAxis: true,
+              },
+            },
+          ],
+        },
+        onHidden(instance) {
+          if (currentTooltipInstance === instance) {
+            currentTooltipInstance = null;
+            currentTooltipReference = null;
+            currentTooltipContext = null;
+          }
+          instance.destroy();
+        },
+      });
+      currentTooltipInstance.show();
+      if (typeof checkBotHealth === "function") {
+        setTimeout(() => checkBotHealth(), 0);
+      }
     }
 
     const alertModal = document.getElementById("alert-modal");
@@ -3733,6 +4048,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       const storedOccurrencePatternWeight = parseFloat(loadConfig("occurrencePatternWeight", "0.75"));
       const storedOccurrenceWeight = parseFloat(loadConfig("occurrenceWeight", "0.25"));
       const storedOccurrenceOverlapBonus = parseFloat(loadConfig("occurrenceOverlapBonus", "0.05"));
+      const storedOccurrenceTailReplaceLimit = parseInt(loadConfig("occurrenceTailReplaceLimit", "2"), 10);
       const storedAssertivenessGateEnabled = loadConfig("assertivenessGateEnabled", "true") === "true";
       const storedAssertivenessMinScore = parseInt(loadConfig("assertivenessMinScore", "55"), 10);
       const storedBotEnabled = loadConfig("botAutomationEnabled", botAutomationEnabled ? "true" : "false") === "true";
@@ -3757,6 +4073,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       if (selOccurrencePatternWeight) selOccurrencePatternWeight.value = String(Math.round((Number.isFinite(storedOccurrencePatternWeight) ? storedOccurrencePatternWeight : 0.75) * 100));
       if (selOccurrenceWeight) selOccurrenceWeight.value = String(Math.round((Number.isFinite(storedOccurrenceWeight) ? storedOccurrenceWeight : 0.25) * 100));
       if (selOccurrenceOverlapBonus) selOccurrenceOverlapBonus.value = String(Number.isFinite(storedOccurrenceOverlapBonus) ? storedOccurrenceOverlapBonus : 0.05);
+      if (selOccurrenceTailReplaceLimit) selOccurrenceTailReplaceLimit.value = String(Number.isInteger(storedOccurrenceTailReplaceLimit) ? Math.min(10, Math.max(0, storedOccurrenceTailReplaceLimit)) : 2);
       if (selAssertivenessGateEnabled) selAssertivenessGateEnabled.checked = storedAssertivenessGateEnabled;
       if (selAssertivenessMinScore) {
         const safeAssertivenessMinScore = Number.isInteger(storedAssertivenessMinScore)
@@ -3995,6 +4312,10 @@ countContainers.forEach(({ selector, itemClass }) => {
         occurrenceOverlapBonus = parseFloat(selOccurrenceOverlapBonus.value);
         if (!Number.isFinite(occurrenceOverlapBonus) || occurrenceOverlapBonus < 0 || occurrenceOverlapBonus > 0.5) occurrenceOverlapBonus = 0.05;
       }
+      if (selOccurrenceTailReplaceLimit) {
+        occurrenceTailReplaceLimit = parseInt(selOccurrenceTailReplaceLimit.value, 10);
+        if (!Number.isInteger(occurrenceTailReplaceLimit) || occurrenceTailReplaceLimit < 0 || occurrenceTailReplaceLimit > 10) occurrenceTailReplaceLimit = 2;
+      }
       if (selAssertivenessGateEnabled) {
         assertivenessGateEnabled = !!selAssertivenessGateEnabled.checked;
       }
@@ -4066,6 +4387,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       saveConfig("occurrencePatternWeight", occurrencePatternWeight);
       saveConfig("occurrenceWeight", occurrenceWeight);
       saveConfig("occurrenceOverlapBonus", occurrenceOverlapBonus);
+      saveConfig("occurrenceTailReplaceLimit", occurrenceTailReplaceLimit);
       saveConfig("assertivenessGateEnabled", assertivenessGateEnabled ? "true" : "false");
       saveConfig("assertivenessMinScore", assertivenessMinScore);
       saveConfig("botAutomationEnabled", botAutomationEnabled ? "true" : "false");
@@ -4081,13 +4403,8 @@ countContainers.forEach(({ selector, itemClass }) => {
       tooltipCache.clear();
       finalSuggestionApiCache.clear();
       finalSuggestionApiPending.clear();
-      if (currentTooltipContext && numberTooltip.style.display === "block") {
-        numberTooltip.innerHTML = buildNumberTooltipHtml(
-          currentTooltipContext.num,
-          currentTooltipContext.fromIndex,
-          currentTooltipContext.sourceArr,
-          currentTooltipContext.fromIndex === 0
-        );
+      if (currentTooltipContext && isNumberTooltipVisible()) {
+        refreshActiveTooltipContent();
       }
       configureBotHealthMonitor();
 
@@ -4503,8 +4820,8 @@ countContainers.forEach(({ selector, itemClass }) => {
       };
     }
 
-    function getCachedOptimizedConfidenceScore(sourceArr, focusNumber = null, fromIndex = 0, maxNumbers = OPTIMIZED_MAX_NUMBERS) {
-      const finalKey = getFinalSuggestionApiCacheKey(sourceArr, focusNumber, fromIndex, finalSuggestionCount);
+    function getCachedOptimizedConfidenceScore(sourceArr, focusNumber = null, fromIndex = 0, maxNumbers = OPTIMIZED_MAX_NUMBERS, historyId = "") {
+      const finalKey = getFinalSuggestionApiCacheKey(sourceArr, focusNumber, fromIndex, finalSuggestionCount, historyId);
       const finalCached = finalSuggestionApiCache.get(finalKey);
       const finalScore = parseInt(finalCached?.optimized?.confidence?.score ?? finalCached?.optimized_confidence, 10);
       return Number.isFinite(finalScore) ? finalScore : 0;
@@ -4532,15 +4849,19 @@ countContainers.forEach(({ selector, itemClass }) => {
       sourceArr,
       focusNumber = null,
       fromIndex = 0,
-      maxNumbers = 8
+      maxNumbers = 8,
+      historyId = ""
     ) {
-      const historySlice = (sourceArr || []).slice(fromIndex).join(",");
+      const normalizedHistoryId = String(historyId || "").trim();
+      const historyIdentity = normalizedHistoryId
+        ? `history_id:${normalizedHistoryId}`
+        : `history:${(sourceArr || []).slice(fromIndex).join(",")}`;
       const focus = Number.isInteger(focusNumber) ? focusNumber : -1;
       return [
         fromIndex,
         maxNumbers,
         focus,
-        historySlice,
+        historyIdentity,
         coldCount,
         protectedModeEnabled ? 1 : 0,
         protectedSuggestionSize,
@@ -4564,6 +4885,7 @@ countContainers.forEach(({ selector, itemClass }) => {
         Number(occurrencePatternWeight).toFixed(4),
         Number(occurrenceWeight).toFixed(4),
         Number(occurrenceOverlapBonus).toFixed(3),
+        occurrenceTailReplaceLimit,
         assertivenessGateEnabled ? 1 : 0,
         assertivenessMinScore,
         selectedWeightProfileId || "",
@@ -4700,46 +5022,93 @@ countContainers.forEach(({ selector, itemClass }) => {
       }
     }
 
-    async function fetchFinalSuggestionFromApi(sourceArr, focusNumber = null, fromIndex = 0, maxNumbers = 8) {
-      const payload = {
-        history: sourceArr || [],
-        focus_number: Number.isInteger(focusNumber) ? focusNumber : null,
-        from_index: fromIndex,
-        max_numbers: maxNumbers,
-        optimized_max_numbers: OPTIMIZED_MAX_NUMBERS,
-        base_weight: finalBaseWeight,
-        optimized_weight: finalOptimizedWeight,
-        runtime_overrides: getRuntimeOverridesPayload(),
-        siege_window: siegeWindow,
-        siege_min_occurrences: siegeMinOccurrences,
-        siege_min_streak: siegeMinStreak,
-        siege_veto_relief: siegeVetoRelief,
-        block_bets_enabled: blockBetsEnabled,
-        inversion_enabled: inversionEnabled,
-        inversion_context_window: inversionContextWindow,
-        inversion_penalty_factor: inversionPenaltyFactor,
-        occurrence_fusion_enabled: occurrenceFusionEnabled,
-        occurrence_history_limit: occurrenceHistoryLimit,
-        occurrence_window_before: occurrenceWindowBefore,
-        occurrence_window_after: occurrenceWindowAfter,
-        occurrence_ranking_size: occurrenceRankingSize,
-        occurrence_invert_check_window: occurrenceInvertCheckWindow,
-        occurrence_pattern_weight: occurrencePatternWeight,
-        occurrence_weight: occurrenceWeight,
-        occurrence_overlap_bonus: occurrenceOverlapBonus,
-        assertiveness_gate_enabled: assertivenessGateEnabled,
-        assertiveness_min_score: assertivenessMinScore,
-        weight_profile_id: selectedWeightProfileId || null,
-        protected_mode_enabled: protectedModeEnabled,
-        protected_suggestion_size: protectedSuggestionSize,
-        protected_swap_enabled: protectedSwapEnabled,
-        cold_count: coldCount,
-      };
-      const response = await fetch("/api/patterns/simple-suggestion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+    async function fetchFinalSuggestionFromApi(sourceArr, focusNumber = null, fromIndex = 0, maxNumbers = 8, historyId = "") {
+      const safeFromIndex = Number.isInteger(fromIndex) && fromIndex >= 0 ? fromIndex : 0;
+      const safeTake = Math.max(1, Math.min(37, parseInt(maxNumbers, 10) || 8));
+      const normalizedHistoryId = String(historyId || "").trim();
+      const snapshotUrl = normalizedHistoryId
+        ? `/api/suggestion-snapshots/${encodeURIComponent(rouletteSlug)}/by-history-id?history_id=${encodeURIComponent(normalizedHistoryId)}&take=${safeTake}`
+        : (safeFromIndex === 0
+          ? `/api/suggestion-snapshots/${encodeURIComponent(rouletteSlug)}/latest?take=${safeTake}`
+          : `/api/suggestion-snapshots/${encodeURIComponent(rouletteSlug)}/by-index?from_index=${safeFromIndex}&take=${safeTake}`);
+      const response = await fetch(snapshotUrl, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
       });
+      if (response.status === 404) {
+        let detailText = "Não foi gerada a sugestão para esse número.";
+        try {
+          const missingPayload = await response.json();
+          if (missingPayload && typeof missingPayload.detail === "string" && missingPayload.detail.trim()) {
+            detailText = missingPayload.detail.trim();
+          }
+        } catch (_) {}
+        return {
+          available: false,
+          list: [],
+          snapshot_meta: {
+            snapshot_id: "",
+            cache_status: "missing",
+            anchor_number: Number.isInteger(focusNumber) ? focusNumber : null,
+            created_at_utc: "",
+            anchor_timestamp_utc: "",
+            source: "",
+          },
+          confidence: { score: 0, label: "Baixa" },
+          explanation: detailText,
+          breakdown: {},
+          protections: [],
+          invertedNumbers: [],
+          invertedInFinal: [],
+          invertedRemoved: [],
+          pulledNumbers: [],
+          pulledInFinal: [],
+          base_suggestion: [],
+          optimized_suggestion: [],
+          optimized_confidence: 0,
+          optimized_explanation: detailText,
+          optimized_breakdown: { api_raw: 0, legacy: 0, merged: 0, overlap_ratio: 0 },
+          optimized: {
+            available: false,
+            list: [],
+            explanation: detailText,
+            confidence: { score: 0, label: "Baixa" },
+            confidence_breakdown: { api_raw: 0, legacy: 0, merged: 0, overlap_ratio: 0 },
+            contributions: [],
+            negative_contributions: [],
+            pending_patterns: [],
+            number_details: [],
+            adaptive_weights: [],
+          },
+          ranking_locked: false,
+          protected_mode_enabled: false,
+          protected_suggestion_size: null,
+          protected_swap_enabled: false,
+          protected_swap_applied: false,
+          protected_swap_summary: "",
+          protected_swap_details: [],
+          protected_excluded_numbers: [],
+          protected_original_excluded_numbers: [],
+          protected_guard_numbers: [],
+          protected_guard_details: {},
+          protected_wait_triggered: false,
+          protected_wait_recommended_spins: 0,
+          protected_wait_reason: "",
+          excluded_tail_numbers: [],
+          base_is_cold: false,
+          base_cold_rank: null,
+          cold_numbers_considered: [],
+          policyDecision: buildDefaultPolicyDecision(detailText),
+          policyCandidate: {},
+          signal_quality: normalizeSignalQuality(
+            null,
+            detailText,
+            { enabled: assertivenessGateEnabled, min_score: assertivenessMinScore }
+          ),
+          simple: buildEmptySimpleSuggestion(detailText),
+        };
+      }
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -4879,9 +5248,20 @@ countContainers.forEach(({ selector, itemClass }) => {
           min_score: assertivenessMinScore,
         }
       );
+      const snapshotMeta = data.snapshot && typeof data.snapshot === "object"
+        ? data.snapshot
+        : {};
       return {
         available: typeof data.available === "boolean" ? !!data.available : !!resultPayload.available,
         list: finalSuggestionDisplay,
+        snapshot_meta: {
+          snapshot_id: String(snapshotMeta.snapshot_id || ""),
+          cache_status: String(snapshotMeta.cache_status || ""),
+          anchor_number: Number.isFinite(Number(snapshotMeta.anchor_number)) ? Number(snapshotMeta.anchor_number) : null,
+          created_at_utc: String(snapshotMeta.created_at_utc || ""),
+          anchor_timestamp_utc: String(snapshotMeta.anchor_timestamp_utc || ""),
+          source: String(snapshotMeta.source || ""),
+        },
         confidence: resultPayload.confidence && typeof resultPayload.confidence === "object"
           ? resultPayload.confidence
           : { score: 0, label: "Baixa" },
@@ -4930,13 +5310,13 @@ countContainers.forEach(({ selector, itemClass }) => {
       };
     }
 
-    function requestFinalSuggestionApi(sourceArr, focusNumber = null, fromIndex = 0, maxNumbers = 8) {
-      const key = getFinalSuggestionApiCacheKey(sourceArr, focusNumber, fromIndex, maxNumbers);
+    function requestFinalSuggestionApi(sourceArr, focusNumber = null, fromIndex = 0, maxNumbers = 8, historyId = "") {
+      const key = getFinalSuggestionApiCacheKey(sourceArr, focusNumber, fromIndex, maxNumbers, historyId);
       if (finalSuggestionApiCache.has(key)) return;
       if (finalSuggestionApiPending.has(key)) return;
       finalSuggestionApiPending.set(key, true);
 
-      fetchFinalSuggestionFromApi(sourceArr, focusNumber, fromIndex, maxNumbers)
+      fetchFinalSuggestionFromApi(sourceArr, focusNumber, fromIndex, maxNumbers, historyId)
         .then((result) => {
           finalSuggestionApiCache.set(key, result);
           tooltipCache.clear();
@@ -4946,20 +5326,25 @@ countContainers.forEach(({ selector, itemClass }) => {
           if (
             currentTooltipContext &&
             currentTooltipContext.finalApiKey === key &&
-            numberTooltip.style.display === "block"
+            isNumberTooltipVisible()
           ) {
-            numberTooltip.innerHTML = buildNumberTooltipHtml(
-              currentTooltipContext.num,
-              currentTooltipContext.fromIndex,
-              currentTooltipContext.sourceArr,
-              currentTooltipContext.fromIndex === 0
-            );
+            if (!currentTooltipFreezeContent) {
+              refreshActiveTooltipContent();
+            }
           }
         })
         .catch(() => {
           finalSuggestionApiCache.set(key, {
             available: false,
             list: [],
+            snapshot_meta: {
+              snapshot_id: "",
+              cache_status: "",
+              anchor_number: null,
+              created_at_utc: "",
+              anchor_timestamp_utc: "",
+              source: "",
+            },
             confidence: { score: 0, label: "Baixa" },
             explanation: "Falha ao calcular sugestão final na API.",
             breakdown: {},
@@ -5019,14 +5404,11 @@ countContainers.forEach(({ selector, itemClass }) => {
           if (
             currentTooltipContext &&
             currentTooltipContext.finalApiKey === key &&
-            numberTooltip.style.display === "block"
+            isNumberTooltipVisible()
           ) {
-            numberTooltip.innerHTML = buildNumberTooltipHtml(
-              currentTooltipContext.num,
-              currentTooltipContext.fromIndex,
-              currentTooltipContext.sourceArr,
-              currentTooltipContext.fromIndex === 0
-            );
+            if (!currentTooltipFreezeContent) {
+              refreshActiveTooltipContent();
+            }
           }
         })
         .finally(() => {
@@ -5034,27 +5416,44 @@ countContainers.forEach(({ selector, itemClass }) => {
         });
     }
 
-    function buildNumberTooltipData(num, fromIndex = null, sourceArr = history) {
+    function buildNumberTooltipData(num, fromIndex = null, sourceArr = history, historyId = "") {
+      const normalizedFromIndex = typeof fromIndex === "number" && fromIndex >= 0 ? fromIndex : null;
+      const normalizedHistoryId = String(historyId || "").trim();
+      const frozenTooltipMatch =
+        !!currentTooltipFreezeContent &&
+        !!currentTooltipContext &&
+        (
+          (normalizedHistoryId && String(currentTooltipContext.historyId || "") === normalizedHistoryId) ||
+          (
+            currentTooltipContext.num === num &&
+            ((typeof currentTooltipContext.fromIndex === "number" && currentTooltipContext.fromIndex >= 0)
+              ? currentTooltipContext.fromIndex
+              : null) === normalizedFromIndex
+          )
+        );
+      const effectiveSourceArr = frozenTooltipMatch && Array.isArray(currentTooltipContext?.sourceArr)
+        ? currentTooltipContext.sourceArr
+        : sourceArr;
       const windowBehind = 3;
       const windowAhead = 5;
       const occurrences = [];
-      if (typeof fromIndex === "number") {
-        for (let i = fromIndex; i < sourceArr.length; i++) {
-          if (sourceArr[i] === num) occurrences.push(i);
+      if (normalizedFromIndex !== null) {
+        for (let i = normalizedFromIndex; i < effectiveSourceArr.length; i++) {
+          if (effectiveSourceArr[i] === num) occurrences.push(i);
         }
       } else {
-        for (let i = 0; i < sourceArr.length; i++) {
-          if (sourceArr[i] === num) occurrences.push(i);
+        for (let i = 0; i < effectiveSourceArr.length; i++) {
+          if (effectiveSourceArr[i] === num) occurrences.push(i);
         }
       }
       const pulled = [];
       occurrences.forEach(idx => {
-        const lowerBound = typeof fromIndex === "number" ? fromIndex : 0;
+        const lowerBound = normalizedFromIndex !== null ? normalizedFromIndex : 0;
         const start = Math.max(lowerBound, idx - windowAhead);
-        const end = Math.min(sourceArr.length - 1, idx + windowBehind);
+        const end = Math.min(effectiveSourceArr.length - 1, idx + windowBehind);
         for (let pos = start; pos <= end; pos++) {
           if (pos === idx) continue;
-          pulled.push(sourceArr[pos]);
+          pulled.push(effectiveSourceArr[pos]);
         }
       });
       const pulledCounts = {};
@@ -5089,9 +5488,20 @@ countContainers.forEach(({ selector, itemClass }) => {
         if ([3,6,9].includes(term)) bucket.horse["369"] += 1;
       });
 
-      const startIdx = (typeof fromIndex === "number" && fromIndex >= 0) ? fromIndex : 0;
-      const finalApiKey = getFinalSuggestionApiCacheKey(sourceArr, num, startIdx, finalSuggestionCount);
-      const finalSuggestionApi = finalSuggestionApiCache.get(finalApiKey) || {
+      const startIdx = normalizedFromIndex !== null ? normalizedFromIndex : 0;
+      const computedFinalApiKey = getFinalSuggestionApiCacheKey(
+        effectiveSourceArr,
+        num,
+        startIdx,
+        finalSuggestionCount,
+        normalizedHistoryId || currentTooltipContext?.historyId || ""
+      );
+      const finalApiKey = frozenTooltipMatch
+        ? (currentTooltipFrozenApiKey || currentTooltipContext?.finalApiKey || computedFinalApiKey)
+        : computedFinalApiKey;
+      const finalSuggestionApi = (frozenTooltipMatch && currentTooltipFrozenApi)
+        ? currentTooltipFrozenApi
+        : (finalSuggestionApiCache.get(finalApiKey) || {
         available: false,
         list: [],
         confidence: { score: 0, label: "Baixa" },
@@ -5141,8 +5551,16 @@ countContainers.forEach(({ selector, itemClass }) => {
           { enabled: assertivenessGateEnabled, min_score: assertivenessMinScore }
         ),
         simple: buildEmptySimpleSuggestion("Calculando sugestão simples..."),
-      };
-      requestFinalSuggestionApi(sourceArr, num, startIdx, finalSuggestionCount);
+      });
+      if (!frozenTooltipMatch) {
+        requestFinalSuggestionApi(
+          effectiveSourceArr,
+          num,
+          startIdx,
+          finalSuggestionCount,
+          normalizedHistoryId
+        );
+      }
       const optimizedSuggestion = finalSuggestionApi.optimized && typeof finalSuggestionApi.optimized === "object"
         ? finalSuggestionApi.optimized
         : {
@@ -5163,13 +5581,13 @@ countContainers.forEach(({ selector, itemClass }) => {
       const finalProgress = evaluateSuggestionProgressWithProtections(
         finalSuggestionApi.list || [],
         finalSuggestionApi.protections || [],
-        sourceArr,
+        effectiveSourceArr,
         startIdx
       );
       const simpleProgress = evaluateSuggestionProgressWithProtections(
         simpleSuggestion.list || [],
         [],
-        sourceArr,
+        effectiveSourceArr,
         startIdx
       );
 
@@ -5188,8 +5606,25 @@ countContainers.forEach(({ selector, itemClass }) => {
       };
     }
 
-    function buildNumberTooltipHtml(num, fromIndex = null, sourceArr = history, isLatest = false) {
-      const data = buildNumberTooltipData(num, fromIndex, sourceArr);
+    function buildNumberTooltipHtml(num, fromIndex = null, sourceArr = history, isLatest = false, historyId = "") {
+      const normalizedFromIndex = typeof fromIndex === "number" && fromIndex >= 0 ? fromIndex : null;
+      const normalizedHistoryId = String(historyId || "").trim();
+      const frozenHtmlMatch =
+        !!currentTooltipFreezeContent &&
+        !!currentTooltipContext &&
+        (
+          (normalizedHistoryId && String(currentTooltipContext.historyId || "") === normalizedHistoryId) ||
+          (
+            currentTooltipContext.num === num &&
+            ((typeof currentTooltipContext.fromIndex === "number" && currentTooltipContext.fromIndex >= 0)
+              ? currentTooltipContext.fromIndex
+              : null) === normalizedFromIndex
+          )
+        );
+      if (frozenHtmlMatch && typeof currentTooltipFrozenHtml === "string" && currentTooltipFrozenHtml) {
+        return currentTooltipFrozenHtml;
+      }
+      const data = buildNumberTooltipData(num, fromIndex, sourceArr, historyId);
       const {
         occurrences,
         topPulledItems,
@@ -5201,7 +5636,14 @@ countContainers.forEach(({ selector, itemClass }) => {
         finalProgress,
         simpleProgress,
       } = data;
-      if (currentTooltipContext && currentTooltipContext.num === num) {
+      if (
+        currentTooltipContext &&
+        (
+          (normalizedHistoryId && String(currentTooltipContext.historyId || "") === normalizedHistoryId) ||
+          currentTooltipContext.num === num
+        ) &&
+        !currentTooltipFreezeContent
+      ) {
         currentTooltipContext.finalApiKey = finalApiKey || currentTooltipContext.finalApiKey;
       }
       const buildProgressHtml = (progress, label, { allowProtectionHit = false } = {}) => {
@@ -5593,6 +6035,45 @@ countContainers.forEach(({ selector, itemClass }) => {
           </div>
         `;
       };
+      const buildSnapshotSourceHtml = (snapshotMeta) => {
+        const meta = snapshotMeta && typeof snapshotMeta === "object" ? snapshotMeta : {};
+        const cacheStatus = String(meta.cache_status || "").toLowerCase();
+        let badgeClass = "pending";
+        let badgeText = "Aguardando snapshot";
+        let detailText = "A sugestão ainda está carregando.";
+        if (cacheStatus === "hit") {
+          badgeClass = "hit";
+          badgeText = "Snapshot do banco";
+          detailText = "Sugestão congelada já existente no MongoDB.";
+        } else if (cacheStatus === "created") {
+          badgeClass = "created";
+          badgeText = "Gerado agora";
+          detailText = "Sugestão calculada neste momento e salva no MongoDB.";
+        } else if (cacheStatus === "missing") {
+          badgeClass = "pending";
+          badgeText = "Snapshot ausente";
+          detailText = "Não foi gerada a sugestão para esse número.";
+        }
+        const createdAt = meta.created_at_utc ? new Date(meta.created_at_utc) : null;
+        const createdAtText = createdAt && !Number.isNaN(createdAt.getTime())
+          ? createdAt.toLocaleString("pt-BR")
+          : "";
+        const sourceText = String(meta.source || "").trim();
+        return `
+          <div class="tt-snapshot-card">
+            <div class="tt-snapshot-row">
+              <span class="tt-snapshot-label">Origem da sugestão</span>
+              <span class="tt-snapshot-badge ${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="tt-snapshot-meta">
+              ${detailText}
+              ${createdAtText ? ` | Criado em ${createdAtText}` : ""}
+              ${sourceText ? ` | Fonte ${sourceText}` : ""}
+              ${meta.snapshot_id ? `<br>Snapshot ID: ${meta.snapshot_id}` : ""}
+            </div>
+          </div>
+        `;
+      };
       const simpleShadowHtml = isSimpleApiReady ? `
         <div class="tt-list" style="margin-top: 8px; border: 1px solid rgba(148, 163, 184, 0.22);">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
@@ -5771,6 +6252,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       `;
       const tooltipHtml = `
         <div class="tt-title">Número ${num}</div>
+        ${buildSnapshotSourceHtml(finalSuggestionApi?.snapshot_meta)}
         ${simpleSummaryHtml}
         ${suggestionSectionHtml}
         ${betSectionHtml}
@@ -5778,7 +6260,7 @@ countContainers.forEach(({ selector, itemClass }) => {
         <div class="tt-divider"></div>
         ${occurrencesAccordionHtml}
       `;
-      return tooltipHtml;
+      return `<div class="number-tooltip">${tooltipHtml}</div>`;
     }
 
     function computeConfidence(bucket, totalPulled) {
@@ -6746,12 +7228,25 @@ countContainers.forEach(({ selector, itemClass }) => {
 
 
 
-    function renderHistory() {
-      const sliceArr = history.slice(0, maxHistory);
-      const historyKey = sliceArr.join(",");
+    function renderHistory({ preserveOpenTooltip = false } = {}) {
+      const shouldFreezeTooltip = preserveOpenTooltip && isNumberTooltipVisible() && !!currentTooltipContext;
+      const shouldRestoreTooltip = !shouldFreezeTooltip && isNumberTooltipVisible() && !!currentTooltipContext;
+      const preservedTooltipContext = shouldRestoreTooltip && currentTooltipContext
+        ? { ...currentTooltipContext }
+        : null;
+      if (shouldFreezeTooltip) {
+        pinActiveTooltipReference();
+      } else {
+        destroyNumberTooltip({ clearContext: false, flushDeferredRender: false });
+      }
+      const sliceEntries = historyEntries.slice(0, maxHistory);
+      const sliceArr = sliceEntries.map((entry) => entry.value);
+      const historyKey = sliceEntries.map((entry) => `${entry._id || "noid"}:${entry.value}`).join(",");
       if (historyKey !== lastRenderedHistoryKey) {
-        finalSuggestionApiCache.clear();
-        finalSuggestionApiPending.clear();
+        if (!shouldFreezeTooltip && !currentTooltipFreezeContent) {
+          finalSuggestionApiCache.clear();
+          finalSuggestionApiPending.clear();
+        }
         lastRenderedHistoryKey = historyKey;
       }
       tooltipCache.clear();
@@ -6784,6 +7279,8 @@ countContainers.forEach(({ selector, itemClass }) => {
 
 
       historyEl.innerHTML = sliceArr.map((n, i) => {
+        const entry = sliceEntries[i] || { _id: "", value: n };
+        const historyIdAttr = entry._id ? ` data-history-id="${entry._id}"` : "";
         const term = n % 10;
         const digitSum = getDigitSum(n);
 
@@ -6836,7 +7333,7 @@ countContainers.forEach(({ selector, itemClass }) => {
         const confidenceScore = Math.max(legacyScore, optimizedScore);
         const confidenceFlag = confidenceScore >= confidenceFlagThreshold ? "↗" : "";
         const confidenceTitle = `Confiança >= ${confidenceFlagThreshold}% (Base: ${legacyScore}% | Otimizada: ${optimizedScore}%)`;
-        return `<div class="${baseClass}" data-num="${n}" data-tooltip-idx="${i}" ${styleAttr}>${displayValue}${confidenceFlag ? `<span class="confidence-flag" title="${confidenceTitle}">${confidenceFlag}</span>` : ""}${flag ? `<span class="hot-flag">${flag}</span>` : ""}</div>`;
+        return `<div class="${baseClass}" data-num="${n}" data-tooltip-idx="${i}"${historyIdAttr} ${styleAttr}>${displayValue}${confidenceFlag ? `<span class="confidence-flag" title="${confidenceTitle}">${confidenceFlag}</span>` : ""}${flag ? `<span class="hot-flag">${flag}</span>` : ""}</div>`;
       }).join("");
       
       applyFilter();
@@ -6872,6 +7369,59 @@ countContainers.forEach(({ selector, itemClass }) => {
           });
         });
       });
+
+      if (preservedTooltipContext) {
+        let targetEl = null;
+        if (preservedTooltipContext.historyId) {
+          targetEl = historyEl.querySelector(`.cell[data-history-id="${preservedTooltipContext.historyId}"]`);
+        }
+        if (!targetEl && typeof preservedTooltipContext.fromIndex === "number" && preservedTooltipContext.fromIndex >= 0) {
+          targetEl = historyEl.querySelector(`.cell[data-tooltip-idx="${preservedTooltipContext.fromIndex}"]`);
+        } else if (Number.isInteger(preservedTooltipContext.num)) {
+          targetEl = historyEl.querySelector(`.cell[data-num="${preservedTooltipContext.num}"]`);
+        }
+        if (targetEl) {
+          const safeSourceArr = history.slice(0, maxHistory);
+          const safeFromIndex = Number.isInteger(parseInt(targetEl.dataset.tooltipIdx, 10))
+            ? parseInt(targetEl.dataset.tooltipIdx, 10)
+            : null;
+          const safeHistoryId = String(targetEl.dataset.historyId || preservedTooltipContext.historyId || "").trim();
+          currentTooltipContext = {
+            num: preservedTooltipContext.num,
+            fromIndex: safeFromIndex,
+            historyId: safeHistoryId,
+            sourceArr: safeFromIndex !== null ? safeSourceArr : history,
+            finalApiKey: null,
+          };
+          let tooltipHtml = "";
+          if (safeFromIndex !== null) {
+            if (tooltipCache.has(safeFromIndex)) {
+              tooltipHtml = tooltipCache.get(safeFromIndex);
+            } else {
+              tooltipHtml = buildNumberTooltipHtml(preservedTooltipContext.num, safeFromIndex, safeSourceArr, false, safeHistoryId);
+              tooltipCache.set(safeFromIndex, tooltipHtml);
+            }
+          } else {
+            tooltipHtml = buildNumberTooltipHtml(preservedTooltipContext.num, null, history, false, safeHistoryId);
+          }
+          const tooltipData = buildNumberTooltipData(
+            preservedTooltipContext.num,
+            safeFromIndex,
+            safeFromIndex !== null ? safeSourceArr : history,
+            safeHistoryId
+          );
+          currentTooltipContext.finalApiKey = tooltipData.finalApiKey || getFinalSuggestionApiCacheKey(
+            safeFromIndex !== null ? safeSourceArr : history,
+            preservedTooltipContext.num,
+            safeFromIndex !== null ? safeFromIndex : 0,
+            finalSuggestionCount,
+            safeHistoryId
+          );
+          openNumberTooltip(targetEl, tooltipHtml);
+        } else {
+          currentTooltipContext = null;
+        }
+      }
 
     }
 
@@ -7287,29 +7837,38 @@ countContainers.forEach(({ selector, itemClass }) => {
       selectNumber(num);
     });
 
-    numberTooltip.addEventListener("click", (event) => {
-      const target = event.target.closest(".cell");
-      if (!target) return;
-      if (heatmapMode) return;
-      const num = parseInt(target.dataset.num || target.textContent, 10);
-      if (Number.isNaN(num)) return;
-      selectNumber(num);
-    });
-
     document.addEventListener("click", (event) => {
-      if (!tooltipEnabled) return;
-      if (event.target.closest("#number-tooltip")) return;
+      if (!tooltipEnabled) {
+        destroyNumberTooltip();
+        return;
+      }
+      const tooltipBox = event.target.closest(".tippy-box[data-theme~='number-tooltip']");
+      if (tooltipBox) {
+        const tooltipCell = event.target.closest(".cell");
+        if (tooltipCell && !heatmapMode) {
+          const tooltipNum = parseInt(tooltipCell.dataset.num || tooltipCell.textContent, 10);
+          if (!Number.isNaN(tooltipNum)) {
+            selectNumber(tooltipNum);
+          }
+        }
+        return;
+      }
       const el = event.target.closest(".cell");
       if (!el) {
-        numberTooltip.style.display = "none";
-        currentTooltipContext = null;
+        destroyNumberTooltip();
+        return;
+      }
+      if (currentTooltipReference === el && isNumberTooltipVisible()) {
+        destroyNumberTooltip();
         return;
       }
       const numText = el.dataset.num || el.textContent;
       const num = parseInt(numText, 10);
       if (Number.isNaN(num)) return;
+      const historyId = String(el.dataset.historyId || "").trim();
       let fromIndex = null;
       let sourceArr = history;
+      let tooltipHtml = "";
       const inHistory = el.closest("#history");
       if (inHistory) {
         const idx = parseInt(el.dataset.tooltipIdx, 10);
@@ -7318,61 +7877,47 @@ countContainers.forEach(({ selector, itemClass }) => {
         currentTooltipContext = {
           num,
           fromIndex,
+          historyId,
           sourceArr,
           finalApiKey: null,
         };
         if (tooltipCache.has(idx)) {
-          numberTooltip.innerHTML = tooltipCache.get(idx);
+          tooltipHtml = tooltipCache.get(idx);
         } else {
-          const tooltipHtml = buildNumberTooltipHtml(num, idx, sourceArr);
+          tooltipHtml = buildNumberTooltipHtml(num, idx, sourceArr, false, historyId);
           tooltipCache.set(idx, tooltipHtml);
-          numberTooltip.innerHTML = tooltipHtml;
         }
       } else {
         currentTooltipContext = {
           num,
           fromIndex: null,
+          historyId,
           sourceArr: history,
           finalApiKey: null,
         };
-        numberTooltip.innerHTML = buildNumberTooltipHtml(num, null, history);
+        tooltipHtml = buildNumberTooltipHtml(num, null, history, false, historyId);
       }
-      const tooltipData = buildNumberTooltipData(num, fromIndex, sourceArr);
+      const tooltipData = buildNumberTooltipData(num, fromIndex, sourceArr, historyId);
       currentTooltipContext.finalApiKey = tooltipData.finalApiKey || getFinalSuggestionApiCacheKey(
         sourceArr,
         num,
         (typeof fromIndex === "number" && fromIndex >= 0) ? fromIndex : 0,
-        finalSuggestionCount
+        finalSuggestionCount,
+        historyId
       );
-      numberTooltip.style.display = numberTooltip.style.display === "block" ? "none" : "block";
-      if (numberTooltip.style.display !== "block") {
-        currentTooltipContext = null;
-        return;
-      }
-      const rect = el.getBoundingClientRect();
-      numberTooltip.style.left = `${rect.right + 12}px`;
-
-      // Posiciona o tooltip mais acima para não cortar embaixo
-      const tooltipHeight = numberTooltip.offsetHeight || 400;
-      const windowHeight = window.innerHeight;
-      let topPos = rect.top - 150; // Sobe 150px acima do número
-
-      // Garante que não fique acima da tela
-      if (topPos < 10) topPos = 10;
-
-      // Garante que não fique abaixo da tela
-      if (topPos + tooltipHeight > windowHeight - 10) {
-        topPos = windowHeight - tooltipHeight - 10;
-      }
-
-      numberTooltip.style.top = `${topPos}px`;
+      openNumberTooltip(el, tooltipHtml);
     });
 
     // WebSocket para atualizar dinamicamente (localhost em dev, domínio atual em produção)
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsHost = window.location.host;
-    const socket = new WebSocket(`${wsProtocol}//${wsHost}/ws`);
+    const wsUrl = `${wsProtocol}//${wsHost}/ws`;
     const mesaDesejada = rouletteSlug;
+    let socket = null;
+    let wsReconnectTimer = null;
+    let wsReconnectAttempts = 0;
+    let wsReconnectDisabled = false;
+    let wsHistorySyncInFlight = false;
 
     function updateWsToggleButtons() {
       const mobileLabel = wsPaused
@@ -7397,15 +7942,127 @@ countContainers.forEach(({ selector, itemClass }) => {
       }
     }
 
+    function clearWsReconnectTimer() {
+      if (!wsReconnectTimer) return;
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+
+    function syncHistoryFromServer() {
+      if (wsHistorySyncInFlight) return Promise.resolve();
+      wsHistorySyncInFlight = true;
+      return fetch(`/history/${encodeURIComponent(rouletteSlug)}?limit=${maxHistory}`, {
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Falha ao sincronizar histórico (${response.status})`);
+          }
+          return response.json();
+        })
+        .then((payload) => {
+          const results = Array.isArray(payload?.results) ? payload.results : [];
+          const items = Array.isArray(payload?.items) ? payload.items : [];
+          const nextEntries = items.length
+            ? items.map((item) => normalizeHistoryEntry(item)).filter(Boolean)
+            : results.map((value) => normalizeHistoryEntry({ value })).filter(Boolean);
+          if (!nextEntries.length) return;
+          historyEntries = nextEntries;
+          history = nextEntries.map((entry) => entry.value);
+          lastRenderedHistoryKey = "";
+          requestLiveHistoryRender();
+        })
+        .catch((error) => {
+          console.warn("[history-ws] falha ao sincronizar histórico após reconnect", error);
+        })
+        .finally(() => {
+          wsHistorySyncInFlight = false;
+        });
+    }
+
+    function scheduleWsReconnect() {
+      if (wsReconnectDisabled || wsReconnectTimer) return;
+      const nextAttempt = Math.min(wsReconnectAttempts + 1, 6);
+      wsReconnectAttempts = nextAttempt;
+      const delayMs = Math.min(10000, 1000 * (2 ** (nextAttempt - 1)));
+      wsReconnectTimer = setTimeout(() => {
+        wsReconnectTimer = null;
+        connectResultsWebSocket();
+      }, delayMs);
+    }
+
+    function connectResultsWebSocket() {
+      if (wsReconnectDisabled) return;
+      clearWsReconnectTimer();
+
+      try {
+        if (socket) {
+          socket.onopen = null;
+          socket.onmessage = null;
+          socket.onclose = null;
+          socket.onerror = null;
+          if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+            socket.close();
+          }
+        }
+      } catch (_) {}
+
+      socket = new WebSocket(wsUrl);
+
+      socket.onopen = function () {
+        wsReconnectAttempts = 0;
+        updateWsToggleButtons();
+        syncHistoryFromServer();
+      };
+
+      socket.onmessage = function (event) {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.slug !== mesaDesejada) return;
+
+          const num = parseInt(data.result, 10);
+          if (Number.isNaN(num)) return;
+          const liveEntry = normalizeHistoryEntry(data.full_result && typeof data.full_result === "object"
+            ? data.full_result
+            : { value: num });
+          if (!liveEntry) return;
+
+          if (wsPaused) {
+            wsPendingNumbers.push(liveEntry);
+            updateWsToggleButtons();
+            return;
+          }
+
+          applyIncomingNumbers([liveEntry]);
+        } catch (error) {
+          console.warn("[history-ws] falha ao processar mensagem websocket", error, event?.data);
+        }
+      };
+
+      socket.onerror = function (error) {
+        console.warn("[history-ws] erro na conexão websocket", error);
+      };
+
+      socket.onclose = function () {
+        updateWsToggleButtons();
+        scheduleWsReconnect();
+      };
+    }
+
     function announceTrigger(ult) {
       if (!gatilhos[ult]) return;
       const sortedApostas = [...gatilhos[ult]].sort((a, b) => a - b);
       const lista = sortedApostas.join(", ");
       const texto = `Gatilho ${ult}! Apostar em ${lista} na roleta ${mesaDesejada}`;
 
-      for (let i = 0; i < 2; i++) {
-        const msg = new SpeechSynthexsUtterance(texto);
-        window.speechSynthesis.speak(msg);
+      if (typeof window !== "undefined" && "speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function") {
+        for (let i = 0; i < 2; i++) {
+          const msg = new window.SpeechSynthesisUtterance(texto);
+          window.speechSynthesis.speak(msg);
+        }
       }
 
       ulGatilhos.querySelectorAll("li").forEach(li => {
@@ -7416,36 +8073,38 @@ countContainers.forEach(({ selector, itemClass }) => {
       });
     }
 
-    function applyIncomingNumbers(numbers) {
-      if (!numbers.length) return;
-      numbers.forEach((num) => {
-        const ult = String(num);
-        history.unshift(num);
+    function applyIncomingNumbers(entries) {
+      if (!entries.length) return;
+      entries.forEach((entryLike) => {
+        const entry = normalizeHistoryEntry(entryLike, entryLike);
+        if (!entry) return;
+        const ult = String(entry.value);
+        historyEntries.unshift(entry);
+        history.unshift(entry.value);
         if (history.length > 2000) history.pop();
-        announceTrigger(ult);
+        if (historyEntries.length > 2000) historyEntries.pop();
+        try {
+          announceTrigger(ult);
+        } catch (error) {
+          console.warn("[history-ws] falha ao anunciar gatilho", error);
+        }
       });
-      renderHistory();
+      requestLiveHistoryRender();
     }
 
 
 
 
 
-    socket.onmessage = function (event) {
-      const data = JSON.parse(event.data);
-      if (data.slug !== mesaDesejada) return;
-
-      const num = parseInt(data.result, 10);
-      if (Number.isNaN(num)) return;
-
-      if (wsPaused) {
-        wsPendingNumbers.push(num);
-        updateWsToggleButtons();
-        return;
-      }
-
-      applyIncomingNumbers([num]);
-    };
+    window.addEventListener("beforeunload", () => {
+      wsReconnectDisabled = true;
+      clearWsReconnectTimer();
+      try {
+        if (socket) {
+          socket.close();
+        }
+      } catch (_) {}
+    });
 
     function fillMonitoredList() {
       monitoredListDiv.innerHTML = "";
@@ -7565,6 +8224,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     restoreSelectionsState();
     updateWsToggleButtons();
     syncHistoryDisplayButtons();
+    connectResultsWebSocket();
 
     // Carrega histórico inicial
     renderHistory();
@@ -7606,7 +8266,8 @@ countContainers.forEach(({ selector, itemClass }) => {
           
           // Atualizar histórico com dados filtrados
           detailedHistory = data.results;
-          history = data.results.map(r => r.value);
+          historyEntries = data.results.map((item) => normalizeHistoryEntry(item)).filter(Boolean);
+          history = historyEntries.map((item) => item.value);
           
           // Renderizar com os novos dados
           renderHistory();
@@ -7730,8 +8391,8 @@ countContainers.forEach(({ selector, itemClass }) => {
   
   // Modificar a função renderHistory para chamar addTimestampTooltips
   const originalRenderHistory = renderHistory;
-  renderHistory = function() {
-      originalRenderHistory();
+  renderHistory = function(...args) {
+      originalRenderHistory.apply(this, args);
       addTimestampTooltips();
   };
   

@@ -19,6 +19,16 @@ base_dir = os.path.dirname(os.path.dirname(__file__))
 templates_dir = os.path.join(base_dir, "templates")
 
 
+def _serialize_history_item(doc: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "_id": str(doc.get("_id")) if doc.get("_id") is not None else None,
+        "value": int(doc.get("value")),
+        "roulette_id": str(doc.get("roulette_id") or ""),
+        "roulette_name": str(doc.get("roulette_name") or doc.get("roulette_id") or ""),
+        "timestamp": doc.get("timestamp").isoformat() if isinstance(doc.get("timestamp"), datetime) else None,
+    }
+
+
 def get_color_class(num: int) -> str:
     if num == 0:
         return "green"
@@ -143,6 +153,7 @@ async def get_history_detailed(
                     "request": request,
                     "slug": slug,
                     "numbers": [r["value"] for r in processed_results],
+                    "history_entries": processed_results,
                     "detailed_results": processed_results,
                     "roulette": roulette,
                     "all_roulettes": roulettes,
@@ -183,6 +194,7 @@ async def get_history(slug: str, request: Request, limit: int = 2000):
 
         docs = await cursor.to_list(length=limit)
         numbers = [doc["value"] for doc in docs]
+        history_entries = [_serialize_history_item(dict(doc)) for doc in docs]
 
         accept = request.headers.get("accept", "")
         if "text/html" in accept:
@@ -196,6 +208,7 @@ async def get_history(slug: str, request: Request, limit: int = 2000):
                     "request": request,
                     "slug": slug,
                     "numbers": numbers,
+                    "history_entries": history_entries,
                     "roulette": roulette,
                     "all_roulettes": roulettes,
                     "get_color_class": get_color_class,
@@ -203,7 +216,7 @@ async def get_history(slug: str, request: Request, limit: int = 2000):
                 },
             )
 
-        return {"results": numbers}
+        return {"results": numbers, "items": history_entries}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

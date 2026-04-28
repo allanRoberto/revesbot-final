@@ -18,6 +18,8 @@ from api.services.occurrence_ranking import (
 DEFAULT_OCCURRENCE_PATTERN_WEIGHT = 0.75
 DEFAULT_OCCURRENCE_FUSION_WEIGHT = 0.25
 DEFAULT_OCCURRENCE_OVERLAP_BONUS = 0.05
+DEFAULT_OCCURRENCE_TAIL_REPLACE_LIMIT = 0
+MAX_OCCURRENCE_TAIL_REPLACE_LIMIT = 10
 
 
 def _safe_int(raw: Any, default: int, minimum: int, maximum: int) -> int:
@@ -58,6 +60,7 @@ def _build_default_fusion_meta(
     pattern_weight: float,
     occurrence_weight: float,
     overlap_bonus: float,
+    tail_replace_limit: int,
     base_list: List[int],
 ) -> Dict[str, Any]:
     return {
@@ -74,6 +77,10 @@ def _build_default_fusion_meta(
         "pattern_weight": round(pattern_weight, 6),
         "occurrence_weight": round(occurrence_weight, 6),
         "overlap_bonus": round(overlap_bonus, 6),
+        "tail_replace_limit": tail_replace_limit,
+        "tail_replace_applied": False,
+        "tail_replacements": [],
+        "occurrence_only_numbers_injected": [],
         "base_list": list(base_list),
         "occurrence_available": False,
         "occurrence_ranking": [],
@@ -103,6 +110,7 @@ def apply_occurrence_rerank_to_simple_suggestion(
     pattern_weight: float = DEFAULT_OCCURRENCE_PATTERN_WEIGHT,
     occurrence_weight: float = DEFAULT_OCCURRENCE_FUSION_WEIGHT,
     overlap_bonus: float = DEFAULT_OCCURRENCE_OVERLAP_BONUS,
+    tail_replace_limit: int = DEFAULT_OCCURRENCE_TAIL_REPLACE_LIMIT,
 ) -> Dict[str, Any]:
     payload = dict(simple_payload or {})
     base_list = [int(number) for number in (payload.get("list") or []) if 0 <= int(number) <= 36]
@@ -127,6 +135,12 @@ def apply_occurrence_rerank_to_simple_suggestion(
         _safe_float(occurrence_weight, DEFAULT_OCCURRENCE_FUSION_WEIGHT, 0.0, 1.0),
     )
     safe_overlap_bonus = _safe_float(overlap_bonus, DEFAULT_OCCURRENCE_OVERLAP_BONUS, 0.0, 0.5)
+    safe_tail_replace_limit = _safe_int(
+        tail_replace_limit,
+        DEFAULT_OCCURRENCE_TAIL_REPLACE_LIMIT,
+        0,
+        MAX_OCCURRENCE_TAIL_REPLACE_LIMIT,
+    )
 
     fusion_meta = _build_default_fusion_meta(
         enabled=bool(enabled),
@@ -140,6 +154,7 @@ def apply_occurrence_rerank_to_simple_suggestion(
         pattern_weight=normalized_pattern_weight,
         occurrence_weight=normalized_occurrence_weight,
         overlap_bonus=safe_overlap_bonus,
+        tail_replace_limit=safe_tail_replace_limit,
         base_list=base_list,
     )
 
@@ -152,6 +167,10 @@ def apply_occurrence_rerank_to_simple_suggestion(
     payload["occurrence_inverted_detected"] = False
     payload["occurrence_invert_hit_count"] = 0
     payload["occurrence_invert_hit_offsets"] = []
+    payload["occurrence_tail_replace_limit"] = safe_tail_replace_limit
+    payload["occurrence_tail_replace_applied"] = False
+    payload["occurrence_tail_replacements"] = []
+    payload["occurrence_only_numbers_injected"] = []
 
     if not enabled:
         fusion_meta["reason"] = "Fusao por ocorrencias desativada."
@@ -266,6 +285,94 @@ def apply_occurrence_rerank_to_simple_suggestion(
     )
 
     fused_list = [int(item["number"]) for item in reranked_details]
+    tail_replacements: List[Dict[str, Any]] = []
+    occurrence_only_numbers_injected: List[int] = []
+
+    if safe_tail_replace_limit > 0 and top_occurrence_count >= 2:
+        occurrence_only_candidates: List[Dict[str, Any]] = []
+        occurrence_only_seen: set[int] = set()
+        occurrence_strength_threshold = max(2, int(round(top_occurrence_count * 0.55)))
+        for item in occurrence_ranking_details:
+            if not isinstance(item, dict):
+                continue
+            try:
+                candidate_number = int(item.get("number"))
+                candidate_count = int(item.get("count", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            if not (0 <= candidate_number <= 36):
+                continue
+            if candidate_number in occurrence_only_seen or candidate_number in fused_list:
+                continue
+            candidate_norm = (
+                float(candidate_count) / float(top_occurrence_count)
+                if top_occurrence_count > 0
+                else 0.0
+            )
+            if candidate_count < occurrence_strength_threshold or candidate_norm < 0.55:
+                continue
+            occurrence_only_seen.add(candidate_number)
+            occurrence_only_candidates.append(
+                {
+                    "number": candidate_number,
+                    "count": candidate_count,
+                    "occurrence_norm": round(candidate_norm, 6),
+                }
+            )
+
+        if occurrence_only_candidates and overlap_numbers:
+            removable_indexes: List[int] = []
+            protected_numbers = set(
+                int(detail.get("number"))
+                for detail in reranked_details[: max(1, len(reranked_details) // 2)]
+                if isinstance(detail, dict)
+            )
+            for index in range(len(reranked_details) - 1, -1, -1):
+                if len(removable_indexes) >= safe_tail_replace_limit:
+                    break
+                number = int(reranked_details[index].get("number", -1))
+                if number in protected_numbers:
+                    continue
+                removable_indexes.append(index)
+            removable_indexes.sort()
+
+            for replace_index, candidate in zip(removable_indexes, occurrence_only_candidates):
+                removed_detail = dict(reranked_details[replace_index])
+                inserted_number = int(candidate["number"])
+                inserted_count = int(candidate["count"])
+                inserted_norm = float(candidate["occurrence_norm"])
+                inserted_detail = dict(details_map.get(inserted_number) or {})
+                inserted_detail.update(
+                    {
+                        "number": inserted_number,
+                        "support_score": int(inserted_detail.get("support_score", inserted_detail.get("support_count", 0)) or 0),
+                        "support_count": int(inserted_detail.get("support_count", inserted_detail.get("support_score", 0)) or 0),
+                        "weighted_support_score": float(inserted_detail.get("weighted_support_score", 0.0) or 0.0),
+                        "supporting_patterns": list(inserted_detail.get("supporting_patterns") or []),
+                        "pattern_score_norm": 0.0,
+                        "occurrence_score_norm": round(inserted_norm, 6),
+                        "occurrence_count": inserted_count,
+                        "occurrence_overlap": False,
+                        "overlap_bonus": 0.0,
+                        "fusion_score": round(normalized_occurrence_weight * inserted_norm, 6),
+                        "occurrence_tail_injected": True,
+                        "injected_from_occurrence_only": True,
+                    }
+                )
+                removed_number = int(removed_detail.get("number", -1))
+                reranked_details[replace_index] = inserted_detail
+                fused_list[replace_index] = inserted_number
+                tail_replacements.append(
+                    {
+                        "index": replace_index,
+                        "removed_number": removed_number,
+                        "inserted_number": inserted_number,
+                        "inserted_occurrence_count": inserted_count,
+                        "inserted_occurrence_norm": round(inserted_norm, 6),
+                    }
+                )
+                occurrence_only_numbers_injected.append(inserted_number)
+
     occurrence_inverted_detected = str(occurrence_snapshot.get("cancelled_reason") or "") == "inverted_hit"
     occurrence_invert_hit_offsets = list(
         (occurrence_snapshot.get("inverted_evaluation") or {}).get("hit_offsets") or []
@@ -277,6 +384,7 @@ def apply_occurrence_rerank_to_simple_suggestion(
     fusion_meta.update(
         {
             "applied": fused_list != base_list or True,
+            "mode": "rerank_tail_replace" if tail_replacements else "rerank",
             "occurrence_available": True,
             "occurrence_ranking": [int(number) for number in (occurrence_snapshot.get("ranking") or [])],
             "occurrence_ranking_details": occurrence_ranking_details,
@@ -286,9 +394,13 @@ def apply_occurrence_rerank_to_simple_suggestion(
             "occurrence_invert_hit_count": occurrence_invert_hit_count,
             "occurrence_invert_hit_offsets": occurrence_invert_hit_offsets,
             "top_occurrence_count": top_occurrence_count,
+            "tail_replace_applied": bool(tail_replacements),
+            "tail_replacements": tail_replacements,
+            "occurrence_only_numbers_injected": occurrence_only_numbers_injected,
             "reason": (
                 f"Lista reranqueada por ocorrencias com {len(overlap_numbers)} numero(s) em comum "
-                f"com o top {safe_ranking_size}."
+                f"com o top {safe_ranking_size}"
+                f"{f' e {len(tail_replacements)} troca(s) na cauda' if tail_replacements else ''}."
             ),
         }
     )
@@ -305,6 +417,9 @@ def apply_occurrence_rerank_to_simple_suggestion(
     payload["occurrence_inverted_detected"] = occurrence_inverted_detected
     payload["occurrence_invert_hit_count"] = occurrence_invert_hit_count
     payload["occurrence_invert_hit_offsets"] = occurrence_invert_hit_offsets
+    payload["occurrence_tail_replace_applied"] = bool(tail_replacements)
+    payload["occurrence_tail_replacements"] = list(tail_replacements)
+    payload["occurrence_only_numbers_injected"] = list(occurrence_only_numbers_injected)
     payload["explanation"] = (
         f"{str(payload.get('explanation') or '').strip()} "
         f"{fusion_meta['reason']}"

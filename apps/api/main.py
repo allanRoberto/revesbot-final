@@ -51,6 +51,7 @@ from api.core.db import (
     mongo_db,
     history_coll,
     ensure_occurrence_analysis_indexes,
+    ensure_suggestion_snapshot_indexes,
     ensure_suggestion_monitor_indexes,
 )
 from fastapi.responses import HTMLResponse
@@ -80,6 +81,7 @@ from api.routes.ai_shadow import router as ai_shadow_router
 from api.routes.monitor_replay import router as monitor_replay_router
 from api.routes.occurrence_ranking import router as occurrence_ranking_router
 from api.routes.suggestion_monitor import router as suggestion_monitor_router
+from api.routes.suggestion_snapshots import router as suggestion_snapshots_router
 
 
 
@@ -184,6 +186,7 @@ app.include_router(ai_shadow_router)
 app.include_router(monitor_replay_router)
 app.include_router(occurrence_ranking_router)
 app.include_router(suggestion_monitor_router)
+app.include_router(suggestion_snapshots_router)
 
  
 
@@ -205,6 +208,10 @@ async def _warm_api_runtime() -> None:
         await ensure_occurrence_analysis_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices da análise de ocorrências falhou: {exc}")
+    try:
+        await ensure_suggestion_snapshot_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices dos snapshots de sugestão falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:

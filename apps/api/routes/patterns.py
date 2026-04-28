@@ -33,6 +33,7 @@ from api.services.simple_suggestion_occurrence_fusion import (
     DEFAULT_OCCURRENCE_OVERLAP_BONUS,
     DEFAULT_OCCURRENCE_PATTERN_WEIGHT,
     DEFAULT_OCCURRENCE_RANKING_SIZE,
+    DEFAULT_OCCURRENCE_TAIL_REPLACE_LIMIT,
     DEFAULT_OCCURRENCE_WINDOW_AFTER,
     DEFAULT_OCCURRENCE_WINDOW_BEFORE,
     apply_occurrence_rerank_to_simple_suggestion,
@@ -133,6 +134,7 @@ class FinalSuggestionRequest(BaseModel):
     occurrence_pattern_weight: float = DEFAULT_OCCURRENCE_PATTERN_WEIGHT
     occurrence_weight: float = DEFAULT_OCCURRENCE_FUSION_WEIGHT
     occurrence_overlap_bonus: float = DEFAULT_OCCURRENCE_OVERLAP_BONUS
+    occurrence_tail_replace_limit: int = DEFAULT_OCCURRENCE_TAIL_REPLACE_LIMIT
     assertiveness_gate_enabled: bool = True
     assertiveness_min_score: int = 55
 
@@ -195,6 +197,7 @@ class FinalSuggestionPolicyRequest(BaseModel):
     occurrence_pattern_weight: float = DEFAULT_OCCURRENCE_PATTERN_WEIGHT
     occurrence_weight: float = DEFAULT_OCCURRENCE_FUSION_WEIGHT
     occurrence_overlap_bonus: float = DEFAULT_OCCURRENCE_OVERLAP_BONUS
+    occurrence_tail_replace_limit: int = DEFAULT_OCCURRENCE_TAIL_REPLACE_LIMIT
     assertiveness_gate_enabled: bool = True
     assertiveness_min_score: int = 55
 
@@ -1066,6 +1069,7 @@ def _apply_occurrence_fusion_to_simple_payload(
         pattern_weight=float(request_payload.occurrence_pattern_weight),
         occurrence_weight=float(request_payload.occurrence_weight),
         overlap_bonus=float(request_payload.occurrence_overlap_bonus),
+        tail_replace_limit=int(request_payload.occurrence_tail_replace_limit),
     )
 
 
