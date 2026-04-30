@@ -220,3 +220,29 @@ async def get_history(slug: str, request: Request, limit: int = 2000):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/history-app/{slug}")
+async def get_history_app(slug: str, limit: int = 2000):
+    """
+    Retorna apenas os números da roleta para integrações legadas/externas.
+    - Param `limit`: número de resultados (default=2000)
+    - Mais recente sempre vem primeiro.
+    """
+    try:
+        max_limit = 50000
+        limit = min(limit, max_limit)
+
+        cursor = (
+            history_coll
+            .find({"roulette_id": slug})
+            .sort("timestamp", -1)
+            .limit(limit)
+        )
+
+        docs = await cursor.to_list(length=limit)
+        numbers = [doc["value"] for doc in docs]
+        return {"results": numbers}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
