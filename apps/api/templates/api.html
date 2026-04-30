@@ -919,6 +919,90 @@
     line-height: 1.45;
   }
 
+  .number-tooltip .tt-loading-card {
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.35);
+  }
+
+  .number-tooltip .tt-loading-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .number-tooltip .tt-spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    border: 2px solid rgba(148, 163, 184, 0.25);
+    border-top-color: #38bdf8;
+    animation: tt-spinner-rotate 0.8s linear infinite;
+    flex: 0 0 auto;
+  }
+
+  .number-tooltip .tt-loading-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #e2e8f0;
+  }
+
+  .number-tooltip .tt-loading-subtitle {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  .number-tooltip .tt-skeleton {
+    margin-top: 10px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .number-tooltip .tt-skeleton-line {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(51, 65, 85, 0.9) 25%, rgba(71, 85, 105, 0.45) 50%, rgba(51, 65, 85, 0.9) 75%);
+    background-size: 200% 100%;
+    animation: tt-skeleton-shimmer 1.3s ease-in-out infinite;
+  }
+
+  .number-tooltip .tt-skeleton-line.short {
+    width: 48%;
+  }
+
+  .number-tooltip .tt-skeleton-grid {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .number-tooltip .tt-skeleton-cell {
+    height: 22px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, rgba(30, 41, 59, 0.95) 25%, rgba(51, 65, 85, 0.55) 50%, rgba(30, 41, 59, 0.95) 75%);
+    background-size: 200% 100%;
+    animation: tt-skeleton-shimmer 1.3s ease-in-out infinite;
+  }
+
+  @keyframes tt-spinner-rotate {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes tt-skeleton-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
   .number-tooltip .tt-suggestion-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -3460,6 +3544,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     let currentTooltipFrozenApi = null;
     let currentTooltipFrozenApiKey = "";
     let currentTooltipFrozenHtml = "";
+    let pendingTooltipContentRefresh = false;
     const OPTIMIZED_MAX_NUMBERS = 37;
 
     function cloneTooltipPayload(payload) {
@@ -3543,6 +3628,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       currentTooltipFrozenApi = null;
       currentTooltipFrozenApiKey = "";
       currentTooltipFrozenHtml = "";
+      pendingTooltipContentRefresh = false;
       if (flushDeferredRender) {
         historyRefreshDeferredWhileTooltip = false;
       }
@@ -3569,6 +3655,46 @@ countContainers.forEach(({ selector, itemClass }) => {
       if (typeof checkBotHealth === "function") {
         setTimeout(() => checkBotHealth(), 0);
       }
+    }
+
+    function refreshActiveTooltipContentSoon() {
+      if (!currentTooltipContext) return;
+      if (!currentTooltipInstance) {
+        pendingTooltipContentRefresh = true;
+        return;
+      }
+      window.requestAnimationFrame(() => {
+        if (!currentTooltipContext || !currentTooltipInstance) return;
+        if (currentTooltipFreezeContent && isNumberTooltipVisible()) return;
+        pendingTooltipContentRefresh = false;
+        refreshActiveTooltipContent();
+      });
+    }
+
+    function buildTooltipLoaderHtml(message = "Carregando sugestão salva...", detail = "Aguarde enquanto o snapshot é carregado e aplicado no tooltip.") {
+      return `
+        <div class="tt-loading-card">
+          <div class="tt-loading-row">
+            <span class="tt-spinner" aria-hidden="true"></span>
+            <div>
+              <div class="tt-loading-title">${message}</div>
+              <div class="tt-loading-subtitle">${detail}</div>
+            </div>
+          </div>
+          <div class="tt-skeleton">
+            <div class="tt-skeleton-line"></div>
+            <div class="tt-skeleton-line short"></div>
+          </div>
+          <div class="tt-skeleton-grid">
+            <div class="tt-skeleton-cell"></div>
+            <div class="tt-skeleton-cell"></div>
+            <div class="tt-skeleton-cell"></div>
+            <div class="tt-skeleton-cell"></div>
+            <div class="tt-skeleton-cell"></div>
+            <div class="tt-skeleton-cell"></div>
+          </div>
+        </div>
+      `;
     }
 
     function cloneClientRect(rectLike) {
@@ -3630,6 +3756,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       currentTooltipFrozenApi = null;
       currentTooltipFrozenApiKey = "";
       currentTooltipFrozenHtml = "";
+      pendingTooltipContentRefresh = false;
       currentTooltipInstance = tippy(referenceEl, {
         content: html,
         allowHTML: true,
@@ -3667,11 +3794,18 @@ countContainers.forEach(({ selector, itemClass }) => {
             currentTooltipInstance = null;
             currentTooltipReference = null;
             currentTooltipContext = null;
+            pendingTooltipContentRefresh = false;
           }
           instance.destroy();
         },
       });
       currentTooltipInstance.show();
+      window.requestAnimationFrame(() => {
+        if (!currentTooltipInstance || !currentTooltipContext) return;
+        if (pendingTooltipContentRefresh || currentTooltipContext.finalApiKey) {
+          refreshActiveTooltipContentSoon();
+        }
+      });
       if (typeof checkBotHealth === "function") {
         setTimeout(() => checkBotHealth(), 0);
       }
@@ -5325,11 +5459,10 @@ countContainers.forEach(({ selector, itemClass }) => {
           }
           if (
             currentTooltipContext &&
-            currentTooltipContext.finalApiKey === key &&
-            isNumberTooltipVisible()
+            currentTooltipContext.finalApiKey === key
           ) {
             if (!currentTooltipFreezeContent) {
-              refreshActiveTooltipContent();
+              refreshActiveTooltipContentSoon();
             }
           }
         })
@@ -5403,11 +5536,10 @@ countContainers.forEach(({ selector, itemClass }) => {
           }
           if (
             currentTooltipContext &&
-            currentTooltipContext.finalApiKey === key &&
-            isNumberTooltipVisible()
+            currentTooltipContext.finalApiKey === key
           ) {
             if (!currentTooltipFreezeContent) {
-              refreshActiveTooltipContent();
+              refreshActiveTooltipContentSoon();
             }
           }
         })
@@ -5636,6 +5768,9 @@ countContainers.forEach(({ selector, itemClass }) => {
         finalProgress,
         simpleProgress,
       } = data;
+      const finalSuggestionPending = finalApiKey ? finalSuggestionApiPending.has(finalApiKey) : false;
+      const snapshotCacheStatus = String(finalSuggestionApi?.snapshot_meta?.cache_status || "").toLowerCase();
+      const showTooltipLoader = finalSuggestionPending && (!finalSuggestionApi?.available || !snapshotCacheStatus || snapshotCacheStatus === "pending");
       if (
         currentTooltipContext &&
         (
@@ -6187,6 +6322,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       `;
       const suggestionSectionHtml = `
         <div class="tt-section">Sugestão Simples</div>
+        ${showTooltipLoader ? buildTooltipLoaderHtml() : ""}
         <div class="tt-compare-card">
           <div class="tt-compare-title">Sugestão Principal</div>
           <div class="tt-compare-meta">${simpleSuggestion?.list?.length || 0} números | ${simplePatternCount} patterns positivos</div>

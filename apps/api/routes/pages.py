@@ -121,6 +121,12 @@ async def suggestion_monitor_dashboard_page():
         return f.read()
 
 
+@router.get("/suggestion-rank-timeline", response_class=HTMLResponse)
+async def suggestion_rank_timeline_page():
+    with open(os.path.join(templates_dir, "suggestion_rank_timeline.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/pattern-training", response_class=HTMLResponse)
 async def pattern_training_page():
     with open(os.path.join(templates_dir, "pattern_training.html"), "r", encoding="utf-8") as f:

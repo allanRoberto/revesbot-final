@@ -5,7 +5,7 @@
       "name": "Brazilian Roulette",
       "rouletteId": "pragmatic-brazilian-roulette",
       "url": "https://lotogreen.bet.br/play/450",
-      "enabled": false
+      "enabled": true
     },
     {
       "gameId": "556",
@@ -33,7 +33,7 @@
       "name": "korean Roulette",
       "rouletteId": "pragmatic-korean-roulette",
       "url": "https://lotogreen.bet.br/play/457",
-      "enabled": false
+      "enabled": true
     },
     {
       "gameId": "373",
@@ -68,22 +68,21 @@
       "name": "Immersive Roulette Deluxe",
       "rouletteId": "pragmatic-immersive-roulette-deluxe",
       "url": "https://lotogreen.bet.br/play/8261",
-      "enabled": false
+      "enabled": true
     },
     {
       "gameId": "552",
       "name": "Roulette Macao",
       "rouletteId": "pragmatic-roulette-macao",
       "url": "https://lotogreen.bet.br/play/552",
-      "enabled": false
+      "enabled": true
     },
     {
       "gameId": "473",
       "name": "Roulette 1",
       "rouletteId": "pragmatic-roulette-1",
       "url": "https://lotogreen.bet.br/play/473",
-      "enabled": false
+      "enabled": true
     }
   ]
 }
-

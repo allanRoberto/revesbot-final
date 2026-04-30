@@ -557,6 +557,26 @@ function calculateChipValue(attempt) {
   return BET_SEQUENCE[BET_SEQUENCE.length - 1];
 }
 
+function resolveAttemptChipValue(signal, attempt) {
+  const sequence = Array.isArray(signal.bet_sequence) ? signal.bet_sequence : null;
+  if (sequence && sequence.length > 0) {
+    const idx = Math.min(Math.max(attempt, 0), sequence.length - 1);
+    const numericValue = Number(sequence[idx]);
+    if (!Number.isNaN(numericValue) && numericValue > 0) {
+      return numericValue;
+    }
+  }
+
+  if (signal.valor !== undefined && signal.valor !== null) {
+    const fixedValue = Number(signal.valor);
+    if (!Number.isNaN(fixedValue) && fixedValue > 0) {
+      return fixedValue;
+    }
+  }
+
+  return calculateChipValue(attempt);
+}
+
 function generateChecksumTimestamp() {
   return Date.now().toString();
 }
@@ -1007,8 +1027,7 @@ class TableManager {
     const attempt = this.currentBet.currentAttempt;
     const max = this.currentBet.maxAttempts;
     
-    //const chipValue = calculateChipValue(attempt - 1);
-    const chipValue = this.currentBet.signal.valor || calculateChipValue(attempt - 1);
+    const chipValue = resolveAttemptChipValue(this.currentBet.signal, attempt - 1);
 
     
     console.log(`💰 ${this.name}: Aposta ${attempt}/${max} - Ficha: ${chipValue} - ${this.currentBet.signal.bets}`);

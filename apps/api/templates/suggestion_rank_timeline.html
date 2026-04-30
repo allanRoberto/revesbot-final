@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Timeline do Ranking da Sugestão</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --muted: #64748b;
+            --text: #0f172a;
+            --border: #e2e8f0;
+            --accent: #2563eb;
+            --accent-soft: rgba(37, 99, 235, 0.12);
+            --good: #16a34a;
+            --warn: #ea580c;
+            --bad: #dc2626;
+            --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+            color: var(--text);
+        }
+
+        .page {
+            width: min(1400px, calc(100vw - 32px));
+            margin: 28px auto 40px;
+        }
+
+        .header {
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0 0 8px;
+            font-size: 30px;
+            line-height: 1.1;
+        }
+
+        .header p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: minmax(280px, 2fr) minmax(120px, 140px) auto auto;
+            gap: 12px;
+            padding: 18px;
+            align-items: end;
+            margin-bottom: 18px;
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+            padding: 11px 12px;
+            font-size: 14px;
+            color: var(--text);
+            outline: none;
+        }
+
+        .field.inline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 10px;
+        }
+
+        .field.inline label {
+            margin: 0;
+        }
+
+        .button {
+            height: 44px;
+            border: 0;
+            border-radius: 12px;
+            padding: 0 16px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .button.primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .button.secondary {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .summary-card {
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        .summary-card .label {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 8px;
+        }
+
+        .summary-card .value {
+            font-size: 28px;
+            line-height: 1;
+            font-weight: 800;
+        }
+
+        .summary-card .hint {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .chart-panel {
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+
+        .sequence-panel {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: rgba(248, 250, 252, 0.9);
+        }
+
+        .sequence-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: baseline;
+            margin-bottom: 10px;
+        }
+
+        .sequence-head .title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .sequence-head .meta {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .sequence-strip {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            scrollbar-width: thin;
+        }
+
+        .sequence-chip {
+            min-width: 42px;
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+            color: #fff;
+            flex: 0 0 auto;
+            cursor: pointer;
+            transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease, opacity 0.14s ease;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+        }
+
+        .sequence-chip.red {
+            background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+        }
+
+        .sequence-chip.black {
+            background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+        }
+
+        .sequence-chip.green {
+            background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+        }
+
+        .sequence-chip.unknown {
+            background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+        }
+
+        .sequence-chip:hover,
+        .sequence-chip.active {
+            transform: translateY(-2px) scale(1.04);
+            border-color: rgba(37, 99, 235, 0.45);
+            box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18);
+        }
+
+        .chart-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: baseline;
+            margin-bottom: 12px;
+        }
+
+        .chart-head h2,
+        .table-panel h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .chart-head .meta {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .chart-wrap {
+            position: relative;
+            height: 440px;
+        }
+
+        .table-panel {
+            padding: 18px;
+        }
+
+        .table-wrap {
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 980px;
+        }
+
+        th, td {
+            padding: 12px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            vertical-align: top;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .rank-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 54px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .rank-pill.hit-top {
+            background: rgba(22, 163, 74, 0.14);
+            color: var(--good);
+        }
+
+        .rank-pill.hit-mid {
+            background: rgba(234, 88, 12, 0.14);
+            color: var(--warn);
+        }
+
+        .rank-pill.miss {
+            background: rgba(220, 38, 38, 0.12);
+            color: var(--bad);
+        }
+
+        .top10 {
+            color: var(--muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            max-width: 420px;
+            white-space: normal;
+        }
+
+        .status {
+            margin-bottom: 14px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .status.error {
+            color: var(--bad);
+        }
+
+        @media (max-width: 1100px) {
+            .controls {
+                grid-template-columns: 1fr 140px;
+            }
+            .summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 720px) {
+            .page {
+                width: min(100vw - 20px, 100%);
+                margin-top: 18px;
+            }
+            .controls,
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+            .chart-wrap {
+                height: 320px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="header">
+            <h1>Timeline do Ranking da Sugestão</h1>
+            <p>Gráfico da posição em que o próximo número real apareceu no ranking da sugestão. Quanto mais perto de <strong>1</strong>, melhor.</p>
+        </div>
+
+        <div class="panel controls">
+            <div class="field">
+                <label for="rouletteSelect">Roleta</label>
+                <select id="rouletteSelect"></select>
+            </div>
+            <div class="field">
+                <label for="limitInput">Pontos</label>
+                <input id="limitInput" type="number" min="20" max="2000" step="10" value="200" />
+            </div>
+            <div class="field inline">
+                <input id="includeAllConfigsInput" type="checkbox" />
+                <label for="includeAllConfigsInput">Misturar configs antigas</label>
+            </div>
+            <div>
+                <button id="reloadButton" class="button primary">Atualizar</button>
+            </div>
+        </div>
+
+        <div id="status" class="status">Carregando...</div>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="label">Itens Resolvidos</div>
+                <div id="resolvedValue" class="value">0</div>
+                <div class="hint">Snapshots já comparados com o próximo número real</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Top 1</div>
+                <div id="top1Value" class="value">0</div>
+                <div class="hint">Acertos cravados na primeira posição</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Top 5</div>
+                <div id="top5Value" class="value">0</div>
+                <div class="hint">Acertos dentro das cinco primeiras posições</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Top 10</div>
+                <div id="top10Value" class="value">0</div>
+                <div class="hint">Acertos dentro do topo do ranking</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Fora do Ranking</div>
+                <div id="outsideValue" class="value">0</div>
+                <div class="hint">Próximo resultado não apareceu no ranking</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Média do Rank</div>
+                <div id="avgRankValue" class="value">-</div>
+                <div class="hint">Média apenas dos pontos que acertaram</div>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <div class="sequence-panel">
+                <div class="sequence-head">
+                    <div class="title">Números em Ordem Cronológica</div>
+                    <div id="sequenceMeta" class="meta">-</div>
+                </div>
+                <div id="numbersSequence" class="sequence-strip"></div>
+            </div>
+            <div class="chart-head">
+                <h2>Oscilação da Posição do Acerto</h2>
+                <div id="chartMeta" class="meta">-</div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="rankTimelineChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel table-panel">
+            <h2>Eventos Recentes</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Âncora</th>
+                            <th>Próximo Número</th>
+                            <th>Posição no Ranking</th>
+                            <th>Top 10 do Ranking</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const rouletteSelect = document.getElementById("rouletteSelect");
+        const limitInput = document.getElementById("limitInput");
+        const includeAllConfigsInput = document.getElementById("includeAllConfigsInput");
+        const reloadButton = document.getElementById("reloadButton");
+        const statusEl = document.getElementById("status");
+        const eventsTableBody = document.getElementById("eventsTableBody");
+        const chartMetaEl = document.getElementById("chartMeta");
+        const numbersSequenceEl = document.getElementById("numbersSequence");
+        const sequenceMetaEl = document.getElementById("sequenceMeta");
+
+        let timelineChart = null;
+        let currentTimelineItems = [];
+
+        const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+        const BLACK_NUMBERS = new Set([2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35]);
+
+        function formatDateTime(value) {
+            if (!value) return "-";
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleString("pt-BR");
+        }
+
+        function getRouletteColorClass(number) {
+            if (number === 0) return "green";
+            if (RED_NUMBERS.has(number)) return "red";
+            if (BLACK_NUMBERS.has(number)) return "black";
+            return "unknown";
+        }
+
+        function setStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.className = `status${isError ? " error" : ""}`;
+        }
+
+        function getRankPillClass(rank) {
+            if (rank == null) return "rank-pill miss";
+            if (rank <= 5) return "rank-pill hit-top";
+            return "rank-pill hit-mid";
+        }
+
+        function renderSummary(summary) {
+            document.getElementById("resolvedValue").textContent = String(summary.resolved_items || 0);
+            document.getElementById("top1Value").textContent = String(summary.top_1_hits || 0);
+            document.getElementById("top5Value").textContent = String(summary.top_5_hits || 0);
+            document.getElementById("top10Value").textContent = String(summary.top_10_hits || 0);
+            document.getElementById("outsideValue").textContent = String(summary.outside_ranking || 0);
+            document.getElementById("avgRankValue").textContent = summary.avg_hit_rank == null ? "-" : String(summary.avg_hit_rank);
+            chartMetaEl.textContent = `Hit rate ${summary.hit_rate_percent || 0}% • config ${summary.using_current_config_only ? "atual" : "misturada"}`;
+        }
+
+        function renderNumbersSequence(items) {
+            currentTimelineItems = Array.isArray(items) ? items.slice() : [];
+            const chips = items.map((item, index) => {
+                const number = Number.isInteger(item?.anchor_number) && item.anchor_number >= 0
+                    ? String(item.anchor_number)
+                    : "-";
+                const colorClass = getRouletteColorClass(item?.anchor_number);
+                const label = item?.anchor_timestamp_utc ? formatDateTime(item.anchor_timestamp_utc) : "Sem data";
+                const rank = item?.hit_rank == null ? "fora" : `#${item.hit_rank}`;
+                return `<span class="sequence-chip ${colorClass}" data-index="${index}" title="${label} • rank ${rank}">${number}</span>`;
+            });
+            numbersSequenceEl.innerHTML = chips.join("") || `<span class="sequence-chip">-</span>`;
+            sequenceMetaEl.textContent = `${items.length} número${items.length === 1 ? "" : "s"} exibido${items.length === 1 ? "" : "s"}`;
+        }
+
+        function highlightSequenceChip(index) {
+            const chips = numbersSequenceEl.querySelectorAll(".sequence-chip[data-index]");
+            chips.forEach((chip) => {
+                chip.classList.toggle("active", Number(chip.dataset.index) === index);
+            });
+        }
+
+        function clearSequenceChipHighlight() {
+            const chips = numbersSequenceEl.querySelectorAll(".sequence-chip.active");
+            chips.forEach((chip) => chip.classList.remove("active"));
+        }
+
+        function highlightChartPoint(index) {
+            if (!timelineChart || !currentTimelineItems[index]) return;
+            const meta = timelineChart.getDatasetMeta(0);
+            const point = meta?.data?.[index];
+            if (!point) return;
+            const position = typeof point.getProps === "function"
+                ? point.getProps(["x", "y"], true)
+                : { x: point.x, y: point.y };
+            timelineChart.setActiveElements([{ datasetIndex: 0, index }]);
+            if (timelineChart.tooltip && typeof timelineChart.tooltip.setActiveElements === "function") {
+                timelineChart.tooltip.setActiveElements([{ datasetIndex: 0, index }], position);
+            }
+            timelineChart.update("none");
+            highlightSequenceChip(index);
+        }
+
+        function clearChartHighlight() {
+            if (!timelineChart) return;
+            timelineChart.setActiveElements([]);
+            if (timelineChart.tooltip && typeof timelineChart.tooltip.setActiveElements === "function") {
+                timelineChart.tooltip.setActiveElements([], { x: 0, y: 0 });
+            }
+            timelineChart.update("none");
+            clearSequenceChipHighlight();
+        }
+
+        function renderTable(items) {
+            const rows = items.slice().reverse().map((item) => {
+                const rankText = item.hit_rank == null ? "Fora" : `#${item.hit_rank}`;
+                return `
+                    <tr>
+                        <td>${formatDateTime(item.next_timestamp_utc || item.anchor_timestamp_utc)}</td>
+                        <td>${item.anchor_number}</td>
+                        <td>${item.next_number == null ? "-" : item.next_number}</td>
+                        <td><span class="${getRankPillClass(item.hit_rank)}">${rankText}</span></td>
+                        <td class="top10">${(item.ranking_top10 || []).join(", ")}</td>
+                    </tr>
+                `;
+            });
+            eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="5">Nenhum evento encontrado.</td></tr>`;
+        }
+
+        function renderChart(items) {
+            currentTimelineItems = Array.isArray(items) ? items.slice() : [];
+            const ctx = document.getElementById("rankTimelineChart").getContext("2d");
+            if (timelineChart) {
+                timelineChart.destroy();
+            }
+
+            const labels = items.map((item, idx) => `${idx + 1}`);
+            const data = items.map((item) => item.plot_rank == null ? null : item.plot_rank);
+            const pointColors = items.map((item) => {
+                if (item.hit_rank == null) return "#dc2626";
+                if (item.hit_rank <= 5) return "#16a34a";
+                if (item.hit_rank <= 10) return "#2563eb";
+                return "#ea580c";
+            });
+
+            timelineChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [{
+                        label: "Posição do acerto no ranking",
+                        data,
+                        borderColor: "#2563eb",
+                        backgroundColor: "rgba(37, 99, 235, 0.12)",
+                        borderWidth: 2,
+                        tension: 0.25,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: pointColors,
+                        spanGaps: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: "index",
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title(context) {
+                                    const idx = context[0]?.dataIndex ?? 0;
+                                    highlightSequenceChip(idx);
+                                    return formatDateTime(items[idx]?.next_timestamp_utc || items[idx]?.anchor_timestamp_utc);
+                                },
+                                label(context) {
+                                    const idx = context.dataIndex;
+                                    const item = items[idx];
+                                    if (!item) return "";
+                                    if (item.hit_rank == null) {
+                                        return `Fora do ranking | Próximo número: ${item.next_number ?? "-"}`;
+                                    }
+                                    return `Rank #${item.hit_rank} | Próximo número: ${item.next_number}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                autoSkip: true,
+                                maxTicksLimit: 20,
+                            },
+                            grid: {
+                                color: "rgba(148, 163, 184, 0.15)",
+                            }
+                        },
+                        y: {
+                            reverse: true,
+                            min: 1,
+                            max: 38,
+                            ticks: {
+                                stepSize: 1,
+                                callback(value) {
+                                    return value === 38 ? "Fora" : `#${value}`;
+                                }
+                            },
+                            grid: {
+                                color: "rgba(148, 163, 184, 0.15)",
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        numbersSequenceEl.addEventListener("mouseenter", (event) => {
+            const chip = event.target.closest(".sequence-chip[data-index]");
+            if (!chip) return;
+            highlightChartPoint(Number(chip.dataset.index));
+        }, true);
+
+        numbersSequenceEl.addEventListener("mouseleave", (event) => {
+            const chip = event.target.closest(".sequence-chip[data-index]");
+            if (!chip) return;
+            clearChartHighlight();
+        }, true);
+
+        async function loadRoulettes() {
+            const response = await fetch("/api/roulettes");
+            if (!response.ok) {
+                throw new Error("Falha ao carregar lista de roletas.");
+            }
+            const payload = await response.json();
+            const items = Array.isArray(payload) ? payload : [];
+            const options = items
+                .filter((item) => String(item.slug || "").startsWith("pragmatic"))
+                .map((item) => {
+                    const selected = item.slug === "pragmatic-auto-roulette" ? "selected" : "";
+                    const label = item.displayName || item.name || item.slug;
+                    return `<option value="${item.slug}" ${selected}>${label}</option>`;
+                });
+            rouletteSelect.innerHTML = options.join("");
+            if (!rouletteSelect.value) {
+                rouletteSelect.value = "pragmatic-auto-roulette";
+            }
+        }
+
+        async function loadTimeline() {
+            const rouletteId = rouletteSelect.value;
+            const limit = Number(limitInput.value || 200);
+            const includeAllConfigs = includeAllConfigsInput.checked;
+            if (!rouletteId) {
+                setStatus("Selecione uma roleta.", true);
+                return;
+            }
+
+            reloadButton.disabled = true;
+            setStatus("Carregando timeline...");
+            try {
+                const params = new URLSearchParams({
+                    roulette_id: rouletteId,
+                    limit: String(limit),
+                    include_all_configs: includeAllConfigs ? "true" : "false",
+                });
+                const response = await fetch(`/api/suggestion-snapshots/performance/rank-timeline?${params.toString()}`);
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(payload.detail || "Falha ao carregar timeline.");
+                }
+                const items = Array.isArray(payload.items) ? payload.items : [];
+                renderSummary(payload.summary || {});
+                renderNumbersSequence(items);
+                renderChart(items);
+                renderTable(items);
+                setStatus(`Timeline carregada com ${items.length} pontos.`);
+            } catch (error) {
+                renderSummary({
+                    resolved_items: 0,
+                    top_1_hits: 0,
+                    top_5_hits: 0,
+                    top_10_hits: 0,
+                    outside_ranking: 0,
+                    avg_hit_rank: null,
+                    hit_rate_percent: 0,
+                    using_current_config_only: true,
+                });
+                renderNumbersSequence([]);
+                eventsTableBody.innerHTML = `<tr><td colspan="5">Não foi possível carregar os dados.</td></tr>`;
+                if (timelineChart) {
+                    timelineChart.destroy();
+                    timelineChart = null;
+                }
+                setStatus(error.message || "Falha ao carregar timeline.", true);
+            } finally {
+                reloadButton.disabled = false;
+            }
+        }
+
+        reloadButton.addEventListener("click", loadTimeline);
+        rouletteSelect.addEventListener("change", loadTimeline);
+
+        (async function bootstrap() {
+            try {
+                await loadRoulettes();
+                await loadTimeline();
+            } catch (error) {
+                setStatus(error.message || "Falha ao iniciar a página.", true);
+            }
+        })();
+    </script>
+</body>
+</html>

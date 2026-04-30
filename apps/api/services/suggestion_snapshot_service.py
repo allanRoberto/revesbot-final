@@ -222,6 +222,152 @@ def slice_snapshot_payload(payload: Mapping[str, Any], *, take: int) -> Dict[str
     return cloned
 
 
+def _trim_contribution_list(items: Any) -> List[Dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+    trimmed: List[Dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        trimmed.append(
+            {
+                "pattern_id": str(item.get("pattern_id") or ""),
+                "pattern_name": str(item.get("pattern_name") or ""),
+                "explanation": str(item.get("explanation") or ""),
+                "numbers": [
+                    int(value)
+                    for value in (item.get("numbers") or [])
+                    if isinstance(value, (int, float, str)) and str(value).strip().isdigit()
+                ],
+            }
+        )
+    return trimmed
+
+
+def _trim_pending_patterns(items: Any) -> List[Dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+    trimmed: List[Dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        rows = []
+        for row in item.get("items") or []:
+            if not isinstance(row, Mapping):
+                continue
+            rows.append(
+                {
+                    "origin": [int(value) for value in (row.get("origin") or []) if isinstance(value, int)],
+                    "target": int(row.get("target")) if isinstance(row.get("target"), int) else None,
+                    "target_sum": int(row.get("target_sum")) if isinstance(row.get("target_sum"), int) else None,
+                    "remaining": int(row.get("remaining")) if isinstance(row.get("remaining"), int) else None,
+                }
+            )
+        trimmed.append(
+            {
+                "pattern_id": str(item.get("pattern_id") or ""),
+                "pattern_name": str(item.get("pattern_name") or ""),
+                "items": rows,
+            }
+        )
+    return trimmed
+
+
+def _trim_adaptive_weights(items: Any) -> List[Dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+    trimmed: List[Dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        trimmed.append(
+            {
+                "pattern_id": str(item.get("pattern_id") or ""),
+                "pattern_name": str(item.get("pattern_name") or ""),
+                "multiplier": float(item.get("multiplier") or 0),
+                "hit_rate": float(item.get("hit_rate") or 0),
+                "signals": int(item.get("signals") or 0),
+                "hits": int(item.get("hits") or 0),
+            }
+        )
+    return trimmed
+
+
+def _trim_simple_number_details(items: Any, *, limit: int = 6) -> List[Dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+    trimmed: List[Dict[str, Any]] = []
+    for item in items[: max(0, int(limit))]:
+        if not isinstance(item, Mapping):
+            continue
+        number = item.get("number")
+        support_score = item.get("support_score")
+        if not isinstance(number, int):
+            continue
+        trimmed.append(
+            {
+                "number": int(number),
+                "support_score": int(support_score or 0),
+            }
+        )
+    return trimmed
+
+
+def build_frontend_snapshot_payload(payload: Mapping[str, Any], *, take: int) -> Dict[str, Any]:
+    sliced = slice_snapshot_payload(payload, take=take)
+    optimized_payload = sliced.get("optimized_payload") if isinstance(sliced.get("optimized_payload"), Mapping) else {}
+    simple_payload = sliced.get("simple_payload") if isinstance(sliced.get("simple_payload"), Mapping) else {}
+
+    return {
+        "available": bool(sliced.get("available", False)),
+        "suggestion": list(sliced.get("suggestion") or sliced.get("list") or []),
+        "ranking_locked": bool(sliced.get("ranking_locked", False)),
+        "confidence": dict(sliced.get("confidence") or {}),
+        "explanation": str(sliced.get("explanation") or ""),
+        "protections": list(sliced.get("protections") or []),
+        "invertedInFinal": list(sliced.get("invertedInFinal") or []),
+        "invertedRemoved": list(sliced.get("invertedRemoved") or []),
+        "protected_mode_enabled": bool(sliced.get("protected_mode_enabled", False)),
+        "protected_suggestion_size": sliced.get("protected_suggestion_size"),
+        "protected_swap_enabled": bool(sliced.get("protected_swap_enabled", False)),
+        "protected_swap_applied": bool(sliced.get("protected_swap_applied", False)),
+        "protected_swap_summary": str(sliced.get("protected_swap_summary") or ""),
+        "protected_excluded_numbers": list(sliced.get("protected_excluded_numbers") or []),
+        "protected_original_excluded_numbers": list(sliced.get("protected_original_excluded_numbers") or []),
+        "protected_guard_numbers": list(sliced.get("protected_guard_numbers") or []),
+        "protected_wait_triggered": bool(sliced.get("protected_wait_triggered", False)),
+        "protected_wait_recommended_spins": int(sliced.get("protected_wait_recommended_spins") or 0),
+        "protected_wait_reason": str(sliced.get("protected_wait_reason") or ""),
+        "excluded_tail_numbers": list(sliced.get("excluded_tail_numbers") or []),
+        "signal_quality": dict(sliced.get("signal_quality") or {}),
+        "optimized_payload": {
+            "available": bool(optimized_payload.get("available", False)),
+            "suggestion": list(optimized_payload.get("suggestion") or []),
+            "explanation": str(optimized_payload.get("explanation") or ""),
+            "confidence": dict(optimized_payload.get("confidence") or {}),
+            "confidence_breakdown": dict(optimized_payload.get("confidence_breakdown") or {}),
+            "contributions": _trim_contribution_list(optimized_payload.get("contributions")),
+            "negative_contributions": _trim_contribution_list(optimized_payload.get("negative_contributions")),
+            "pending_patterns": _trim_pending_patterns(optimized_payload.get("pending_patterns")),
+            "adaptive_weights": _trim_adaptive_weights(optimized_payload.get("adaptive_weights")),
+        },
+        "simple_payload": {
+            "available": bool(simple_payload.get("available", False)),
+            "suggestion": list(simple_payload.get("suggestion") or simple_payload.get("list") or []),
+            "explanation": str(simple_payload.get("explanation") or ""),
+            "number_details": _trim_simple_number_details(simple_payload.get("number_details")),
+            "pattern_count": int(simple_payload.get("pattern_count") or 0),
+            "unique_numbers": int(simple_payload.get("unique_numbers") or 0),
+            "top_support_count": int(simple_payload.get("top_support_count") or 0),
+            "min_support_count": int(simple_payload.get("min_support_count") or 0),
+            "avg_support_count": float(simple_payload.get("avg_support_count") or 0),
+            "ranking_locked": bool(simple_payload.get("ranking_locked", True)),
+            "entry_shadow": dict(simple_payload.get("entry_shadow") or {}),
+            "signal_quality": dict(simple_payload.get("signal_quality") or {}),
+        },
+    }
+
+
 async def get_or_create_global_suggestion_snapshot_config() -> Dict[str, Any]:
     existing = await suggestion_snapshot_configs_coll.find_one(
         {"config_id": GLOBAL_SUGGESTION_SNAPSHOT_CONFIG_ID}
@@ -319,7 +465,7 @@ async def _compute_and_persist_snapshot(
 
 
 def _serialize_snapshot_response(snapshot_doc: Mapping[str, Any], *, take: int) -> Dict[str, Any]:
-    sliced_payload = slice_snapshot_payload(snapshot_doc.get("payload") or {}, take=take)
+    sliced_payload = build_frontend_snapshot_payload(snapshot_doc.get("payload") or {}, take=take)
     return {
         "available": bool(sliced_payload.get("available", False)),
         "result": sliced_payload,
@@ -388,6 +534,161 @@ async def resolve_suggestion_snapshot_by_index(
     response = _serialize_snapshot_response(snapshot_doc, take=take)
     response["snapshot"]["cache_status"] = cache_status
     return response
+
+
+def _extract_snapshot_ranking(snapshot_doc: Mapping[str, Any]) -> List[int]:
+    payload = snapshot_doc.get("payload") if isinstance(snapshot_doc, Mapping) else None
+    if not isinstance(payload, Mapping):
+        return []
+    for key in ("suggestion", "list", "ordered_suggestion", "base_suggestion", "simple_suggestion"):
+        values = payload.get(key)
+        if not isinstance(values, list):
+            continue
+        ranking: List[int] = []
+        seen: set[int] = set()
+        for value in values:
+            try:
+                number = int(value)
+            except Exception:
+                continue
+            if not (0 <= number <= 36) or number in seen:
+                continue
+            seen.add(number)
+            ranking.append(number)
+            if len(ranking) >= SUGGESTION_SNAPSHOT_RANKING_SIZE:
+                break
+        if ranking:
+            return ranking
+    return []
+
+
+async def build_suggestion_snapshot_rank_timeline(
+    *,
+    roulette_id: str,
+    limit: int = 200,
+    include_all_configs: bool = False,
+) -> Dict[str, Any]:
+    safe_limit = max(20, min(2000, int(limit or 200)))
+    config_doc = await get_or_create_global_suggestion_snapshot_config()
+    current_config_key = build_suggestion_snapshot_config_key(config_doc)
+
+    snapshot_query: Dict[str, Any] = {"roulette_id": roulette_id}
+    if not include_all_configs:
+        snapshot_query["config_key"] = current_config_key
+
+    fetch_limit = min(safe_limit + 10, 2500)
+    snapshot_docs = await (
+        suggestion_snapshots_coll.find(snapshot_query)
+        .sort("anchor_timestamp_utc", -1)
+        .limit(fetch_limit)
+        .to_list(length=fetch_limit)
+    )
+    snapshots = [dict(doc) for doc in snapshot_docs if isinstance(doc, Mapping)]
+    if not snapshots:
+        raise LookupError("Nenhum snapshot de sugestão encontrado para a roleta informada.")
+
+    history_fetch_limit = min(max(fetch_limit * 6, 300), 5000)
+    history_docs_raw = await (
+        history_coll.find({"roulette_id": roulette_id})
+        .sort("timestamp", -1)
+        .limit(history_fetch_limit)
+        .to_list(length=history_fetch_limit)
+    )
+    history_docs = [dict(doc) for doc in history_docs_raw if isinstance(doc, Mapping)]
+    history_index = {str(doc.get("_id")): idx for idx, doc in enumerate(history_docs)}
+
+    items_desc: List[Dict[str, Any]] = []
+    unresolved_count = 0
+    missing_history_count = 0
+
+    for snapshot_doc in snapshots:
+        anchor_history_id = str(snapshot_doc.get("anchor_history_id") or "").strip()
+        if not anchor_history_id:
+            missing_history_count += 1
+            continue
+        anchor_idx = history_index.get(anchor_history_id)
+        if anchor_idx is None:
+            missing_history_count += 1
+            continue
+
+        next_doc = history_docs[anchor_idx - 1] if anchor_idx > 0 else None
+        ranking = _extract_snapshot_ranking(snapshot_doc)
+        anchor_number = int(snapshot_doc.get("anchor_number") or -1)
+        next_number = None
+        next_history_id = ""
+        next_timestamp_utc = None
+        hit_rank = None
+        plot_rank = None
+        hit = False
+
+        if isinstance(next_doc, Mapping):
+            next_number = int(next_doc.get("value"))
+            next_history_id = str(next_doc.get("_id") or "")
+            next_timestamp_utc = _serialize_datetime(next_doc.get("timestamp"))
+            if ranking and next_number in ranking:
+                hit_rank = ranking.index(next_number) + 1
+                plot_rank = hit_rank
+                hit = True
+            else:
+                plot_rank = 38
+        else:
+            unresolved_count += 1
+
+        items_desc.append(
+            {
+                "snapshot_id": str(snapshot_doc.get("snapshot_id") or snapshot_doc.get("_id") or ""),
+                "anchor_history_id": anchor_history_id,
+                "anchor_number": anchor_number,
+                "anchor_timestamp_utc": _serialize_datetime(snapshot_doc.get("anchor_timestamp_utc")),
+                "next_history_id": next_history_id,
+                "next_number": next_number,
+                "next_timestamp_utc": next_timestamp_utc,
+                "hit_rank": hit_rank,
+                "plot_rank": plot_rank,
+                "hit": hit,
+                "ranking_top10": list(ranking[:10]),
+                "ranking_size": len(ranking),
+                "config_key": str(snapshot_doc.get("config_key") or ""),
+                "source": str(snapshot_doc.get("source") or ""),
+            }
+        )
+        if len(items_desc) >= safe_limit:
+            break
+
+    items = list(reversed(items_desc))
+    resolved_items = [item for item in items if item.get("next_number") is not None]
+    hit_items = [item for item in resolved_items if item.get("hit_rank") is not None]
+    misses_count = len([item for item in resolved_items if item.get("hit_rank") is None])
+
+    rank_distribution = {str(rank): 0 for rank in range(1, 38)}
+    for item in hit_items:
+        rank_distribution[str(int(item["hit_rank"]))] += 1
+
+    summary = {
+        "current_config_key": current_config_key,
+        "using_current_config_only": not include_all_configs,
+        "requested_limit": safe_limit,
+        "returned_items": len(items),
+        "resolved_items": len(resolved_items),
+        "unresolved_items": unresolved_count,
+        "missing_history_items": missing_history_count,
+        "hits_in_ranking": len(hit_items),
+        "outside_ranking": misses_count,
+        "hit_rate_percent": round((len(hit_items) / len(resolved_items) * 100.0), 2) if resolved_items else 0.0,
+        "top_1_hits": rank_distribution["1"],
+        "top_3_hits": sum(rank_distribution[str(rank)] for rank in range(1, 4)),
+        "top_5_hits": sum(rank_distribution[str(rank)] for rank in range(1, 6)),
+        "top_10_hits": sum(rank_distribution[str(rank)] for rank in range(1, 11)),
+        "avg_hit_rank": round(sum(int(item["hit_rank"]) for item in hit_items) / len(hit_items), 2) if hit_items else None,
+        "rank_distribution": rank_distribution,
+    }
+
+    return {
+        "available": True,
+        "roulette_id": roulette_id,
+        "summary": summary,
+        "items": items,
+    }
 
 
 async def resolve_latest_suggestion_snapshot(

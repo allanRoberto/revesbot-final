@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from api.services.suggestion_snapshot_service import (
+    build_suggestion_snapshot_rank_timeline,
     get_or_create_global_suggestion_snapshot_config,
     resolve_latest_suggestion_snapshot,
     resolve_suggestion_snapshot_by_history_id,
@@ -84,3 +85,23 @@ async def get_suggestion_snapshot_by_history_id_route(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Falha ao resolver snapshot da sugestão: {exc}")
+
+
+@router.get("/api/suggestion-snapshots/performance/rank-timeline")
+async def get_suggestion_snapshot_rank_timeline_route(
+    roulette_id: str = Query(..., min_length=1),
+    limit: int = Query(default=200, ge=20, le=2000),
+    include_all_configs: bool = Query(default=False),
+):
+    try:
+        return await build_suggestion_snapshot_rank_timeline(
+            roulette_id=roulette_id,
+            limit=limit,
+            include_all_configs=include_all_configs,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao montar timeline das sugestões: {exc}")
