@@ -562,6 +562,83 @@ def _extract_snapshot_ranking(snapshot_doc: Mapping[str, Any]) -> List[int]:
     return []
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return int(default)
+
+
+def _extract_snapshot_timeline_context(snapshot_doc: Mapping[str, Any], ranking: List[int]) -> Dict[str, Any]:
+    payload = snapshot_doc.get("payload") if isinstance(snapshot_doc, Mapping) else None
+    if not isinstance(payload, Mapping):
+        return {}
+
+    simple_payload = payload.get("simple_payload") if isinstance(payload.get("simple_payload"), Mapping) else {}
+    optimized_payload = payload.get("optimized_payload") if isinstance(payload.get("optimized_payload"), Mapping) else {}
+    signal_quality = payload.get("signal_quality") if isinstance(payload.get("signal_quality"), Mapping) else {}
+    simple_signal_quality = payload.get("simple_signal_quality") if isinstance(payload.get("simple_signal_quality"), Mapping) else {}
+    if not simple_signal_quality and isinstance(simple_payload.get("signal_quality"), Mapping):
+        simple_signal_quality = dict(simple_payload.get("signal_quality") or {})
+    confidence = payload.get("confidence") if isinstance(payload.get("confidence"), Mapping) else {}
+    optimized_confidence = optimized_payload.get("confidence") if isinstance(optimized_payload.get("confidence"), Mapping) else {}
+
+    simple_suggestion_raw = simple_payload.get("suggestion") or simple_payload.get("list") or []
+    simple_suggestion = [int(value) for value in simple_suggestion_raw if isinstance(value, int) or str(value).isdigit()]
+
+    top12_rank = ranking[:12]
+    top18_rank = ranking[:18]
+    top12_simple = simple_suggestion[:12]
+    top18_simple = simple_suggestion[:18]
+
+    overlap_top12 = len(set(top12_rank).intersection(top12_simple))
+    overlap_top18 = len(set(top18_rank).intersection(top18_simple))
+
+    return {
+        "confidence_score": _safe_float(confidence.get("score"), 0.0),
+        "optimized_confidence_score": _safe_float(
+            payload.get("optimized_confidence_effective")
+            or optimized_payload.get("confidence_effective_score")
+            or optimized_confidence.get("score"),
+            0.0,
+        ),
+        "signal_quality_score": _safe_float(signal_quality.get("score"), 0.0),
+        "simple_signal_quality_score": _safe_float(simple_signal_quality.get("score"), 0.0),
+        "simple_pattern_count": _safe_int(
+            payload.get("simple_pattern_count") or simple_payload.get("pattern_count"),
+            0,
+        ),
+        "simple_top_support_count": _safe_int(simple_payload.get("top_support_count"), 0),
+        "simple_avg_support_count": _safe_float(simple_payload.get("avg_support_count"), 0.0),
+        "simple_unique_numbers": _safe_int(
+            payload.get("simple_unique_numbers") or simple_payload.get("unique_numbers"),
+            0,
+        ),
+        "occurrence_overlap_count": _safe_int(
+            payload.get("simple_occurrence_overlap_count")
+            or simple_payload.get("occurrence_overlap_count"),
+            0,
+        ),
+        "occurrence_inverted_detected": bool(
+            payload.get("simple_occurrence_inverted_detected")
+            or simple_payload.get("occurrence_inverted_detected")
+        ),
+        "ranking_locked": bool(payload.get("ranking_locked") or simple_payload.get("ranking_locked")),
+        "top12_simple_overlap": overlap_top12,
+        "top18_simple_overlap": overlap_top18,
+        "top12_simple_overlap_ratio": round(overlap_top12 / 12.0, 4),
+        "top18_simple_overlap_ratio": round(overlap_top18 / 18.0, 4),
+        "ranking_size": len(ranking),
+    }
+
+
 STRATEGY_OUTSIDE_RANK = 38
 STRATEGY_MIN_CORRECTION = 4
 STRATEGY_SMALL_EDGE_SIZE = 5
@@ -829,6 +906,7 @@ async def build_suggestion_snapshot_rank_timeline(
                 "ranking_full": list(ranking),
                 "ranking_top10": list(ranking[:10]),
                 "ranking_size": len(ranking),
+                "context": _extract_snapshot_timeline_context(snapshot_doc, ranking),
                 "config_key": str(snapshot_doc.get("config_key") or ""),
                 "source": str(snapshot_doc.get("source") or ""),
             }
