@@ -5,6 +5,8 @@ import os
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from api.core.config import settings
+from api.helpers.roulettes_list import roulettes
 
 
 router = APIRouter()
@@ -122,9 +124,22 @@ async def suggestion_monitor_dashboard_page():
 
 
 @router.get("/suggestion-rank-timeline", response_class=HTMLResponse)
-async def suggestion_rank_timeline_page():
-    with open(os.path.join(templates_dir, "suggestion_rank_timeline.html"), "r", encoding="utf-8") as f:
-        return f.read()
+async def suggestion_rank_timeline_page(request: Request):
+    templates = Jinja2Templates(directory=templates_dir)
+    roulette_url_map = {
+        str(item.get("slug") or "").strip(): str(item.get("url") or "").strip()
+        for item in roulettes
+        if str(item.get("slug") or "").strip()
+    }
+    return templates.TemplateResponse(
+        "suggestion_rank_timeline.html",
+        {
+            "request": request,
+            "bot_automation_enabled": bool(settings.bot_automation_enabled),
+            "bot_api_url": settings.bot_api_url,
+            "roulette_url_map": roulette_url_map,
+        },
+    )
 
 
 @router.get("/pattern-training", response_class=HTMLResponse)

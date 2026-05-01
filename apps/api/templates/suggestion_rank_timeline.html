@@ -327,6 +327,43 @@
             white-space: normal;
         }
 
+        .ranking-cell {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .ranking-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 176px;
+        }
+
+        .rank-action-button {
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text);
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .rank-action-button:hover:not(:disabled) {
+            background: var(--accent-soft);
+            border-color: rgba(37, 99, 235, 0.25);
+            color: var(--accent);
+        }
+
+        .rank-action-button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
         .status {
             margin-bottom: 14px;
             color: var(--muted);
@@ -335,6 +372,10 @@
 
         .status.error {
             color: var(--bad);
+        }
+
+        .status.success {
+            color: var(--good);
         }
 
         @media (max-width: 1100px) {
@@ -376,6 +417,14 @@
             <div class="field">
                 <label for="limitInput">Pontos</label>
                 <input id="limitInput" type="number" min="20" max="2000" step="10" value="200" />
+            </div>
+            <div class="field">
+                <label for="betChipInput">Valor da ficha</label>
+                <input id="betChipInput" type="number" min="0.1" step="0.1" value="1" />
+            </div>
+            <div class="field">
+                <label for="betGalesInput">Gales</label>
+                <input id="betGalesInput" type="number" min="1" max="12" step="1" value="3" />
             </div>
             <div class="field inline">
                 <input id="includeAllConfigsInput" type="checkbox" />
@@ -448,7 +497,7 @@
                             <th>Âncora</th>
                             <th>Próximo Número</th>
                             <th>Posição no Ranking</th>
-                            <th>Top 10 do Ranking</th>
+                            <th>Ranking Completo</th>
                         </tr>
                     </thead>
                     <tbody id="eventsTableBody"></tbody>
@@ -462,14 +511,31 @@
         const limitInput = document.getElementById("limitInput");
         const includeAllConfigsInput = document.getElementById("includeAllConfigsInput");
         const reloadButton = document.getElementById("reloadButton");
+        const betChipInput = document.getElementById("betChipInput");
+        const betGalesInput = document.getElementById("betGalesInput");
         const statusEl = document.getElementById("status");
         const eventsTableBody = document.getElementById("eventsTableBody");
         const chartMetaEl = document.getElementById("chartMeta");
         const numbersSequenceEl = document.getElementById("numbersSequence");
         const sequenceMetaEl = document.getElementById("sequenceMeta");
+        const BOT_API_URL = {{ (bot_api_url or "http://localhost:3000/api/bet") | tojson }};
+        const ROULETTE_URL_MAP = {{ (roulette_url_map or {}) | tojson }};
 
         let timelineChart = null;
         let currentTimelineItems = [];
+        let timelineSocket = null;
+        let wsReconnectAttempts = 0;
+        let wsReconnectTimer = null;
+        let wsReconnectDisabled = false;
+        let liveRefreshTimer = null;
+        let pollingTimer = null;
+        let timelineLoading = false;
+        let pendingLiveRefresh = false;
+        let lastTimelineRequestId = 0;
+        let lastLoadedAt = null;
+
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
 
         const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
         const BLACK_NUMBERS = new Set([2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35]);
@@ -491,6 +557,30 @@
         function setStatus(message, isError = false) {
             statusEl.textContent = message;
             statusEl.className = `status${isError ? " error" : ""}`;
+        }
+
+        function setSuccessStatus(message) {
+            statusEl.textContent = message;
+            statusEl.className = "status success";
+        }
+
+        function buildLiveStatusSuffix() {
+            const state = timelineSocket?.readyState;
+            if (state === WebSocket.OPEN) {
+                return " • tempo real ativo";
+            }
+            if (state === WebSocket.CONNECTING) {
+                return " • conectando tempo real";
+            }
+            return " • tempo real offline";
+        }
+
+        function setLiveAwareStatus(message, isError = false) {
+            if (isError) {
+                setStatus(message, true);
+                return;
+            }
+            setStatus(`${message}${buildLiveStatusSuffix()}`, false);
         }
 
         function getRankPillClass(rank) {
@@ -565,13 +655,30 @@
         function renderTable(items) {
             const rows = items.slice().reverse().map((item) => {
                 const rankText = item.hit_rank == null ? "Fora" : `#${item.hit_rank}`;
+                const ranking = Array.isArray(item.ranking_full) ? item.ranking_full : (item.ranking_top10 || []);
+                const canBet = Array.isArray(item.ranking_full) && item.ranking_full.length >= 18;
+                const actionButtons = canBet ? `
+                    <div class="ranking-actions">
+                        <button class="rank-action-button" data-action="bet-top18" data-index="${item.__rowIndex}">Apostar nos 18 primeiros</button>
+                        <button class="rank-action-button" data-action="bet-bottom18" data-index="${item.__rowIndex}">Apostar nos 18 últimos</button>
+                    </div>
+                ` : `
+                    <div class="ranking-actions">
+                        <button class="rank-action-button" disabled>Gerando sugestão...</button>
+                    </div>
+                `;
                 return `
                     <tr>
                         <td>${formatDateTime(item.next_timestamp_utc || item.anchor_timestamp_utc)}</td>
                         <td>${item.anchor_number}</td>
                         <td>${item.next_number == null ? "-" : item.next_number}</td>
                         <td><span class="${getRankPillClass(item.hit_rank)}">${rankText}</span></td>
-                        <td class="top10">${(item.ranking_top10 || []).join(", ")}</td>
+                        <td>
+                            <div class="ranking-cell">
+                                <div class="top10">${ranking.join(", ")}</div>
+                                ${actionButtons}
+                            </div>
+                        </td>
                     </tr>
                 `;
             });
@@ -682,6 +789,78 @@
             clearChartHighlight();
         }, true);
 
+        function buildBetPayload(item, mode) {
+            const ranking = Array.isArray(item?.ranking_full) ? item.ranking_full.slice() : [];
+            if (ranking.length < 18) {
+                throw new Error("Ranking ainda não está disponível para aposta.");
+            }
+            const chipValue = Number.parseFloat(String(betChipInput?.value || "1").replace(",", "."));
+            if (!Number.isFinite(chipValue) || chipValue <= 0) {
+                throw new Error("Informe um valor de ficha válido.");
+            }
+            const gales = Number.parseInt(String(betGalesInput?.value || "3"), 10);
+            if (!Number.isInteger(gales) || gales < 1 || gales > 12) {
+                throw new Error("Informe uma quantidade de gales válida entre 1 e 12.");
+            }
+            const rouletteId = String(rouletteSelect.value || "");
+            const rouletteUrl = String(ROULETTE_URL_MAP[rouletteId] || "");
+            if (!rouletteUrl) {
+                throw new Error("URL da roleta não encontrada para enviar a aposta.");
+            }
+            const bets = mode === "top18" ? ranking.slice(0, 18) : ranking.slice(-18);
+            return {
+                bets,
+                valor: chipValue,
+                roulette_url: rouletteUrl,
+                gales,
+                source: "suggestion-rank-timeline",
+                suggestion_snapshot_id: String(item.snapshot_id || ""),
+                anchor_history_id: String(item.anchor_history_id || ""),
+                anchor_number: item.anchor_number,
+                ranking_mode: mode,
+            };
+        }
+
+        async function sendTimelineBet(item, mode, button) {
+            const originalText = button?.textContent || "";
+            try {
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = "Enviando...";
+                }
+                const payload = buildBetPayload(item, mode);
+                const response = await fetch(BOT_API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(data?.error || data?.detail || "Falha ao enviar aposta ao bot automático.");
+                }
+                setSuccessStatus(`Aposta enviada (${mode === "top18" ? "18 primeiros" : "18 últimos"}) • ficha R$${payload.valor.toFixed(2)} • gales ${payload.gales} • ${rouletteSelect.value}.`);
+            } catch (error) {
+                setStatus(error.message || "Falha ao enviar aposta.", true);
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            }
+        }
+
+        eventsTableBody.addEventListener("click", async (event) => {
+            const button = event.target.closest(".rank-action-button[data-action][data-index]");
+            if (!button) return;
+            const index = Number(button.dataset.index);
+            if (!Number.isInteger(index) || !currentTimelineItems[index]) return;
+            const action = String(button.dataset.action || "");
+            const mode = action === "bet-bottom18" ? "bottom18" : "top18";
+            await sendTimelineBet(currentTimelineItems[index], mode, button);
+        });
+
         async function loadRoulettes() {
             const response = await fetch("/api/roulettes");
             if (!response.ok) {
@@ -702,7 +881,149 @@
             }
         }
 
-        async function loadTimeline() {
+        function clearWsReconnectTimer() {
+            if (!wsReconnectTimer) return;
+            clearTimeout(wsReconnectTimer);
+            wsReconnectTimer = null;
+        }
+
+        function scheduleWsReconnect() {
+            if (wsReconnectDisabled || wsReconnectTimer) return;
+            const nextAttempt = Math.min(wsReconnectAttempts + 1, 6);
+            wsReconnectAttempts = nextAttempt;
+            const delayMs = Math.min(10000, 1000 * (2 ** (nextAttempt - 1)));
+            wsReconnectTimer = setTimeout(() => {
+                wsReconnectTimer = null;
+                connectTimelineWebSocket();
+            }, delayMs);
+        }
+
+        function scheduleLiveTimelineRefresh(delayMs = 450) {
+            pendingLiveRefresh = true;
+            if (liveRefreshTimer) return;
+            liveRefreshTimer = setTimeout(async () => {
+                liveRefreshTimer = null;
+                if (timelineLoading) {
+                    scheduleLiveTimelineRefresh(delayMs);
+                    return;
+                }
+                if (!pendingLiveRefresh) return;
+                pendingLiveRefresh = false;
+                await loadTimeline({ silent: true, source: "live" });
+            }, delayMs);
+        }
+
+        function scheduleFollowUpTimelineRefreshes() {
+            window.setTimeout(() => scheduleLiveTimelineRefresh(0), 900);
+            window.setTimeout(() => scheduleLiveTimelineRefresh(0), 2400);
+        }
+
+        function clearPollingTimer() {
+            if (!pollingTimer) return;
+            clearInterval(pollingTimer);
+            pollingTimer = null;
+        }
+
+        function startTimelinePolling() {
+            clearPollingTimer();
+            pollingTimer = setInterval(() => {
+                if (document.hidden) return;
+                if (timelineLoading) return;
+                scheduleLiveTimelineRefresh(0);
+            }, 5000);
+        }
+
+        function connectTimelineWebSocket() {
+            if (wsReconnectDisabled) return;
+            clearWsReconnectTimer();
+
+            try {
+                if (timelineSocket) {
+                    timelineSocket.onopen = null;
+                    timelineSocket.onmessage = null;
+                    timelineSocket.onclose = null;
+                    timelineSocket.onerror = null;
+                    if (timelineSocket.readyState === WebSocket.OPEN || timelineSocket.readyState === WebSocket.CONNECTING) {
+                        timelineSocket.close();
+                    }
+                }
+            } catch (_) {}
+
+            timelineSocket = new WebSocket(wsUrl);
+
+            timelineSocket.onopen = function () {
+                wsReconnectAttempts = 0;
+                if (lastLoadedAt) {
+                    setLiveAwareStatus(`Timeline atualizada às ${lastLoadedAt}`);
+                } else {
+                    setLiveAwareStatus("Conectado ao tempo real");
+                }
+            };
+
+            timelineSocket.onmessage = function (event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (String(data?.slug || "") !== String(rouletteSelect.value || "")) return;
+                    const liveEntry = data.full_result && typeof data.full_result === "object" ? data.full_result : null;
+                    if (liveEntry) {
+                        const liveHistoryId = String(liveEntry._id || "");
+                        const liveAnchorNumber = Number.parseInt(data.result, 10);
+                        const alreadyPresent = currentTimelineItems.some((item) => {
+                            const sameHistoryId = liveHistoryId && String(item?.anchor_history_id || "") === liveHistoryId;
+                            const sameFallback = !liveHistoryId
+                                && Number(item?.anchor_number) === liveAnchorNumber
+                                && String(item?.anchor_timestamp_utc || "") === String(liveEntry.timestamp || "");
+                            return sameHistoryId || sameFallback;
+                        });
+                        if (!alreadyPresent && Number.isInteger(liveAnchorNumber)) {
+                            const optimisticItem = {
+                                snapshot_id: "",
+                                anchor_history_id: liveHistoryId,
+                                anchor_number: liveAnchorNumber,
+                                anchor_timestamp_utc: String(liveEntry.timestamp || new Date().toISOString()),
+                                next_history_id: "",
+                                next_number: null,
+                                next_timestamp_utc: null,
+                                hit_rank: null,
+                                plot_rank: null,
+                                hit: false,
+                                ranking_full: [],
+                                ranking_top10: [],
+                                ranking_size: 0,
+                                config_key: "",
+                                source: "live_pending",
+                            };
+                            const nextItems = currentTimelineItems.concat([optimisticItem]);
+                            currentTimelineItems = nextItems.slice(-Math.max(20, Number(limitInput.value || 200)));
+                            const indexedItems = currentTimelineItems.map((item, idx) => ({ ...item, __rowIndex: idx }));
+                            renderNumbersSequence(indexedItems);
+                            renderChart(indexedItems);
+                            renderTable(indexedItems);
+                            setLiveAwareStatus("Nova sugestão recebida, aguardando ranking salvo");
+                        }
+                    }
+                    scheduleLiveTimelineRefresh();
+                    scheduleFollowUpTimelineRefreshes();
+                } catch (error) {
+                    console.warn("[rank-timeline-ws] falha ao processar mensagem websocket", error, event?.data);
+                }
+            };
+
+            timelineSocket.onerror = function (error) {
+                console.warn("[rank-timeline-ws] erro na conexão websocket", error);
+            };
+
+            timelineSocket.onclose = function () {
+                if (!wsReconnectDisabled) {
+                    setLiveAwareStatus("Reconectando atualização em tempo real");
+                }
+                scheduleWsReconnect();
+            };
+        }
+
+        async function loadTimeline(options = {}) {
+            const silent = Boolean(options?.silent);
+            const source = String(options?.source || "manual");
             const rouletteId = rouletteSelect.value;
             const limit = Number(limitInput.value || 200);
             const includeAllConfigs = includeAllConfigsInput.checked;
@@ -711,26 +1032,44 @@
                 return;
             }
 
+            const requestId = ++lastTimelineRequestId;
+            timelineLoading = true;
             reloadButton.disabled = true;
-            setStatus("Carregando timeline...");
+            if (!silent) {
+                setLiveAwareStatus("Carregando timeline...");
+            }
             try {
                 const params = new URLSearchParams({
                     roulette_id: rouletteId,
                     limit: String(limit),
                     include_all_configs: includeAllConfigs ? "true" : "false",
                 });
-                const response = await fetch(`/api/suggestion-snapshots/performance/rank-timeline?${params.toString()}`);
+                params.set("_ts", String(Date.now()));
+                const response = await fetch(`/api/suggestion-snapshots/performance/rank-timeline?${params.toString()}`, {
+                    cache: "no-store",
+                });
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok) {
                     throw new Error(payload.detail || "Falha ao carregar timeline.");
                 }
-                const items = Array.isArray(payload.items) ? payload.items : [];
+                if (requestId !== lastTimelineRequestId) {
+                    return;
+                }
+                const items = (Array.isArray(payload.items) ? payload.items : []).map((item, idx) => ({ ...item, __rowIndex: idx }));
                 renderSummary(payload.summary || {});
                 renderNumbersSequence(items);
                 renderChart(items);
                 renderTable(items);
-                setStatus(`Timeline carregada com ${items.length} pontos.`);
+                lastLoadedAt = new Date().toLocaleTimeString("pt-BR");
+                if (source === "live") {
+                    setLiveAwareStatus(`Timeline atualizada em tempo real às ${lastLoadedAt}`);
+                } else {
+                    setLiveAwareStatus(`Timeline carregada com ${items.length} pontos às ${lastLoadedAt}`);
+                }
             } catch (error) {
+                if (requestId !== lastTimelineRequestId) {
+                    return;
+                }
                 renderSummary({
                     resolved_items: 0,
                     top_1_hits: 0,
@@ -749,17 +1088,40 @@
                 }
                 setStatus(error.message || "Falha ao carregar timeline.", true);
             } finally {
+                if (requestId === lastTimelineRequestId) {
+                    timelineLoading = false;
+                }
                 reloadButton.disabled = false;
+                if (pendingLiveRefresh && !timelineLoading) {
+                    scheduleLiveTimelineRefresh();
+                }
             }
         }
 
         reloadButton.addEventListener("click", loadTimeline);
         rouletteSelect.addEventListener("change", loadTimeline);
 
+        window.addEventListener("beforeunload", () => {
+            wsReconnectDisabled = true;
+            clearWsReconnectTimer();
+            clearPollingTimer();
+            if (liveRefreshTimer) {
+                clearTimeout(liveRefreshTimer);
+                liveRefreshTimer = null;
+            }
+            try {
+                if (timelineSocket) {
+                    timelineSocket.close();
+                }
+            } catch (_) {}
+        });
+
         (async function bootstrap() {
             try {
                 await loadRoulettes();
                 await loadTimeline();
+                connectTimelineWebSocket();
+                startTimelinePolling();
             } catch (error) {
                 setStatus(error.message || "Falha ao iniciar a página.", true);
             }

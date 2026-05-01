@@ -646,6 +646,7 @@ async def build_suggestion_snapshot_rank_timeline(
                 "hit_rank": hit_rank,
                 "plot_rank": plot_rank,
                 "hit": hit,
+                "ranking_full": list(ranking),
                 "ranking_top10": list(ranking[:10]),
                 "ranking_size": len(ranking),
                 "config_key": str(snapshot_doc.get("config_key") or ""),
