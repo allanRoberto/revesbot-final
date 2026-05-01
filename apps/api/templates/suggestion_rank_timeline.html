@@ -503,7 +503,7 @@
                 <canvas id="strategyRankTimelineChart"></canvas>
             </div>
             <div class="strategy-note">
-                V1: quando um rank no topo cai para a faixa intermediária, a próxima jogada é lida invertendo apenas as 10 primeiras posições com as 10 últimas, preservando o miolo do ranking.
+                V2: a profundidade da inversão é escolhida pelo movimento recente do gráfico. Dependendo do impulso e da correção, a estratégia inverte 5, 8 ou 10 posições em cada extremidade, preservando o miolo.
             </div>
         </div>
 
@@ -622,7 +622,8 @@
             document.getElementById("avgRankValue").textContent = summary.avg_hit_rank == null ? "-" : String(summary.avg_hit_rank);
             chartMetaEl.textContent = `Hit rate ${summary.hit_rate_percent || 0}% • config ${summary.using_current_config_only ? "atual" : "misturada"}`;
             const strategy = summary?.strategy || {};
-            strategyChartMetaEl.textContent = `Gatilhos ${strategy.triggered_items || 0} • Top 5 ${strategy.top_5_hits || 0} • Média ${strategy.avg_hit_rank == null ? "-" : strategy.avg_hit_rank}`;
+            const depthCounts = strategy?.depth_counts || {};
+            strategyChartMetaEl.textContent = `Gatilhos ${strategy.triggered_items || 0} • x5 ${depthCounts["5"] || 0} • x8 ${depthCounts["8"] || 0} • x10 ${depthCounts["10"] || 0} • Média ${strategy.avg_hit_rank == null ? "-" : strategy.avg_hit_rank}`;
         }
 
         function renderNumbersSequence(items) {
@@ -691,7 +692,7 @@
                 const rankText = item.hit_rank == null ? "Fora" : `#${item.hit_rank}`;
                 const strategyRankText = item.strategy_hit_rank == null ? "Fora" : `#${item.strategy_hit_rank}`;
                 const strategyModeText = item.strategy_mode === "inverted_extremes"
-                    ? `Invertido (${(item.strategy_reference_ranks || []).join(" → ")})`
+                    ? `Invertido x${item.strategy_invert_depth || 0} (${(item.strategy_reference_ranks || []).join(" → ")})`
                     : "Normal";
                 const ranking = Array.isArray(item.ranking_full) ? item.ranking_full : (item.ranking_top10 || []);
                 const canBet = Array.isArray(item.ranking_full) && item.ranking_full.length >= 18;
@@ -839,7 +840,7 @@
                         return `Fora do ranking | modo ${item.strategy_mode === "inverted_extremes" ? "invertido" : "normal"} | Próximo número: ${item.next_number ?? "-"}`;
                     }
                     if (item.strategy_mode === "inverted_extremes") {
-                        return `Estratégia #${item.strategy_hit_rank} | invertido após ${(item.strategy_reference_ranks || []).join(" → ")} | Próximo número: ${item.next_number}`;
+                        return `Estratégia #${item.strategy_hit_rank} | invertido x${item.strategy_invert_depth || 0} após ${(item.strategy_reference_ranks || []).join(" → ")} | score ${item.strategy_signal_strength ?? "-"} | Próximo número: ${item.next_number}`;
                     }
                     return `Estratégia #${item.strategy_hit_rank} | modo normal | Próximo número: ${item.next_number}`;
                 },

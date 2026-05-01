@@ -563,22 +563,23 @@ def _extract_snapshot_ranking(snapshot_doc: Mapping[str, Any]) -> List[int]:
 
 
 STRATEGY_OUTSIDE_RANK = 38
-STRATEGY_TRIGGER_TOP_MAX = 8
-STRATEGY_TRIGGER_MID_MIN = 9
-STRATEGY_TRIGGER_MID_MAX = 18
-STRATEGY_EDGE_SIZE = 10
-STRATEGY_BOTTOM_START = 38 - STRATEGY_EDGE_SIZE
+STRATEGY_MIN_CORRECTION = 4
+STRATEGY_SMALL_EDGE_SIZE = 5
+STRATEGY_MEDIUM_EDGE_SIZE = 8
+STRATEGY_LARGE_EDGE_SIZE = 10
 
 
-def _invert_rank_extremes(rank: int | None) -> int | None:
+def _invert_rank_extremes(rank: int | None, edge_size: int) -> int | None:
     if rank is None:
         return None
     safe_rank = int(rank)
     if not (1 <= safe_rank <= 37):
         return safe_rank
-    if safe_rank <= STRATEGY_EDGE_SIZE:
+    safe_edge_size = max(1, min(18, int(edge_size)))
+    bottom_start = 38 - safe_edge_size
+    if safe_rank <= safe_edge_size:
         return 38 - safe_rank
-    if safe_rank >= STRATEGY_BOTTOM_START:
+    if safe_rank >= bottom_start:
         return 38 - safe_rank
     return safe_rank
 
@@ -587,6 +588,11 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     triggered_items = 0
     strategy_distribution = {str(rank): 0 for rank in range(1, 38)}
     strategy_hit_items: List[Dict[str, Any]] = []
+    depth_counts = {
+        str(STRATEGY_SMALL_EDGE_SIZE): 0,
+        str(STRATEGY_MEDIUM_EDGE_SIZE): 0,
+        str(STRATEGY_LARGE_EDGE_SIZE): 0,
+    }
 
     for index, item in enumerate(items):
         original_hit_rank = item.get("hit_rank")
@@ -594,26 +600,55 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         strategy_triggered = False
         strategy_trigger_reason = ""
         strategy_reference_ranks: List[int] = []
+        strategy_invert_depth = 0
+        strategy_signal_strength = 0.0
         strategy_hit_rank = original_hit_rank
         strategy_plot_rank = item.get("plot_rank")
 
         if index >= 2:
-            previous_rank = items[index - 1].get("hit_rank")
-            previous_previous_rank = items[index - 2].get("hit_rank")
+            correction_rank = items[index - 1].get("hit_rank")
+            peak_rank = items[index - 2].get("hit_rank")
+            prior_rank = items[index - 3].get("hit_rank") if index >= 3 else None
+            correction_size = (
+                int(correction_rank) - int(peak_rank)
+                if isinstance(correction_rank, int) and isinstance(peak_rank, int)
+                else None
+            )
+            impulse_gain = (
+                int(prior_rank) - int(peak_rank)
+                if isinstance(prior_rank, int) and isinstance(peak_rank, int)
+                else 0
+            )
+            peak_bonus = max(0, 12 - int(peak_rank)) if isinstance(peak_rank, int) else 0
             if (
-                isinstance(previous_previous_rank, int)
-                and isinstance(previous_rank, int)
-                and 1 <= previous_previous_rank <= STRATEGY_TRIGGER_TOP_MAX
-                and STRATEGY_TRIGGER_MID_MIN <= previous_rank <= STRATEGY_TRIGGER_MID_MAX
-                and previous_rank > previous_previous_rank
+                isinstance(correction_size, int)
+                and correction_size >= STRATEGY_MIN_CORRECTION
             ):
+                strategy_signal_strength = (
+                    float(correction_size)
+                    + (max(0, impulse_gain) * 0.6)
+                    + float(peak_bonus)
+                )
+                if correction_size >= 12 or strategy_signal_strength >= 24:
+                    strategy_invert_depth = STRATEGY_LARGE_EDGE_SIZE
+                elif correction_size >= 7 or strategy_signal_strength >= 14:
+                    strategy_invert_depth = STRATEGY_MEDIUM_EDGE_SIZE
+                elif strategy_signal_strength >= 8:
+                    strategy_invert_depth = STRATEGY_SMALL_EDGE_SIZE
+
+            if strategy_invert_depth > 0:
                 strategy_mode = "inverted_extremes"
                 strategy_triggered = True
-                strategy_trigger_reason = "queda_topo_para_intermediario"
-                strategy_reference_ranks = [int(previous_previous_rank), int(previous_rank)]
+                strategy_trigger_reason = "movement_reversal_detected"
+                strategy_reference_ranks = [
+                    int(value)
+                    for value in [prior_rank, peak_rank, correction_rank]
+                    if isinstance(value, int)
+                ]
+                depth_counts[str(strategy_invert_depth)] += 1
                 triggered_items += 1
                 if isinstance(original_hit_rank, int):
-                    strategy_hit_rank = _invert_rank_extremes(original_hit_rank)
+                    strategy_hit_rank = _invert_rank_extremes(original_hit_rank, strategy_invert_depth)
                     strategy_plot_rank = strategy_hit_rank
                 else:
                     strategy_plot_rank = STRATEGY_OUTSIDE_RANK
@@ -622,6 +657,8 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         item["strategy_triggered"] = strategy_triggered
         item["strategy_trigger_reason"] = strategy_trigger_reason
         item["strategy_reference_ranks"] = strategy_reference_ranks
+        item["strategy_invert_depth"] = strategy_invert_depth
+        item["strategy_signal_strength"] = round(strategy_signal_strength, 2)
         item["strategy_hit_rank"] = strategy_hit_rank
         item["strategy_plot_rank"] = strategy_plot_rank
 
@@ -634,13 +671,19 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     return {
         "enabled": True,
-        "name": "inverted_extremes_rebound_v1",
-        "trigger_top_max": STRATEGY_TRIGGER_TOP_MAX,
-        "trigger_mid_min": STRATEGY_TRIGGER_MID_MIN,
-        "trigger_mid_max": STRATEGY_TRIGGER_MID_MAX,
-        "edge_size": STRATEGY_EDGE_SIZE,
-        "preserved_middle_start": STRATEGY_EDGE_SIZE + 1,
-        "preserved_middle_end": STRATEGY_BOTTOM_START - 1,
+        "name": "inverted_extremes_movement_v2",
+        "min_correction": STRATEGY_MIN_CORRECTION,
+        "depth_options": [
+            STRATEGY_SMALL_EDGE_SIZE,
+            STRATEGY_MEDIUM_EDGE_SIZE,
+            STRATEGY_LARGE_EDGE_SIZE,
+        ],
+        "depth_counts": depth_counts,
+        "preserved_middle_ranges": {
+            str(STRATEGY_SMALL_EDGE_SIZE): [STRATEGY_SMALL_EDGE_SIZE + 1, 37 - STRATEGY_SMALL_EDGE_SIZE],
+            str(STRATEGY_MEDIUM_EDGE_SIZE): [STRATEGY_MEDIUM_EDGE_SIZE + 1, 37 - STRATEGY_MEDIUM_EDGE_SIZE],
+            str(STRATEGY_LARGE_EDGE_SIZE): [STRATEGY_LARGE_EDGE_SIZE + 1, 37 - STRATEGY_LARGE_EDGE_SIZE],
+        },
         "triggered_items": triggered_items,
         "resolved_items": len(strategy_resolved_items),
         "hits_in_ranking": len(strategy_hit_items),
