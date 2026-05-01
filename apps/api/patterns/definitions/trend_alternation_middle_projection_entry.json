@@ -15,7 +15,7 @@
     "neighbor_score": 0.85,
     "zero_score": 0.7,
     "adaptive": {
-      "enabled": true,
+      "enabled": false,
       "lookahead": 5,
       "window": 400,
       "min_signals": 8,
