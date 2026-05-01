@@ -567,6 +567,11 @@ STRATEGY_MIN_CORRECTION = 4
 STRATEGY_SMALL_EDGE_SIZE = 5
 STRATEGY_MEDIUM_EDGE_SIZE = 8
 STRATEGY_LARGE_EDGE_SIZE = 10
+STRATEGY_SCORE_THRESHOLD_SMALL = 4.0
+STRATEGY_SCORE_THRESHOLD_MEDIUM = 6.0
+STRATEGY_SCORE_THRESHOLD_LARGE = 9.0
+STRATEGY_SCORE_DECAY_PER_STEP = 0.35
+STRATEGY_SCORE_MAX = 18.0
 
 
 def _invert_rank_extremes(rank: int | None, edge_size: int) -> int | None:
@@ -584,6 +589,67 @@ def _invert_rank_extremes(rank: int | None, edge_size: int) -> int | None:
     return safe_rank
 
 
+def _resolve_inversion_depth(regime_score: float) -> int:
+    safe_score = float(regime_score or 0.0)
+    if safe_score >= STRATEGY_SCORE_THRESHOLD_LARGE:
+        return STRATEGY_LARGE_EDGE_SIZE
+    if safe_score >= STRATEGY_SCORE_THRESHOLD_MEDIUM:
+        return STRATEGY_MEDIUM_EDGE_SIZE
+    if safe_score >= STRATEGY_SCORE_THRESHOLD_SMALL:
+        return STRATEGY_SMALL_EDGE_SIZE
+    return 0
+
+
+def _update_falling_regime_score(
+    *,
+    regime_score: float,
+    previous_rank: int | None,
+    current_rank: int | None,
+    improvement_streak: int,
+) -> tuple[float, int]:
+    score = max(0.0, float(regime_score or 0.0) - STRATEGY_SCORE_DECAY_PER_STEP)
+    streak = max(0, int(improvement_streak or 0))
+
+    if not isinstance(previous_rank, int) or not isinstance(current_rank, int):
+        return (round(min(score, STRATEGY_SCORE_MAX), 2), streak)
+
+    delta = int(current_rank) - int(previous_rank)
+
+    if delta >= STRATEGY_MIN_CORRECTION:
+        if previous_rank <= 10:
+            score += min(6.5, 1.8 + (delta * 0.42))
+        elif previous_rank <= 18:
+            score += min(4.5, 0.8 + (delta * 0.24))
+        else:
+            score += min(2.5, delta * 0.10)
+
+        if current_rank >= 33:
+            score += 2.5
+        elif current_rank >= 28:
+            score += 1.5
+        elif current_rank >= 19:
+            score += 0.6
+        streak = 0
+    elif delta < 0:
+        improvement = abs(delta)
+        if previous_rank >= 28 and current_rank <= 20:
+            score -= min(5.0, 1.4 + (improvement * 0.18))
+        elif current_rank <= 10:
+            score -= min(2.4, 0.8 + (improvement * 0.14))
+        elif current_rank <= 18:
+            score -= min(1.2, 0.35 + (improvement * 0.06))
+        else:
+            score -= min(0.6, improvement * 0.03)
+        streak = (streak + 1) if current_rank <= 18 else 0
+    else:
+        if current_rank >= 28:
+            score += 0.4
+        streak = 0
+
+    score = max(0.0, min(score, STRATEGY_SCORE_MAX))
+    return (round(score, 2), streak)
+
+
 def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     triggered_items = 0
     strategy_distribution = {str(rank): 0 for rank in range(1, 38)}
@@ -593,65 +659,28 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         str(STRATEGY_MEDIUM_EDGE_SIZE): 0,
         str(STRATEGY_LARGE_EDGE_SIZE): 0,
     }
+    regime_score = 0.0
+    improvement_streak = 0
+    observed_ranks: List[int] = []
 
-    for index, item in enumerate(items):
+    for item in items:
         original_hit_rank = item.get("hit_rank")
-        strategy_mode = "normal"
-        strategy_triggered = False
-        strategy_trigger_reason = ""
-        strategy_reference_ranks: List[int] = []
-        strategy_invert_depth = 0
-        strategy_signal_strength = 0.0
+        strategy_invert_depth = _resolve_inversion_depth(regime_score)
+        strategy_mode = "inverted_extremes" if strategy_invert_depth > 0 else "normal"
+        strategy_triggered = strategy_invert_depth > 0
+        strategy_trigger_reason = "falling_regime_active" if strategy_triggered else ""
+        strategy_reference_ranks: List[int] = observed_ranks[-3:]
+        strategy_signal_strength = round(regime_score, 2)
         strategy_hit_rank = original_hit_rank
         strategy_plot_rank = item.get("plot_rank")
-
-        if index >= 2:
-            correction_rank = items[index - 1].get("hit_rank")
-            peak_rank = items[index - 2].get("hit_rank")
-            prior_rank = items[index - 3].get("hit_rank") if index >= 3 else None
-            correction_size = (
-                int(correction_rank) - int(peak_rank)
-                if isinstance(correction_rank, int) and isinstance(peak_rank, int)
-                else None
-            )
-            impulse_gain = (
-                int(prior_rank) - int(peak_rank)
-                if isinstance(prior_rank, int) and isinstance(peak_rank, int)
-                else 0
-            )
-            peak_bonus = max(0, 12 - int(peak_rank)) if isinstance(peak_rank, int) else 0
-            if (
-                isinstance(correction_size, int)
-                and correction_size >= STRATEGY_MIN_CORRECTION
-            ):
-                strategy_signal_strength = (
-                    float(correction_size)
-                    + (max(0, impulse_gain) * 0.6)
-                    + float(peak_bonus)
-                )
-                if correction_size >= 12 or strategy_signal_strength >= 24:
-                    strategy_invert_depth = STRATEGY_LARGE_EDGE_SIZE
-                elif correction_size >= 7 or strategy_signal_strength >= 14:
-                    strategy_invert_depth = STRATEGY_MEDIUM_EDGE_SIZE
-                elif strategy_signal_strength >= 8:
-                    strategy_invert_depth = STRATEGY_SMALL_EDGE_SIZE
-
-            if strategy_invert_depth > 0:
-                strategy_mode = "inverted_extremes"
-                strategy_triggered = True
-                strategy_trigger_reason = "movement_reversal_detected"
-                strategy_reference_ranks = [
-                    int(value)
-                    for value in [prior_rank, peak_rank, correction_rank]
-                    if isinstance(value, int)
-                ]
-                depth_counts[str(strategy_invert_depth)] += 1
-                triggered_items += 1
-                if isinstance(original_hit_rank, int):
-                    strategy_hit_rank = _invert_rank_extremes(original_hit_rank, strategy_invert_depth)
-                    strategy_plot_rank = strategy_hit_rank
-                else:
-                    strategy_plot_rank = STRATEGY_OUTSIDE_RANK
+        if strategy_invert_depth > 0:
+            depth_counts[str(strategy_invert_depth)] += 1
+            triggered_items += 1
+            if isinstance(original_hit_rank, int):
+                strategy_hit_rank = _invert_rank_extremes(original_hit_rank, strategy_invert_depth)
+                strategy_plot_rank = strategy_hit_rank
+            else:
+                strategy_plot_rank = STRATEGY_OUTSIDE_RANK
 
         item["strategy_mode"] = strategy_mode
         item["strategy_triggered"] = strategy_triggered
@@ -666,6 +695,16 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             strategy_distribution[str(int(strategy_hit_rank))] += 1
             strategy_hit_items.append(item)
 
+        previous_rank = observed_ranks[-1] if observed_ranks else None
+        regime_score, improvement_streak = _update_falling_regime_score(
+            regime_score=regime_score,
+            previous_rank=previous_rank,
+            current_rank=int(original_hit_rank) if isinstance(original_hit_rank, int) else None,
+            improvement_streak=improvement_streak,
+        )
+        if isinstance(original_hit_rank, int):
+            observed_ranks.append(int(original_hit_rank))
+
     strategy_resolved_items = [item for item in items if item.get("next_number") is not None]
     strategy_outside = len([item for item in strategy_resolved_items if item.get("strategy_hit_rank") is None])
 
@@ -678,6 +717,11 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             STRATEGY_MEDIUM_EDGE_SIZE,
             STRATEGY_LARGE_EDGE_SIZE,
         ],
+        "score_thresholds": {
+            str(STRATEGY_SMALL_EDGE_SIZE): STRATEGY_SCORE_THRESHOLD_SMALL,
+            str(STRATEGY_MEDIUM_EDGE_SIZE): STRATEGY_SCORE_THRESHOLD_MEDIUM,
+            str(STRATEGY_LARGE_EDGE_SIZE): STRATEGY_SCORE_THRESHOLD_LARGE,
+        },
         "depth_counts": depth_counts,
         "preserved_middle_ranges": {
             str(STRATEGY_SMALL_EDGE_SIZE): [STRATEGY_SMALL_EDGE_SIZE + 1, 37 - STRATEGY_SMALL_EDGE_SIZE],
