@@ -566,6 +566,8 @@ STRATEGY_OUTSIDE_RANK = 38
 STRATEGY_TRIGGER_TOP_MAX = 8
 STRATEGY_TRIGGER_MID_MIN = 9
 STRATEGY_TRIGGER_MID_MAX = 18
+STRATEGY_EDGE_SIZE = 10
+STRATEGY_BOTTOM_START = 38 - STRATEGY_EDGE_SIZE
 
 
 def _invert_rank_extremes(rank: int | None) -> int | None:
@@ -574,7 +576,11 @@ def _invert_rank_extremes(rank: int | None) -> int | None:
     safe_rank = int(rank)
     if not (1 <= safe_rank <= 37):
         return safe_rank
-    return 38 - safe_rank
+    if safe_rank <= STRATEGY_EDGE_SIZE:
+        return 38 - safe_rank
+    if safe_rank >= STRATEGY_BOTTOM_START:
+        return 38 - safe_rank
+    return safe_rank
 
 
 def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -632,6 +638,9 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         "trigger_top_max": STRATEGY_TRIGGER_TOP_MAX,
         "trigger_mid_min": STRATEGY_TRIGGER_MID_MIN,
         "trigger_mid_max": STRATEGY_TRIGGER_MID_MAX,
+        "edge_size": STRATEGY_EDGE_SIZE,
+        "preserved_middle_start": STRATEGY_EDGE_SIZE + 1,
+        "preserved_middle_end": STRATEGY_BOTTOM_START - 1,
         "triggered_items": triggered_items,
         "resolved_items": len(strategy_resolved_items),
         "hits_in_ranking": len(strategy_hit_items),
