@@ -562,6 +562,90 @@ def _extract_snapshot_ranking(snapshot_doc: Mapping[str, Any]) -> List[int]:
     return []
 
 
+STRATEGY_OUTSIDE_RANK = 38
+STRATEGY_TRIGGER_TOP_MAX = 8
+STRATEGY_TRIGGER_MID_MIN = 9
+STRATEGY_TRIGGER_MID_MAX = 18
+
+
+def _invert_rank_extremes(rank: int | None) -> int | None:
+    if rank is None:
+        return None
+    safe_rank = int(rank)
+    if not (1 <= safe_rank <= 37):
+        return safe_rank
+    return 38 - safe_rank
+
+
+def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    triggered_items = 0
+    strategy_distribution = {str(rank): 0 for rank in range(1, 38)}
+    strategy_hit_items: List[Dict[str, Any]] = []
+
+    for index, item in enumerate(items):
+        original_hit_rank = item.get("hit_rank")
+        strategy_mode = "normal"
+        strategy_triggered = False
+        strategy_trigger_reason = ""
+        strategy_reference_ranks: List[int] = []
+        strategy_hit_rank = original_hit_rank
+        strategy_plot_rank = item.get("plot_rank")
+
+        if index >= 2:
+            previous_rank = items[index - 1].get("hit_rank")
+            previous_previous_rank = items[index - 2].get("hit_rank")
+            if (
+                isinstance(previous_previous_rank, int)
+                and isinstance(previous_rank, int)
+                and 1 <= previous_previous_rank <= STRATEGY_TRIGGER_TOP_MAX
+                and STRATEGY_TRIGGER_MID_MIN <= previous_rank <= STRATEGY_TRIGGER_MID_MAX
+                and previous_rank > previous_previous_rank
+            ):
+                strategy_mode = "inverted_extremes"
+                strategy_triggered = True
+                strategy_trigger_reason = "queda_topo_para_intermediario"
+                strategy_reference_ranks = [int(previous_previous_rank), int(previous_rank)]
+                triggered_items += 1
+                if isinstance(original_hit_rank, int):
+                    strategy_hit_rank = _invert_rank_extremes(original_hit_rank)
+                    strategy_plot_rank = strategy_hit_rank
+                else:
+                    strategy_plot_rank = STRATEGY_OUTSIDE_RANK
+
+        item["strategy_mode"] = strategy_mode
+        item["strategy_triggered"] = strategy_triggered
+        item["strategy_trigger_reason"] = strategy_trigger_reason
+        item["strategy_reference_ranks"] = strategy_reference_ranks
+        item["strategy_hit_rank"] = strategy_hit_rank
+        item["strategy_plot_rank"] = strategy_plot_rank
+
+        if isinstance(strategy_hit_rank, int):
+            strategy_distribution[str(int(strategy_hit_rank))] += 1
+            strategy_hit_items.append(item)
+
+    strategy_resolved_items = [item for item in items if item.get("next_number") is not None]
+    strategy_outside = len([item for item in strategy_resolved_items if item.get("strategy_hit_rank") is None])
+
+    return {
+        "enabled": True,
+        "name": "inverted_extremes_rebound_v1",
+        "trigger_top_max": STRATEGY_TRIGGER_TOP_MAX,
+        "trigger_mid_min": STRATEGY_TRIGGER_MID_MIN,
+        "trigger_mid_max": STRATEGY_TRIGGER_MID_MAX,
+        "triggered_items": triggered_items,
+        "resolved_items": len(strategy_resolved_items),
+        "hits_in_ranking": len(strategy_hit_items),
+        "outside_ranking": strategy_outside,
+        "hit_rate_percent": round((len(strategy_hit_items) / len(strategy_resolved_items) * 100.0), 2) if strategy_resolved_items else 0.0,
+        "top_1_hits": strategy_distribution["1"],
+        "top_3_hits": sum(strategy_distribution[str(rank)] for rank in range(1, 4)),
+        "top_5_hits": sum(strategy_distribution[str(rank)] for rank in range(1, 6)),
+        "top_10_hits": sum(strategy_distribution[str(rank)] for rank in range(1, 11)),
+        "avg_hit_rank": round(sum(int(item["strategy_hit_rank"]) for item in strategy_hit_items) / len(strategy_hit_items), 2) if strategy_hit_items else None,
+        "rank_distribution": strategy_distribution,
+    }
+
+
 async def build_suggestion_snapshot_rank_timeline(
     *,
     roulette_id: str,
@@ -683,6 +767,7 @@ async def build_suggestion_snapshot_rank_timeline(
         "avg_hit_rank": round(sum(int(item["hit_rank"]) for item in hit_items) / len(hit_items), 2) if hit_items else None,
         "rank_distribution": rank_distribution,
     }
+    summary["strategy"] = _apply_inversion_strategy(items)
 
     return {
         "available": True,

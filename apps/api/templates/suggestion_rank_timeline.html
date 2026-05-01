@@ -258,6 +258,13 @@
             height: 440px;
         }
 
+        .strategy-note {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
         .table-panel {
             padding: 18px;
         }
@@ -487,6 +494,19 @@
             </div>
         </div>
 
+        <div class="panel chart-panel">
+            <div class="chart-head">
+                <h2>Estratégia de Inversão</h2>
+                <div id="strategyChartMeta" class="meta">-</div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="strategyRankTimelineChart"></canvas>
+            </div>
+            <div class="strategy-note">
+                V1: quando um rank no topo cai para a faixa intermediária, a próxima jogada é lida com as extremidades invertidas.
+            </div>
+        </div>
+
         <div class="panel table-panel">
             <h2>Eventos Recentes</h2>
             <div class="table-wrap">
@@ -496,7 +516,9 @@
                             <th>Data</th>
                             <th>Âncora</th>
                             <th>Próximo Número</th>
-                            <th>Posição no Ranking</th>
+                            <th>Posição Original</th>
+                            <th>Posição Estratégica</th>
+                            <th>Modo</th>
                             <th>Ranking Completo</th>
                         </tr>
                     </thead>
@@ -516,12 +538,14 @@
         const statusEl = document.getElementById("status");
         const eventsTableBody = document.getElementById("eventsTableBody");
         const chartMetaEl = document.getElementById("chartMeta");
+        const strategyChartMetaEl = document.getElementById("strategyChartMeta");
         const numbersSequenceEl = document.getElementById("numbersSequence");
         const sequenceMetaEl = document.getElementById("sequenceMeta");
         const BOT_API_URL = {{ (bot_api_url or "http://localhost:3000/api/bet") | tojson }};
         const ROULETTE_URL_MAP = {{ (roulette_url_map or {}) | tojson }};
 
         let timelineChart = null;
+        let strategyTimelineChart = null;
         let currentTimelineItems = [];
         let timelineSocket = null;
         let wsReconnectAttempts = 0;
@@ -597,6 +621,8 @@
             document.getElementById("outsideValue").textContent = String(summary.outside_ranking || 0);
             document.getElementById("avgRankValue").textContent = summary.avg_hit_rank == null ? "-" : String(summary.avg_hit_rank);
             chartMetaEl.textContent = `Hit rate ${summary.hit_rate_percent || 0}% • config ${summary.using_current_config_only ? "atual" : "misturada"}`;
+            const strategy = summary?.strategy || {};
+            strategyChartMetaEl.textContent = `Gatilhos ${strategy.triggered_items || 0} • Top 5 ${strategy.top_5_hits || 0} • Média ${strategy.avg_hit_rank == null ? "-" : strategy.avg_hit_rank}`;
         }
 
         function renderNumbersSequence(items) {
@@ -626,35 +652,47 @@
             chips.forEach((chip) => chip.classList.remove("active"));
         }
 
-        function highlightChartPoint(index) {
-            if (!timelineChart || !currentTimelineItems[index]) return;
-            const meta = timelineChart.getDatasetMeta(0);
+        function highlightSingleChartPoint(chart, index) {
+            if (!chart || !currentTimelineItems[index]) return;
+            const meta = chart.getDatasetMeta(0);
             const point = meta?.data?.[index];
             if (!point) return;
             const position = typeof point.getProps === "function"
                 ? point.getProps(["x", "y"], true)
                 : { x: point.x, y: point.y };
-            timelineChart.setActiveElements([{ datasetIndex: 0, index }]);
-            if (timelineChart.tooltip && typeof timelineChart.tooltip.setActiveElements === "function") {
-                timelineChart.tooltip.setActiveElements([{ datasetIndex: 0, index }], position);
+            chart.setActiveElements([{ datasetIndex: 0, index }]);
+            if (chart.tooltip && typeof chart.tooltip.setActiveElements === "function") {
+                chart.tooltip.setActiveElements([{ datasetIndex: 0, index }], position);
             }
-            timelineChart.update("none");
+            chart.update("none");
+        }
+
+        function highlightChartPoint(index) {
+            if (!currentTimelineItems[index]) return;
+            highlightSingleChartPoint(timelineChart, index);
+            highlightSingleChartPoint(strategyTimelineChart, index);
             highlightSequenceChip(index);
         }
 
         function clearChartHighlight() {
-            if (!timelineChart) return;
-            timelineChart.setActiveElements([]);
-            if (timelineChart.tooltip && typeof timelineChart.tooltip.setActiveElements === "function") {
-                timelineChart.tooltip.setActiveElements([], { x: 0, y: 0 });
+            for (const chart of [timelineChart, strategyTimelineChart]) {
+                if (!chart) continue;
+                chart.setActiveElements([]);
+                if (chart.tooltip && typeof chart.tooltip.setActiveElements === "function") {
+                    chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+                }
+                chart.update("none");
             }
-            timelineChart.update("none");
             clearSequenceChipHighlight();
         }
 
         function renderTable(items) {
             const rows = items.slice().reverse().map((item) => {
                 const rankText = item.hit_rank == null ? "Fora" : `#${item.hit_rank}`;
+                const strategyRankText = item.strategy_hit_rank == null ? "Fora" : `#${item.strategy_hit_rank}`;
+                const strategyModeText = item.strategy_mode === "inverted_extremes"
+                    ? `Invertido (${(item.strategy_reference_ranks || []).join(" → ")})`
+                    : "Normal";
                 const ranking = Array.isArray(item.ranking_full) ? item.ranking_full : (item.ranking_top10 || []);
                 const canBet = Array.isArray(item.ranking_full) && item.ranking_full.length >= 18;
                 const actionButtons = canBet ? `
@@ -673,6 +711,8 @@
                         <td>${item.anchor_number}</td>
                         <td>${item.next_number == null ? "-" : item.next_number}</td>
                         <td><span class="${getRankPillClass(item.hit_rank)}">${rankText}</span></td>
+                        <td><span class="${getRankPillClass(item.strategy_hit_rank)}">${strategyRankText}</span></td>
+                        <td>${strategyModeText}</td>
                         <td>
                             <div class="ranking-cell">
                                 <div class="top10">${ranking.join(", ")}</div>
@@ -682,31 +722,25 @@
                     </tr>
                 `;
             });
-            eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="5">Nenhum evento encontrado.</td></tr>`;
+            eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="7">Nenhum evento encontrado.</td></tr>`;
         }
 
-        function renderChart(items) {
-            currentTimelineItems = Array.isArray(items) ? items.slice() : [];
-            const ctx = document.getElementById("rankTimelineChart").getContext("2d");
-            if (timelineChart) {
-                timelineChart.destroy();
-            }
-
+        function buildChartConfig(items, { title, valueKey, tooltipLabelBuilder }) {
             const labels = items.map((item, idx) => `${idx + 1}`);
-            const data = items.map((item) => item.plot_rank == null ? null : item.plot_rank);
+            const data = items.map((item) => item[valueKey] == null ? null : item[valueKey]);
             const pointColors = items.map((item) => {
-                if (item.hit_rank == null) return "#dc2626";
-                if (item.hit_rank <= 5) return "#16a34a";
-                if (item.hit_rank <= 10) return "#2563eb";
+                const rank = item[valueKey === "strategy_plot_rank" ? "strategy_hit_rank" : "hit_rank"];
+                if (rank == null) return "#dc2626";
+                if (rank <= 5) return "#16a34a";
+                if (rank <= 10) return "#2563eb";
                 return "#ea580c";
             });
-
-            timelineChart = new Chart(ctx, {
+            return {
                 type: "line",
                 data: {
                     labels,
                     datasets: [{
-                        label: "Posição do acerto no ranking",
+                        label: title,
                         data,
                         borderColor: "#2563eb",
                         backgroundColor: "rgba(37, 99, 235, 0.12)",
@@ -740,10 +774,7 @@
                                     const idx = context.dataIndex;
                                     const item = items[idx];
                                     if (!item) return "";
-                                    if (item.hit_rank == null) {
-                                        return `Fora do ranking | Próximo número: ${item.next_number ?? "-"}`;
-                                    }
-                                    return `Rank #${item.hit_rank} | Próximo número: ${item.next_number}`;
+                                    return tooltipLabelBuilder(item);
                                 }
                             }
                         }
@@ -774,7 +805,45 @@
                         }
                     }
                 }
-            });
+            };
+        }
+
+        function renderChart(items) {
+            currentTimelineItems = Array.isArray(items) ? items.slice() : [];
+            const ctx = document.getElementById("rankTimelineChart").getContext("2d");
+            if (timelineChart) {
+                timelineChart.destroy();
+            }
+            timelineChart = new Chart(ctx, buildChartConfig(items, {
+                title: "Posição do acerto no ranking",
+                valueKey: "plot_rank",
+                tooltipLabelBuilder(item) {
+                    if (item.hit_rank == null) {
+                        return `Fora do ranking | Próximo número: ${item.next_number ?? "-"}`;
+                    }
+                    return `Rank #${item.hit_rank} | Próximo número: ${item.next_number}`;
+                },
+            }));
+        }
+
+        function renderStrategyChart(items) {
+            const ctx = document.getElementById("strategyRankTimelineChart").getContext("2d");
+            if (strategyTimelineChart) {
+                strategyTimelineChart.destroy();
+            }
+            strategyTimelineChart = new Chart(ctx, buildChartConfig(items, {
+                title: "Posição estratégica",
+                valueKey: "strategy_plot_rank",
+                tooltipLabelBuilder(item) {
+                    if (item.strategy_hit_rank == null) {
+                        return `Fora do ranking | modo ${item.strategy_mode === "inverted_extremes" ? "invertido" : "normal"} | Próximo número: ${item.next_number ?? "-"}`;
+                    }
+                    if (item.strategy_mode === "inverted_extremes") {
+                        return `Estratégia #${item.strategy_hit_rank} | invertido após ${(item.strategy_reference_ranks || []).join(" → ")} | Próximo número: ${item.next_number}`;
+                    }
+                    return `Estratégia #${item.strategy_hit_rank} | modo normal | Próximo número: ${item.next_number}`;
+                },
+            }));
         }
 
         numbersSequenceEl.addEventListener("mouseenter", (event) => {
@@ -986,6 +1055,12 @@
                                 next_timestamp_utc: null,
                                 hit_rank: null,
                                 plot_rank: null,
+                                strategy_hit_rank: null,
+                                strategy_plot_rank: null,
+                                strategy_mode: "normal",
+                                strategy_triggered: false,
+                                strategy_trigger_reason: "",
+                                strategy_reference_ranks: [],
                                 hit: false,
                                 ranking_full: [],
                                 ranking_top10: [],
@@ -998,6 +1073,7 @@
                             const indexedItems = currentTimelineItems.map((item, idx) => ({ ...item, __rowIndex: idx }));
                             renderNumbersSequence(indexedItems);
                             renderChart(indexedItems);
+                            renderStrategyChart(indexedItems);
                             renderTable(indexedItems);
                             setLiveAwareStatus("Nova sugestão recebida, aguardando ranking salvo");
                         }
@@ -1059,6 +1135,7 @@
                 renderSummary(payload.summary || {});
                 renderNumbersSequence(items);
                 renderChart(items);
+                renderStrategyChart(items);
                 renderTable(items);
                 lastLoadedAt = new Date().toLocaleTimeString("pt-BR");
                 if (source === "live") {
@@ -1079,12 +1156,21 @@
                     avg_hit_rank: null,
                     hit_rate_percent: 0,
                     using_current_config_only: true,
+                    strategy: {
+                        triggered_items: 0,
+                        top_5_hits: 0,
+                        avg_hit_rank: null,
+                    },
                 });
                 renderNumbersSequence([]);
-                eventsTableBody.innerHTML = `<tr><td colspan="5">Não foi possível carregar os dados.</td></tr>`;
+                eventsTableBody.innerHTML = `<tr><td colspan="7">Não foi possível carregar os dados.</td></tr>`;
                 if (timelineChart) {
                     timelineChart.destroy();
                     timelineChart = null;
+                }
+                if (strategyTimelineChart) {
+                    strategyTimelineChart.destroy();
+                    strategyTimelineChart = null;
                 }
                 setStatus(error.message || "Falha ao carregar timeline.", true);
             } finally {
