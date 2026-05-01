@@ -23,7 +23,7 @@
     "enforce_presence": true,
     "min_keep": 2,
     "adaptive": {
-      "enabled": false,
+      "enabled": true,
       "lookahead": 4,
       "window": 400,
       "min_signals": 10,
