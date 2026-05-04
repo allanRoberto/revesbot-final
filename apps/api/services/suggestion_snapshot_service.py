@@ -649,6 +649,19 @@ STRATEGY_SCORE_THRESHOLD_MEDIUM = 6.0
 STRATEGY_SCORE_THRESHOLD_LARGE = 9.0
 STRATEGY_SCORE_DECAY_PER_STEP = 0.35
 STRATEGY_SCORE_MAX = 18.0
+RANGE_PREDICTION_LOOKBACK = 12
+RANGE_PREDICTION_NEIGHBORS = 15
+RANGE_PREDICTION_SIZE = 18
+RANGE_PREDICTION_MIN_TRAIN_ROWS = 120
+RANGE_POLICY_BALANCED = {
+    "name": "movement_range_middle_filter_v1",
+    "confidence_threshold": 0.76,
+    "coverage_threshold": 0.76,
+    "concentration_threshold": 0.0,
+    "direction_consistency_threshold": 0.0,
+    "middle_overlap_max": 0.66,
+    "support_threshold": 10,
+}
 
 
 def _invert_rank_extremes(rank: int | None, edge_size: int) -> int | None:
@@ -819,6 +832,309 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+def _build_rank_movement_vector(previous_ranks: List[int]) -> List[float]:
+    if not previous_ranks:
+        return []
+    safe = [int(rank) for rank in previous_ranks]
+    deltas = [float(safe[idx] - safe[idx + 1]) for idx in range(len(safe) - 1)]
+    amplitude = float(max(safe) - min(safe))
+    momentum = float(safe[0] - safe[-1])
+    avg_rank = float(sum(safe) / len(safe))
+    return [float(rank) for rank in safe] + deltas + [amplitude, momentum, avg_rank]
+
+
+def _sign(value: float) -> int:
+    if value > 0:
+        return 1
+    if value < 0:
+        return -1
+    return 0
+
+
+def _movement_distance(left: List[float], right: List[float]) -> float:
+    if not left or not right or len(left) != len(right):
+        return float("inf")
+    return sum(abs(float(a) - float(b)) for a, b in zip(left, right))
+
+
+def _resolve_best_rank_window(
+    nearest_rows: List[tuple[float, Dict[str, Any]]],
+    *,
+    window_size: int = RANGE_PREDICTION_SIZE,
+) -> Dict[str, Any]:
+    safe_window = max(1, min(37, int(window_size or RANGE_PREDICTION_SIZE)))
+    max_start = max(1, 37 - safe_window + 1)
+    total_weight = 0.0
+    direction_weights = {-1: 0.0, 0: 0.0, 1: 0.0}
+    weighted_neighbors: List[Dict[str, Any]] = []
+
+    for distance, row in nearest_rows:
+        weight = 1.0 / (float(distance) + 0.001)
+        total_weight += weight
+        latest_rank = int(row.get("current_rank") or 38)
+        first_future_rank = int((row.get("future_ranks") or [38])[0])
+        direction_weights[_sign(first_future_rank - latest_rank)] += weight
+        weighted_neighbors.append(
+            {
+                "weight": weight,
+                "future_ranks": [int(rank) for rank in (row.get("future_ranks") or [])],
+            }
+        )
+
+    dominant_direction = max(direction_weights.items(), key=lambda item: item[1])[0]
+    direction_consistency = (direction_weights[dominant_direction] / total_weight) if total_weight else 0.0
+
+    best_payload = {
+        "start": 1,
+        "end": safe_window,
+        "center": round((1 + safe_window) / 2.0, 2),
+        "coverage_ratio": 0.0,
+        "concentration_score": 0.0,
+        "confidence": 0.0,
+    }
+
+    for start in range(1, max_start + 1):
+        end = start + safe_window - 1
+        center = (start + end) / 2.0
+        covered_weight = 0.0
+        covered_distance = 0.0
+        for neighbor in weighted_neighbors:
+            future_hits = [rank for rank in neighbor["future_ranks"] if start <= rank <= end]
+            if not future_hits:
+                continue
+            covered_weight += float(neighbor["weight"])
+            covered_distance += float(neighbor["weight"]) * min(abs(rank - center) for rank in future_hits)
+        coverage_ratio = (covered_weight / total_weight) if total_weight else 0.0
+        if covered_weight > 0:
+            avg_distance = covered_distance / covered_weight
+            concentration_score = 1.0 - min(1.0, avg_distance / max(1.0, (safe_window - 1) / 2.0))
+        else:
+            concentration_score = 0.0
+        confidence = (
+            (coverage_ratio * 0.5)
+            + (concentration_score * 0.3)
+            + (direction_consistency * 0.2)
+        )
+        current_payload = {
+            "start": start,
+            "end": end,
+            "center": round(center, 2),
+            "coverage_ratio": round(coverage_ratio, 4),
+            "concentration_score": round(concentration_score, 4),
+            "confidence": round(confidence, 4),
+        }
+        if (
+            current_payload["coverage_ratio"] > best_payload["coverage_ratio"]
+            or (
+                abs(current_payload["coverage_ratio"] - best_payload["coverage_ratio"]) < 1e-9
+                and current_payload["concentration_score"] > best_payload["concentration_score"]
+            )
+            or (
+                abs(current_payload["coverage_ratio"] - best_payload["coverage_ratio"]) < 1e-9
+                and abs(current_payload["concentration_score"] - best_payload["concentration_score"]) < 1e-9
+                and current_payload["confidence"] > best_payload["confidence"]
+            )
+        ):
+            best_payload = current_payload
+
+    best_payload.update(
+        {
+            "size": safe_window,
+            "direction_consistency": round(direction_consistency, 4),
+            "expected_direction": (
+                "subida" if dominant_direction < 0 else "queda" if dominant_direction > 0 else "indefinida"
+            ),
+            "support_weight_percent": round(best_payload["coverage_ratio"] * 100.0, 2),
+        }
+    )
+    return best_payload
+
+
+def _apply_movement_range_prediction(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    predicted_items = 0
+    hits_in_range = 0
+    misses_in_range = 0
+    pending_items = 0
+    policy_allowed = 0
+    policy_blocked = 0
+    blocked_by_middle = 0
+    observed_ranks: List[int | None] = [
+        int(item["plot_rank"]) if isinstance(item.get("plot_rank"), int) else None
+        for item in items
+    ]
+
+    for item_index, item in enumerate(items):
+        prediction = {
+            "available": False,
+            "start": None,
+            "end": None,
+            "size": RANGE_PREDICTION_SIZE,
+            "center": None,
+            "support_weight_percent": None,
+            "coverage_ratio": None,
+            "concentration_score": None,
+            "direction_consistency": None,
+            "expected_direction": "indefinida",
+            "hit": None,
+            "status": "insuficiente",
+            "lookback": RANGE_PREDICTION_LOOKBACK,
+            "neighbors": 0,
+            "future_attempts": 3,
+            "future_ranks": [],
+            "middle_overlap_ratio": None,
+            "policy": {
+                "name": RANGE_POLICY_BALANCED["name"],
+                "bettable": None,
+                "status": "insuficiente",
+            },
+        }
+        current_rank = observed_ranks[item_index]
+        if not isinstance(current_rank, int):
+            item["range_prediction"] = prediction
+            continue
+        future_ranks = [
+            int(rank)
+            for rank in observed_ranks[item_index + 1 : item_index + 4]
+            if isinstance(rank, int)
+        ]
+
+        if item_index >= (RANGE_PREDICTION_LOOKBACK - 1 + RANGE_PREDICTION_MIN_TRAIN_ROWS):
+            current_pattern = [
+                int(observed_ranks[item_index - step])
+                for step in range(0, RANGE_PREDICTION_LOOKBACK)
+                if isinstance(observed_ranks[item_index - step], int)
+            ]
+            if len(current_pattern) != RANGE_PREDICTION_LOOKBACK:
+                item["range_prediction"] = prediction
+                continue
+            current_vector = _build_rank_movement_vector(current_pattern)
+            candidates: List[tuple[float, Dict[str, Any]]] = []
+
+            for target_index in range(RANGE_PREDICTION_LOOKBACK - 1, item_index):
+                history_slice = observed_ranks[target_index - RANGE_PREDICTION_LOOKBACK + 1 : target_index + 1]
+                if len(history_slice) != RANGE_PREDICTION_LOOKBACK or any(rank is None for rank in history_slice):
+                    continue
+                neighbor_future_ranks = [
+                    int(rank)
+                    for rank in observed_ranks[target_index + 1 : target_index + 4]
+                    if isinstance(rank, int)
+                ]
+                if not neighbor_future_ranks:
+                    continue
+                train_pattern = list(reversed(history_slice))
+                train_vector = _build_rank_movement_vector(train_pattern)
+                distance = _movement_distance(current_vector, train_vector)
+                if distance == float("inf"):
+                    continue
+                candidates.append(
+                    (
+                        distance,
+                        {
+                            "current_rank": int(history_slice[-1]),
+                            "future_ranks": neighbor_future_ranks,
+                        },
+                    )
+                )
+
+            if candidates:
+                candidates.sort(key=lambda entry: entry[0])
+                nearest = candidates[: max(1, min(RANGE_PREDICTION_NEIGHBORS, len(candidates)))]
+                best_window = _resolve_best_rank_window(
+                    nearest,
+                    window_size=RANGE_PREDICTION_SIZE,
+                )
+                prediction_hit = None
+                prediction_status = "pendente"
+                if future_ranks:
+                    if all(isinstance(rank, int) for rank in future_ranks):
+                        prediction_hit = bool(any(best_window["start"] <= rank <= best_window["end"] for rank in future_ranks))
+                        prediction_status = "acertou" if prediction_hit else "errou"
+                    else:
+                        prediction_hit = False
+                        prediction_status = "errou"
+
+                middle_overlap_ratio = round(
+                    max(0, min(int(best_window["end"]), 25) - max(int(best_window["start"]), 13) + 1)
+                    / max(1, int(best_window["size"])),
+                    4,
+                )
+                prediction_confidence = float(best_window["confidence"])
+                policy_bettable = (
+                    prediction_confidence >= float(RANGE_POLICY_BALANCED["confidence_threshold"])
+                    and float(best_window["coverage_ratio"]) >= float(RANGE_POLICY_BALANCED["coverage_threshold"])
+                    and float(best_window["concentration_score"]) >= float(RANGE_POLICY_BALANCED["concentration_threshold"])
+                    and float(best_window["direction_consistency"]) >= float(RANGE_POLICY_BALANCED["direction_consistency_threshold"])
+                    and middle_overlap_ratio <= float(RANGE_POLICY_BALANCED["middle_overlap_max"])
+                    and len(nearest) >= int(RANGE_POLICY_BALANCED["support_threshold"])
+                )
+                policy_reason = "miolo" if middle_overlap_ratio > float(RANGE_POLICY_BALANCED["middle_overlap_max"]) else "score"
+
+                prediction = {
+                    "available": True,
+                    "start": int(best_window["start"]),
+                    "end": int(best_window["end"]),
+                    "size": int(best_window["size"]),
+                    "center": best_window["center"],
+                    "support_weight_percent": best_window["support_weight_percent"],
+                    "coverage_ratio": best_window["coverage_ratio"],
+                    "concentration_score": best_window["concentration_score"],
+                    "direction_consistency": best_window["direction_consistency"],
+                    "expected_direction": best_window["expected_direction"],
+                    "confidence": prediction_confidence,
+                    "hit": prediction_hit,
+                    "status": prediction_status,
+                    "lookback": RANGE_PREDICTION_LOOKBACK,
+                    "neighbors": len(nearest),
+                    "future_attempts": 3,
+                    "future_ranks": future_ranks,
+                    "middle_overlap_ratio": middle_overlap_ratio,
+                    "policy": {
+                        "name": RANGE_POLICY_BALANCED["name"],
+                        "bettable": bool(policy_bettable),
+                        "status": "apostar" if policy_bettable else "bloquear",
+                        "reason": policy_reason,
+                    },
+                }
+                predicted_items += 1
+                if prediction_hit is True:
+                    hits_in_range += 1
+                elif prediction_hit is False:
+                    misses_in_range += 1
+                else:
+                    pending_items += 1
+                if policy_bettable:
+                    policy_allowed += 1
+                else:
+                    policy_blocked += 1
+                    if policy_reason == "miolo":
+                        blocked_by_middle += 1
+
+        item["range_prediction"] = prediction
+
+    resolved_predictions = hits_in_range + misses_in_range
+    return {
+        "enabled": True,
+        "name": "movement_range_v2_three_attempts",
+        "lookback": RANGE_PREDICTION_LOOKBACK,
+        "neighbors": RANGE_PREDICTION_NEIGHBORS,
+        "range_size": RANGE_PREDICTION_SIZE,
+        "future_attempts": 3,
+        "predicted_items": predicted_items,
+        "resolved_predictions": resolved_predictions,
+        "hits_in_range": hits_in_range,
+        "misses_in_range": misses_in_range,
+        "pending_predictions": pending_items,
+        "hit_rate_percent": round((hits_in_range / resolved_predictions) * 100.0, 2) if resolved_predictions else 0.0,
+        "policy": {
+            **RANGE_POLICY_BALANCED,
+            "allowed_items": policy_allowed,
+            "blocked_items": policy_blocked,
+            "blocked_by_middle": blocked_by_middle,
+            "blocked_rate_percent": round((policy_blocked / predicted_items) * 100.0, 2) if predicted_items else 0.0,
+        },
+    }
+
+
 async def build_suggestion_snapshot_rank_timeline(
     *,
     roulette_id: str,
@@ -942,6 +1258,7 @@ async def build_suggestion_snapshot_rank_timeline(
         "rank_distribution": rank_distribution,
     }
     summary["strategy"] = _apply_inversion_strategy(items)
+    summary["range_prediction"] = _apply_movement_range_prediction(items)
 
     return {
         "available": True,

@@ -1,0 +1,2502 @@
+[
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 00:48:10.336000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 00:48:49.324000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 00:49:30.010000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 12,
+    "timestamp": "2026-05-04 00:50:07.352000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 00:50:43.323000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 00:51:23.223000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 00:51:59.987000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 00:52:36.999000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 00:53:11.335000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 00:53:50.861000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 00:54:26.970000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 00:55:04.331000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 00:55:44.328000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 00:56:26.094000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 00:57:02.422000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 00:57:39.592000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 00:58:17.548000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 00:58:54.343000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 00:59:31.356000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 01:00:11.361000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 01:00:49.194000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 01:01:26.853000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 01:02:01.382000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 01:02:40.500000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 01:03:18.673000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 01:03:59.291000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 01:04:37.302000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 01:05:17.736000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 01:05:53.640000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 01:06:31.704000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 01:07:11.648000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 01:07:49.314000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 01:08:30.152000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 01:09:04.374000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 01:09:44.679000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 01:10:25.043000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 01:11:03.984000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 01:11:42.057000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 01:12:19.955000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 01:12:57.319000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 01:13:36.665000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 01:14:14.668000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 01:14:55.320000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 01:15:32.725000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 01:16:10.110000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 01:16:46.076000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 01:17:22.863000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 01:18:02.374000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 01:18:39.380000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 01:19:20.187000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 01:19:58.162000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 01:20:36.106000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 01:21:15.036000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 01:21:55.051000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 01:22:33.012000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 01:23:12.406000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 01:23:52.023000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 19,
+    "timestamp": "2026-05-04 01:24:29.662000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 01:25:05.435000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 01:25:45.585000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 01:26:22.420000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 01:27:02.961000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 01:27:43.809000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 01:28:24.439000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 01:29:01.322000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 01:29:40.334000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 01:30:19.339000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 01:30:59.643000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 01:31:39.159000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 01:32:18.348000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 01:32:54.305000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 01:33:34.087000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 01:34:10.965000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 01:34:49.384000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 01:35:29.721000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 01:36:04.302000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 01:36:42.330000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 01:37:22.294000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 01:38:02.521000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 01:38:39.335000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 01:39:16.940000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 01:39:56.332000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 01:40:36.689000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 01:41:14.347000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 01:41:55.202000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 01:42:30.960000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 01:43:05.352000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 01:43:43.515000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 01:44:18.601000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 01:44:57.019000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 01:45:34.370000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 01:46:09.312000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 13,
+    "timestamp": "2026-05-04 01:46:49.291000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 01:47:28.252000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 01:48:02.317000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 01:48:41.345000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 01:49:17.303000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 01:49:56.394000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 01:50:35.040000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 01:51:13.305000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 01:51:51.867000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 01:52:29.815000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 01:53:08.422000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 01:53:49.146000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 01:54:26.766000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 19,
+    "timestamp": "2026-05-04 01:55:07.324000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 01:55:48.099000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 01:56:28.212000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 01:57:10.072000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 01:57:46.726000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 01:58:27.319000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 01:59:07.911000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 01:59:42.610000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 02:00:21.446000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 02:01:00.851000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 13,
+    "timestamp": "2026-05-04 02:01:39.490000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 02:02:14.661000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 02:02:54.337000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 02:03:34.150000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 02:04:11.916000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 02:04:47.295000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 02:05:23.946000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 02:06:03.001000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 02:06:40.319000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 02:07:20.583000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 02:07:59.761000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 02:08:35.367000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 02:09:12.885000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 02:09:50.012000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 02:10:29.370000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 02:11:07.091000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 02:11:44.287000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 02:12:24.035000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 02:13:02.114000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 02:13:37.362000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 02:14:17.435000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 02:14:56.322000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 19,
+    "timestamp": "2026-05-04 02:15:31.093000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 19,
+    "timestamp": "2026-05-04 02:16:09.342000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 02:16:49.352000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 02:17:28.970000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 02:18:06.730000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 02:18:45.953000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 02:19:23.381000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 02:20:01.849000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 02:20:40.534000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 02:21:18.327000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 02:21:59.341000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 02:22:35.345000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 02:23:14.685000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 02:23:53.851000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 02:24:32.324000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 02:25:08.889000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 02:25:45"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 02:26:21.337000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 02:27:00.198000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 02:27:43.083000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 02:28:19.836000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 02:28:59.391000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 02:29:36.334000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 02:30:13.633000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 02:30:51.323000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 02:31:28.445000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 02:32:08.014000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 02:32:44.939000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 02:33:22.375000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 02:33:59.487000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 02:34:45.785000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 02:35:22.730000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 02:36:02.299000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 02:36:42.981000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 02:37:19.594000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 02:37:58.651000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 02:38:42.776000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 02:39:17.014000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 02:39:56.293000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 02:40:37.872000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 02:41:14.378000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 02:41:54.334000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 02:42:31.316000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 02:43:09.922000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 02:43:45.396000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 02:44:24.701000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 02:45:03.952000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 02:45:39.310000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 02:46:19.147000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 12,
+    "timestamp": "2026-05-04 02:46:56.431000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 02:47:34.317000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 02:48:14.562000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 02:48:50.929000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 02:49:30.376000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 02:50:10.321000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 02:50:46.304000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 02:51:25.447000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 02:52:03.787000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 02:52:41.283000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 02:53:17.350000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 02:53:55.389000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 12,
+    "timestamp": "2026-05-04 02:54:34.951000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 02:55:14.146000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 02:55:52.297000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 02:56:28.773000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 02:57:03.303000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 02:57:42.317000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 02:58:19.287000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 02:58:57.927000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 02:59:37.315000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 03:00:14.303000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 03:00:53.795000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 03:01:32.392000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 03:02:11.857000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 03:02:48.309000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 03:03:25.599000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 03:04:05.788000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 03:04:40.844000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 03:05:17.835000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 03:05:54.306000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 03:06:33.653000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 03:07:12.109000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 03:07:47.364000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 03:08:25.300000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 03:09:06.579000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 03:09:47.442000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 03:10:26.123000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 03:11:06.645000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 03:11:45.185000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 03:12:22.599000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 03:13:00.259000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 03:13:37.949000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 03:14:15.378000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 03:14:51.331000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 03:15:28.619000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 03:16:07.203000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 03:16:45.564000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 03:17:25.322000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 03:18:05.590000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 03:18:44.926000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 03:19:22.007000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 03:20:01.201000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 03:20:36.461000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 03:21:16.318000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 03:21:57.045000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 03:22:35.394000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 03:23:14.682000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 03:23:54.625000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 03:24:31.338000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 03:25:07.281000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 03:25:47.282000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 03:26:27.824000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 03:27:05.964000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 03:27:45.593000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 03:28:22.727000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 03:29:03.598000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 03:29:41.407000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 03:30:18.281000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 03:30:55.322000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 03:31:32.921000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 03:32:06.298000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 13,
+    "timestamp": "2026-05-04 03:32:42.963000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 03:33:20.858000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 03:34:01.285000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 03:34:38.355000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 03:35:17.337000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 03:35:55.728000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 03:36:38.969000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 03:37:15.960000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 03:37:53.962000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 03:38:33.432000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 03:39:10.295000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 03:39:49.495000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 03:40:22.701000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 03:40:57.284000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 03:41:32.609000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 03:42:09.276000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 03:42:46.277000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 03:43:25.129000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 03:44:03.872000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 03:44:41.317000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 03:45:20.731000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 03:45:58.349000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 03:46:35.539000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 03:47:14.331000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 03:47:52.338000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 03:48:33.467000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 03:49:08.595000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 03:49:46.452000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 03:50:23.604000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 03:51:01.477000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 03:51:39.510000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 03:52:18.993000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 03:52:55.317000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 03:53:34.309000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 03:54:16.183000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 03:54:54.778000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 13,
+    "timestamp": "2026-05-04 03:55:36.302000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 03:56:18.489000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 03:56:58.937000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 03:57:39.714000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 03:58:15.957000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 03:58:54.675000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 03:59:31.937000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 04:00:09.893000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 04:00:49.296000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 04:01:27.372000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 04:02:05.981000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 04:02:49.213000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 04:03:25.332000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 04:04:04.983000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 04:04:45.020000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 04:05:25.046000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 04:06:05.585000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 04:06:44.340000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 04:07:22.399000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 04:08:02.205000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 04:08:40.337000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 04:09:20.318000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 04:10:01.028000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 04:10:37.310000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 04:11:15.895000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 12,
+    "timestamp": "2026-05-04 04:11:58.322000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 04:12:34.688000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 04:13:13.335000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 04:13:49.278000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 04:14:32.057000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 04:15:11.313000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 04:15:50.028000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 04:16:25.375000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 04:17:06.535000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 04:17:42.129000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 04:18:19.582000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 04:18:58.594000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 04:19:38.361000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 04:20:15.972000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 04:20:58.565000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 04:21:36.610000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 04:22:20.242000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 04:23:01.296000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 04:23:39.589000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 04:24:21.793000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 04:25:01.381000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 04:25:42.339000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 04:26:20.449000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 04:26:57.304000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 04:27:35.911000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 04:28:17.012000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 04:28:56.109000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 04:29:29.743000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 04:30:07.587000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 04:30:46.741000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 04:31:24.330000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 04:32:03.333000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 04:32:41.352000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 04:33:19.642000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 04:33:56.346000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 04:34:35.634000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 04:35:14.325000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 04:35:54.462000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 04:36:37.460000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 04:37:16.355000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 04:37:53.069000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 04:38:31.059000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 04:39:12.920000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 13,
+    "timestamp": "2026-05-04 04:39:49.012000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 04:40:28.593000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 04:41:08.338000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 04:41:47.061000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 04:42:31.324000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 04:43:10.311000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 04:43:48.439000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 04:44:28.667000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 04:45:06.316000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 04:45:47.095000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 04:46:26.818000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 04:47:07.092000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 04:47:45.873000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 04:48:23.840000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 04:49:03.361000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 04:49:42.935000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 04:50:20.346000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 04:51:00.957000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 36,
+    "timestamp": "2026-05-04 04:51:39.995000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 04:52:18.227000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 04:52:56.775000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 04:53:34.960000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 04:54:12.076000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 04:54:50.310000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 04:55:29.919000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 04:56:07.361000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 04:56:47.361000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 04:57:27.450000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 04:58:08.323000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 04:58:44.014000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 04:59:21.472000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 05:00:04.436000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 13,
+    "timestamp": "2026-05-04 05:00:38.325000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 05:01:15.610000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 05:01:52.374000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 05:02:30.635000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 05:03:09.275000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 05:03:48.847000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 05:04:26.995000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 05:05:03.945000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 13,
+    "timestamp": "2026-05-04 05:05:40.306000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 05:06:19.301000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 05:06:58.835000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 05:07:37.854000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 05:08:18.271000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 05:08:56.915000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 19,
+    "timestamp": "2026-05-04 05:09:36.575000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 05:10:16.101000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 05:10:54.351000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 05:11:30.340000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 05:12:12.492000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 05:12:49.399000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 05:13:27.010000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 29,
+    "timestamp": "2026-05-04 05:14:08.975000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 05:14:47.980000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 13,
+    "timestamp": "2026-05-04 05:15:29.005000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 4,
+    "timestamp": "2026-05-04 05:16:06.254000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 05:16:45.227000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 05:17:25.287000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 05:18:02.597000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 05:18:41.947000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 05:19:18.815000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 05:19:57.295000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 05:20:37.802000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 05:21:14.335000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 05:21:53.332000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 05:22:33.546000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 05:23:13.769000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 05:23:49.246000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 05:24:28.578000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 05:25:08.759000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 05:25:46.919000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 05:26:27.619000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 28,
+    "timestamp": "2026-05-04 05:27:04.483000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 05:27:44.299000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 05:28:28.860000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 05:29:04.324000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 05:29:43.948000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 21,
+    "timestamp": "2026-05-04 05:30:22.619000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 26,
+    "timestamp": "2026-05-04 05:30:59.038000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 05:31:35.300000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 05:32:10.360000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 05:32:47.403000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 05:33:25.503000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 05:34:02.867000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 19,
+    "timestamp": "2026-05-04 05:34:39.669000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 05:35:17.438000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 05:35:55.325000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 05:36:35.024000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 05:37:10.325000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 05:37:49.350000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 16,
+    "timestamp": "2026-05-04 05:38:30.045000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 05:39:08.613000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 05:39:47.418000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 5,
+    "timestamp": "2026-05-04 05:40:30.440000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 05:41:10.375000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 05:41:46.023000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 05:42:26.593000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 05:43:05.482000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 05:43:44.901000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 30,
+    "timestamp": "2026-05-04 05:44:28.001000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 05:45:01.161000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 34,
+    "timestamp": "2026-05-04 05:45:40.372000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 20,
+    "timestamp": "2026-05-04 05:46:17.538000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 6,
+    "timestamp": "2026-05-04 05:46:55.525000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 05:47:32.329000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 05:48:08.404000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 05:48:50.422000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 05:49:26.697000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 32,
+    "timestamp": "2026-05-04 05:50:06.397000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 12,
+    "timestamp": "2026-05-04 05:50:44.314000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 8,
+    "timestamp": "2026-05-04 05:51:21.286000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 9,
+    "timestamp": "2026-05-04 05:52:00.120000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 10,
+    "timestamp": "2026-05-04 05:52:40.307000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 0,
+    "timestamp": "2026-05-04 05:53:19.980000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 23,
+    "timestamp": "2026-05-04 05:54:00.058000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 7,
+    "timestamp": "2026-05-04 05:54:39.149000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 24,
+    "timestamp": "2026-05-04 05:55:16.152000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 05:55:53.254000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 05:56:30.651000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 05:57:07.452000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 31,
+    "timestamp": "2026-05-04 05:57:50.818000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 2,
+    "timestamp": "2026-05-04 05:58:30.307000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 3,
+    "timestamp": "2026-05-04 05:59:08.038000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 05:59:44.297000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 33,
+    "timestamp": "2026-05-04 06:00:22.310000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 06:00:59.319000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 27,
+    "timestamp": "2026-05-04 06:01:37.322000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 18,
+    "timestamp": "2026-05-04 06:02:16.318000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 1,
+    "timestamp": "2026-05-04 06:02:53.704000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 06:03:31.939000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 17,
+    "timestamp": "2026-05-04 06:04:08.350000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 25,
+    "timestamp": "2026-05-04 06:04:45.854000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 14,
+    "timestamp": "2026-05-04 06:05:23.812000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 15,
+    "timestamp": "2026-05-04 06:06:01.188000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 22,
+    "timestamp": "2026-05-04 06:06:39.455000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 11,
+    "timestamp": "2026-05-04 06:07:17.309000"
+  },
+  {
+    "roulette_id": "pragmatic-auto-roulette",
+    "value": 35,
+    "timestamp": "2026-05-04 06:07:57.629000"
+  }
+]

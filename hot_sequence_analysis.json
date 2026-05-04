@@ -1,0 +1,28 @@
+{
+  "top_5_hot_numbers": [
+    25,
+    15,
+    9,
+    16,
+    24
+  ],
+  "hot_neighbors": [
+    2,
+    5,
+    17,
+    19,
+    22,
+    31,
+    32,
+    33
+  ],
+  "total_spins": 500,
+  "total_hot_occurrences": 102,
+  "next_is_hot": 18,
+  "next_is_neighbor": 24,
+  "next_is_both": 0,
+  "next_is_neither": 60,
+  "assertiveness_hot_or_neighbor": 41.18,
+  "assertiveness_hot_only": 17.65,
+  "assertiveness_neighbor_only": 23.53
+}

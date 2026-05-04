@@ -1,0 +1,38 @@
+{
+  "mesa_list": [
+    9,
+    25,
+    14,
+    15,
+    8
+  ],
+  "strategies": {
+    "linear_6neighbors": {
+      "top_5": [
+        9,
+        23,
+        10,
+        8,
+        31
+      ],
+      "matches": [
+        9,
+        8
+      ],
+      "accuracy": 40.0
+    },
+    "exponential_6neighbors": {
+      "top_5": [
+        16,
+        33,
+        14,
+        5,
+        24
+      ],
+      "matches": [
+        14
+      ],
+      "accuracy": 20.0
+    }
+  }
+}

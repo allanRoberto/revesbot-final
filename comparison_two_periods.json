@@ -1,0 +1,70 @@
+{
+  "period_1": {
+    "timestamp_start": "2026-05-03 19:26:38.057000",
+    "timestamp_end": "2026-05-04 00:47:34.284000",
+    "total_spins": 500,
+    "top_5": [
+      5,
+      29,
+      2,
+      12,
+      13
+    ],
+    "mesa_numbers": {
+      "25": {
+        "rank": 10,
+        "frequency": 16
+      },
+      "15": {
+        "rank": 9,
+        "frequency": 16
+      },
+      "9": {
+        "rank": 8,
+        "frequency": 16
+      },
+      "14": {
+        "rank": 33,
+        "frequency": 10
+      },
+      "8": {
+        "rank": 16,
+        "frequency": 14
+      }
+    }
+  },
+  "period_2": {
+    "timestamp_start": "2026-05-04 00:48:10.336000",
+    "timestamp_end": "2026-05-04 06:07:57.629000",
+    "total_spins": 500,
+    "top_5": [
+      25,
+      15,
+      9,
+      22,
+      24
+    ],
+    "mesa_numbers": {
+      "25": {
+        "rank": 1,
+        "frequency": 24
+      },
+      "15": {
+        "rank": 2,
+        "frequency": 19
+      },
+      "9": {
+        "rank": 3,
+        "frequency": 18
+      },
+      "14": {
+        "rank": 13,
+        "frequency": 15
+      },
+      "8": {
+        "rank": 21,
+        "frequency": 13
+      }
+    }
+  }
+}

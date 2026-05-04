@@ -155,6 +155,69 @@
             margin-bottom: 18px;
         }
 
+        /* Zones config inside chart panel */
+        .zones-config {
+            display: flex;
+            gap: 14px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            padding: 12px 0 16px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .zones-config .zones-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            width: 100%;
+            margin-bottom: 2px;
+        }
+
+        .zones-config .field {
+            min-width: 120px;
+            max-width: 150px;
+        }
+
+        .zones-config .field input {
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        .zones-config .button {
+            height: 38px;
+            padding: 0 14px;
+            font-size: 13px;
+        }
+
+        .zones-legend {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
+        .zones-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .zones-legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .zones-legend-dot.top { background: #10b981; }
+        .zones-legend-dot.bot { background: #3b82f6; }
+        .zones-legend-dot.neutral { background: #94a3b8; }
+
         .sequence-panel {
             margin-bottom: 16px;
             padding: 14px 16px;
@@ -186,53 +249,105 @@
 
         .sequence-strip {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             overflow-x: auto;
-            padding-bottom: 4px;
+            padding-bottom: 6px;
             scrollbar-width: thin;
+            flex-wrap: wrap;
         }
 
-        .sequence-chip {
-            min-width: 42px;
-            width: 42px;
-            height: 42px;
-            padding: 0;
-            border-radius: 999px;
-            border: 2px solid transparent;
+        /* New event chips showing TOP / BOT / X */
+        .seq-event-chip {
+            min-width: 44px;
+            width: 44px;
+            flex: 0 0 auto;
             display: inline-flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-weight: 800;
-            font-size: 14px;
-            color: #fff;
-            flex: 0 0 auto;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            padding: 6px 4px 5px;
             cursor: pointer;
-            transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease, opacity 0.14s ease;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+            transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
+            user-select: none;
         }
 
-        .sequence-chip.red {
-            background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+        .seq-event-chip .chip-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            color: #fff;
+            line-height: 1;
         }
 
-        .sequence-chip.black {
-            background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+        .seq-event-chip .chip-rank {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.95);
+            margin-top: 3px;
+            line-height: 1;
         }
 
-        .sequence-chip.green {
-            background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+        .seq-event-chip .chip-num {
+            font-size: 10px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.65);
+            margin-top: 2px;
+            line-height: 1;
         }
 
-        .sequence-chip.unknown {
-            background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+        .seq-event-chip.chip-top {
+            background: linear-gradient(160deg, #34d399 0%, #059669 100%);
         }
 
-        .sequence-chip:hover,
-        .sequence-chip.active {
-            transform: translateY(-2px) scale(1.04);
-            border-color: rgba(37, 99, 235, 0.45);
-            box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18);
+        .seq-event-chip.chip-bot {
+            background: linear-gradient(160deg, #60a5fa 0%, #1d4ed8 100%);
         }
+
+        .seq-event-chip.chip-neutral {
+            background: linear-gradient(160deg, #94a3b8 0%, #475569 100%);
+        }
+
+        .seq-event-chip:hover,
+        .seq-event-chip.active {
+            transform: translateY(-2px) scale(1.06);
+            border-color: rgba(37, 99, 235, 0.5);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.20);
+        }
+
+        /* Sequence stats bar */
+        .sequence-stats {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .sequence-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .sequence-stat strong {
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .stat-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .stat-dot.top { background: #059669; }
+        .stat-dot.bot { background: #1d4ed8; }
+        .stat-dot.neutral { background: #64748b; }
 
         .chart-head {
             display: flex;
@@ -263,6 +378,13 @@
             color: var(--muted);
             font-size: 13px;
             line-height: 1.5;
+        }
+
+        .cell-note {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.35;
         }
 
         .table-panel {
@@ -406,6 +528,9 @@
             .chart-wrap {
                 height: 320px;
             }
+            .zones-config {
+                gap: 10px;
+            }
         }
     </style>
 </head>
@@ -478,12 +603,46 @@
         </div>
 
         <div class="panel chart-panel">
+            <!-- Zone configuration -->
+            <div class="zones-config">
+                <div class="zones-title">Configuração de Zonas TOP / BOT</div>
+                <div class="field">
+                    <label for="topEndInput">TOP até posição</label>
+                    <input id="topEndInput" type="number" min="1" max="36" step="1" value="7" />
+                </div>
+                <div class="field">
+                    <label for="bottomStartInput">BOT a partir de</label>
+                    <input id="bottomStartInput" type="number" min="1" max="36" step="1" value="29" />
+                </div>
+                <div>
+                    <button id="applyZonesButton" class="button secondary">Aplicar</button>
+                </div>
+                <div class="zones-legend">
+                    <div class="zones-legend-item">
+                        <div class="zones-legend-dot top"></div>
+                        <span id="topLegendLabel">TOP: posições 1–7</span>
+                    </div>
+                    <div class="zones-legend-item">
+                        <div class="zones-legend-dot bot"></div>
+                        <span id="botLegendLabel">BOT: posições 29–36</span>
+                    </div>
+                    <div class="zones-legend-item">
+                        <div class="zones-legend-dot neutral"></div>
+                        <span>X: meio do ranking / fora</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="sequence-panel">
                 <div class="sequence-head">
-                    <div class="title">Números em Ordem Cronológica</div>
-                    <div id="sequenceMeta" class="meta">-</div>
+                    <div class="title" id="sequenceTitle">Sequência de Eventos (mais recente → mais antigo)</div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <button id="toggleOrderButton" class="button secondary" style="height:32px;padding:0 12px;font-size:12px;">↕ Inverter ordem</button>
+                        <div id="sequenceMeta" class="meta">-</div>
+                    </div>
                 </div>
                 <div id="numbersSequence" class="sequence-strip"></div>
+                <div id="sequenceStats" class="sequence-stats"></div>
             </div>
             <div class="chart-head">
                 <h2>Oscilação da Posição do Acerto</h2>
@@ -518,6 +677,7 @@
                             <th>Próximo Número</th>
                             <th>Posição Original</th>
                             <th>Posição Estratégica</th>
+                            <th>Previsão de Ranking</th>
                             <th>Modo</th>
                             <th>Ranking Completo</th>
                         </tr>
@@ -541,6 +701,14 @@
         const strategyChartMetaEl = document.getElementById("strategyChartMeta");
         const numbersSequenceEl = document.getElementById("numbersSequence");
         const sequenceMetaEl = document.getElementById("sequenceMeta");
+        const sequenceStatsEl = document.getElementById("sequenceStats");
+        const sequenceTitleEl = document.getElementById("sequenceTitle");
+        const toggleOrderButton = document.getElementById("toggleOrderButton");
+        const topEndInput = document.getElementById("topEndInput");
+        const bottomStartInput = document.getElementById("bottomStartInput");
+        const applyZonesButton = document.getElementById("applyZonesButton");
+        const topLegendLabel = document.getElementById("topLegendLabel");
+        const botLegendLabel = document.getElementById("botLegendLabel");
         const BOT_API_URL = {{ (bot_api_url or "http://localhost:3000/api/bet") | tojson }};
         const ROULETTE_URL_MAP = {{ (roulette_url_map or {}) | tojson }};
 
@@ -558,24 +726,69 @@
         let lastTimelineRequestId = 0;
         let lastLoadedAt = null;
 
+        // Sequence display order (persisted in localStorage)
+        const LS_SEQ_ORDER = "rankTimeline_sequenceOrder";
+        let sequenceOrder = localStorage.getItem(LS_SEQ_ORDER) || "recent_first"; // "recent_first" | "oldest_first"
+
+        function updateSequenceOrderUI() {
+            if (sequenceOrder === "recent_first") {
+                sequenceTitleEl.textContent = "Sequência de Eventos (mais recente → mais antigo)";
+                toggleOrderButton.textContent = "↕ Mais antigo primeiro";
+            } else {
+                sequenceTitleEl.textContent = "Sequência de Eventos (mais antigo → mais recente)";
+                toggleOrderButton.textContent = "↕ Mais recente primeiro";
+            }
+        }
+        updateSequenceOrderUI();
+
+        toggleOrderButton.addEventListener("click", () => {
+            sequenceOrder = sequenceOrder === "recent_first" ? "oldest_first" : "recent_first";
+            localStorage.setItem(LS_SEQ_ORDER, sequenceOrder);
+            updateSequenceOrderUI();
+            if (currentTimelineItems.length > 0) {
+                renderNumbersSequence(currentTimelineItems);
+            }
+        });
+
+        // Zone thresholds (persisted in localStorage)
+        const LS_TOP_END = "rankTimeline_topEnd";
+        const LS_BOT_START = "rankTimeline_bottomStart";
+        let zoneTopEnd = Number(localStorage.getItem(LS_TOP_END) || 7);
+        let zoneBottomStart = Number(localStorage.getItem(LS_BOT_START) || 29);
+        topEndInput.value = String(zoneTopEnd);
+        bottomStartInput.value = String(zoneBottomStart);
+
+        function updateZoneLegend() {
+            topLegendLabel.textContent = `TOP: posições 1–${zoneTopEnd}`;
+            botLegendLabel.textContent = `BOT: posições ${zoneBottomStart}–36`;
+        }
+        updateZoneLegend();
+
+        function applyZones() {
+            const newTop = Math.max(1, Math.min(36, Number(topEndInput.value) || 7));
+            const newBot = Math.max(1, Math.min(36, Number(bottomStartInput.value) || 29));
+            zoneTopEnd = newTop;
+            zoneBottomStart = newBot;
+            localStorage.setItem(LS_TOP_END, String(zoneTopEnd));
+            localStorage.setItem(LS_BOT_START, String(zoneBottomStart));
+            topEndInput.value = String(zoneTopEnd);
+            bottomStartInput.value = String(zoneBottomStart);
+            updateZoneLegend();
+            if (currentTimelineItems.length > 0) {
+                renderNumbersSequence(currentTimelineItems);
+            }
+        }
+
+        applyZonesButton.addEventListener("click", applyZones);
+
         const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-
-        const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
-        const BLACK_NUMBERS = new Set([2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35]);
 
         function formatDateTime(value) {
             if (!value) return "-";
             const date = new Date(value);
             if (Number.isNaN(date.getTime())) return value;
             return date.toLocaleString("pt-BR");
-        }
-
-        function getRouletteColorClass(number) {
-            if (number === 0) return "green";
-            if (RED_NUMBERS.has(number)) return "red";
-            if (BLACK_NUMBERS.has(number)) return "black";
-            return "unknown";
         }
 
         function setStatus(message, isError = false) {
@@ -613,6 +826,28 @@
             return "rank-pill hit-mid";
         }
 
+        function getPredictionPillClass(prediction) {
+            if (!prediction?.available) return "rank-pill miss";
+            if (prediction?.policy?.bettable === false) return "rank-pill hit-mid";
+            if (prediction.hit === true) return "rank-pill hit-top";
+            if (prediction.hit === false) return "rank-pill miss";
+            return "rank-pill hit-mid";
+        }
+
+        function getChipZoneClass(hit_rank) {
+            if (hit_rank == null) return "chip-neutral";
+            if (hit_rank <= zoneTopEnd) return "chip-top";
+            if (hit_rank >= zoneBottomStart) return "chip-bot";
+            return "chip-neutral";
+        }
+
+        function getChipZoneLabel(hit_rank) {
+            if (hit_rank == null) return "X";
+            if (hit_rank <= zoneTopEnd) return "TOP";
+            if (hit_rank >= zoneBottomStart) return "BOT";
+            return "X";
+        }
+
         function renderSummary(summary) {
             document.getElementById("resolvedValue").textContent = String(summary.resolved_items || 0);
             document.getElementById("top1Value").textContent = String(summary.top_1_hits || 0);
@@ -620,7 +855,8 @@
             document.getElementById("top10Value").textContent = String(summary.top_10_hits || 0);
             document.getElementById("outsideValue").textContent = String(summary.outside_ranking || 0);
             document.getElementById("avgRankValue").textContent = summary.avg_hit_rank == null ? "-" : String(summary.avg_hit_rank);
-            chartMetaEl.textContent = `Hit rate ${summary.hit_rate_percent || 0}% • config ${summary.using_current_config_only ? "atual" : "misturada"}`;
+            const rangePolicy = summary?.range_prediction?.policy || {};
+            chartMetaEl.textContent = `Hit rate ${summary.hit_rate_percent || 0}% • config ${summary.using_current_config_only ? "atual" : "misturada"} • bloqueio ${rangePolicy.blocked_rate_percent ?? 0}%`;
             const strategy = summary?.strategy || {};
             const depthCounts = strategy?.depth_counts || {};
             strategyChartMetaEl.textContent = `Gatilhos ${strategy.triggered_items || 0} • x5 ${depthCounts["5"] || 0} • x8 ${depthCounts["8"] || 0} • x10 ${depthCounts["10"] || 0} • Média ${strategy.avg_hit_rank == null ? "-" : strategy.avg_hit_rank}`;
@@ -628,28 +864,54 @@
 
         function renderNumbersSequence(items) {
             currentTimelineItems = Array.isArray(items) ? items.slice() : [];
-            const chips = items.map((item, index) => {
-                const number = Number.isInteger(item?.anchor_number) && item.anchor_number >= 0
+            let topCount = 0;
+            let botCount = 0;
+            let neutralCount = 0;
+
+            const displayItems = sequenceOrder === "oldest_first" ? items.slice().reverse() : items.slice();
+
+            const chips = displayItems.map((item) => {
+                const originalIndex = items.indexOf(item);
+                const zoneClass = getChipZoneClass(item?.hit_rank);
+                const zoneLabel = getChipZoneLabel(item?.hit_rank);
+                const rankDisplay = item?.hit_rank == null ? "-" : `#${item.hit_rank}`;
+                const anchorNum = Number.isInteger(item?.anchor_number) && item.anchor_number >= 0
                     ? String(item.anchor_number)
                     : "-";
-                const colorClass = getRouletteColorClass(item?.anchor_number);
-                const label = item?.anchor_timestamp_utc ? formatDateTime(item.anchor_timestamp_utc) : "Sem data";
-                const rank = item?.hit_rank == null ? "fora" : `#${item.hit_rank}`;
-                return `<span class="sequence-chip ${colorClass}" data-index="${index}" title="${label} • rank ${rank}">${number}</span>`;
+                const dateText = item?.anchor_timestamp_utc ? formatDateTime(item.anchor_timestamp_utc) : "Sem data";
+
+                if (zoneClass === "chip-top") topCount++;
+                else if (zoneClass === "chip-bot") botCount++;
+                else neutralCount++;
+
+                return `<span class="seq-event-chip ${zoneClass}" data-index="${originalIndex}" title="${dateText} • âncora ${anchorNum} • rank ${rankDisplay}">
+                    <span class="chip-label">${zoneLabel}</span>
+                    <span class="chip-rank">${rankDisplay}</span>
+                    <span class="chip-num">${anchorNum}</span>
+                </span>`;
             });
-            numbersSequenceEl.innerHTML = chips.join("") || `<span class="sequence-chip">-</span>`;
-            sequenceMetaEl.textContent = `${items.length} número${items.length === 1 ? "" : "s"} exibido${items.length === 1 ? "" : "s"}`;
+
+            numbersSequenceEl.innerHTML = chips.join("") || `<span class="seq-event-chip chip-neutral"><span class="chip-label">X</span><span class="chip-num">-</span></span>`;
+            sequenceMetaEl.textContent = `${items.length} evento${items.length === 1 ? "" : "s"}`;
+
+            const total = topCount + botCount + neutralCount;
+            const pct = (n) => total > 0 ? ` (${Math.round(n / total * 100)}%)` : "";
+            sequenceStatsEl.innerHTML = total > 0 ? `
+                <div class="sequence-stat"><div class="stat-dot top"></div><strong>${topCount}</strong> TOP${pct(topCount)}</div>
+                <div class="sequence-stat"><div class="stat-dot bot"></div><strong>${botCount}</strong> BOT${pct(botCount)}</div>
+                <div class="sequence-stat"><div class="stat-dot neutral"></div><strong>${neutralCount}</strong> X${pct(neutralCount)}</div>
+            ` : "";
         }
 
         function highlightSequenceChip(index) {
-            const chips = numbersSequenceEl.querySelectorAll(".sequence-chip[data-index]");
+            const chips = numbersSequenceEl.querySelectorAll(".seq-event-chip[data-index]");
             chips.forEach((chip) => {
                 chip.classList.toggle("active", Number(chip.dataset.index) === index);
             });
         }
 
         function clearSequenceChipHighlight() {
-            const chips = numbersSequenceEl.querySelectorAll(".sequence-chip.active");
+            const chips = numbersSequenceEl.querySelectorAll(".seq-event-chip.active");
             chips.forEach((chip) => chip.classList.remove("active"));
         }
 
@@ -694,6 +956,24 @@
                 const strategyModeText = item.strategy_mode === "inverted_extremes"
                     ? `Invertido x${item.strategy_invert_depth || 0} (${(item.strategy_reference_ranks || []).join(" → ")})`
                     : "Normal";
+                const prediction = item.range_prediction || {};
+                const predictionRangeText = prediction?.available
+                    ? `${prediction.start}-${prediction.end}`
+                    : "-";
+                const predictionPolicyText = prediction?.available
+                    ? (prediction?.policy?.bettable === true
+                        ? "Apostar"
+                        : prediction?.policy?.bettable === false
+                            ? (prediction?.policy?.reason === "miolo" ? "Bloquear • miolo" : "Bloquear")
+                            : "Sem decisão")
+                    : "Sem histórico suficiente";
+                const predictionStatusText = prediction?.available
+                    ? (prediction.status === "acertou"
+                        ? `Acertou em 3 tentativas • ${predictionPolicyText} • suporte ${prediction.support_weight_percent ?? 0}%`
+                        : prediction.status === "errou"
+                            ? `Errou em 3 tentativas • ${predictionPolicyText} • suporte ${prediction.support_weight_percent ?? 0}%`
+                            : `Pendente • ${predictionPolicyText} • suporte ${prediction.support_weight_percent ?? 0}%`)
+                    : "Sem histórico suficiente";
                 const ranking = Array.isArray(item.ranking_full) ? item.ranking_full : (item.ranking_top10 || []);
                 const canBet = Array.isArray(item.ranking_full) && item.ranking_full.length >= 18;
                 const actionButtons = canBet ? `
@@ -713,6 +993,10 @@
                         <td>${item.next_number == null ? "-" : item.next_number}</td>
                         <td><span class="${getRankPillClass(item.hit_rank)}">${rankText}</span></td>
                         <td><span class="${getRankPillClass(item.strategy_hit_rank)}">${strategyRankText}</span></td>
+                        <td>
+                            <span class="${getPredictionPillClass(prediction)}">${predictionRangeText}</span>
+                            <div class="cell-note">${predictionStatusText}</div>
+                        </td>
                         <td>${strategyModeText}</td>
                         <td>
                             <div class="ranking-cell">
@@ -723,7 +1007,7 @@
                     </tr>
                 `;
             });
-            eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="7">Nenhum evento encontrado.</td></tr>`;
+            eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="8">Nenhum evento encontrado.</td></tr>`;
         }
 
         function buildChartConfig(items, { title, valueKey, tooltipLabelBuilder }) {
@@ -848,13 +1132,13 @@
         }
 
         numbersSequenceEl.addEventListener("mouseenter", (event) => {
-            const chip = event.target.closest(".sequence-chip[data-index]");
+            const chip = event.target.closest(".seq-event-chip[data-index]");
             if (!chip) return;
             highlightChartPoint(Number(chip.dataset.index));
         }, true);
 
         numbersSequenceEl.addEventListener("mouseleave", (event) => {
-            const chip = event.target.closest(".sequence-chip[data-index]");
+            const chip = event.target.closest(".seq-event-chip[data-index]");
             if (!chip) return;
             clearChartHighlight();
         }, true);
@@ -1164,7 +1448,7 @@
                     },
                 });
                 renderNumbersSequence([]);
-                eventsTableBody.innerHTML = `<tr><td colspan="7">Não foi possível carregar os dados.</td></tr>`;
+                eventsTableBody.innerHTML = `<tr><td colspan="8">Não foi possível carregar os dados.</td></tr>`;
                 if (timelineChart) {
                     timelineChart.destroy();
                     timelineChart = null;

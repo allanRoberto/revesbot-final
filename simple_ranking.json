@@ -1,0 +1,271 @@
+{
+  "total_spins": 500,
+  "mesa_list": [
+    9,
+    25,
+    14,
+    15,
+    8
+  ],
+  "all_numbers": [
+    {
+      "rank": 1,
+      "number": 25,
+      "frequency": 24,
+      "percentage": 4.8,
+      "in_mesa": true
+    },
+    {
+      "rank": 2,
+      "number": 15,
+      "frequency": 21,
+      "percentage": 4.2,
+      "in_mesa": true
+    },
+    {
+      "rank": 3,
+      "number": 9,
+      "frequency": 20,
+      "percentage": 4.0,
+      "in_mesa": true
+    },
+    {
+      "rank": 4,
+      "number": 16,
+      "frequency": 19,
+      "percentage": 3.8,
+      "in_mesa": false
+    },
+    {
+      "rank": 5,
+      "number": 24,
+      "frequency": 18,
+      "percentage": 3.6,
+      "in_mesa": false
+    },
+    {
+      "rank": 6,
+      "number": 14,
+      "frequency": 17,
+      "percentage": 3.4,
+      "in_mesa": true
+    },
+    {
+      "rank": 7,
+      "number": 22,
+      "frequency": 17,
+      "percentage": 3.4,
+      "in_mesa": false
+    },
+    {
+      "rank": 8,
+      "number": 31,
+      "frequency": 17,
+      "percentage": 3.4,
+      "in_mesa": false
+    },
+    {
+      "rank": 9,
+      "number": 33,
+      "frequency": 17,
+      "percentage": 3.4,
+      "in_mesa": false
+    },
+    {
+      "rank": 10,
+      "number": 2,
+      "frequency": 16,
+      "percentage": 3.2,
+      "in_mesa": false
+    },
+    {
+      "rank": 11,
+      "number": 3,
+      "frequency": 15,
+      "percentage": 3.0,
+      "in_mesa": false
+    },
+    {
+      "rank": 12,
+      "number": 4,
+      "frequency": 15,
+      "percentage": 3.0,
+      "in_mesa": false
+    },
+    {
+      "rank": 13,
+      "number": 30,
+      "frequency": 15,
+      "percentage": 3.0,
+      "in_mesa": false
+    },
+    {
+      "rank": 14,
+      "number": 5,
+      "frequency": 14,
+      "percentage": 2.8,
+      "in_mesa": false
+    },
+    {
+      "rank": 15,
+      "number": 11,
+      "frequency": 14,
+      "percentage": 2.8,
+      "in_mesa": false
+    },
+    {
+      "rank": 16,
+      "number": 18,
+      "frequency": 14,
+      "percentage": 2.8,
+      "in_mesa": false
+    },
+    {
+      "rank": 17,
+      "number": 20,
+      "frequency": 14,
+      "percentage": 2.8,
+      "in_mesa": false
+    },
+    {
+      "rank": 18,
+      "number": 21,
+      "frequency": 14,
+      "percentage": 2.8,
+      "in_mesa": false
+    },
+    {
+      "rank": 19,
+      "number": 7,
+      "frequency": 13,
+      "percentage": 2.6,
+      "in_mesa": false
+    },
+    {
+      "rank": 20,
+      "number": 10,
+      "frequency": 13,
+      "percentage": 2.6,
+      "in_mesa": false
+    },
+    {
+      "rank": 21,
+      "number": 34,
+      "frequency": 13,
+      "percentage": 2.6,
+      "in_mesa": false
+    },
+    {
+      "rank": 22,
+      "number": 35,
+      "frequency": 13,
+      "percentage": 2.6,
+      "in_mesa": false
+    },
+    {
+      "rank": 23,
+      "number": 27,
+      "frequency": 12,
+      "percentage": 2.4,
+      "in_mesa": false
+    },
+    {
+      "rank": 24,
+      "number": 6,
+      "frequency": 11,
+      "percentage": 2.2,
+      "in_mesa": false
+    },
+    {
+      "rank": 25,
+      "number": 8,
+      "frequency": 11,
+      "percentage": 2.2,
+      "in_mesa": true
+    },
+    {
+      "rank": 26,
+      "number": 17,
+      "frequency": 11,
+      "percentage": 2.2,
+      "in_mesa": false
+    },
+    {
+      "rank": 27,
+      "number": 23,
+      "frequency": 11,
+      "percentage": 2.2,
+      "in_mesa": false
+    },
+    {
+      "rank": 28,
+      "number": 28,
+      "frequency": 11,
+      "percentage": 2.2,
+      "in_mesa": false
+    },
+    {
+      "rank": 29,
+      "number": 1,
+      "frequency": 10,
+      "percentage": 2.0,
+      "in_mesa": false
+    },
+    {
+      "rank": 30,
+      "number": 13,
+      "frequency": 10,
+      "percentage": 2.0,
+      "in_mesa": false
+    },
+    {
+      "rank": 31,
+      "number": 26,
+      "frequency": 10,
+      "percentage": 2.0,
+      "in_mesa": false
+    },
+    {
+      "rank": 32,
+      "number": 29,
+      "frequency": 10,
+      "percentage": 2.0,
+      "in_mesa": false
+    },
+    {
+      "rank": 33,
+      "number": 32,
+      "frequency": 10,
+      "percentage": 2.0,
+      "in_mesa": false
+    },
+    {
+      "rank": 34,
+      "number": 0,
+      "frequency": 9,
+      "percentage": 1.8,
+      "in_mesa": false
+    },
+    {
+      "rank": 35,
+      "number": 19,
+      "frequency": 8,
+      "percentage": 1.6,
+      "in_mesa": false
+    },
+    {
+      "rank": 36,
+      "number": 36,
+      "frequency": 8,
+      "percentage": 1.6,
+      "in_mesa": false
+    },
+    {
+      "rank": 37,
+      "number": 12,
+      "frequency": 5,
+      "percentage": 1.0,
+      "in_mesa": false
+    }
+  ]
+}

@@ -1,0 +1,150 @@
+{
+  "top_5": [
+    {
+      "rank": 1,
+      "number": 23,
+      "occurrences": 16,
+      "heat_score": 71.80000000000001,
+      "position": 20
+    },
+    {
+      "rank": 2,
+      "number": 9,
+      "occurrences": 22,
+      "heat_score": 71.8,
+      "position": 10
+    },
+    {
+      "rank": 3,
+      "number": 8,
+      "occurrences": 18,
+      "heat_score": 71.4,
+      "position": 21
+    },
+    {
+      "rank": 4,
+      "number": 22,
+      "occurrences": 14,
+      "heat_score": 70.39999999999999,
+      "position": 9
+    },
+    {
+      "rank": 5,
+      "number": 10,
+      "occurrences": 10,
+      "heat_score": 69.6,
+      "position": 19
+    }
+  ],
+  "top_10": [
+    {
+      "rank": 1,
+      "number": 23,
+      "occurrences": 16,
+      "heat_score": 71.80000000000001,
+      "position": 20
+    },
+    {
+      "rank": 2,
+      "number": 9,
+      "occurrences": 22,
+      "heat_score": 71.8,
+      "position": 10
+    },
+    {
+      "rank": 3,
+      "number": 8,
+      "occurrences": 18,
+      "heat_score": 71.4,
+      "position": 21
+    },
+    {
+      "rank": 4,
+      "number": 22,
+      "occurrences": 14,
+      "heat_score": 70.39999999999999,
+      "position": 9
+    },
+    {
+      "rank": 5,
+      "number": 10,
+      "occurrences": 10,
+      "heat_score": 69.6,
+      "position": 19
+    },
+    {
+      "rank": 6,
+      "number": 5,
+      "occurrences": 17,
+      "heat_score": 69.4,
+      "position": 18
+    },
+    {
+      "rank": 7,
+      "number": 14,
+      "occurrences": 18,
+      "heat_score": 69.0,
+      "position": 12
+    },
+    {
+      "rank": 8,
+      "number": 31,
+      "occurrences": 11,
+      "heat_score": 68.80000000000001,
+      "position": 11
+    },
+    {
+      "rank": 9,
+      "number": 30,
+      "occurrences": 18,
+      "heat_score": 68.6,
+      "position": 22
+    },
+    {
+      "rank": 10,
+      "number": 25,
+      "occurrences": 19,
+      "heat_score": 67.6,
+      "position": 30
+    }
+  ],
+  "all_scores": {
+    "23": 71.80000000000001,
+    "9": 71.8,
+    "8": 71.4,
+    "22": 70.39999999999999,
+    "10": 69.6,
+    "5": 69.4,
+    "14": 69.0,
+    "31": 68.80000000000001,
+    "30": 68.6,
+    "25": 67.6,
+    "33": 67.39999999999999,
+    "24": 67.2,
+    "21": 67.0,
+    "20": 66.80000000000001,
+    "2": 66.2,
+    "11": 66.19999999999999,
+    "18": 65.8,
+    "16": 65.60000000000001,
+    "4": 64.19999999999999,
+    "1": 64.19999999999999,
+    "17": 63.0,
+    "29": 61.199999999999996,
+    "36": 61.0,
+    "19": 59.599999999999994,
+    "34": 59.199999999999996,
+    "15": 57.4,
+    "13": 57.00000000000001,
+    "6": 56.0,
+    "32": 56.0,
+    "0": 54.8,
+    "27": 54.0,
+    "7": 53.2,
+    "26": 53.0,
+    "28": 50.6,
+    "3": 49.400000000000006,
+    "35": 48.4,
+    "12": 47.2
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "parameters": {
+    "roulette": "pragmatic-brazilian-roulette",
+    "window_size": 500,
+    "top_n": 5,
+    "neighbor_distance": 1,
+    "hits_to_wait": 2,
+    "max_wait_per_hit": 6,
+    "observation_attempts": 6
+  },
+  "phase_1_wait_hits": {
+    "total_triggers": 191,
+    "aborted": 20,
+    "qualified": 171,
+    "per_hit_stats": {
+      "1": {
+        "hot": 71,
+        "neighbor": 108,
+        "attempts": {
+          "1": 67,
+          "2": 42,
+          "3": 28,
+          "4": 14,
+          "5": 14,
+          "6": 14
+        }
+      },
+      "2": {
+        "hot": 55,
+        "neighbor": 116,
+        "attempts": {
+          "1": 69,
+          "2": 38,
+          "3": 25,
+          "4": 8,
+          "5": 18,
+          "6": 13
+        }
+      }
+    }
+  },
+  "phase_2_bet": {
+    "total_bets": 171,
+    "wins_per_gale": {
+      "1": 59,
+      "2": 37,
+      "3": 26,
+      "4": 11,
+      "5": 9,
+      "6": 12
+    },
+    "losses": 17,
+    "total_wins": 154,
+    "win_rate": 90.06,
+    "loss_rate": 9.94,
+    "hit_in_hot": 53,
+    "hit_in_neighbor": 101,
+    "gale_breakdown": {
+      "1": {
+        "hot": 22,
+        "neighbor": 37
+      },
+      "2": {
+        "hot": 14,
+        "neighbor": 23
+      },
+      "3": {
+        "hot": 6,
+        "neighbor": 20
+      },
+      "4": {
+        "hot": 4,
+        "neighbor": 7
+      },
+      "5": {
+        "hot": 2,
+        "neighbor": 7
+      },
+      "6": {
+        "hot": 5,
+        "neighbor": 7
+      }
+    }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "mesa_list": [
+    9,
+    25,
+    14,
+    15,
+    8
+  ],
+  "algo_top_5": [
+    30,
+    9,
+    8,
+    23,
+    31
+  ],
+  "matches": [
+    9,
+    8
+  ],
+  "accuracy_percent": 40.0,
+  "mesa_rankings": [
+    {
+      "number": 9,
+      "rank": 2,
+      "score": 60.599999999999994
+    },
+    {
+      "number": 8,
+      "rank": 3,
+      "score": 60.2
+    },
+    {
+      "number": 14,
+      "rank": 9,
+      "score": 56.99999999999999
+    },
+    {
+      "number": 25,
+      "rank": 13,
+      "score": 56.4
+    },
+    {
+      "number": 15,
+      "rank": 26,
+      "score": 47.800000000000004
+    }
+  ],
+  "full_ranking": [
+    {
+      "rank": 1,
+      "number": 30,
+      "occurrences": 18,
+      "score": 60.6
+    },
+    {
+      "rank": 2,
+      "number": 9,
+      "occurrences": 22,
+      "score": 60.599999999999994
+    },
+    {
+      "rank": 3,
+      "number": 8,
+      "occurrences": 18,
+      "score": 60.2
+    },
+    {
+      "rank": 4,
+      "number": 23,
+      "occurrences": 16,
+      "score": 59.4
+    },
+    {
+      "rank": 5,
+      "number": 31,
+      "occurrences": 11,
+      "score": 59.2
+    },
+    {
+      "rank": 6,
+      "number": 2,
+      "occurrences": 15,
+      "score": 58.6
+    },
+    {
+      "rank": 7,
+      "number": 18,
+      "occurrences": 13,
+      "score": 57.800000000000004
+    },
+    {
+      "rank": 8,
+      "number": 22,
+      "occurrences": 14,
+      "score": 57.6
+    },
+    {
+      "rank": 9,
+      "number": 14,
+      "occurrences": 18,
+      "score": 56.99999999999999
+    },
+    {
+      "rank": 10,
+      "number": 10,
+      "occurrences": 10,
+      "score": 56.800000000000004
+    },
+    {
+      "rank": 11,
+      "number": 16,
+      "occurrences": 14,
+      "score": 56.400000000000006
+    },
+    {
+      "rank": 12,
+      "number": 24,
+      "occurrences": 16,
+      "score": 56.400000000000006
+    },
+    {
+      "rank": 13,
+      "number": 25,
+      "occurrences": 19,
+      "score": 56.4
+    },
+    {
+      "rank": 14,
+      "number": 21,
+      "occurrences": 16,
+      "score": 55.8
+    },
+    {
+      "rank": 15,
+      "number": 5,
+      "occurrences": 17,
+      "score": 55.8
+    },
+    {
+      "rank": 16,
+      "number": 11,
+      "occurrences": 15,
+      "score": 55.0
+    },
+    {
+      "rank": 17,
+      "number": 33,
+      "occurrences": 16,
+      "score": 53.4
+    },
+    {
+      "rank": 18,
+      "number": 4,
+      "occurrences": 16,
+      "score": 53.39999999999999
+    },
+    {
+      "rank": 19,
+      "number": 1,
+      "occurrences": 11,
+      "score": 53.39999999999999
+    },
+    {
+      "rank": 20,
+      "number": 20,
+      "occurrences": 13,
+      "score": 52.400000000000006
+    }
+  ]
+}
