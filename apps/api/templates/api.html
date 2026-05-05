@@ -6405,7 +6405,7 @@ countContainers.forEach(({ selector, itemClass }) => {
            <div class="tt-suggestion-grid">
              ${hotAtMoment.map(({ num: n, count }) => {
                const color = getColor(n);
-               return `<div class="cell color-${color}" title="${n} (${count}x)">${n}</div>`;
+               return `<div class="cell ${color}" title="${n} (${count}x)">${n}</div>`;
              }).join("")}
            </div>`
         : `<div class="tt-list" style="color:var(--ui-muted);">Dados insuficientes para calcular números quentes.</div>`;
