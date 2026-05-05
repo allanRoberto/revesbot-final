@@ -5738,6 +5738,18 @@ countContainers.forEach(({ selector, itemClass }) => {
       };
     }
 
+    function computeHotAtIndex(fromIndex, sourceArr, windowSize, topN) {
+      const start = (fromIndex !== null ? fromIndex : 0) + 1;
+      const end = Math.min(sourceArr.length, start + windowSize);
+      const window = sourceArr.slice(start, end);
+      const freq = {};
+      window.forEach(n => { freq[n] = (freq[n] || 0) + 1; });
+      return Object.entries(freq)
+        .map(([num, count]) => ({ num: parseInt(num, 10), count }))
+        .sort((a, b) => b.count - a.count || a.num - b.num)
+        .slice(0, topN);
+    }
+
     function buildNumberTooltipHtml(num, fromIndex = null, sourceArr = history, isLatest = false, historyId = "") {
       const normalizedFromIndex = typeof fromIndex === "number" && fromIndex >= 0 ? fromIndex : null;
       const normalizedHistoryId = String(historyId || "").trim();
@@ -5768,6 +5780,8 @@ countContainers.forEach(({ selector, itemClass }) => {
         finalProgress,
         simpleProgress,
       } = data;
+      const effectiveSourceArr = frozenHtmlMatch && Array.isArray(currentTooltipContext?.sourceArr) ? currentTooltipContext.sourceArr : sourceArr;
+      const hotAtMoment = computeHotAtIndex(normalizedFromIndex, effectiveSourceArr, maxHistory, hotCount);
       const finalSuggestionPending = finalApiKey ? finalSuggestionApiPending.has(finalApiKey) : false;
       const snapshotCacheStatus = String(finalSuggestionApi?.snapshot_meta?.cache_status || "").toLowerCase();
       const showTooltipLoader = finalSuggestionPending && (!finalSuggestionApi?.available || !snapshotCacheStatus || snapshotCacheStatus === "pending");
@@ -6386,6 +6400,15 @@ countContainers.forEach(({ selector, itemClass }) => {
           </div>
         </div>
       `;
+      const hotAtMomentHtml = hotAtMoment.length > 0
+        ? `<div class="tt-section">Números quentes no momento</div>
+           <div class="tt-suggestion-grid">
+             ${hotAtMoment.map(({ num: n, count }) => {
+               const color = getColor(n);
+               return `<div class="cell color-${color}" title="${n} (${count}x)">${n}</div>`;
+             }).join("")}
+           </div>`
+        : `<div class="tt-list" style="color:var(--ui-muted);">Dados insuficientes para calcular números quentes.</div>`;
       const tooltipHtml = `
         <div class="tt-title">Número ${num}</div>
         ${buildSnapshotSourceHtml(finalSuggestionApi?.snapshot_meta)}
@@ -6393,6 +6416,7 @@ countContainers.forEach(({ selector, itemClass }) => {
         ${suggestionSectionHtml}
         ${betSectionHtml}
         ${finalProgressDisplayHtml}
+        ${hotAtMomentHtml}
         <div class="tt-divider"></div>
         ${occurrencesAccordionHtml}
       `;
@@ -8087,7 +8111,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     function syncHistoryFromServer() {
       if (wsHistorySyncInFlight) return Promise.resolve();
       wsHistorySyncInFlight = true;
-      return fetch(`/history/${encodeURIComponent(rouletteSlug)}?limit=${maxHistory}`, {
+      return fetch(`/history/${encodeURIComponent(rouletteSlug)}?limit=${maxHistory * 3}`, {
         headers: {
           Accept: "application/json",
         },
@@ -8217,8 +8241,9 @@ countContainers.forEach(({ selector, itemClass }) => {
         const ult = String(entry.value);
         historyEntries.unshift(entry);
         history.unshift(entry.value);
-        if (history.length > 2000) history.pop();
-        if (historyEntries.length > 2000) historyEntries.pop();
+        const _historyHardCap = maxHistory * 3;
+        if (history.length > _historyHardCap) history.pop();
+        if (historyEntries.length > _historyHardCap) historyEntries.pop();
         try {
           announceTrigger(ult);
         } catch (error) {
@@ -8385,7 +8410,7 @@ countContainers.forEach(({ selector, itemClass }) => {
       const params = new URLSearchParams();
       
       // Adicionar limite
-      params.append('limit', maxHistory);
+      params.append('limit', maxHistory * 3);
       
       // Adicionar filtros se existirem
       if (currentFilters.startDate) params.append('start_date', currentFilters.startDate);
