@@ -220,14 +220,14 @@ def _install_mocks(
     async def _snap_config() -> Dict[str, Any]:
         return {"config_id": "snap"}
 
-    async def _timeline(**_kwargs: Any) -> Dict[str, Any]:
-        return {"items": deepcopy(items), "summary": {}}
+    async def _load_timeline(**_kwargs: Any) -> List[Dict[str, Any]]:
+        return deepcopy(items)
 
     monkeypatch.setattr(svc, "ensure_suggestion_trend_indexes", _no_op)
     monkeypatch.setattr(svc, "get_or_create_trend_strategy_config", _config)
     monkeypatch.setattr(svc, "get_or_create_global_suggestion_snapshot_config", _snap_config)
     monkeypatch.setattr(svc, "build_suggestion_snapshot_config_key", lambda _doc: "test-key")
-    monkeypatch.setattr(svc, "build_suggestion_snapshot_rank_timeline", _timeline)
+    monkeypatch.setattr(svc, "_load_trend_timeline", _load_timeline)
     monkeypatch.setattr(svc, "suggestion_trend_signals_coll", fake_coll)
 
 

@@ -183,21 +183,48 @@ async def _process_snapshot_message(
         logger.exception("Falha ao gerar snapshot live para %s: %s", roulette_id, exc)
         return
 
+    # Fire-and-forget: trend processing must NEVER block the snapshot pipeline.
+    # If a previous trend evaluation for this roulette is still running we skip
+    # this one (next snapshot will trigger another), so the queue can't pile up.
     try:
-        trend_outcome = await process_trend_signal_for_roulette(roulette_id)
+        loop = asyncio.get_running_loop()
+        loop.create_task(_run_trend_in_background(roulette_id, counters))
     except Exception as exc:
-        logger.exception("Falha ao processar sinal de tendência para %s: %s", roulette_id, exc)
+        logger.exception("Falha ao agendar processamento de tendência para %s: %s", roulette_id, exc)
+
+
+_trend_locks: dict[str, asyncio.Lock] = {}
+
+
+def _get_trend_lock(roulette_id: str) -> asyncio.Lock:
+    lock = _trend_locks.get(roulette_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _trend_locks[roulette_id] = lock
+    return lock
+
+
+async def _run_trend_in_background(roulette_id: str, counters: dict[str, int]) -> None:
+    lock = _get_trend_lock(roulette_id)
+    if lock.locked():
+        counters["trend_skipped_busy"] = counters.get("trend_skipped_busy", 0) + 1
         return
+    async with lock:
+        try:
+            trend_outcome = await process_trend_signal_for_roulette(roulette_id)
+        except Exception as exc:
+            logger.exception("Falha ao processar sinal de tendência para %s: %s", roulette_id, exc)
+            return
 
     if trend_outcome.get("created_signal_id"):
-        counters["trend_created"] += 1
+        counters["trend_created"] = counters.get("trend_created", 0) + 1
         logger.info(
             "Trend signal created | roulette=%s | signal_id=%s",
             roulette_id,
             trend_outcome.get("created_signal_id"),
         )
     if trend_outcome.get("advanced_signal_id"):
-        counters["trend_advanced"] += 1
+        counters["trend_advanced"] = counters.get("trend_advanced", 0) + 1
         logger.info(
             "Trend signal advanced | roulette=%s | signal_id=%s | status=%s",
             roulette_id,

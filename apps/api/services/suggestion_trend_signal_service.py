@@ -16,13 +16,14 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from api.core.db import (
     ensure_suggestion_trend_indexes,
+    history_coll,
+    suggestion_snapshots_coll,
     suggestion_trend_signals_coll,
     suggestion_trend_strategy_configs_coll,
 )
 from api.services.suggestion_snapshot_service import (
     _serialize_datetime,
     build_suggestion_snapshot_config_key,
-    build_suggestion_snapshot_rank_timeline,
     get_or_create_global_suggestion_snapshot_config,
 )
 
@@ -474,6 +475,113 @@ async def _maybe_create_signal(
 # ---------------------------------------------------------------------------
 
 
+async def _load_trend_timeline(
+    *,
+    roulette_id: str,
+    config_key: str,
+    lookback: int,
+) -> List[Dict[str, Any]]:
+    """Lightweight chronological timeline used by the trend processor.
+
+    Projects only the snapshot fields the trend logic actually reads
+    (`anchor_*`, `ordered_suggestion`/`simple_suggestion`), avoiding the
+    multi-hundred-KB payload that `build_suggestion_snapshot_rank_timeline`
+    pulls. This drops worker memory usage from ~1 GB to a few MB and lets
+    the snapshot worker keep up with live spins.
+    """
+
+    safe_limit = max(20, min(2000, int(lookback or 200)))
+    fetch_limit = min(safe_limit + 10, 2500)
+    history_fetch_limit = min(max(fetch_limit * 4, 300), 4000)
+
+    snap_projection = {
+        "snapshot_id": 1,
+        "anchor_history_id": 1,
+        "anchor_number": 1,
+        "anchor_timestamp_utc": 1,
+        "config_key": 1,
+        "payload.simple_payload.ordered_suggestion": 1,
+        "payload.simple_suggestion": 1,
+    }
+
+    snapshot_docs = await (
+        suggestion_snapshots_coll.find(
+            {"roulette_id": roulette_id, "config_key": config_key},
+            snap_projection,
+        )
+        .sort("anchor_timestamp_utc", -1)
+        .limit(fetch_limit)
+        .to_list(length=fetch_limit)
+    )
+    if not snapshot_docs:
+        return []
+
+    history_docs = await (
+        history_coll.find(
+            {"roulette_id": roulette_id},
+            {"_id": 1, "value": 1, "timestamp": 1},
+        )
+        .sort("timestamp", -1)
+        .limit(history_fetch_limit)
+        .to_list(length=history_fetch_limit)
+    )
+    history_index = {str(doc.get("_id")): idx for idx, doc in enumerate(history_docs)}
+
+    items_desc: List[Dict[str, Any]] = []
+    for snap in snapshot_docs:
+        anchor_history_id = str(snap.get("anchor_history_id") or "").strip()
+        if not anchor_history_id:
+            continue
+        anchor_idx = history_index.get(anchor_history_id)
+        if anchor_idx is None:
+            continue
+        next_doc = history_docs[anchor_idx - 1] if anchor_idx > 0 else None
+
+        payload = snap.get("payload") or {}
+        simple_payload = payload.get("simple_payload") or {}
+        ranking = (
+            simple_payload.get("ordered_suggestion")
+            or payload.get("simple_suggestion")
+            or []
+        )
+        ranking_list = list(ranking) if isinstance(ranking, (list, tuple)) else []
+
+        next_number: Optional[int] = None
+        next_history_id = ""
+        next_timestamp_utc = None
+        hit_rank: Optional[int] = None
+
+        if isinstance(next_doc, Mapping):
+            raw_value = next_doc.get("value")
+            if raw_value is not None:
+                try:
+                    next_number = int(raw_value)
+                except (TypeError, ValueError):
+                    next_number = None
+            next_history_id = str(next_doc.get("_id") or "")
+            next_timestamp_utc = next_doc.get("timestamp")
+            if ranking_list and next_number is not None and next_number in ranking_list:
+                hit_rank = ranking_list.index(next_number) + 1
+
+        items_desc.append(
+            {
+                "snapshot_id": str(snap.get("snapshot_id") or snap.get("_id") or ""),
+                "anchor_history_id": anchor_history_id,
+                "anchor_number": int(snap.get("anchor_number") or -1),
+                "anchor_timestamp_utc": snap.get("anchor_timestamp_utc"),
+                "next_history_id": next_history_id,
+                "next_number": next_number,
+                "next_timestamp_utc": next_timestamp_utc,
+                "hit_rank": hit_rank,
+                "ranking_full": ranking_list,
+            }
+        )
+        if len(items_desc) >= safe_limit:
+            break
+
+    return list(reversed(items_desc))
+
+
 async def process_trend_signal_for_roulette(roulette_id: str) -> Dict[str, Any]:
     """Run by the snapshot worker after each new spin/snapshot.
 
@@ -489,15 +597,11 @@ async def process_trend_signal_for_roulette(roulette_id: str) -> Dict[str, Any]:
     snapshot_config_key = build_suggestion_snapshot_config_key(snapshot_config)
 
     lookback = int(config.get("history_lookback") or 1000)
-    try:
-        timeline = await build_suggestion_snapshot_rank_timeline(
-            roulette_id=roulette_id,
-            limit=lookback,
-            include_all_configs=False,
-        )
-    except LookupError:
-        return {"skipped": "no_snapshots"}
-    items = timeline.get("items") or []
+    items = await _load_trend_timeline(
+        roulette_id=roulette_id,
+        config_key=snapshot_config_key,
+        lookback=lookback,
+    )
     if not items:
         return {"skipped": "no_items"}
 
