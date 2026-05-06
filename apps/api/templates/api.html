@@ -7487,7 +7487,10 @@ countContainers.forEach(({ selector, itemClass }) => {
 
         const cavalosClass = showCavalos ? `cavalos-group-${getCavalosGroup(n).toLowerCase()}` : "";
         const baseClass = `cell ${getColor(n)} ${highlight} ${groupClass} ${cavalosClass}`.trim();
-        return `<div class="${baseClass}" data-num="${n}" data-tooltip-idx="${i}"${historyIdAttr} ${styleAttr}>${displayValue}</div>`;
+        const hotAtMoment = computeHotAtIndex(i, sliceArr, maxHistory, hotCount);
+        const wasHotWhenDrawn = hotAtMoment.some(h => h.num === n);
+        const hotFlag = wasHotWhenDrawn ? `<span class="hot-flag" title="Número quente no momento">🔥</span>` : "";
+        return `<div class="${baseClass}" data-num="${n}" data-tooltip-idx="${i}"${historyIdAttr} ${styleAttr}>${displayValue}${hotFlag}</div>`;
       }).join("");
       
       applyFilter();
