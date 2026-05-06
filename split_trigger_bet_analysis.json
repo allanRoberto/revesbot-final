@@ -1,0 +1,73 @@
+{
+  "parameters": {
+    "roulette": "pragmatic-brazilian-roulette",
+    "window_size": 500,
+    "trigger_top_n": 7,
+    "bet_top_n": 5,
+    "neighbor_distance": 1,
+    "hits_to_wait": 1,
+    "observation_attempts": 3,
+    "lookback_size": 3
+  },
+  "totals": {
+    "triggers": 485,
+    "aborted": 32,
+    "qualified": 453,
+    "wins": 341,
+    "losses": 112,
+    "win_rate": 75.28,
+    "edge": 1.84,
+    "avg_bet_size": 13.22,
+    "theoretical_pct": 73.44
+  },
+  "trigger_segments": {
+    "TRIGGER_IN_BET_BASE": {
+      "qualified": 310,
+      "wins": 240,
+      "losses": 70,
+      "win_rate": 77.42,
+      "wins_per_gale": {
+        "1": 120,
+        "2": 73,
+        "3": 47
+      }
+    },
+    "TRIGGER_OUT_OF_BET_BASE": {
+      "qualified": 143,
+      "wins": 101,
+      "losses": 42,
+      "win_rate": 70.63,
+      "wins_per_gale": {
+        "1": 45,
+        "2": 40,
+        "3": 16
+      }
+    }
+  },
+  "inversion_segments": {
+    "INVERSION_HOT": {
+      "qualified": 126,
+      "wins": 99,
+      "losses": 27,
+      "win_rate": 78.57
+    },
+    "INVERSION_NEIGHBOR": {
+      "qualified": 135,
+      "wins": 101,
+      "losses": 34,
+      "win_rate": 74.81
+    },
+    "INVERSION_BOTH": {
+      "qualified": 93,
+      "wins": 74,
+      "losses": 19,
+      "win_rate": 79.57
+    },
+    "NO_INVERSION": {
+      "qualified": 99,
+      "wins": 67,
+      "losses": 32,
+      "win_rate": 67.68
+    }
+  }
+}

@@ -56,7 +56,7 @@ mongo_client = MongoClient(MONGO_URL, tls=True, tlsCAFile=certifi.where())
 mongo_db = mongo_client[DB_NAME]
 history_collection = mongo_db["history"]
 
-TOTAL_FETCH = 2000
+TOTAL_FETCH = 3000
 print(f"Buscando últimos {TOTAL_FETCH} números...")
 
 raw_numbers = list(
@@ -74,10 +74,10 @@ mongo_client.close()
 
 # === SIMULAÇÃO ===
 WINDOW_SIZE = 500
-OBSERVATION_ATTEMPTS = 6  # tentativas após as batidas de espera
+OBSERVATION_ATTEMPTS = 3  # tentativas após as batidas de espera
 NEIGHBOR_DISTANCE = 1
 TOP_N = 5  # quantos números quentes considerar
-HITS_TO_WAIT = 2  # quantas batidas precisamos antes de apostar
+HITS_TO_WAIT = 1  # quantas batidas precisamos antes de apostar
 MAX_WAIT_PER_HIT = 6  # quantas tentativas esperar por cada batida
 
 print("="*100)

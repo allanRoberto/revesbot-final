@@ -17,13 +17,19 @@ APPS_ROOT = REPO_ROOT / "apps"
 if str(APPS_ROOT) not in sys.path:
     sys.path.insert(0, str(APPS_ROOT))
 
-from api.core.db import ensure_suggestion_snapshot_indexes  # noqa: E402
+from api.core.db import (  # noqa: E402
+    ensure_suggestion_snapshot_indexes,
+    ensure_suggestion_trend_indexes,
+)
 from api.core.redis_client import create_pubsub_redis_client  # noqa: E402
 from api.services.suggestion_snapshot_service import (  # noqa: E402
     build_suggestion_snapshot_config_key,
     get_or_create_global_suggestion_snapshot_config,
     resolve_latest_suggestion_snapshot,
     resolve_suggestion_snapshot_by_history_id,
+)
+from api.services.suggestion_trend_signal_service import (  # noqa: E402
+    process_trend_signal_for_roulette,
 )
 
 
@@ -175,6 +181,29 @@ async def _process_snapshot_message(
         )
     except Exception as exc:
         logger.exception("Falha ao gerar snapshot live para %s: %s", roulette_id, exc)
+        return
+
+    try:
+        trend_outcome = await process_trend_signal_for_roulette(roulette_id)
+    except Exception as exc:
+        logger.exception("Falha ao processar sinal de tendência para %s: %s", roulette_id, exc)
+        return
+
+    if trend_outcome.get("created_signal_id"):
+        counters["trend_created"] += 1
+        logger.info(
+            "Trend signal created | roulette=%s | signal_id=%s",
+            roulette_id,
+            trend_outcome.get("created_signal_id"),
+        )
+    if trend_outcome.get("advanced_signal_id"):
+        counters["trend_advanced"] += 1
+        logger.info(
+            "Trend signal advanced | roulette=%s | signal_id=%s | status=%s",
+            roulette_id,
+            trend_outcome.get("advanced_signal_id"),
+            trend_outcome.get("advanced_status"),
+        )
 
 
 async def _worker_loop(
@@ -214,6 +243,7 @@ async def _worker_loop(
 async def run_worker() -> None:
     _configure_logging()
     await ensure_suggestion_snapshot_indexes()
+    await ensure_suggestion_trend_indexes()
     config_doc = await get_or_create_global_suggestion_snapshot_config()
     config_key = build_suggestion_snapshot_config_key(config_doc)
     client = create_pubsub_redis_client()
@@ -240,6 +270,8 @@ async def run_worker() -> None:
         "hit": 0,
         "queued": 0,
         "processed": 0,
+        "trend_created": 0,
+        "trend_advanced": 0,
     }
     queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=QUEUE_MAXSIZE)
     inflight: set[str] = set()

@@ -30,3 +30,4 @@ temp/
 # Runtime learning artifacts
 apps/api/data/ai_shadow_profiles.json
 apps/api/data/ai_shadow_feedback.jsonl
+.claude/
