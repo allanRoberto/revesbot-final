@@ -7487,13 +7487,7 @@ countContainers.forEach(({ selector, itemClass }) => {
 
         const cavalosClass = showCavalos ? `cavalos-group-${getCavalosGroup(n).toLowerCase()}` : "";
         const baseClass = `cell ${getColor(n)} ${highlight} ${groupClass} ${cavalosClass}`.trim();
-        const flag = hotSet.has(n) ? "🔥" : coldSet.has(n) ? "❄️" : "";
-        const legacyScore = legacyConfidenceByNumber[n] || 0;
-        const optimizedScore = getCachedOptimizedConfidenceScore(sliceArr, n, 0, OPTIMIZED_MAX_NUMBERS);
-        const confidenceScore = Math.max(legacyScore, optimizedScore);
-        const confidenceFlag = confidenceScore >= confidenceFlagThreshold ? "↗" : "";
-        const confidenceTitle = `Confiança >= ${confidenceFlagThreshold}% (Base: ${legacyScore}% | Otimizada: ${optimizedScore}%)`;
-        return `<div class="${baseClass}" data-num="${n}" data-tooltip-idx="${i}"${historyIdAttr} ${styleAttr}>${displayValue}${confidenceFlag ? `<span class="confidence-flag" title="${confidenceTitle}">${confidenceFlag}</span>` : ""}${flag ? `<span class="hot-flag">${flag}</span>` : ""}</div>`;
+        return `<div class="${baseClass}" data-num="${n}" data-tooltip-idx="${i}"${historyIdAttr} ${styleAttr}>${displayValue}</div>`;
       }).join("");
       
       applyFilter();
