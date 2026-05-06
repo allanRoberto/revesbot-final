@@ -37,6 +37,8 @@ occurrence_analysis_runs_coll = mongo_db["occurrence_analysis_runs"]
 occurrence_analysis_events_coll = mongo_db["occurrence_analysis_events"]
 suggestion_snapshots_coll = mongo_db["suggestion_snapshots"]
 suggestion_snapshot_configs_coll = mongo_db["suggestion_snapshot_configs"]
+suggestion_trend_signals_coll = mongo_db["suggestion_trend_signals"]
+suggestion_trend_strategy_configs_coll = mongo_db["suggestion_trend_strategy_configs"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
@@ -44,6 +46,8 @@ _occurrence_analysis_indexes_ready = False
 _occurrence_analysis_indexes_lock = asyncio.Lock()
 _suggestion_snapshot_indexes_ready = False
 _suggestion_snapshot_indexes_lock = asyncio.Lock()
+_suggestion_trend_indexes_ready = False
+_suggestion_trend_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -209,3 +213,37 @@ async def ensure_suggestion_snapshot_indexes() -> None:
         )
 
         _suggestion_snapshot_indexes_ready = True
+
+
+async def ensure_suggestion_trend_indexes() -> None:
+    global _suggestion_trend_indexes_ready
+    if _suggestion_trend_indexes_ready:
+        return
+    async with _suggestion_trend_indexes_lock:
+        if _suggestion_trend_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            suggestion_trend_signals_coll,
+            [("signal_id", ASCENDING)],
+            name="suggestion_trend_signals_signal_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            suggestion_trend_signals_coll,
+            [("roulette_id", ASCENDING), ("status", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="suggestion_trend_signals_roulette_status_created_desc",
+        )
+        await _create_index_if_missing(
+            suggestion_trend_signals_coll,
+            [("roulette_id", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="suggestion_trend_signals_roulette_created_desc",
+        )
+        await _create_index_if_missing(
+            suggestion_trend_strategy_configs_coll,
+            [("config_id", ASCENDING)],
+            name="suggestion_trend_strategy_configs_config_id",
+            unique=True,
+        )
+
+        _suggestion_trend_indexes_ready = True

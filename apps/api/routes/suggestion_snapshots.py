@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
+
+from fastapi import APIRouter, Body, HTTPException, Query
 
 from api.services.suggestion_snapshot_service import (
     build_suggestion_snapshot_rank_timeline,
@@ -16,6 +18,13 @@ from api.services.suggestion_rank_strategy_learning import (
     simulate_rank_strategy_regime_walkforward,
     simulate_rank_strategy_walkforward,
     train_movement_range_bet_policy,
+)
+from api.services.suggestion_trend_signal_service import (
+    get_active_trend_signal,
+    get_or_create_trend_strategy_config,
+    list_trend_signals,
+    process_trend_signal_for_roulette,
+    update_trend_strategy_config,
 )
 
 
@@ -319,3 +328,51 @@ async def get_movement_range_policy_trainer_route(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Falha ao treinar a política de aposta do modelo de faixa: {exc}")
+
+
+@router.get("/api/suggestion-trend-signals/config")
+async def get_trend_strategy_config_route():
+    config = await get_or_create_trend_strategy_config()
+    return {"available": True, "config": config}
+
+
+@router.put("/api/suggestion-trend-signals/config")
+async def update_trend_strategy_config_route(payload: dict = Body(default_factory=dict)):
+    try:
+        config = await update_trend_strategy_config(payload or {})
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao atualizar config de tendência: {exc}")
+    return {"available": True, "config": config}
+
+
+@router.get("/api/suggestion-trend-signals/{roulette_id}")
+async def list_trend_signals_route(
+    roulette_id: str,
+    limit: int = Query(default=50, ge=1, le=500),
+    status: Optional[str] = Query(default=None, pattern="^(pending|won|lost)$"),
+):
+    try:
+        return await list_trend_signals(
+            roulette_id=roulette_id,
+            limit=limit,
+            status_filter=status,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao listar sinais de tendência: {exc}")
+
+
+@router.get("/api/suggestion-trend-signals/{roulette_id}/active")
+async def get_active_trend_signal_route(roulette_id: str):
+    try:
+        return await get_active_trend_signal(roulette_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao buscar sinal ativo: {exc}")
+
+
+@router.post("/api/suggestion-trend-signals/{roulette_id}/recompute")
+async def recompute_trend_signal_route(roulette_id: str):
+    try:
+        outcome = await process_trend_signal_for_roulette(roulette_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao reprocessar sinal: {exc}")
+    return {"available": True, "roulette_id": roulette_id, "outcome": outcome}

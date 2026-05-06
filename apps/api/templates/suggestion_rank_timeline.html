@@ -532,6 +532,238 @@
                 gap: 10px;
             }
         }
+
+        /* Trend (ZigZag) strategy panel */
+        .trend-panel { padding: 18px; }
+        .trend-panel h2 { margin: 0 0 4px; font-size: 18px; }
+        .trend-panel .panel-sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
+        .trend-config {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(140px, 1fr)) auto;
+            gap: 12px;
+            align-items: end;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: rgba(248, 250, 252, 0.7);
+            margin-bottom: 14px;
+        }
+        .trend-config .field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+        .trend-config .field input {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 13px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+        }
+        .trend-config .button { height: 36px; padding: 0 14px; font-size: 13px; }
+        .trend-live {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .trend-live .card {
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: #fff;
+        }
+        .trend-live .card .label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .trend-live .card .value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .trend-live .card .hint {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .trend-live .card.signal-up   { border-color: rgba(220, 38, 38, 0.5); background: rgba(254, 242, 242, 0.7); }
+        .trend-live .card.signal-down { border-color: rgba(22, 163, 74, 0.5); background: rgba(240, 253, 244, 0.7); }
+        .trend-live .card.signal-flat { border-color: rgba(148, 163, 184, 0.5); background: rgba(248, 250, 252, 0.9); }
+        .trend-recent { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+        .trend-recent .step {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+            height: 24px;
+            padding: 0 6px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            background: #e2e8f0;
+            color: var(--text);
+        }
+        .trend-numbers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .trend-numbers .num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+            padding: 0 8px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 13px;
+            color: #fff;
+            background: linear-gradient(160deg, #1f2937 0%, #0f172a 100%);
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+        }
+        .trend-numbers .num.red  { background: linear-gradient(160deg, #ef4444 0%, #991b1b 100%); }
+        .trend-numbers .num.zero { background: linear-gradient(160deg, #16a34a 0%, #064e3b 100%); }
+        .trend-backtest-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            margin: 10px 0 8px;
+        }
+        .trend-backtest-head h3 { margin: 0; font-size: 14px; }
+        .trend-backtest table { min-width: 560px; }
+        .trend-backtest th,
+        .trend-backtest td { text-align: center; }
+        .trend-backtest th:first-child,
+        .trend-backtest td:first-child { text-align: left; }
+        .trend-backtest .pl-pos { color: var(--good); font-weight: 700; }
+        .trend-backtest .pl-neg { color: var(--bad); font-weight: 700; }
+        .trend-config .enable-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text);
+            font-weight: 600;
+        }
+        .trend-config .enable-field input { width: auto; height: 16px; }
+        .trend-server {
+            margin-top: 4px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            background: rgba(248, 250, 252, 0.6);
+        }
+        .trend-server-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .trend-server-head h3 { margin: 0; font-size: 14px; }
+        .trend-server-head .meta { color: var(--muted); font-size: 12px; }
+        .signal-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .signal-pill.pending { background: rgba(234, 88, 12, 0.14); color: var(--warn); }
+        .signal-pill.won     { background: rgba(22, 163, 74, 0.14); color: var(--good); }
+        .signal-pill.lost    { background: rgba(220, 38, 38, 0.14); color: var(--bad); }
+        .signal-pill.disabled { background: rgba(148, 163, 184, 0.18); color: var(--muted); }
+        .trend-server-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(160px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .trend-server-grid .field {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+        }
+        .trend-server-grid .field .label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+        }
+        .trend-server-grid .field .value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            margin-top: 2px;
+        }
+        .trend-server-attempts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .trend-server-attempts .att {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            font-size: 11px;
+            min-width: 60px;
+        }
+        .trend-server-attempts .att .label { font-size: 10px; color: var(--muted); font-weight: 700; }
+        .trend-server-attempts .att .badge { font-weight: 700; }
+        .trend-server-attempts .att.hit  { border-color: rgba(22, 163, 74, 0.5); background: rgba(240, 253, 244, 0.7); }
+        .trend-server-attempts .att.miss { border-color: rgba(220, 38, 38, 0.45); background: rgba(254, 242, 242, 0.6); }
+        .trend-server-attempts .att.pending { border-style: dashed; color: var(--muted); }
+        .trend-history {
+            margin-top: 12px;
+        }
+        .trend-history-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .trend-history-head h3 { margin: 0; font-size: 14px; }
+        .trend-history-summary { color: var(--muted); font-size: 12px; }
+        .trend-history table { min-width: 720px; }
+        .trend-history th,
+        .trend-history td { text-align: center; }
+        .trend-history th:first-child,
+        .trend-history td:first-child { text-align: left; }
+        .trend-history td.numbers-cell {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: var(--muted);
+            font-size: 11px;
+            max-width: 240px;
+            white-space: normal;
+            text-align: left;
+        }
+        @media (max-width: 1100px) {
+            .trend-config { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .trend-live { grid-template-columns: 1fr; }
+            .trend-server-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -666,6 +898,118 @@
             </div>
         </div>
 
+        <div class="panel trend-panel">
+            <h2>Estratégia de Tendência (ZigZag)</h2>
+            <div class="panel-sub">
+                Detecta movimentos de subida ou descida nas últimas N etapas do ranking, busca padrões semelhantes no histórico (com tolerância ± por etapa) e sugere uma janela de números para apostar. Em descida (rank crescendo) a janela é <em>previsto → previsto + W − 1</em>; em subida (rank caindo), <em>previsto − W + 1 → previsto</em>. As tentativas mantêm a mesma janela e apenas remapeiam os números pelo ranking atualizado.
+            </div>
+
+            <div class="trend-config">
+                <div class="field">
+                    <label for="trendStepsInput">Etapas analisadas (N)</label>
+                    <input id="trendStepsInput" type="number" min="2" max="8" step="1" value="3" />
+                </div>
+                <div class="field">
+                    <label for="trendToleranceInput">Tolerância ± por etapa</label>
+                    <input id="trendToleranceInput" type="number" min="0" max="10" step="1" value="3" />
+                </div>
+                <div class="field">
+                    <label for="trendWindowInput">Tamanho da janela (fichas)</label>
+                    <input id="trendWindowInput" type="number" min="3" max="18" step="1" value="7" />
+                </div>
+                <div class="field">
+                    <label for="trendAttemptsInput">Tentativas (gales)</label>
+                    <input id="trendAttemptsInput" type="number" min="1" max="6" step="1" value="4" />
+                </div>
+                <div>
+                    <label class="enable-field" for="trendEnabledInput">
+                        <input id="trendEnabledInput" type="checkbox" />
+                        Estratégia ativa no servidor
+                    </label>
+                    <button id="trendApplyButton" class="button secondary" style="margin-top:6px;">Aplicar e salvar</button>
+                </div>
+            </div>
+
+            <div class="trend-live">
+                <div id="trendSignalCard" class="card signal-flat">
+                    <div class="label">Tendência detectada</div>
+                    <div class="value" id="trendSignalValue">-</div>
+                    <div class="hint" id="trendSignalHint">Aguardando dados</div>
+                    <div id="trendRecentRanks" class="trend-recent"></div>
+                </div>
+                <div class="card">
+                    <div class="label">Predição (mediana)</div>
+                    <div class="value" id="trendPredictionValue">-</div>
+                    <div class="hint" id="trendPredictionHint">Sem matches históricos ainda</div>
+                </div>
+                <div class="card">
+                    <div class="label">Janela de aposta</div>
+                    <div class="value" id="trendWindowValue">-</div>
+                    <div class="hint" id="trendWindowHint">Posições do ranking cobertas</div>
+                    <div id="trendNumbers" class="trend-numbers"></div>
+                </div>
+            </div>
+
+            <div class="trend-server">
+                <div class="trend-server-head">
+                    <h3>Sinal persistido (servidor)</h3>
+                    <div class="meta" id="trendServerMeta">-</div>
+                </div>
+                <div id="trendServerBody">
+                    <div class="hint" style="color:var(--muted);font-size:12px;">Aguardando dados…</div>
+                </div>
+            </div>
+
+            <div class="trend-history">
+                <div class="trend-history-head">
+                    <h3>Histórico de sugestões</h3>
+                    <div class="trend-history-summary" id="trendHistorySummary">-</div>
+                </div>
+                <div class="table-wrap" id="trendHistoryWrap" style="display:none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Criada em</th>
+                                <th>Status</th>
+                                <th>Direção</th>
+                                <th>Sequência</th>
+                                <th>Janela</th>
+                                <th>Tentativas</th>
+                                <th>P&amp;L</th>
+                                <th>Números iniciais</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trendHistoryTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="trend-backtest">
+                <div class="trend-backtest-head">
+                    <h3>Simulação histórica</h3>
+                    <button id="trendBacktestButton" class="button secondary">Rodar simulação</button>
+                </div>
+                <div id="trendBacktestSummary" class="panel-sub" style="margin-bottom:8px;">
+                    Clique em "Rodar simulação" para avaliar o desempenho da estratégia nos dados carregados.
+                </div>
+                <div class="table-wrap" style="display:none;" id="trendBacktestWrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tentativa</th>
+                                <th>Sinais que chegaram aqui</th>
+                                <th>Acertos</th>
+                                <th>Hit rate desta tentativa</th>
+                                <th>Hit rate acumulado</th>
+                                <th>P&amp;L (fichas)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trendBacktestTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div class="panel table-panel">
             <h2>Eventos Recentes</h2>
             <div class="table-wrap">
@@ -780,6 +1124,575 @@
         }
 
         applyZonesButton.addEventListener("click", applyZones);
+
+        // === Trend (ZigZag) strategy =======================================
+        const LS_TREND_STEPS = "rankTimeline_trendSteps";
+        const LS_TREND_TOL = "rankTimeline_trendTolerance";
+        const LS_TREND_WIN = "rankTimeline_trendWindow";
+        const LS_TREND_ATT = "rankTimeline_trendAttempts";
+
+        const trendStepsInput = document.getElementById("trendStepsInput");
+        const trendToleranceInput = document.getElementById("trendToleranceInput");
+        const trendWindowInput = document.getElementById("trendWindowInput");
+        const trendAttemptsInput = document.getElementById("trendAttemptsInput");
+        const trendApplyButton = document.getElementById("trendApplyButton");
+        const trendBacktestButton = document.getElementById("trendBacktestButton");
+
+        const trendSignalCard = document.getElementById("trendSignalCard");
+        const trendSignalValue = document.getElementById("trendSignalValue");
+        const trendSignalHint = document.getElementById("trendSignalHint");
+        const trendRecentRanks = document.getElementById("trendRecentRanks");
+        const trendPredictionValue = document.getElementById("trendPredictionValue");
+        const trendPredictionHint = document.getElementById("trendPredictionHint");
+        const trendWindowValueEl = document.getElementById("trendWindowValue");
+        const trendWindowHintEl = document.getElementById("trendWindowHint");
+        const trendNumbersEl = document.getElementById("trendNumbers");
+        const trendBacktestSummary = document.getElementById("trendBacktestSummary");
+        const trendBacktestWrap = document.getElementById("trendBacktestWrap");
+        const trendBacktestTableBody = document.getElementById("trendBacktestTableBody");
+        const trendEnabledInput = document.getElementById("trendEnabledInput");
+        const trendServerMeta = document.getElementById("trendServerMeta");
+        const trendServerBody = document.getElementById("trendServerBody");
+        const trendHistorySummary = document.getElementById("trendHistorySummary");
+        const trendHistoryWrap = document.getElementById("trendHistoryWrap");
+        const trendHistoryTableBody = document.getElementById("trendHistoryTableBody");
+
+        let trendSteps = Math.max(2, Math.min(8, Number(localStorage.getItem(LS_TREND_STEPS) || 3)));
+        let trendTolerance = Math.max(0, Math.min(10, Number(localStorage.getItem(LS_TREND_TOL) || 3)));
+        let trendWindowSize = Math.max(3, Math.min(18, Number(localStorage.getItem(LS_TREND_WIN) || 7)));
+        let trendAttempts = Math.max(1, Math.min(6, Number(localStorage.getItem(LS_TREND_ATT) || 4)));
+        let trendEnabled = false; // hydrated from server config
+
+        trendStepsInput.value = String(trendSteps);
+        trendToleranceInput.value = String(trendTolerance);
+        trendWindowInput.value = String(trendWindowSize);
+        trendAttemptsInput.value = String(trendAttempts);
+        trendEnabledInput.checked = trendEnabled;
+        let lastTrendSignalsLoadAt = 0;
+        let trendSignalsLoading = false;
+
+        const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+
+        function rouletteColorClass(n) {
+            if (n === 0) return "zero";
+            if (RED_NUMBERS.has(n)) return "red";
+            return "";
+        }
+
+        function detectTrendDirection(seq) {
+            if (!Array.isArray(seq) || seq.length < 2) return "lateral";
+            const first = seq[0];
+            const last = seq[seq.length - 1];
+            if (last > first) return "descida";  // rank value increased = chart fell
+            if (last < first) return "subida";   // rank value decreased = chart rose
+            return "lateral";
+        }
+
+        // Returns { seq, anchorItem, currentSeqStart, mode } or null.
+        // Walks back from the newest item looking for the most recent VALID fresh anchor:
+        //   - items[i].hit_rank == null AND
+        //   - items[i-N..i-1].hit_rank all known
+        // This matches suggestion_trend_signal_service._maybe_create_signal and survives
+        // optimistic WS updates that briefly chain two null-rank items at the tail.
+        // Falls back to "stale" mode (latest is resolved) when no fresh anchor exists yet.
+        function buildLiveSignalContext(items, N) {
+            if (!Array.isArray(items) || items.length === 0) return null;
+
+            for (let i = items.length - 1; i >= N; i--) {
+                if (items[i]?.hit_rank != null) continue;
+                const seq = [];
+                let valid = true;
+                for (let k = i - N; k < i; k++) {
+                    const r = items[k]?.hit_rank;
+                    if (r == null) { valid = false; break; }
+                    seq.push(Number(r));
+                }
+                if (valid) {
+                    return { seq, anchorItem: items[i], currentSeqStart: i - N, mode: "fresh" };
+                }
+            }
+
+            if (items.length >= N) {
+                const seq = [];
+                const start = items.length - N;
+                for (let k = start; k < items.length; k++) {
+                    const r = items[k]?.hit_rank;
+                    if (r == null) return null;
+                    seq.push(Number(r));
+                }
+                return { seq, anchorItem: items[items.length - 1], currentSeqStart: start, mode: "stale" };
+            }
+            return null;
+        }
+
+        function buildTrendSequence(items, endIndexExclusive, N) {
+            if (endIndexExclusive - N < 0) return null;
+            const seq = [];
+            for (let k = endIndexExclusive - N; k < endIndexExclusive; k++) {
+                const r = items[k]?.hit_rank;
+                if (r == null) return null;
+                seq.push(Number(r));
+            }
+            return seq;
+        }
+
+        function findHistoricalNextRanks(items, currentSeqStart, currentSeq, tolerance) {
+            const N = currentSeq.length;
+            const out = [];
+            for (let j = 0; j + N <= currentSeqStart; j++) {
+                let ok = true;
+                for (let k = 0; k < N; k++) {
+                    const r = items[j + k]?.hit_rank;
+                    if (r == null) { ok = false; break; }
+                    if (Math.abs(r - currentSeq[k]) > tolerance) { ok = false; break; }
+                }
+                if (!ok) continue;
+                const nextIdx = j + N;
+                if (nextIdx >= items.length) continue;
+                const nextRank = items[nextIdx]?.hit_rank;
+                if (typeof nextRank === "number" && nextRank >= 1 && nextRank <= 36) {
+                    out.push(nextRank);
+                }
+            }
+            return out;
+        }
+
+        function median(values) {
+            if (!values.length) return null;
+            const sorted = values.slice().sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+        }
+
+        function computeBetWindow(predicted, direction, windowSize) {
+            const MAX = 36;
+            const W = Math.max(1, Math.min(MAX, windowSize));
+            let low, high;
+            if (direction === "descida") {
+                low = Math.round(predicted);
+                high = low + W - 1;
+                if (high > MAX) { high = MAX; low = MAX - W + 1; }
+                if (low < 1) low = 1;
+            } else if (direction === "subida") {
+                high = Math.round(predicted);
+                low = high - W + 1;
+                if (low < 1) { low = 1; high = W; }
+                if (high > MAX) high = MAX;
+            } else {
+                const center = Math.round(predicted);
+                low = center - Math.floor((W - 1) / 2);
+                high = low + W - 1;
+                if (low < 1) { low = 1; high = W; }
+                if (high > MAX) { high = MAX; low = MAX - W + 1; }
+            }
+            return { low, high };
+        }
+
+        function getNumbersForWindow(rankingFull, low, high) {
+            if (!Array.isArray(rankingFull)) return [];
+            const out = [];
+            for (let r = low; r <= high; r++) {
+                const idx = r - 1;
+                if (idx < 0 || idx >= rankingFull.length) continue;
+                const n = rankingFull[idx];
+                if (Number.isInteger(n)) out.push(n);
+            }
+            return out;
+        }
+
+        function clearTrendLive(message) {
+            trendSignalCard.className = "card signal-flat";
+            trendSignalValue.textContent = "-";
+            trendSignalHint.textContent = message || "Aguardando dados";
+            trendRecentRanks.innerHTML = "";
+            trendPredictionValue.textContent = "-";
+            trendPredictionHint.textContent = "Sem dados disponíveis";
+            trendWindowValueEl.textContent = "-";
+            trendWindowHintEl.textContent = "Sem janela definida";
+            trendNumbersEl.innerHTML = "";
+        }
+
+        function renderTrendLive(items) {
+            if (!Array.isArray(items) || items.length === 0) {
+                clearTrendLive("Aguardando dados");
+                return;
+            }
+            const ctx = buildLiveSignalContext(items, trendSteps);
+
+            // recent ranks display (best-effort even when context is missing)
+            if (ctx?.seq) {
+                trendRecentRanks.innerHTML = ctx.seq.map((r) => `<span class="step">#${r}</span>`).join("");
+            } else {
+                const tail = items.slice(-trendSteps);
+                trendRecentRanks.innerHTML = tail.map((it) => `<span class="step">${it?.hit_rank == null ? "X" : `#${it.hit_rank}`}</span>`).join("");
+            }
+
+            if (!ctx?.seq) {
+                trendSignalCard.className = "card signal-flat";
+                trendSignalValue.textContent = "Sem padrão";
+                trendSignalHint.textContent = `Algum dos últimos ${trendSteps} acertos ficou fora do ranking — sem sinal.`;
+                trendPredictionValue.textContent = "-";
+                trendPredictionHint.textContent = "Aguardando sequência válida";
+                trendWindowValueEl.textContent = "-";
+                trendWindowHintEl.textContent = "Sem janela definida";
+                trendNumbersEl.innerHTML = "";
+                return;
+            }
+
+            const { seq, anchorItem, currentSeqStart, mode } = ctx;
+            const modeSuffix = mode === "stale" ? " (aguardando próximo número)" : "";
+
+            const direction = detectTrendDirection(seq);
+            if (direction === "lateral") {
+                trendSignalCard.className = "card signal-flat";
+                trendSignalValue.textContent = "Lateral";
+                trendSignalHint.textContent = `Sequência ${seq.join(" → ")} — sem inclinação.${modeSuffix}`;
+                trendPredictionValue.textContent = "-";
+                trendPredictionHint.textContent = "Tendência indefinida";
+                trendWindowValueEl.textContent = "-";
+                trendWindowHintEl.textContent = "Sem janela definida";
+                trendNumbersEl.innerHTML = "";
+                return;
+            }
+
+            trendSignalCard.className = direction === "descida" ? "card signal-down" : "card signal-up";
+            trendSignalValue.textContent = direction === "descida" ? "↓ Descida" : "↑ Subida";
+            trendSignalHint.textContent = `Sequência ${seq.join(" → ")}${modeSuffix}`;
+
+            const matches = findHistoricalNextRanks(items, currentSeqStart, seq, trendTolerance);
+            if (matches.length === 0) {
+                trendPredictionValue.textContent = "Sem match";
+                trendPredictionHint.textContent = `Nenhum padrão semelhante (±${trendTolerance}) nos dados carregados.`;
+                trendWindowValueEl.textContent = "-";
+                trendWindowHintEl.textContent = "Sem janela definida";
+                trendNumbersEl.innerHTML = "";
+                return;
+            }
+
+            const med = median(matches);
+            const predicted = Math.round(med);
+            const { low, high } = computeBetWindow(predicted, direction, trendWindowSize);
+            const numbers = getNumbersForWindow(anchorItem?.ranking_full, low, high);
+
+            trendPredictionValue.textContent = `Rank #${predicted}`;
+            trendPredictionHint.textContent = `${matches.length} match${matches.length === 1 ? "" : "es"} históricos • mediana=${med}`;
+            trendWindowValueEl.textContent = `#${low} – #${high}`;
+            trendWindowHintEl.textContent = `${numbers.length} número${numbers.length === 1 ? "" : "s"} mapeados do ranking ${mode === "fresh" ? "no momento da entrada" : "atual"}`;
+            trendNumbersEl.innerHTML = numbers.length
+                ? numbers.map((n) => `<span class="num ${rouletteColorClass(n)}">${n}</span>`).join("")
+                : `<span class="hint">Ranking atual indisponível</span>`;
+        }
+
+        function applyTrendInputsToState() {
+            const newSteps = Math.max(2, Math.min(8, Number(trendStepsInput.value) || 3));
+            const newTol = Math.max(0, Math.min(10, Number(trendToleranceInput.value) || 3));
+            const newWin = Math.max(3, Math.min(18, Number(trendWindowInput.value) || 7));
+            const newAtt = Math.max(1, Math.min(6, Number(trendAttemptsInput.value) || 4));
+            trendSteps = newSteps;
+            trendTolerance = newTol;
+            trendWindowSize = newWin;
+            trendAttempts = newAtt;
+            trendEnabled = Boolean(trendEnabledInput.checked);
+            localStorage.setItem(LS_TREND_STEPS, String(trendSteps));
+            localStorage.setItem(LS_TREND_TOL, String(trendTolerance));
+            localStorage.setItem(LS_TREND_WIN, String(trendWindowSize));
+            localStorage.setItem(LS_TREND_ATT, String(trendAttempts));
+            trendStepsInput.value = String(trendSteps);
+            trendToleranceInput.value = String(trendTolerance);
+            trendWindowInput.value = String(trendWindowSize);
+            trendAttemptsInput.value = String(trendAttempts);
+        }
+
+        function applyServerConfigToInputs(config) {
+            if (!config || typeof config !== "object") return;
+            if (typeof config.steps === "number") {
+                trendSteps = Math.max(2, Math.min(8, config.steps));
+                trendStepsInput.value = String(trendSteps);
+                localStorage.setItem(LS_TREND_STEPS, String(trendSteps));
+            }
+            if (typeof config.tolerance === "number") {
+                trendTolerance = Math.max(0, Math.min(10, config.tolerance));
+                trendToleranceInput.value = String(trendTolerance);
+                localStorage.setItem(LS_TREND_TOL, String(trendTolerance));
+            }
+            if (typeof config.window_size === "number") {
+                trendWindowSize = Math.max(3, Math.min(18, config.window_size));
+                trendWindowInput.value = String(trendWindowSize);
+                localStorage.setItem(LS_TREND_WIN, String(trendWindowSize));
+            }
+            if (typeof config.max_attempts === "number") {
+                trendAttempts = Math.max(1, Math.min(6, config.max_attempts));
+                trendAttemptsInput.value = String(trendAttempts);
+                localStorage.setItem(LS_TREND_ATT, String(trendAttempts));
+            }
+            trendEnabled = Boolean(config.enabled);
+            trendEnabledInput.checked = trendEnabled;
+        }
+
+        async function loadTrendConfigFromServer() {
+            try {
+                const r = await fetch("/api/suggestion-trend-signals/config", { cache: "no-store" });
+                if (!r.ok) return;
+                const data = await r.json().catch(() => ({}));
+                if (data && data.config) applyServerConfigToInputs(data.config);
+            } catch (_) { /* ignore */ }
+        }
+
+        async function saveTrendConfigToServer() {
+            const payload = {
+                enabled: trendEnabled,
+                steps: trendSteps,
+                tolerance: trendTolerance,
+                window_size: trendWindowSize,
+                max_attempts: trendAttempts,
+            };
+            try {
+                const r = await fetch("/api/suggestion-trend-signals/config", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                    cache: "no-store",
+                });
+                if (!r.ok) {
+                    const detail = await r.json().catch(() => ({}));
+                    setStatus(detail.detail || "Falha ao salvar config de tendência.", true);
+                    return false;
+                }
+                return true;
+            } catch (err) {
+                setStatus(err?.message || "Falha ao salvar config de tendência.", true);
+                return false;
+            }
+        }
+
+        async function applyTrendParams() {
+            applyTrendInputsToState();
+            renderTrendLive(currentTimelineItems);
+            if (trendBacktestWrap.style.display !== "none") {
+                runTrendBacktest();
+            }
+            const ok = await saveTrendConfigToServer();
+            if (ok) await loadTrendSignalsFromServer();
+        }
+
+        function formatSignalAttempts(attempts, maxAttempts) {
+            const out = [];
+            const used = (attempts || []).length;
+            for (let i = 0; i < maxAttempts; i++) {
+                const att = attempts && attempts[i];
+                if (att) {
+                    const cls = att.hit ? "hit" : "miss";
+                    const rankTxt = att.hit_rank == null ? "fora" : `#${att.hit_rank}`;
+                    const numTxt = att.next_number == null ? "-" : String(att.next_number);
+                    out.push(`<div class="att ${cls}"><span class="label">${i + 1}ª</span><span class="badge">${numTxt}</span><span style="font-size:10px;color:var(--muted);">${rankTxt}</span></div>`);
+                } else {
+                    out.push(`<div class="att pending"><span class="label">${i + 1}ª</span><span class="badge">·</span><span style="font-size:10px;">aguard.</span></div>`);
+                }
+            }
+            return out.join("");
+        }
+
+        function renderActiveSignal(payload) {
+            const config = payload?.config || {};
+            const sig = payload?.signal;
+            if (config.enabled === false) {
+                trendServerMeta.innerHTML = `<span class="signal-pill disabled">desligada</span>`;
+                trendServerBody.innerHTML = `<div style="color:var(--muted);font-size:12px;">Estratégia desativada no servidor. Marque "Estratégia ativa no servidor" e clique em "Aplicar e salvar" para começar a gerar sinais persistidos.</div>`;
+                return;
+            }
+            if (!sig) {
+                trendServerMeta.innerHTML = `<span class="signal-pill disabled">sem sinal pendente</span>`;
+                trendServerBody.innerHTML = `<div style="color:var(--muted);font-size:12px;">Nenhum sinal pendente no momento. O worker irá gerar um automaticamente quando detectar uma tendência válida nas próximas etapas.</div>`;
+                return;
+            }
+            const dirLabel = sig.trend_direction === "descida" ? "↓ Descida" : (sig.trend_direction === "subida" ? "↑ Subida" : "Lateral");
+            const seq = Array.isArray(sig.current_sequence) ? sig.current_sequence.map((r) => `#${r}`).join(" → ") : "-";
+            const numbers = Array.isArray(sig.initial_bet_numbers) ? sig.initial_bet_numbers : [];
+            const numbersHtml = numbers.map((n) => `<span class="num ${rouletteColorClass(n)}">${n}</span>`).join("");
+            trendServerMeta.innerHTML = `<span class="signal-pill pending">pendente</span> · ${formatDateTime(sig.created_at_utc)}`;
+            trendServerBody.innerHTML = `
+                <div class="trend-server-grid">
+                    <div class="field">
+                        <div class="label">Tendência</div>
+                        <div class="value">${dirLabel}</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Sequência: ${seq}</div>
+                    </div>
+                    <div class="field">
+                        <div class="label">Predição</div>
+                        <div class="value">Rank #${sig.predicted_rank ?? "-"}</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${sig.historical_matches_count ?? 0} matches • mediana ${sig.predicted_rank_median ?? "-"}</div>
+                    </div>
+                    <div class="field">
+                        <div class="label">Janela locked</div>
+                        <div class="value">#${sig.rank_low ?? "-"} – #${sig.rank_high ?? "-"}</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${numbers.length} fichas iniciais</div>
+                    </div>
+                </div>
+                <div style="margin-top:6px;">
+                    <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Números iniciais (do ranking no momento da criação)</div>
+                    <div class="trend-numbers">${numbersHtml || `<span class="hint">-</span>`}</div>
+                </div>
+                <div style="margin-top:10px;">
+                    <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Tentativas</div>
+                    <div class="trend-server-attempts">${formatSignalAttempts(sig.attempts, sig.max_attempts || 4)}</div>
+                </div>
+            `;
+        }
+
+        function renderTrendHistory(payload) {
+            const items = Array.isArray(payload?.items) ? payload.items : [];
+            const counts = payload?.counts || { pending: 0, won: 0, lost: 0 };
+            const pl = Number(payload?.pl_total || 0);
+            const plClass = pl >= 0 ? "pl-pos" : "pl-neg";
+            trendHistorySummary.innerHTML = items.length === 0
+                ? `Sem histórico ainda — sinais aparecerão aqui assim que o worker gerar.`
+                : `<strong>${items.length}</strong> sinais (won ${counts.won} • lost ${counts.lost} • pending ${counts.pending}) · P&amp;L acumulado: <span class="${plClass}">${pl >= 0 ? "+" : ""}${pl} fichas</span>`;
+            if (items.length === 0) {
+                trendHistoryWrap.style.display = "none";
+                trendHistoryTableBody.innerHTML = "";
+                return;
+            }
+            const rows = items.map((sig) => {
+                const status = String(sig.status || "");
+                const dir = sig.trend_direction === "descida" ? "↓" : (sig.trend_direction === "subida" ? "↑" : "·");
+                const seq = Array.isArray(sig.current_sequence) ? sig.current_sequence.map((r) => `#${r}`).join("→") : "-";
+                const attemptsUsed = sig.attempts_used ?? (sig.attempts || []).length;
+                const attemptsTxt = `${attemptsUsed}/${sig.max_attempts ?? "-"}`;
+                const plVal = sig.pl_chips;
+                const plDisplay = (typeof plVal === "number")
+                    ? `<span class="${plVal >= 0 ? "pl-pos" : "pl-neg"}">${plVal >= 0 ? "+" : ""}${plVal}</span>`
+                    : `<span style="color:var(--muted);">-</span>`;
+                const numbers = Array.isArray(sig.initial_bet_numbers) ? sig.initial_bet_numbers : [];
+                return `<tr>
+                    <td>${formatDateTime(sig.created_at_utc)}</td>
+                    <td><span class="signal-pill ${status}">${status}</span></td>
+                    <td>${dir}</td>
+                    <td>${seq}</td>
+                    <td>#${sig.rank_low ?? "-"}–#${sig.rank_high ?? "-"}</td>
+                    <td>${attemptsTxt}</td>
+                    <td>${plDisplay}</td>
+                    <td class="numbers-cell">${numbers.join(", ") || "-"}</td>
+                </tr>`;
+            });
+            trendHistoryTableBody.innerHTML = rows.join("");
+            trendHistoryWrap.style.display = "block";
+        }
+
+        async function loadTrendSignalsFromServer() {
+            const rouletteId = rouletteSelect.value;
+            if (!rouletteId) return;
+            if (trendSignalsLoading) return;
+            trendSignalsLoading = true;
+            try {
+                const [activeRes, listRes] = await Promise.all([
+                    fetch(`/api/suggestion-trend-signals/${encodeURIComponent(rouletteId)}/active`, { cache: "no-store" }),
+                    fetch(`/api/suggestion-trend-signals/${encodeURIComponent(rouletteId)}?limit=50`, { cache: "no-store" }),
+                ]);
+                const activeData = activeRes.ok ? await activeRes.json().catch(() => ({})) : {};
+                const listData = listRes.ok ? await listRes.json().catch(() => ({})) : {};
+                renderActiveSignal(activeData);
+                renderTrendHistory(listData);
+                lastTrendSignalsLoadAt = Date.now();
+            } catch (_) {
+                // silent
+            } finally {
+                trendSignalsLoading = false;
+            }
+        }
+
+        function runTrendBacktest() {
+            const items = currentTimelineItems;
+            const N = trendSteps;
+            const A = trendAttempts;
+            const W = trendWindowSize;
+
+            if (!Array.isArray(items) || items.length < N + A + 1) {
+                trendBacktestSummary.textContent = `Dados insuficientes para simular (precisa de pelo menos ${N + A + 1} eventos com hit_rank conhecido).`;
+                trendBacktestWrap.style.display = "none";
+                trendBacktestTableBody.innerHTML = "";
+                return;
+            }
+
+            let signals = 0;
+            let combinedHits = 0;
+            const hitsByAttempt = new Array(A).fill(0);
+            const evaluatedByAttempt = new Array(A).fill(0);
+            let totalCost = 0;
+            let totalReturn = 0;
+
+            for (let i = N; i + A <= items.length; i++) {
+                const seq = buildTrendSequence(items, i, N);
+                if (!seq) continue;
+                const dir = detectTrendDirection(seq);
+                if (dir === "lateral") continue;
+
+                const matches = findHistoricalNextRanks(items, i - N, seq, trendTolerance);
+                if (matches.length === 0) continue;
+
+                const predicted = Math.round(median(matches));
+                const { low, high } = computeBetWindow(predicted, dir, W);
+                signals++;
+
+                let won = false;
+                for (let k = 0; k < A; k++) {
+                    const it = items[i + k];
+                    if (!it) break;
+                    evaluatedByAttempt[k]++;
+                    totalCost += W;
+                    const r = it.hit_rank;
+                    if (typeof r === "number" && r >= low && r <= high) {
+                        hitsByAttempt[k]++;
+                        totalReturn += 36;
+                        won = true;
+                        break;
+                    }
+                }
+                if (won) combinedHits++;
+            }
+
+            if (signals === 0) {
+                trendBacktestSummary.textContent = `Sem sinais durante a simulação (parâmetros: N=${N}, ±${trendTolerance}, janela=${W}, tentativas=${A}).`;
+                trendBacktestWrap.style.display = "none";
+                trendBacktestTableBody.innerHTML = "";
+                return;
+            }
+
+            const overallHitRate = (combinedHits / signals) * 100;
+            const pl = totalReturn - totalCost;
+            const plClass = pl >= 0 ? "pl-pos" : "pl-neg";
+            trendBacktestSummary.innerHTML =
+                `<strong>${signals}</strong> sinal${signals === 1 ? "" : "s"} avaliado${signals === 1 ? "" : "s"} • ` +
+                `hit rate combinado em até ${A} tentativa${A === 1 ? "" : "s"}: <strong>${overallHitRate.toFixed(1)}%</strong> • ` +
+                `P&amp;L total: <span class="${plClass}">${pl >= 0 ? "+" : ""}${pl} fichas</span> ` +
+                `<span style="color:var(--muted);">(custo ${totalCost} • retorno ${totalReturn})</span>`;
+
+            let cumulativeHits = 0;
+            const rows = [];
+            for (let k = 0; k < A; k++) {
+                const evaluated = evaluatedByAttempt[k];
+                const hits = hitsByAttempt[k];
+                cumulativeHits += hits;
+                const rate = evaluated > 0 ? (hits / evaluated) * 100 : 0;
+                const cumRate = signals > 0 ? (cumulativeHits / signals) * 100 : 0;
+                const attemptCost = evaluated * W;
+                const attemptReturn = hits * 36;
+                const attemptPL = attemptReturn - attemptCost;
+                const apClass = attemptPL >= 0 ? "pl-pos" : "pl-neg";
+                rows.push(`<tr>
+                    <td>${k + 1}ª tentativa</td>
+                    <td>${evaluated}</td>
+                    <td>${hits}</td>
+                    <td>${rate.toFixed(1)}%</td>
+                    <td>${cumRate.toFixed(1)}%</td>
+                    <td class="${apClass}">${attemptPL >= 0 ? "+" : ""}${attemptPL}</td>
+                </tr>`);
+            }
+            trendBacktestTableBody.innerHTML = rows.join("");
+            trendBacktestWrap.style.display = "block";
+        }
+
+        trendApplyButton.addEventListener("click", applyTrendParams);
+        trendBacktestButton.addEventListener("click", runTrendBacktest);
 
         const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
@@ -1360,6 +2273,8 @@
                             renderChart(indexedItems);
                             renderStrategyChart(indexedItems);
                             renderTable(indexedItems);
+                            renderTrendLive(indexedItems);
+                            loadTrendSignalsFromServer();
                             setLiveAwareStatus("Nova sugestão recebida, aguardando ranking salvo");
                         }
                     }
@@ -1422,6 +2337,8 @@
                 renderChart(items);
                 renderStrategyChart(items);
                 renderTable(items);
+                renderTrendLive(items);
+                loadTrendSignalsFromServer();
                 lastLoadedAt = new Date().toLocaleTimeString("pt-BR");
                 if (source === "live") {
                     setLiveAwareStatus(`Timeline atualizada em tempo real às ${lastLoadedAt}`);
@@ -1448,6 +2365,7 @@
                     },
                 });
                 renderNumbersSequence([]);
+                clearTrendLive("Falha ao carregar dados");
                 eventsTableBody.innerHTML = `<tr><td colspan="8">Não foi possível carregar os dados.</td></tr>`;
                 if (timelineChart) {
                     timelineChart.destroy();
@@ -1489,6 +2407,7 @@
 
         (async function bootstrap() {
             try {
+                await loadTrendConfigFromServer();
                 await loadRoulettes();
                 await loadTimeline();
                 connectTimelineWebSocket();
