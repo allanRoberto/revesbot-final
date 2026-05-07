@@ -10,6 +10,7 @@ from api.services.suggestion_snapshot_service import (
     resolve_latest_suggestion_snapshot,
     resolve_suggestion_snapshot_by_history_id,
     resolve_suggestion_snapshot_by_index,
+    simulate_alternating_mirror_walkforward,
 )
 from api.services.suggestion_rank_strategy_learning import (
     build_rank_strategy_dataset,
@@ -109,12 +110,18 @@ async def get_suggestion_snapshot_rank_timeline_route(
     roulette_id: str = Query(..., min_length=1),
     limit: int = Query(default=200, ge=20, le=2000),
     include_all_configs: bool = Query(default=False),
+    zone_top_end: int = Query(default=7, ge=1, le=36),
+    zone_bottom_start: int = Query(default=29, ge=2, le=37),
+    mirror_midpoint: int = Query(default=19, ge=2, le=36),
 ):
     try:
         return await build_suggestion_snapshot_rank_timeline(
             roulette_id=roulette_id,
             limit=limit,
             include_all_configs=include_all_configs,
+            zone_top_end=zone_top_end,
+            zone_bottom_start=zone_bottom_start,
+            mirror_midpoint=mirror_midpoint,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -122,6 +129,36 @@ async def get_suggestion_snapshot_rank_timeline_route(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Falha ao montar timeline das sugestões: {exc}")
+
+
+@router.get("/api/suggestion-snapshots/performance/mirror-simulator")
+async def get_mirror_simulator_route(
+    roulette_id: str = Query(..., min_length=1),
+    limit: int = Query(default=1000, ge=100, le=2000),
+    include_all_configs: bool = Query(default=False),
+    window: int = Query(default=60, ge=8, le=500),
+    midpoint: int = Query(default=19, ge=2, le=36),
+    zone_top_end: int = Query(default=7, ge=1, le=36),
+    zone_bottom_start: int = Query(default=29, ge=2, le=37),
+    gate_acf_threshold: float = Query(default=-0.15, ge=-1.0, le=1.0),
+):
+    try:
+        return await simulate_alternating_mirror_walkforward(
+            roulette_id=roulette_id,
+            limit=limit,
+            include_all_configs=include_all_configs,
+            window=window,
+            midpoint=midpoint,
+            zone_top_end=zone_top_end,
+            zone_bottom_start=zone_bottom_start,
+            gate_acf_threshold=gate_acf_threshold,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao simular estratégia mirror: {exc}")
 
 
 @router.get("/api/suggestion-snapshots/performance/strategy-dataset")

@@ -937,7 +937,11 @@ def build_final_suggestion(
 
         is_inverted = (n in inv_set) and (not is_pulled)
         if is_inverted:
-            score = score * float(inversion_penalty_factor)
+            # FIX: Apply mild penalty to hot numbers not naturally selected (Opção 2)
+            # If number was selected naturally, trust the selection (no inversion)
+            # If not selected, apply gentler penalty instead of harsh 0.3x
+            mild_inversion_factor = 0.75  # 25% reduction vs 70% before
+            score = score * mild_inversion_factor
 
         ranked.append(
             {

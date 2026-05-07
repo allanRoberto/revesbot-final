@@ -640,6 +640,10 @@ def _extract_snapshot_timeline_context(snapshot_doc: Mapping[str, Any], ranking:
 
 
 STRATEGY_OUTSIDE_RANK = 38
+ZIGZAG_DEFAULT_TOP_END = 7
+ZIGZAG_DEFAULT_BOTTOM_START = 29
+ZIGZAG_MIN_SAMPLE = 8
+ZIGZAG_RUNS_TEST_Z_THRESHOLD = 1.96
 STRATEGY_MIN_CORRECTION = 4
 STRATEGY_SMALL_EDGE_SIZE = 5
 STRATEGY_MEDIUM_EDGE_SIZE = 8
@@ -829,6 +833,225 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         "top_10_hits": sum(strategy_distribution[str(rank)] for rank in range(1, 11)),
         "avg_hit_rank": round(sum(int(item["strategy_hit_rank"]) for item in strategy_hit_items) / len(strategy_hit_items), 2) if strategy_hit_items else None,
         "rank_distribution": strategy_distribution,
+    }
+
+
+MIRROR_DEFAULT_MIDPOINT = 19
+ROLLING_ZIGZAG_DEFAULT_WINDOW = 60
+ROLLING_ZIGZAG_GATE_ACF_THRESHOLD = -0.15
+
+
+def _compute_zigzag_metrics_lite(
+    series: List[int],
+    *,
+    top_end: int,
+    bottom_start: int,
+) -> Dict[str, Any]:
+    # Versão enxuta para uso em janela rolante: só ACF lag 1 + runs test z.
+    n = len(series)
+    out: Dict[str, Any] = {
+        "acf_lag_1": None,
+        "runs_z": None,
+        "interpretation": "insufficient_data",
+        "n_top": 0,
+        "n_bot": 0,
+    }
+    if n < ZIGZAG_MIN_SAMPLE:
+        return out
+
+    mean = sum(series) / n
+    sq_dev_total = sum((x - mean) ** 2 for x in series)
+    if sq_dev_total > 0 and n > 1:
+        cov = sum((series[t] - mean) * (series[t + 1] - mean) for t in range(n - 1))
+        out["acf_lag_1"] = round(cov / sq_dev_total, 4)
+
+    binarized: List[int] = []
+    for x in series:
+        if x <= top_end:
+            binarized.append(1)
+        elif x >= bottom_start:
+            binarized.append(0)
+    n1 = sum(binarized)
+    n2 = len(binarized) - n1
+    out["n_top"] = n1
+    out["n_bot"] = n2
+    if n1 >= 2 and n2 >= 2:
+        runs = 1
+        for i in range(1, len(binarized)):
+            if binarized[i] != binarized[i - 1]:
+                runs += 1
+        total = n1 + n2
+        expected = (2 * n1 * n2) / total + 1
+        variance = (2 * n1 * n2 * (2 * n1 * n2 - total)) / ((total ** 2) * (total - 1))
+        if variance > 0:
+            z = (runs - expected) / (variance ** 0.5)
+            out["runs_z"] = round(z, 4)
+            if z >= ZIGZAG_RUNS_TEST_Z_THRESHOLD:
+                out["interpretation"] = "significant_zigzag"
+            elif z <= -ZIGZAG_RUNS_TEST_Z_THRESHOLD:
+                out["interpretation"] = "significant_clustering"
+            else:
+                out["interpretation"] = "no_significant_pattern"
+    return out
+
+
+def _build_rolling_zigzag_diagnostics(
+    items: List[Dict[str, Any]],
+    *,
+    window: int = ROLLING_ZIGZAG_DEFAULT_WINDOW,
+    top_end: int = ZIGZAG_DEFAULT_TOP_END,
+    bottom_start: int = ZIGZAG_DEFAULT_BOTTOM_START,
+    miss_rank: int = STRATEGY_OUTSIDE_RANK,
+    gate_acf_threshold: float = ROLLING_ZIGZAG_GATE_ACF_THRESHOLD,
+) -> Dict[str, Any]:
+    safe_window = max(ZIGZAG_MIN_SAMPLE, min(500, int(window or ROLLING_ZIGZAG_DEFAULT_WINDOW)))
+    series_full: List[int] = []
+    series_index_for_item: List[int | None] = []
+    for item in items:
+        if item.get("next_number") is None:
+            series_index_for_item.append(None)
+            continue
+        rank = item.get("hit_rank")
+        series_full.append(int(rank) if isinstance(rank, int) else int(miss_rank))
+        series_index_for_item.append(len(series_full) - 1)
+
+    interp_counts = {
+        "significant_zigzag": 0,
+        "significant_clustering": 0,
+        "no_significant_pattern": 0,
+        "insufficient_data": 0,
+    }
+    gate_active_count = 0
+    evaluated = 0
+
+    for item, series_idx in zip(items, series_index_for_item):
+        if series_idx is None:
+            item["rolling_zigzag"] = None
+            continue
+        start = max(0, series_idx - safe_window + 1)
+        window_series = series_full[start : series_idx + 1]
+        metrics = _compute_zigzag_metrics_lite(
+            window_series,
+            top_end=top_end,
+            bottom_start=bottom_start,
+        )
+        gate_active = (
+            metrics["interpretation"] == "significant_zigzag"
+            and metrics["acf_lag_1"] is not None
+            and metrics["acf_lag_1"] <= gate_acf_threshold
+        )
+        item["rolling_zigzag"] = {
+            "window_size": len(window_series),
+            "acf_lag_1": metrics["acf_lag_1"],
+            "runs_z": metrics["runs_z"],
+            "interpretation": metrics["interpretation"],
+            "gate_active": bool(gate_active),
+        }
+        interp_counts[metrics["interpretation"]] += 1
+        evaluated += 1
+        if gate_active:
+            gate_active_count += 1
+
+    return {
+        "window": safe_window,
+        "gate_acf_threshold": gate_acf_threshold,
+        "evaluated_items": evaluated,
+        "interpretation_counts": interp_counts,
+        "gate_active_items": gate_active_count,
+        "gate_active_rate_percent": (
+            round(gate_active_count / evaluated * 100.0, 2) if evaluated else 0.0
+        ),
+    }
+
+
+def _apply_alternating_mirror_strategy(
+    items: List[Dict[str, Any]],
+    *,
+    midpoint: int = MIRROR_DEFAULT_MIDPOINT,
+) -> Dict[str, Any]:
+    # Hipótese: depois de um acerto no topo (rank <= midpoint) o próximo aterrissa
+    # na parte de baixo do ranking, e vice-versa. Quando esperamos "bot", espelhamos
+    # o ranking (rank' = 38 - rank) para que o número sorteado caia em rank baixo do
+    # ranking espelhado. Misses reais entram no estado como rank 38 (extremo inferior).
+    safe_midpoint = max(2, min(36, int(midpoint or MIRROR_DEFAULT_MIDPOINT)))
+    expect_low = True
+    mirror_distribution = {str(rank): 0 for rank in range(1, 38)}
+    mirror_hit_items: List[Dict[str, Any]] = []
+    mirrored_steps = 0
+    kept_steps = 0
+    resolved_items = 0
+    misses = 0
+
+    for item in items:
+        original_hit_rank = item.get("hit_rank")
+        is_pending = item.get("next_number") is None
+        is_mirrored = not expect_low
+
+        if is_pending:
+            mirror_hit_rank = None
+            mirror_plot_rank = None
+        elif isinstance(original_hit_rank, int):
+            mirror_hit_rank = (38 - original_hit_rank) if is_mirrored else int(original_hit_rank)
+            mirror_plot_rank = mirror_hit_rank
+        else:
+            mirror_hit_rank = None
+            mirror_plot_rank = STRATEGY_OUTSIDE_RANK
+
+        item["mirror_hit_rank"] = mirror_hit_rank
+        item["mirror_plot_rank"] = mirror_plot_rank
+        item["mirror_mode"] = "mirrored" if is_mirrored else "kept"
+        item["mirror_expect_low"] = expect_low
+
+        if is_pending:
+            continue
+
+        resolved_items += 1
+        if is_mirrored:
+            mirrored_steps += 1
+        else:
+            kept_steps += 1
+
+        if isinstance(mirror_hit_rank, int) and 1 <= mirror_hit_rank <= 37:
+            mirror_distribution[str(mirror_hit_rank)] += 1
+            mirror_hit_items.append(item)
+        else:
+            misses += 1
+
+        effective_rank = (
+            int(original_hit_rank)
+            if isinstance(original_hit_rank, int)
+            else STRATEGY_OUTSIDE_RANK
+        )
+        expect_low = effective_rank > safe_midpoint
+
+    return {
+        "enabled": True,
+        "name": "alternating_mirror_v1",
+        "midpoint": safe_midpoint,
+        "mirrored_steps": mirrored_steps,
+        "kept_steps": kept_steps,
+        "resolved_items": resolved_items,
+        "hits_in_ranking": len(mirror_hit_items),
+        "outside_ranking": misses,
+        "hit_rate_percent": (
+            round(len(mirror_hit_items) / resolved_items * 100.0, 2)
+            if resolved_items
+            else 0.0
+        ),
+        "top_1_hits": mirror_distribution["1"],
+        "top_3_hits": sum(mirror_distribution[str(rank)] for rank in range(1, 4)),
+        "top_5_hits": sum(mirror_distribution[str(rank)] for rank in range(1, 6)),
+        "top_10_hits": sum(mirror_distribution[str(rank)] for rank in range(1, 11)),
+        "avg_hit_rank": (
+            round(
+                sum(int(item["mirror_hit_rank"]) for item in mirror_hit_items)
+                / len(mirror_hit_items),
+                2,
+            )
+            if mirror_hit_items
+            else None
+        ),
+        "rank_distribution": mirror_distribution,
     }
 
 
@@ -1135,13 +1358,162 @@ def _apply_movement_range_prediction(items: List[Dict[str, Any]]) -> Dict[str, A
     }
 
 
+def _build_zigzag_diagnostics(
+    items: List[Dict[str, Any]],
+    *,
+    top_end: int = ZIGZAG_DEFAULT_TOP_END,
+    bottom_start: int = ZIGZAG_DEFAULT_BOTTOM_START,
+    miss_rank: int = STRATEGY_OUTSIDE_RANK,
+) -> Dict[str, Any]:
+    # Misses are folded into the series at miss_rank (default 38) so the metric
+    # stays aligned with what the chart shows for "fora do ranking" events.
+    series: List[int] = []
+    for item in items:
+        if item.get("next_number") is None:
+            continue
+        rank = item.get("hit_rank")
+        series.append(int(rank) if isinstance(rank, int) else int(miss_rank))
+
+    diagnostics: Dict[str, Any] = {
+        "available": False,
+        "sample_size": len(series),
+        "miss_rank_used": miss_rank,
+        "zone_top_end": top_end,
+        "zone_bottom_start": bottom_start,
+        "min_sample": ZIGZAG_MIN_SAMPLE,
+        "autocorrelation": {"lag_1": None, "lag_2": None, "lag_3": None},
+        "conditional": {
+            "p_top_baseline": None,
+            "p_top_given_top": None,
+            "p_top_given_bot": None,
+            "lift_bot_vs_top": None,
+            "n_top_prev": 0,
+            "n_bot_prev": 0,
+        },
+        "runs_test": {
+            "n_top": 0,
+            "n_bot": 0,
+            "runs": 0,
+            "expected_runs": None,
+            "variance": None,
+            "z_score": None,
+            "interpretation": "insufficient_data",
+        },
+    }
+
+    n = len(series)
+    if n < ZIGZAG_MIN_SAMPLE:
+        return diagnostics
+    diagnostics["available"] = True
+
+    mean = sum(series) / n
+    sq_dev_total = sum((x - mean) ** 2 for x in series)
+    if sq_dev_total > 0:
+        for lag in (1, 2, 3):
+            if n > lag:
+                cov = sum(
+                    (series[t] - mean) * (series[t + lag] - mean)
+                    for t in range(n - lag)
+                )
+                diagnostics["autocorrelation"][f"lag_{lag}"] = round(cov / sq_dev_total, 4)
+
+    n_top_prev = 0
+    n_bot_prev = 0
+    n_top_after_top = 0
+    n_top_after_bot = 0
+    for t in range(n - 1):
+        cur = series[t]
+        nxt_is_top = series[t + 1] <= top_end
+        if cur <= top_end:
+            n_top_prev += 1
+            if nxt_is_top:
+                n_top_after_top += 1
+        elif cur >= bottom_start:
+            n_bot_prev += 1
+            if nxt_is_top:
+                n_top_after_bot += 1
+
+    p_top_given_top = round(n_top_after_top / n_top_prev, 4) if n_top_prev else None
+    p_top_given_bot = round(n_top_after_bot / n_bot_prev, 4) if n_bot_prev else None
+    p_baseline = round(sum(1 for x in series if x <= top_end) / n, 4)
+    lift = None
+    if (
+        p_top_given_top is not None
+        and p_top_given_bot is not None
+        and p_top_given_top > 0
+    ):
+        lift = round(p_top_given_bot / p_top_given_top, 4)
+
+    diagnostics["conditional"] = {
+        "p_top_baseline": p_baseline,
+        "p_top_given_top": p_top_given_top,
+        "p_top_given_bot": p_top_given_bot,
+        "lift_bot_vs_top": lift,
+        "n_top_prev": n_top_prev,
+        "n_bot_prev": n_bot_prev,
+    }
+
+    binarized: List[int] = []
+    for x in series:
+        if x <= top_end:
+            binarized.append(1)
+        elif x >= bottom_start:
+            binarized.append(0)
+
+    n1 = sum(binarized)
+    n2 = len(binarized) - n1
+    runs = 0
+    if binarized:
+        runs = 1
+        for i in range(1, len(binarized)):
+            if binarized[i] != binarized[i - 1]:
+                runs += 1
+
+    expected_runs: float | None = None
+    variance_runs: float | None = None
+    z_score: float | None = None
+    interpretation = "insufficient_data"
+    if n1 >= 2 and n2 >= 2:
+        total = n1 + n2
+        expected_runs = (2 * n1 * n2) / total + 1
+        variance_runs = (
+            (2 * n1 * n2 * (2 * n1 * n2 - total)) / ((total ** 2) * (total - 1))
+        )
+        if variance_runs > 0:
+            z_score = (runs - expected_runs) / (variance_runs ** 0.5)
+            if z_score >= ZIGZAG_RUNS_TEST_Z_THRESHOLD:
+                interpretation = "significant_zigzag"
+            elif z_score <= -ZIGZAG_RUNS_TEST_Z_THRESHOLD:
+                interpretation = "significant_clustering"
+            else:
+                interpretation = "no_significant_pattern"
+
+    diagnostics["runs_test"] = {
+        "n_top": n1,
+        "n_bot": n2,
+        "runs": runs,
+        "expected_runs": round(expected_runs, 2) if expected_runs is not None else None,
+        "variance": round(variance_runs, 4) if variance_runs is not None else None,
+        "z_score": round(z_score, 4) if z_score is not None else None,
+        "interpretation": interpretation,
+    }
+
+    return diagnostics
+
+
 async def build_suggestion_snapshot_rank_timeline(
     *,
     roulette_id: str,
     limit: int = 200,
     include_all_configs: bool = False,
+    zone_top_end: int = ZIGZAG_DEFAULT_TOP_END,
+    zone_bottom_start: int = ZIGZAG_DEFAULT_BOTTOM_START,
+    mirror_midpoint: int = MIRROR_DEFAULT_MIDPOINT,
 ) -> Dict[str, Any]:
     safe_limit = max(20, min(2000, int(limit or 200)))
+    safe_top_end = max(1, min(36, int(zone_top_end or ZIGZAG_DEFAULT_TOP_END)))
+    safe_bottom_start = max(safe_top_end + 1, min(37, int(zone_bottom_start or ZIGZAG_DEFAULT_BOTTOM_START)))
+    safe_mirror_midpoint = max(2, min(36, int(mirror_midpoint or MIRROR_DEFAULT_MIDPOINT)))
     config_doc = await get_or_create_global_suggestion_snapshot_config()
     current_config_key = build_suggestion_snapshot_config_key(config_doc)
 
@@ -1259,12 +1631,178 @@ async def build_suggestion_snapshot_rank_timeline(
     }
     summary["strategy"] = _apply_inversion_strategy(items)
     summary["range_prediction"] = _apply_movement_range_prediction(items)
+    summary["zigzag_diagnostics"] = _build_zigzag_diagnostics(
+        items,
+        top_end=safe_top_end,
+        bottom_start=safe_bottom_start,
+    )
+    summary["mirror_strategy"] = _apply_alternating_mirror_strategy(
+        items,
+        midpoint=safe_mirror_midpoint,
+    )
+    summary["rolling_zigzag_diagnostics"] = _build_rolling_zigzag_diagnostics(
+        items,
+        window=ROLLING_ZIGZAG_DEFAULT_WINDOW,
+        top_end=safe_top_end,
+        bottom_start=safe_bottom_start,
+    )
 
     return {
         "available": True,
         "roulette_id": roulette_id,
         "summary": summary,
         "items": items,
+    }
+
+
+MIRROR_SIM_DEFAULT_K_LIST = (3, 5, 7, 10)
+
+
+def _mirror_sim_empty_strategy() -> Dict[str, Any]:
+    return {
+        "signals": 0,
+        "hits_by_k": {str(k): 0 for k in MIRROR_SIM_DEFAULT_K_LIST},
+        "hit_rate_by_k": {str(k): 0.0 for k in MIRROR_SIM_DEFAULT_K_LIST},
+        "avg_effective_rank": None,
+        "outside_ranking": 0,
+    }
+
+
+async def simulate_alternating_mirror_walkforward(
+    *,
+    roulette_id: str,
+    limit: int = 1000,
+    include_all_configs: bool = False,
+    window: int = ROLLING_ZIGZAG_DEFAULT_WINDOW,
+    midpoint: int = MIRROR_DEFAULT_MIDPOINT,
+    zone_top_end: int = ZIGZAG_DEFAULT_TOP_END,
+    zone_bottom_start: int = ZIGZAG_DEFAULT_BOTTOM_START,
+    gate_acf_threshold: float = ROLLING_ZIGZAG_GATE_ACF_THRESHOLD,
+) -> Dict[str, Any]:
+    timeline = await build_suggestion_snapshot_rank_timeline(
+        roulette_id=roulette_id,
+        limit=limit,
+        include_all_configs=include_all_configs,
+        zone_top_end=zone_top_end,
+        zone_bottom_start=zone_bottom_start,
+        mirror_midpoint=midpoint,
+    )
+    items = timeline.get("items") or []
+    safe_window = max(ZIGZAG_MIN_SAMPLE, min(500, int(window or ROLLING_ZIGZAG_DEFAULT_WINDOW)))
+    safe_midpoint = max(2, min(36, int(midpoint or MIRROR_DEFAULT_MIDPOINT)))
+
+    # Per-strategy aggregates
+    strategies = {
+        "baseline": _mirror_sim_empty_strategy(),
+        "mirror_always": _mirror_sim_empty_strategy(),
+        "mirror_gated": _mirror_sim_empty_strategy(),
+    }
+    strategies["mirror_gated"]["gated_steps"] = 0
+    strategies["mirror_gated"]["gated_hits_by_k"] = {str(k): 0 for k in MIRROR_SIM_DEFAULT_K_LIST}
+
+    expect_low = True
+    warmup_skipped = 0
+    evaluated = 0
+    effective_ranks: Dict[str, List[int]] = {key: [] for key in strategies}
+
+    for item in items:
+        if item.get("next_number") is None:
+            continue
+        # Need rolling diagnostic to be informative for the gate; otherwise treat as warmup
+        rolling = item.get("rolling_zigzag") or {}
+        window_size = int(rolling.get("window_size") or 0)
+        gate_active = bool(rolling.get("gate_active"))
+        if window_size < safe_window:
+            warmup_skipped += 1
+            # Still update mirror state with whatever we have so the strategy isn't cold
+            hit_rank_state = item.get("hit_rank")
+            effective_for_state = (
+                int(hit_rank_state)
+                if isinstance(hit_rank_state, int)
+                else STRATEGY_OUTSIDE_RANK
+            )
+            expect_low = effective_for_state > safe_midpoint
+            continue
+
+        evaluated += 1
+        hit_rank = item.get("hit_rank")
+        is_hit = isinstance(hit_rank, int)
+
+        for strategy_name in ("baseline", "mirror_always", "mirror_gated"):
+            if strategy_name == "baseline":
+                bet_top = True
+            elif strategy_name == "mirror_always":
+                bet_top = expect_low
+            else:  # mirror_gated
+                bet_top = (not gate_active) or expect_low
+
+            stats = strategies[strategy_name]
+            stats["signals"] += 1
+            if not is_hit:
+                stats["outside_ranking"] += 1
+                effective_ranks[strategy_name].append(STRATEGY_OUTSIDE_RANK)
+            else:
+                effective_rank = (
+                    int(hit_rank) if bet_top else (38 - int(hit_rank))
+                )
+                effective_ranks[strategy_name].append(effective_rank)
+                for k in MIRROR_SIM_DEFAULT_K_LIST:
+                    if 1 <= effective_rank <= k:
+                        stats["hits_by_k"][str(k)] += 1
+
+            if strategy_name == "mirror_gated" and gate_active:
+                stats["gated_steps"] += 1
+                if is_hit:
+                    bot_rank = 38 - int(hit_rank)
+                    for k in MIRROR_SIM_DEFAULT_K_LIST:
+                        if 1 <= bot_rank <= k:
+                            stats["gated_hits_by_k"][str(k)] += 1
+
+        # Update mirror state for next iteration using the original observation.
+        effective_for_state = (
+            int(hit_rank) if is_hit else STRATEGY_OUTSIDE_RANK
+        )
+        expect_low = effective_for_state > safe_midpoint
+
+    for strategy_name, stats in strategies.items():
+        signals = stats["signals"]
+        for k in MIRROR_SIM_DEFAULT_K_LIST:
+            stats["hit_rate_by_k"][str(k)] = (
+                round(stats["hits_by_k"][str(k)] / signals * 100.0, 2) if signals else 0.0
+            )
+        ranks = effective_ranks[strategy_name]
+        stats["avg_effective_rank"] = (
+            round(sum(ranks) / len(ranks), 2) if ranks else None
+        )
+
+    # Lift = (mirror_gated.hit_rate / baseline.hit_rate) per K — quão mais eficiente é
+    lift_vs_baseline = {}
+    for k in MIRROR_SIM_DEFAULT_K_LIST:
+        baseline_rate = strategies["baseline"]["hit_rate_by_k"][str(k)]
+        gated_rate = strategies["mirror_gated"]["hit_rate_by_k"][str(k)]
+        always_rate = strategies["mirror_always"]["hit_rate_by_k"][str(k)]
+        lift_vs_baseline[str(k)] = {
+            "baseline_hit_rate_percent": baseline_rate,
+            "mirror_always_hit_rate_percent": always_rate,
+            "mirror_gated_hit_rate_percent": gated_rate,
+            "always_minus_baseline_pp": round(always_rate - baseline_rate, 2),
+            "gated_minus_baseline_pp": round(gated_rate - baseline_rate, 2),
+        }
+
+    return {
+        "available": True,
+        "roulette_id": roulette_id,
+        "limit": int(limit),
+        "window": safe_window,
+        "midpoint": safe_midpoint,
+        "zone_top_end": int(zone_top_end),
+        "zone_bottom_start": int(zone_bottom_start),
+        "gate_acf_threshold": float(gate_acf_threshold),
+        "k_list": list(MIRROR_SIM_DEFAULT_K_LIST),
+        "warmup_skipped": warmup_skipped,
+        "evaluated_items": evaluated,
+        "strategies": strategies,
+        "comparison_by_k": lift_vs_baseline,
     }
 
 

@@ -218,6 +218,54 @@
         .zones-legend-dot.bot { background: #3b82f6; }
         .zones-legend-dot.neutral { background: #94a3b8; }
 
+        .overlays-config {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 10px 0 14px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .overlays-config .overlays-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            width: 100%;
+            margin-bottom: 2px;
+        }
+
+        .overlays-config label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .overlays-config label input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        .overlays-config .overlay-swatch {
+            width: 18px;
+            height: 3px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+        .overlays-config .overlay-swatch.median2 { background: #f59e0b; }
+        .overlays-config .overlay-swatch.even { background: #0ea5e9; }
+        .overlays-config .overlay-swatch.odd { background: #a855f7; }
+        .overlays-config .overlay-swatch.ema { background: #14b8a6; }
+        .overlays-config .overlay-swatch.mirror { background: #dc2626; }
+
         .sequence-panel {
             margin-bottom: 16px;
             padding: 14px 16px;
@@ -865,6 +913,31 @@
                 </div>
             </div>
 
+            <div class="overlays-config">
+                <div class="overlays-title">Sobreposições no gráfico (suavizações do zigzag)</div>
+                <label title="Mediana de janela 2 = média de cada par consecutivo. Neutraliza zigzag de período 2.">
+                    <input id="overlayMedian2" type="checkbox" />
+                    <span class="overlay-swatch median2"></span>
+                    Janela 2 (média de pares)
+                </label>
+                <label title="Decompõe a série em índices pares e ímpares. Cada uma sozinha tende a ser mais estável se houver zigzag de fase fixa.">
+                    <input id="overlayEvenOdd" type="checkbox" />
+                    <span class="overlay-swatch even"></span>
+                    <span class="overlay-swatch odd"></span>
+                    Decomposição par/ímpar
+                </label>
+                <label title="Média móvel exponencial (α=0.4). Mostra para onde o ranking realmente caminha sem o ruído.">
+                    <input id="overlayEma" type="checkbox" />
+                    <span class="overlay-swatch ema"></span>
+                    EMA (α=0.4)
+                </label>
+                <label title="Espelha o rank em torno do meio (39 - rank) sempre que o passo anterior aterrissou no topo, dobrando o gráfico para baixo se a hipótese de zigzag for verdadeira.">
+                    <input id="overlayMirror" type="checkbox" />
+                    <span class="overlay-swatch mirror"></span>
+                    Zigzag espelhado
+                </label>
+            </div>
+
             <div class="sequence-panel">
                 <div class="sequence-head">
                     <div class="title" id="sequenceTitle">Sequência de Eventos (mais recente → mais antigo)</div>
@@ -1124,6 +1197,114 @@
         }
 
         applyZonesButton.addEventListener("click", applyZones);
+
+        // === Chart overlays (zigzag smoothing) =============================
+        const LS_OV_MEDIAN2 = "rankTimeline_overlayMedian2";
+        const LS_OV_EVENODD = "rankTimeline_overlayEvenOdd";
+        const LS_OV_EMA = "rankTimeline_overlayEma";
+        const LS_OV_MIRROR = "rankTimeline_overlayMirror";
+        const EMA_ALPHA = 0.4;
+
+        const overlayMedian2Input = document.getElementById("overlayMedian2");
+        const overlayEvenOddInput = document.getElementById("overlayEvenOdd");
+        const overlayEmaInput = document.getElementById("overlayEma");
+        const overlayMirrorInput = document.getElementById("overlayMirror");
+
+        overlayMedian2Input.checked = localStorage.getItem(LS_OV_MEDIAN2) === "1";
+        overlayEvenOddInput.checked = localStorage.getItem(LS_OV_EVENODD) === "1";
+        overlayEmaInput.checked = localStorage.getItem(LS_OV_EMA) === "1";
+        overlayMirrorInput.checked = localStorage.getItem(LS_OV_MIRROR) === "1";
+
+        function getActiveOverlays() {
+            const overlays = [];
+            if (overlayMedian2Input.checked) overlays.push("median2");
+            if (overlayEvenOddInput.checked) overlays.push("evenodd");
+            if (overlayEmaInput.checked) overlays.push("ema");
+            if (overlayMirrorInput.checked) overlays.push("mirror");
+            return overlays;
+        }
+
+        function persistOverlay(key, checked) {
+            if (checked) {
+                localStorage.setItem(key, "1");
+            } else {
+                localStorage.removeItem(key);
+            }
+        }
+
+        function refreshChartOverlays() {
+            if (currentTimelineItems.length > 0) {
+                renderChart(currentTimelineItems);
+            }
+        }
+
+        overlayMedian2Input.addEventListener("change", () => {
+            persistOverlay(LS_OV_MEDIAN2, overlayMedian2Input.checked);
+            refreshChartOverlays();
+        });
+        overlayEvenOddInput.addEventListener("change", () => {
+            persistOverlay(LS_OV_EVENODD, overlayEvenOddInput.checked);
+            refreshChartOverlays();
+        });
+        overlayEmaInput.addEventListener("change", () => {
+            persistOverlay(LS_OV_EMA, overlayEmaInput.checked);
+            refreshChartOverlays();
+        });
+        overlayMirrorInput.addEventListener("change", () => {
+            persistOverlay(LS_OV_MIRROR, overlayMirrorInput.checked);
+            refreshChartOverlays();
+        });
+
+        // Pure transforms: each receives the base series (numbers or null).
+        function transformMedian2(values) {
+            // Median of a 2-value window equals the mean. Output[i] uses values[i-1, i].
+            return values.map((cur, i) => {
+                if (i === 0) return null;
+                const prev = values[i - 1];
+                if (prev == null || cur == null) return null;
+                return (prev + cur) / 2;
+            });
+        }
+
+        function transformEvenIndices(values) {
+            return values.map((v, i) => (i % 2 === 0 ? v : null));
+        }
+
+        function transformOddIndices(values) {
+            return values.map((v, i) => (i % 2 === 1 ? v : null));
+        }
+
+        function transformEma(values, alpha = EMA_ALPHA) {
+            const out = new Array(values.length).fill(null);
+            let prev = null;
+            for (let i = 0; i < values.length; i++) {
+                const v = values[i];
+                if (v == null) {
+                    out[i] = prev;
+                    continue;
+                }
+                prev = prev == null ? v : alpha * v + (1 - alpha) * prev;
+                out[i] = prev;
+            }
+            return out;
+        }
+
+        // Mirror under the hypothesis "after a top hit comes a bot hit and vice-versa".
+        // While we expect the next point to be top, plot it as-is. While we expect bot,
+        // mirror it around the middle (39 - rank, valid for ranks in [1..38]). If the
+        // hypothesis is right, the corrected series stays glued near rank 1.
+        function transformZigzagMirror(values, midpoint) {
+            const mid = midpoint || Math.round((1 + 38) / 2); // ≈ 19
+            const out = new Array(values.length).fill(null);
+            let expectTop = true;
+            for (let i = 0; i < values.length; i++) {
+                const v = values[i];
+                if (v == null) continue;
+                out[i] = expectTop ? v : (39 - v);
+                expectTop = v > mid; // observed bot → next expect top
+            }
+            return out;
+        }
 
         // === Trend (ZigZag) strategy =======================================
         const LS_TREND_STEPS = "rankTimeline_trendSteps";
@@ -1923,7 +2104,7 @@
             eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="8">Nenhum evento encontrado.</td></tr>`;
         }
 
-        function buildChartConfig(items, { title, valueKey, tooltipLabelBuilder }) {
+        function buildChartConfig(items, { title, valueKey, tooltipLabelBuilder, overlays = [] }) {
             const labels = items.map((item, idx) => `${idx + 1}`);
             const data = items.map((item) => item[valueKey] == null ? null : item[valueKey]);
             const pointColors = items.map((item) => {
@@ -1933,22 +2114,77 @@
                 if (rank <= 10) return "#2563eb";
                 return "#ea580c";
             });
+            const datasets = [{
+                label: title,
+                data,
+                borderColor: "#2563eb",
+                backgroundColor: "rgba(37, 99, 235, 0.12)",
+                borderWidth: 2,
+                tension: 0.25,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                pointBackgroundColor: pointColors,
+                spanGaps: false,
+            }];
+
+            const overlayDatasetDefaults = {
+                borderWidth: 1.6,
+                pointRadius: 0,
+                pointHoverRadius: 3,
+                tension: 0.25,
+                spanGaps: true,
+                fill: false,
+            };
+            if (overlays.includes("median2")) {
+                datasets.push({
+                    ...overlayDatasetDefaults,
+                    label: "Janela 2 (média de pares)",
+                    data: transformMedian2(data),
+                    borderColor: "#f59e0b",
+                    borderDash: [4, 3],
+                });
+            }
+            if (overlays.includes("evenodd")) {
+                datasets.push({
+                    ...overlayDatasetDefaults,
+                    label: "Índices pares",
+                    data: transformEvenIndices(data),
+                    borderColor: "#0ea5e9",
+                    pointRadius: 2,
+                });
+                datasets.push({
+                    ...overlayDatasetDefaults,
+                    label: "Índices ímpares",
+                    data: transformOddIndices(data),
+                    borderColor: "#a855f7",
+                    pointRadius: 2,
+                });
+            }
+            if (overlays.includes("ema")) {
+                datasets.push({
+                    ...overlayDatasetDefaults,
+                    label: `EMA (α=${EMA_ALPHA})`,
+                    data: transformEma(data),
+                    borderColor: "#14b8a6",
+                    borderWidth: 2,
+                });
+            }
+            if (overlays.includes("mirror")) {
+                datasets.push({
+                    ...overlayDatasetDefaults,
+                    label: "Zigzag espelhado",
+                    data: transformZigzagMirror(data),
+                    borderColor: "#dc2626",
+                    borderDash: [2, 2],
+                    pointRadius: 2,
+                });
+            }
+
             return {
                 type: "line",
                 data: {
                     labels,
-                    datasets: [{
-                        label: title,
-                        data,
-                        borderColor: "#2563eb",
-                        backgroundColor: "rgba(37, 99, 235, 0.12)",
-                        borderWidth: 2,
-                        tension: 0.25,
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
-                        pointBackgroundColor: pointColors,
-                        spanGaps: false,
-                    }]
+                    datasets,
                 },
                 options: {
                     responsive: true,
@@ -1959,7 +2195,13 @@
                     },
                     plugins: {
                         legend: {
-                            display: false,
+                            display: overlays.length > 0,
+                            position: "bottom",
+                            labels: {
+                                boxWidth: 14,
+                                boxHeight: 3,
+                                font: { size: 11 },
+                            },
                         },
                         tooltip: {
                             callbacks: {
@@ -2015,6 +2257,7 @@
             timelineChart = new Chart(ctx, buildChartConfig(items, {
                 title: "Posição do acerto no ranking",
                 valueKey: "plot_rank",
+                overlays: getActiveOverlays(),
                 tooltipLabelBuilder(item) {
                     if (item.hit_rank == null) {
                         return `Fora do ranking | Próximo número: ${item.next_number ?? "-"}`;
