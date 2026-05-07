@@ -58,6 +58,41 @@ def _parse_roulette_allowlist(raw_value: str) -> set[str]:
 ROULETTE_ALLOWLIST = _parse_roulette_allowlist(ROULETTE_FILTER_RAW)
 
 
+def _read_trend_config_overrides() -> dict[str, Any]:
+    """Read SUGGESTION_SNAPSHOT_TREND_* env vars and return a dict suitable
+    for `process_trend_signal_for_roulette(config_overrides=...)`.
+
+    Lets a single worker process pin its own trend params (steps, tolerance,
+    window_size, max_attempts, history_lookback, enabled) without touching
+    the global Mongo config — so multiple workers can run in parallel, each
+    with its own profile.
+    """
+
+    overrides: dict[str, Any] = {}
+    int_fields = {
+        "SUGGESTION_SNAPSHOT_TREND_STEPS": "steps",
+        "SUGGESTION_SNAPSHOT_TREND_TOLERANCE": "tolerance",
+        "SUGGESTION_SNAPSHOT_TREND_WINDOW_SIZE": "window_size",
+        "SUGGESTION_SNAPSHOT_TREND_MAX_ATTEMPTS": "max_attempts",
+        "SUGGESTION_SNAPSHOT_TREND_HISTORY_LOOKBACK": "history_lookback",
+    }
+    for env_key, cfg_key in int_fields.items():
+        raw = (os.getenv(env_key) or "").strip()
+        if not raw:
+            continue
+        try:
+            overrides[cfg_key] = int(raw)
+        except ValueError:
+            continue
+    enabled_raw = (os.getenv("SUGGESTION_SNAPSHOT_TREND_ENABLED") or "").strip().lower()
+    if enabled_raw:
+        overrides["enabled"] = enabled_raw in {"1", "true", "yes", "on"}
+    return overrides
+
+
+TREND_CONFIG_OVERRIDES = _read_trend_config_overrides()
+
+
 def _configure_logging() -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -211,7 +246,10 @@ async def _run_trend_in_background(roulette_id: str, counters: dict[str, int]) -
         return
     async with lock:
         try:
-            trend_outcome = await process_trend_signal_for_roulette(roulette_id)
+            trend_outcome = await process_trend_signal_for_roulette(
+                roulette_id,
+                config_overrides=TREND_CONFIG_OVERRIDES or None,
+            )
         except Exception as exc:
             logger.exception("Falha ao processar sinal de tendência para %s: %s", roulette_id, exc)
             return
@@ -277,7 +315,7 @@ async def run_worker() -> None:
     pubsub = client.pubsub()
     await pubsub.subscribe(RESULT_CHANNEL)
     logger.info(
-        "Suggestion snapshot worker iniciado | channel=%s | log=%s | config_id=%s | config_key=%s | history_limit=%s | ranking=%s | workers=%s | queue_maxsize=%s | roulette_filter=%s",
+        "Suggestion snapshot worker iniciado | channel=%s | log=%s | config_id=%s | config_key=%s | history_limit=%s | ranking=%s | workers=%s | queue_maxsize=%s | roulette_filter=%s | trend_overrides=%s",
         RESULT_CHANNEL,
         str(LOG_PATH),
         config_doc.get("config_id"),
@@ -287,6 +325,7 @@ async def run_worker() -> None:
         WORKER_CONCURRENCY,
         QUEUE_MAXSIZE,
         ",".join(sorted(ROULETTE_ALLOWLIST)) if ROULETTE_ALLOWLIST else "ALL",
+        TREND_CONFIG_OVERRIDES or "(none)",
     )
 
     counters = {

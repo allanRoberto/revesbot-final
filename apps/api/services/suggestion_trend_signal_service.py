@@ -582,14 +582,31 @@ async def _load_trend_timeline(
     return list(reversed(items_desc))
 
 
-async def process_trend_signal_for_roulette(roulette_id: str) -> Dict[str, Any]:
+async def process_trend_signal_for_roulette(
+    roulette_id: str,
+    *,
+    config_overrides: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
     """Run by the snapshot worker after each new spin/snapshot.
+
+    ``config_overrides`` lets a worker process pin specific fields of the
+    trend config (steps, tolerance, window_size, max_attempts,
+    history_lookback, enabled) per process — useful when running multiple
+    workers in parallel, each handling a different roulette with its own
+    parameters. Overrides are merged on top of the persisted global config
+    and re-normalized through ``_normalize_trend_config``.
 
     Returns a small status dict so the caller can log outcomes.
     """
 
     await ensure_suggestion_trend_indexes()
     config = await get_or_create_trend_strategy_config()
+    if config_overrides:
+        merged = dict(config)
+        for key, value in config_overrides.items():
+            if value is not None:
+                merged[key] = value
+        config = _normalize_trend_config(merged)
     if not config.get("enabled"):
         return {"skipped": "disabled"}
 
