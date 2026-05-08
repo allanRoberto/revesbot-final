@@ -123,6 +123,8 @@ async def get_suggestion_snapshot_rank_timeline_route(
             zone_bottom_start=zone_bottom_start,
             mirror_midpoint=mirror_midpoint,
         )
+    except (KeyError, IndexError) as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao montar timeline das sugestões: {exc!r}")
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except HTTPException:

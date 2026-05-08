@@ -827,7 +827,8 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         strategy_hit_rank = original_hit_rank
         strategy_plot_rank = item.get("plot_rank")
         if strategy_invert_depth > 0:
-            depth_counts[str(strategy_invert_depth)] += 1
+            depth_key = str(strategy_invert_depth)
+            depth_counts[depth_key] = depth_counts.get(depth_key, 0) + 1
             triggered_items += 1
             if isinstance(original_hit_rank, int):
                 strategy_hit_rank = _invert_rank_extremes(original_hit_rank, strategy_invert_depth)

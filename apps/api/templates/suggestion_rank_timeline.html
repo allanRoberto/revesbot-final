@@ -966,8 +966,24 @@
             <div class="chart-wrap">
                 <canvas id="strategyRankTimelineChart"></canvas>
             </div>
+            <div id="strategyMetricsPanel" class="strategy-metrics" style="display:none; margin-top: 15px; padding: 12px; background: #f5f5f5; border-radius: 6px; font-size: 12px;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    <div style="padding: 8px; background: white; border-radius: 4px; border-left: 4px solid #3498db;">
+                        <div style="font-weight: bold; color: #2c3e50;">Tendência</div>
+                        <div id="metricTrend" style="font-size: 14px; color: #3498db; margin-top: 4px;">-</div>
+                    </div>
+                    <div style="padding: 8px; background: white; border-radius: 4px; border-left: 4px solid #e74c3c;">
+                        <div style="font-weight: bold; color: #2c3e50;">Volatilidade</div>
+                        <div id="metricVolatility" style="font-size: 14px; color: #e74c3c; margin-top: 4px;">-</div>
+                    </div>
+                    <div style="padding: 8px; background: white; border-radius: 4px; border-left: 4px solid #27ae60;">
+                        <div style="font-weight: bold; color: #2c3e50;">Profundidade</div>
+                        <div id="metricDepth" style="font-size: 14px; color: #27ae60; margin-top: 4px;">-</div>
+                    </div>
+                </div>
+            </div>
             <div class="strategy-note">
-                V2: a profundidade da inversão é escolhida pelo movimento recente do gráfico. Dependendo do impulso e da correção, a estratégia inverte 5, 8 ou 10 posições em cada extremidade, preservando o miolo.
+                V3: Melhorado com detecção preditiva de tendências, análise de volatilidade e profundidade dinâmica. Passa o mouse sobre o gráfico para ver Tendência, Volatilidade e Profundidade.
             </div>
         </div>
 
@@ -2029,6 +2045,21 @@
             highlightSingleChartPoint(timelineChart, index);
             highlightSingleChartPoint(strategyTimelineChart, index);
             highlightSequenceChip(index);
+
+            // Atualizar painel de métricas com os novos campos
+            const item = currentTimelineItems[index];
+            const metricsPanel = document.getElementById("strategyMetricsPanel");
+            if (metricsPanel) {
+                const trendState = item.strategy_trend_state || "unknown";
+                const volatility = item.strategy_volatility != null ? item.strategy_volatility.toFixed(3) : "-";
+                const depth = item.strategy_invert_depth || 0;
+
+                document.getElementById("metricTrend").textContent = trendState;
+                document.getElementById("metricVolatility").textContent = volatility;
+                document.getElementById("metricDepth").textContent = `x${depth}`;
+
+                metricsPanel.style.display = "block";
+            }
         }
 
         function clearChartHighlight() {
@@ -2041,6 +2072,12 @@
                 chart.update("none");
             }
             clearSequenceChipHighlight();
+
+            // Ocultar painel de métricas
+            const metricsPanel = document.getElementById("strategyMetricsPanel");
+            if (metricsPanel) {
+                metricsPanel.style.display = "none";
+            }
         }
 
         function renderTable(items) {
@@ -2276,13 +2313,16 @@
                 title: "Posição estratégica",
                 valueKey: "strategy_plot_rank",
                 tooltipLabelBuilder(item) {
+                    const trendState = item.strategy_trend_state || "unknown";
+                    const volatility = item.strategy_volatility != null ? item.strategy_volatility.toFixed(3) : "-";
+
                     if (item.strategy_hit_rank == null) {
-                        return `Fora do ranking | modo ${item.strategy_mode === "inverted_extremes" ? "invertido" : "normal"} | Próximo número: ${item.next_number ?? "-"}`;
+                        return `Fora do ranking | modo ${item.strategy_mode === "inverted_extremes" ? "invertido" : "normal"} | Tendência: ${trendState} | Vol: ${volatility} | Próximo número: ${item.next_number ?? "-"}`;
                     }
                     if (item.strategy_mode === "inverted_extremes") {
-                        return `Estratégia #${item.strategy_hit_rank} | invertido x${item.strategy_invert_depth || 0} após ${(item.strategy_reference_ranks || []).join(" → ")} | score ${item.strategy_signal_strength ?? "-"} | Próximo número: ${item.next_number}`;
+                        return `Estratégia #${item.strategy_hit_rank} | invertido x${item.strategy_invert_depth || 0} | Tendência: ${trendState} | Vol: ${volatility} | score ${item.strategy_signal_strength ?? "-"} | Próximo número: ${item.next_number}`;
                     }
-                    return `Estratégia #${item.strategy_hit_rank} | modo normal | Próximo número: ${item.next_number}`;
+                    return `Estratégia #${item.strategy_hit_rank} | modo normal | Tendência: ${trendState} | Vol: ${volatility} | Próximo número: ${item.next_number}`;
                 },
             }));
         }
