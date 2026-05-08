@@ -1,0 +1,37 @@
+{
+  "descricao": "Estrat\u00e9gia 3 frios \u2192 14 posi\u00e7\u00f5es COM FILTRO: apenas padr\u00f5es crescente/decrescente",
+  "filtro_aplicado": "Apenas crescente (\ud83d\udcc8) ou decrescente (\ud83d\udcc9)",
+  "por_roleta": {
+    "pragmatic-auto-roulette": {
+      "total": 17,
+      "rejeitadas": 53,
+      "vencidas": 17,
+      "perdidas": 0,
+      "taxa_vitoria": 100.0,
+      "vencidas_por_tentativa": {
+        "1": 13,
+        "3": 1,
+        "4": 3
+      }
+    },
+    "pragmatic-brazilian-roulette": {
+      "total": 27,
+      "rejeitadas": 52,
+      "vencidas": 22,
+      "perdidas": 5,
+      "taxa_vitoria": 81.48148148148148,
+      "vencidas_por_tentativa": {
+        "2": 8,
+        "1": 7,
+        "3": 5,
+        "4": 2
+      }
+    }
+  },
+  "combinado": {
+    "total": 44,
+    "vencidas": 39,
+    "perdidas": 5,
+    "taxa_vitoria": 88.63636363636364
+  }
+}

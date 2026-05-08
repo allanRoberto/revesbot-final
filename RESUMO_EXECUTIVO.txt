@@ -1,0 +1,38 @@
+
+════════════════════════════════════════════════════════════════════════════════
+               RESUMO EXECUTIVO - ANÁLISE DE SUGESTÕES DE ROLETA                
+════════════════════════════════════════════════════════════════════════════════
+
+📊 TOTAL DE SUGESTÕES ANALISADAS: 5,995
+
+🎰 RESULTADOS POR ROLETA:
+--------------------------------------------------------------------------------
+
+pragmatic-auto-roulette
+  └─ 2,997 hits correlacionados
+     • Média: 19.2
+     • Mediana: 19
+     • Top 10: 24.9%
+
+pragmatic-brazilian-roulette
+  └─ 2,998 hits correlacionados
+     • Média: 19.3
+     • Mediana: 19
+     • Top 10: 26.5%
+
+--------------------------------------------------------------------------------
+
+📈 ANÁLISE CONSOLIDADA:
+--------------------------------------------------------------------------------
+
+Total de hits: 5,995
+Ranking médio: 19.26
+Ranking mediano: 19
+Alcance: 1 - 37
+
+TAXA DE ACERTO (onde a sugestão bateu):
+  🥇 Top 5: 769 hits (12.8%)
+  🥈 Top 10: 1538 hits (25.7%)
+  🥉 Top 20: 3168 hits (52.8%)
+
+════════════════════════════════════════════════════════════════════════════════

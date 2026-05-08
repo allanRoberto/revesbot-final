@@ -1,0 +1,46 @@
+{
+  "threshold_ativar": 12,
+  "threshold_frio": 12,
+  "threshold_apostar": 18,
+  "descricao": "Ativar em \u226412, contar 3 frios >12, apostar vence em \u226418",
+  "por_roleta": {
+    "pragmatic-auto-roulette": {
+      "total": 70,
+      "vencidas": 65,
+      "perdidas": 5,
+      "taxa_vitoria": 92.85714285714286,
+      "vencidas_por_tentativa": {
+        "1": 38,
+        "2": 19,
+        "4": 4,
+        "3": 4
+      },
+      "perdidas_extras": {
+        "2": 2,
+        "0": 2,
+        "1": 1
+      }
+    },
+    "pragmatic-brazilian-roulette": {
+      "total": 79,
+      "vencidas": 75,
+      "perdidas": 4,
+      "taxa_vitoria": 94.9367088607595,
+      "vencidas_por_tentativa": {
+        "1": 39,
+        "2": 20,
+        "4": 8,
+        "3": 8
+      },
+      "perdidas_extras": {
+        "0": 4
+      }
+    }
+  },
+  "combinado": {
+    "total": 149,
+    "vencidas": 140,
+    "perdidas": 9,
+    "taxa_vitoria": 93.95973154362416
+  }
+}

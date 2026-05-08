@@ -1,0 +1,47 @@
+{
+  "total_snapshots": 18710,
+  "positions": {
+    "all": {
+      "count": 18710,
+      "mean": 19.06258685195083,
+      "min": 1,
+      "max": 37
+    },
+    "in_inverted_numbers": {
+      "count": 6168,
+      "mean": 18.571822308690013
+    },
+    "not_in_inverted_numbers": {
+      "count": 12542,
+      "mean": 19.30393876574709
+    }
+  },
+  "recency": {
+    "0_5_spins": {
+      "count": 0,
+      "mean": null
+    },
+    "6_15_spins": {
+      "count": 0,
+      "mean": null
+    },
+    "16plus_spins": {
+      "count": 0,
+      "mean": null
+    }
+  },
+  "confidence": {
+    "Alta": {
+      "count": 5548,
+      "mean": 18.791636625811105
+    },
+    "M\u00e9dia": {
+      "count": 13162,
+      "mean": 19.17679683938611
+    },
+    "Baixa": {
+      "count": 0,
+      "mean": null
+    }
+  }
+}

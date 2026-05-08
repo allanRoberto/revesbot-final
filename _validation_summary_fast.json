@@ -1,0 +1,27 @@
+{
+  "total": 18722,
+  "all": {
+    "mean": 19.06019656019656,
+    "min": 1,
+    "max": 37
+  },
+  "in_inverted_numbers": {
+    "count": 6170,
+    "mean": 18.56904376012966
+  },
+  "not_in_inverted_numbers": {
+    "count": 12552,
+    "mean": 19.301625239005737
+  },
+  "gap": 0.732581478876078,
+  "by_confidence": {
+    "M\u00e9dia": {
+      "count": 13167,
+      "mean": 19.173388015493277
+    },
+    "Alta": {
+      "count": 5555,
+      "mean": 18.791899189918993
+    }
+  }
+}

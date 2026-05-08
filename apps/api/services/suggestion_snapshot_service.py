@@ -653,6 +653,9 @@ STRATEGY_SCORE_THRESHOLD_MEDIUM = 6.0
 STRATEGY_SCORE_THRESHOLD_LARGE = 9.0
 STRATEGY_SCORE_DECAY_PER_STEP = 0.35
 STRATEGY_SCORE_MAX = 18.0
+STRATEGY_TREND_WINDOW = 5
+STRATEGY_EARLY_ACTIVATION_MARGIN = 1.5
+STRATEGY_VOLATILITY_AMPLIFY_THRESHOLD = 0.65
 RANGE_PREDICTION_LOOKBACK = 12
 RANGE_PREDICTION_NEIGHBORS = 15
 RANGE_PREDICTION_SIZE = 18
@@ -694,14 +697,61 @@ def _resolve_inversion_depth(regime_score: float) -> int:
     return 0
 
 
+def _detect_trend_state(recent_ranks: List[int]) -> str:
+    if len(recent_ranks) < 3:
+        return "unknown"
+    n = len(recent_ranks)
+    increasing = sum(1 for i in range(1, n) if recent_ranks[i] > recent_ranks[i - 1])
+    ratio = increasing / (n - 1)
+    if ratio >= 0.7:
+        return "rising"
+    if ratio <= 0.3:
+        return "falling"
+    return "stable"
+
+
+def _calculate_volatility_score(recent_ranks: List[int]) -> float:
+    if len(recent_ranks) < 3:
+        return 0.5
+    mean = sum(recent_ranks) / len(recent_ranks)
+    variance = sum((r - mean) ** 2 for r in recent_ranks) / len(recent_ranks)
+    std_dev = variance ** 0.5
+    return min(1.0, std_dev / 15.0)
+
+
+def _calculate_dynamic_depth(
+    regime_score: float,
+    current_rank: int | None,
+    trend_state: str,
+    volatility: float,
+) -> int:
+    base = _resolve_inversion_depth(regime_score)
+    if base == 0:
+        if trend_state == "rising" and regime_score >= (STRATEGY_SCORE_THRESHOLD_SMALL - STRATEGY_EARLY_ACTIVATION_MARGIN):
+            base = STRATEGY_SMALL_EDGE_SIZE
+    if base == 0:
+        return 0
+
+    if volatility > STRATEGY_VOLATILITY_AMPLIFY_THRESHOLD and trend_state == "rising":
+        base = min(STRATEGY_LARGE_EDGE_SIZE, base + 2)
+
+    if isinstance(current_rank, int):
+        if current_rank <= 2 or current_rank >= 36:
+            base = min(base, 3)
+
+    return base
+
+
 def _update_falling_regime_score(
     *,
     regime_score: float,
     previous_rank: int | None,
     current_rank: int | None,
     improvement_streak: int,
+    volatility_bonus: float = 0.0,
 ) -> tuple[float, int]:
     score = max(0.0, float(regime_score or 0.0) - STRATEGY_SCORE_DECAY_PER_STEP)
+    score += volatility_bonus * 0.4
     streak = max(0, int(improvement_streak or 0))
 
     if not isinstance(previous_rank, int) or not isinstance(current_rank, int):
@@ -759,7 +809,16 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     for item in items:
         original_hit_rank = item.get("hit_rank")
-        strategy_invert_depth = _resolve_inversion_depth(regime_score)
+        recent_window = observed_ranks[-STRATEGY_TREND_WINDOW:]
+        trend_state = _detect_trend_state(recent_window)
+        volatility = _calculate_volatility_score(recent_window)
+        volatility_bonus = volatility * 0.5 if trend_state == "rising" else 0.0
+        strategy_invert_depth = _calculate_dynamic_depth(
+            regime_score,
+            observed_ranks[-1] if observed_ranks else None,
+            trend_state,
+            volatility,
+        )
         strategy_mode = "inverted_extremes" if strategy_invert_depth > 0 else "normal"
         strategy_triggered = strategy_invert_depth > 0
         strategy_trigger_reason = "falling_regime_active" if strategy_triggered else ""
@@ -784,6 +843,8 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         item["strategy_signal_strength"] = round(strategy_signal_strength, 2)
         item["strategy_hit_rank"] = strategy_hit_rank
         item["strategy_plot_rank"] = strategy_plot_rank
+        item["strategy_trend_state"] = trend_state
+        item["strategy_volatility"] = round(volatility, 3)
 
         if isinstance(strategy_hit_rank, int):
             strategy_distribution[str(int(strategy_hit_rank))] += 1
@@ -795,6 +856,7 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             previous_rank=previous_rank,
             current_rank=int(original_hit_rank) if isinstance(original_hit_rank, int) else None,
             improvement_streak=improvement_streak,
+            volatility_bonus=volatility_bonus,
         )
         if isinstance(original_hit_rank, int):
             observed_ranks.append(int(original_hit_rank))

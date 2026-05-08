@@ -1,0 +1,154 @@
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+             ANÁLISE COMPARATIVA: BONS SINAIS (TOP 12) vs PIORES SINAIS (RANKING > 12)              
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+📊 RESUMO GERAL:
+----------------------------------------------------------------------------------------------------
+
+BONS SINAIS (Top 12):
+  Total: 1,863
+  Percentual: 31.1% do total
+
+PIORES SINAIS (Ranking > 12):
+  Total: 4,132
+  Percentual: 68.9% do total
+
+
+📈 ANÁLISE DE RANKINGS:
+----------------------------------------------------------------------------------------------------
+
+BONS SINAIS:
+  Ranking médio: 6.58
+  Ranking mediano: 7
+  Desvio padrão: 3.49
+  Range: 1 - 12
+
+PIORES SINAIS:
+  Ranking médio: 24.98
+  Ranking mediano: 25
+  Desvio padrão: 7.14
+  Range: 13 - 37
+
+
+🎰 DISTRIBUIÇÃO POR ROLETA:
+----------------------------------------------------------------------------------------------------
+
+pragmatic-auto-roulette
+  Bons: 924 (30.8%)
+  Ruins: 2,073 (69.2%)
+
+pragmatic-brazilian-roulette
+  Bons: 939 (31.3%)
+  Ruins: 2,059 (68.7%)
+
+
+🔢 NÚMEROS MAIS FREQUENTES:
+----------------------------------------------------------------------------------------------------
+
+BONS SINAIS - Top 10 números que saem:
+   3:  83 ocorrências (4.5%)
+   5:  65 ocorrências (3.5%)
+   1:  63 ocorrências (3.4%)
+  16:  61 ocorrências (3.3%)
+  15:  61 ocorrências (3.3%)
+   8:  60 ocorrências (3.2%)
+   4:  60 ocorrências (3.2%)
+  19:  59 ocorrências (3.2%)
+  13:  59 ocorrências (3.2%)
+  34:  58 ocorrências (3.1%)
+
+PIORES SINAIS - Top 10 números que saem:
+  36: 133 ocorrências (3.2%)
+  26: 126 ocorrências (3.0%)
+  20: 126 ocorrências (3.0%)
+  23: 122 ocorrências (3.0%)
+  33: 122 ocorrências (3.0%)
+  29: 121 ocorrências (2.9%)
+  34: 121 ocorrências (2.9%)
+  14: 119 ocorrências (2.9%)
+   0: 119 ocorrências (2.9%)
+  27: 118 ocorrências (2.9%)
+
+
+⚓ NÚMEROS ÂNCORA (anterior ao sorteio):
+----------------------------------------------------------------------------------------------------
+
+BONS SINAIS - Top 10 âncoras:
+  34:  69 vezes (3.7%)
+  20:  66 vezes (3.5%)
+   3:  63 vezes (3.4%)
+   8:  60 vezes (3.2%)
+  22:  58 vezes (3.1%)
+  28:  58 vezes (3.1%)
+  36:  57 vezes (3.1%)
+  15:  56 vezes (3.0%)
+  13:  54 vezes (2.9%)
+  35:  53 vezes (2.8%)
+
+PIORES SINAIS - Top 10 âncoras:
+  16: 135 vezes (3.3%)
+   0: 129 vezes (3.1%)
+  23: 126 vezes (3.0%)
+  26: 125 vezes (3.0%)
+   3: 122 vezes (3.0%)
+  36: 121 vezes (2.9%)
+  10: 121 vezes (2.9%)
+  30: 121 vezes (2.9%)
+  13: 119 vezes (2.9%)
+   7: 119 vezes (2.9%)
+
+
+📏 TAMANHO DO RANKING SUGERIDO:
+----------------------------------------------------------------------------------------------------
+
+BONS SINAIS:
+  Tamanho médio: 37.0
+  Tamanho mediano: 37
+
+PIORES SINAIS:
+  Tamanho médio: 37.0
+  Tamanho mediano: 37
+
+
+⏰ PADRÕES TEMPORAIS (horários com mais ocorrências):
+----------------------------------------------------------------------------------------------------
+
+BONS SINAIS - Horários de pico:
+  02:00 - 124 ocorrências (6.7%)
+  00:00 - 124 ocorrências (6.7%)
+  03:00 - 116 ocorrências (6.2%)
+  23:00 - 115 ocorrências (6.2%)
+  21:00 - 113 ocorrências (6.1%)
+
+PIORES SINAIS - Horários de pico:
+  01:00 - 263 ocorrências (6.4%)
+  03:00 - 260 ocorrências (6.3%)
+  22:00 - 252 ocorrências (6.1%)
+  21:00 - 250 ocorrências (6.1%)
+  23:00 - 248 ocorrências (6.0%)
+
+
+💡 INSIGHTS E PADRÕES IDENTIFICADOS:
+----------------------------------------------------------------------------------------------------
+
+1. CONCENTRAÇÃO TEMPORAL:
+   ✓ Bons sinais concentram-se em 02:00
+   ✓ Piores sinais concentram-se em 01:00
+   → OPORTUNIDADE: Filtrar por horário pode melhorar sinais
+
+2. DIFERENÇA DE RANKINGS:
+   • Bons sinais têm ranking 18.40 posições melhor
+   • Desvio padrão dos bons: 3.49
+   • Desvio padrão dos ruins: 7.14
+
+3. PADRÃO DE NÚMEROS:
+   • Top 5 números bons: [3, 5, 1, 16, 15]
+   • Top 5 números ruins: [36, 26, 20, 23, 33]
+   • Sobreposição: 0/5
+
+4. DISTRIBUIÇÃO POR ROLETA:
+   • pragmatic-auto-roulette: 30.8% bons sinais
+   • pragmatic-brazilian-roulette: 31.3% bons sinais
+
+════════════════════════════════════════════════════════════════════════════════════════════════════

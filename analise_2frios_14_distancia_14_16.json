@@ -1,0 +1,338 @@
+{
+  "strategy": "2 frios + 14 com filtro dist\u00e2ncia 14-16",
+  "total_apostas": 707,
+  "total_hits": 276,
+  "total_rate": 39.038189533239034,
+  "total_first_attempt_rate": 2.545968882602546,
+  "auto_roulette": {
+    "apostas": 358,
+    "hits": 146,
+    "rate": 40.78212290502793,
+    "first_attempt_rate": 3.35195530726257
+  },
+  "brazilian_roulette": {
+    "apostas": 349,
+    "hits": 130,
+    "rate": 37.249283667621775,
+    "first_attempt_rate": 1.7191977077363898
+  },
+  "by_pattern": {
+    "crescente": {
+      "apostas": 133,
+      "hits": 47,
+      "rate": 35.338345864661655,
+      "first_attempt_rate": 0.7518796992481203
+    },
+    "decrescente": {
+      "apostas": 114,
+      "hits": 38,
+      "rate": 33.33333333333333,
+      "first_attempt_rate": 0.8771929824561403
+    },
+    "est\u00e1vel": {
+      "apostas": 460,
+      "hits": 191,
+      "rate": 41.52173913043478,
+      "first_attempt_rate": 3.4782608695652173
+    }
+  },
+  "rejection_stats": {
+    "distance_too_low": 1197,
+    "distance_too_high": 371,
+    "no_sequences": 0
+  },
+  "items": [
+    {
+      "snapshot_id": "snap:f632dd38015ee23808ab4bf8",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 22,
+      "hit": false,
+      "pattern": "crescente",
+      "distance_mean": 16,
+      "positions": [
+        24,
+        32
+      ]
+    },
+    {
+      "snapshot_id": "snap:664f340ee9b26f3418f26e14",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 11,
+      "hit": true,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 14.166666666666666,
+      "positions": [
+        25,
+        26,
+        20,
+        23,
+        33,
+        30
+      ]
+    },
+    {
+      "snapshot_id": "snap:90b5f7ed3efe463471424278",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 9,
+      "hit": true,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 15.625,
+      "positions": [
+        30,
+        22,
+        27,
+        18,
+        36,
+        32,
+        25,
+        31
+      ]
+    },
+    {
+      "snapshot_id": "snap:9c9d670ec58a503d2914d135",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 32,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 14.666666666666666,
+      "positions": [
+        26,
+        31,
+        23
+      ]
+    },
+    {
+      "snapshot_id": "snap:98aa85f335537d4deb48c2ce",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 31,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 14.2,
+      "positions": [
+        31,
+        27,
+        32,
+        23,
+        18
+      ]
+    },
+    {
+      "snapshot_id": "snap:216d2815abd9014f5064d66d",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 18,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 15.875,
+      "positions": [
+        33,
+        28,
+        29,
+        32,
+        24,
+        36,
+        20,
+        21
+      ]
+    },
+    {
+      "snapshot_id": "snap:3719a08f561a017de1d3c6b3",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 27,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 15.666666666666666,
+      "positions": [
+        33,
+        34,
+        16
+      ]
+    },
+    {
+      "snapshot_id": "snap:b1808f02fda5f3b8b4d49675",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 5,
+      "hit": true,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 14.5,
+      "positions": [
+        34,
+        21,
+        24,
+        23,
+        32,
+        20,
+        30,
+        28
+      ]
+    },
+    {
+      "snapshot_id": "snap:3fb83e144c579a6e6374aaf0",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 35,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 14,
+      "positions": [
+        22,
+        19,
+        27,
+        36
+      ]
+    },
+    {
+      "snapshot_id": "snap:fd19c945d2b4a677b54d04b8",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 12,
+      "hit": true,
+      "pattern": "decrescente",
+      "distance_mean": 14,
+      "positions": [
+        36,
+        16
+      ]
+    },
+    {
+      "snapshot_id": "snap:5d81242cd1f90fb9523a888e",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 37,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 14.11111111111111,
+      "positions": [
+        31,
+        18,
+        33,
+        20,
+        30,
+        21,
+        35,
+        25,
+        22
+      ]
+    },
+    {
+      "snapshot_id": "snap:68aa57a4d66c34776a8bdb7e",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 19,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 14.333333333333334,
+      "positions": [
+        27,
+        18,
+        34
+      ]
+    },
+    {
+      "snapshot_id": "snap:1f5933c4aca467bdf9597dfd",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 25,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 15,
+      "positions": [
+        35,
+        17,
+        24,
+        26,
+        33,
+        13,
+        32,
+        29,
+        34
+      ]
+    },
+    {
+      "snapshot_id": "snap:d7cd38208c5a4491b8d34c3f",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 11,
+      "hit": true,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 15.6,
+      "positions": [
+        29,
+        19,
+        31,
+        33,
+        26
+      ]
+    },
+    {
+      "snapshot_id": "snap:7eccc61376d0efadc87dc139",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 33,
+      "hit": false,
+      "pattern": "decrescente",
+      "distance_mean": 14,
+      "positions": [
+        32,
+        20
+      ]
+    },
+    {
+      "snapshot_id": "snap:2b1f7e32f59b5f6ca3a92f45",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 18,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 15,
+      "positions": [
+        23,
+        32,
+        31,
+        22
+      ]
+    },
+    {
+      "snapshot_id": "snap:4f8432a2a9f9310288ef5936",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 33,
+      "hit": false,
+      "pattern": "crescente",
+      "distance_mean": 14.333333333333334,
+      "positions": [
+        20,
+        23,
+        36
+      ]
+    },
+    {
+      "snapshot_id": "snap:0679ee6f38b4c670b1f9cdf5",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 31,
+      "hit": false,
+      "pattern": "crescente",
+      "distance_mean": 14.333333333333334,
+      "positions": [
+        21,
+        26,
+        32
+      ]
+    },
+    {
+      "snapshot_id": "snap:f28d7f3a3dbc17380f12b9d5",
+      "roulette": "pragmatic-auto-roulette",
+      "hit_rank": 4,
+      "hit": true,
+      "pattern": "crescente",
+      "distance_mean": 15.5,
+      "positions": [
+        26,
+        29
+      ]
+    },
+    {
+      "snapshot_id": "snap:13e33554b599f30aa55bb9c9",
+      "roulette": "pragmatic-brazilian-roulette",
+      "hit_rank": 31,
+      "hit": false,
+      "pattern": "est\u00e1vel",
+      "distance_mean": 14.666666666666666,
+      "positions": [
+        30,
+        18,
+        32
+      ]
+    }
+  ]
+}

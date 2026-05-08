@@ -1,0 +1,454 @@
+{
+  "threshold": 18,
+  "summary": {
+    "total_apostas": 72,
+    "vencidas": 67,
+    "perdidas": 5,
+    "taxa_vitoria_pct": 93.06
+  },
+  "vencidas_por_tentativa": {
+    "2": 13,
+    "1": 43,
+    "3": 8,
+    "4": 3
+  },
+  "perdidas_tendendo_extras": {
+    "0": 2,
+    "1": 2,
+    "3": 1
+  },
+  "apostas_detalhadas": [
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 3,
+      "tentativa_vitoria_total": 3,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 3,
+      "tentativa_vitoria_total": 3,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 4,
+      "tentativa_vitoria_total": 4,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 3,
+      "tentativa_vitoria_total": 3,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 3,
+      "tentativa_vitoria_total": 3,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 4,
+      "tentativa_vitoria_total": 4,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": false,
+      "tentativas_ate_4": 4,
+      "tentativa_vitoria_total": 5,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 3,
+      "tentativa_vitoria_total": 3,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": false,
+      "tentativas_ate_4": 4,
+      "tentativa_vitoria_total": 6,
+      "tentativas_extras": 1
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 3,
+      "tentativa_vitoria_total": 3,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 3,
+      "tentativa_vitoria_total": 3,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": false,
+      "tentativas_ate_4": 4,
+      "tentativa_vitoria_total": 6,
+      "tentativas_extras": 1
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 3,
+      "tentativa_vitoria_total": 3,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": false,
+      "tentativas_ate_4": 4,
+      "tentativa_vitoria_total": 8,
+      "tentativas_extras": 3
+    },
+    {
+      "venceu": false,
+      "tentativas_ate_4": 4,
+      "tentativa_vitoria_total": 5,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 4,
+      "tentativa_vitoria_total": 4,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 2,
+      "tentativa_vitoria_total": 2,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    },
+    {
+      "venceu": true,
+      "tentativas_ate_4": 1,
+      "tentativa_vitoria_total": 1,
+      "tentativas_extras": 0
+    }
+  ]
+}

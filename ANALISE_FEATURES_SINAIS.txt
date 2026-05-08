@@ -1,0 +1,81 @@
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                 ANÁLISE AVANÇADA: FEATURES QUE DIFERENCIAM BONS SINAIS                                 
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+1️⃣  PADRÃO DE NÚMEROS CONSECUTIVOS/VIZINHOS:
+------------------------------------------------------------------------------------------------------------------------
+
+Bons sinais: 248 ocorrências (13.3%)
+Piores sinais: 515 ocorrências (12.5%)
+✓ PADRÃO: Bons sinais tendem a ter números próximos do âncora (0.8% mais)
+
+
+2️⃣  DISTRIBUIÇÃO PAR/ÍMPAR:
+------------------------------------------------------------------------------------------------------------------------
+
+Bons sinais - Pares: 50.3%, Ímpares: 49.7%
+Piores sinais - Pares: 51.7%, Ímpares: 48.3%
+
+
+3️⃣  PADRÃO COR (Vermelho/Preto):
+------------------------------------------------------------------------------------------------------------------------
+
+Bons sinais - Vermelhos: 50.0%, Pretos: 50.0%
+Piores sinais - Vermelhos: 48.3%, Pretos: 51.7%
+
+
+4️⃣  FREQUÊNCIA DO ZERO:
+------------------------------------------------------------------------------------------------------------------------
+
+Bons sinais: 2.58% resultam em zero
+Piores sinais: 2.88% resultam em zero
+✓ PADRÃO: Piores sinais têm 0.30% mais zeros
+
+
+5️⃣  FREQUÊNCIA ÚLTIMA COLUNA (35-36):
+------------------------------------------------------------------------------------------------------------------------
+
+Bons sinais: 5.37% resultam em 35 ou 36
+Piores sinais: 5.91% resultam em 35 ou 36
+✓ PADRÃO: Piores sinais têm 0.54% mais números altos (35-36)
+
+
+6️⃣  FREQUÊNCIA PRIMEIRA COLUNA (1-3):
+------------------------------------------------------------------------------------------------------------------------
+
+Bons sinais: 10.79% resultam em 1, 2 ou 3
+Piores sinais: 7.43% resultam em 1, 2 ou 3
+✓ PADRÃO: Bons sinais têm 3.36% mais números baixos (1-3)
+
+
+7️⃣  PADRÃO TEMPORAL DETALHADO:
+------------------------------------------------------------------------------------------------------------------------
+
+Horários com maior diferença:
+  12:00 - Bons: 3.7%, Ruins: 2.8% (🔥 Bom +0.9%)
+  01:00 - Bons: 5.5%, Ruins: 6.4% (❌ Ruim +0.9%)
+  20:00 - Bons: 4.9%, Ruins: 5.6% (❌ Ruim +0.8%)
+  02:00 - Bons: 6.7%, Ruins: 5.9% (🔥 Bom +0.8%)
+  16:00 - Bons: 2.6%, Ruins: 3.4% (❌ Ruim +0.7%)
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                       📋 RESUMO - CARACTERÍSTICAS DE BONS SINAIS:                                       
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+1. ✓ Números próximos do anterior (+0.8%)
+2. ✓ Números baixos (1-3) (+3.36%)
+3. ✓ Preferência por vermelhos (+1.7%)
+4. ✓ Evita zero (0.30% menos)
+5. ✓ Evita números altos (35-36) (0.54% menos)
+
+
+🎯 RECOMENDAÇÃO DE FILTRO:
+------------------------------------------------------------------------------------------------------------------------
+1. PREFERIR números baixos (1-3) quando possível
+2. PREFERIR números próximos do anterior (âncora ± 2)
+3. MONITORAR horários de pico: 02:00-03:00 têm melhor desempenho
+4. REDUZIR peso do zero nas sugestões
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,42 @@
+{
+  "threshold": 18,
+  "por_roleta": {
+    "pragmatic-auto-roulette": {
+      "total": 33,
+      "vencidas": 30,
+      "perdidas": 3,
+      "taxa_vitoria": 90.9090909090909,
+      "vencidas_por_tentativa": {
+        "1": 16,
+        "2": 10,
+        "4": 2,
+        "3": 2
+      },
+      "perdidas_extras": {
+        "2": 1,
+        "0": 2
+      }
+    },
+    "pragmatic-brazilian-roulette": {
+      "total": 35,
+      "vencidas": 34,
+      "perdidas": 1,
+      "taxa_vitoria": 97.14285714285714,
+      "vencidas_por_tentativa": {
+        "1": 17,
+        "2": 9,
+        "4": 3,
+        "3": 5
+      },
+      "perdidas_extras": {
+        "0": 1
+      }
+    }
+  },
+  "combinado": {
+    "total": 68,
+    "vencidas": 64,
+    "perdidas": 4,
+    "taxa_vitoria": 94.11764705882352
+  }
+}
