@@ -656,6 +656,19 @@ STRATEGY_SCORE_MAX = 18.0
 STRATEGY_TREND_WINDOW = 5
 STRATEGY_EARLY_ACTIVATION_MARGIN = 1.5
 STRATEGY_VOLATILITY_AMPLIFY_THRESHOLD = 0.65
+STRATEGY_INVERSION_CONFIDENCE_TOLERANCE = 3
+STRATEGY_INVERSION_CONFIDENCE_NEUTRAL = 0.5
+STRATEGY_INVERSION_CONFIDENCE_MIN = 0.3
+STRATEGY_FEEDBACK_MIN_SAMPLES = 3
+STRATEGY_FEEDBACK_HIGH_RATE = 0.6
+STRATEGY_FEEDBACK_LOW_RATE = 0.35
+STRATEGY_FEEDBACK_THRESHOLD_ADJUST = 0.8
+STRATEGY_ZONE_TOP_END = 12
+STRATEGY_ZONE_BOTTOM_START = 25
+STRATEGY_SCORE_DEACTIVATION_SMALL = 2.5
+STRATEGY_SCORE_DEACTIVATION_MEDIUM = 4.0
+STRATEGY_SCORE_DEACTIVATION_LARGE = 7.0
+STRATEGY_PERSISTENCE_TURNS = 3
 RANGE_PREDICTION_LOOKBACK = 12
 RANGE_PREDICTION_NEIGHBORS = 15
 RANGE_PREDICTION_SIZE = 18
@@ -686,6 +699,31 @@ def _invert_rank_extremes(rank: int | None, edge_size: int) -> int | None:
     return safe_rank
 
 
+def _invert_rank_zones(rank: int | None, depth: int) -> int | None:
+    """
+    Inversão por zonas: top (1-12) ↔ upper-bottom (25-36), middle (13-24) com ajuste mínimo.
+    Evita saltos extremos de _invert_rank_extremes: rank 1 vai para 36 (não 37).
+    """
+    if rank is None:
+        return None
+    safe_rank = int(rank)
+    if not (1 <= safe_rank <= 37):
+        return safe_rank
+
+    if safe_rank <= STRATEGY_ZONE_TOP_END:
+        # Zone A (1-12) → Zone C adjacente (25-36)
+        # rank 1 → 36, rank 2 → 35, ..., rank 12 → 25
+        return STRATEGY_ZONE_BOTTOM_START + (STRATEGY_ZONE_TOP_END - safe_rank)
+
+    if safe_rank >= STRATEGY_ZONE_BOTTOM_START:
+        # Zone C (25-37) → Zone A (1-12)
+        # rank 25 → 12, rank 36 → 1, rank 37 → 1 (capped)
+        return max(1, STRATEGY_ZONE_TOP_END - (safe_rank - STRATEGY_ZONE_BOTTOM_START))
+
+    # Zone B (middle 13-24): ajuste mínimo de ±1
+    return safe_rank + (1 if safe_rank >= 19 else -1)
+
+
 def _resolve_inversion_depth(regime_score: float) -> int:
     safe_score = float(regime_score or 0.0)
     if safe_score >= STRATEGY_SCORE_THRESHOLD_LARGE:
@@ -694,6 +732,36 @@ def _resolve_inversion_depth(regime_score: float) -> int:
         return STRATEGY_MEDIUM_EDGE_SIZE
     if safe_score >= STRATEGY_SCORE_THRESHOLD_SMALL:
         return STRATEGY_SMALL_EDGE_SIZE
+    return 0
+
+
+def _resolve_inversion_depth_with_hysteresis(
+    regime_score: float,
+    currently_active: bool,
+) -> int:
+    """
+    Como _resolve_inversion_depth, mas com hysteresis: quando já está ativo,
+    usa thresholds de desativação mais baixos para evitar ligar/desligar rápido.
+    """
+    safe_score = float(regime_score or 0.0)
+
+    # Thresholds normais de ativação (igual ao original)
+    if safe_score >= STRATEGY_SCORE_THRESHOLD_LARGE:
+        return STRATEGY_LARGE_EDGE_SIZE
+    if safe_score >= STRATEGY_SCORE_THRESHOLD_MEDIUM:
+        return STRATEGY_MEDIUM_EDGE_SIZE
+    if safe_score >= STRATEGY_SCORE_THRESHOLD_SMALL:
+        return STRATEGY_SMALL_EDGE_SIZE
+
+    # Zona de hysteresis: já ativo → usar thresholds de desativação mais baixos
+    if currently_active:
+        if safe_score >= STRATEGY_SCORE_DEACTIVATION_LARGE:
+            return STRATEGY_LARGE_EDGE_SIZE
+        if safe_score >= STRATEGY_SCORE_DEACTIVATION_MEDIUM:
+            return STRATEGY_MEDIUM_EDGE_SIZE
+        if safe_score >= STRATEGY_SCORE_DEACTIVATION_SMALL:
+            return STRATEGY_SMALL_EDGE_SIZE
+
     return 0
 
 
@@ -724,12 +792,22 @@ def _calculate_dynamic_depth(
     current_rank: int | None,
     trend_state: str,
     volatility: float,
+    inversion_confidence: float = STRATEGY_INVERSION_CONFIDENCE_NEUTRAL,
+    tracker: "_InversionDepthTracker | None" = None,
+    currently_active: bool = False,
 ) -> int:
-    base = _resolve_inversion_depth(regime_score)
+    threshold_small = STRATEGY_SCORE_THRESHOLD_SMALL
+    if tracker is not None:
+        threshold_small = tracker.adjusted_threshold(threshold_small, STRATEGY_SMALL_EDGE_SIZE)
+
+    base = _resolve_inversion_depth_with_hysteresis(regime_score, currently_active)
     if base == 0:
-        if trend_state == "rising" and regime_score >= (STRATEGY_SCORE_THRESHOLD_SMALL - STRATEGY_EARLY_ACTIVATION_MARGIN):
+        if trend_state == "rising" and regime_score >= (threshold_small - STRATEGY_EARLY_ACTIVATION_MARGIN):
             base = STRATEGY_SMALL_EDGE_SIZE
     if base == 0:
+        return 0
+
+    if inversion_confidence < STRATEGY_INVERSION_CONFIDENCE_MIN:
         return 0
 
     if volatility > STRATEGY_VOLATILITY_AMPLIFY_THRESHOLD and trend_state == "rising":
@@ -740,6 +818,67 @@ def _calculate_dynamic_depth(
             base = min(base, 3)
 
     return base
+
+
+def _validate_inversion_confidence(
+    original_rank: int,
+    inverted_rank: int,
+    history: List[int],
+) -> float:
+    if len(history) < 5 or not isinstance(original_rank, int) or not isinstance(inverted_rank, int):
+        return STRATEGY_INVERSION_CONFIDENCE_NEUTRAL
+
+    matches = 0
+    successes = 0
+    for i in range(len(history) - 1):
+        if abs(history[i] - original_rank) <= STRATEGY_INVERSION_CONFIDENCE_TOLERANCE:
+            matches += 1
+            if abs(history[i + 1] - inverted_rank) <= STRATEGY_INVERSION_CONFIDENCE_TOLERANCE:
+                successes += 1
+
+    if matches == 0:
+        return STRATEGY_INVERSION_CONFIDENCE_NEUTRAL
+    return round(successes / matches, 3)
+
+
+class _InversionDepthTracker:
+    def __init__(self) -> None:
+        self._stats: Dict[int, Dict[str, int]] = {
+            d: {"hits": 0, "total": 0}
+            for d in [STRATEGY_SMALL_EDGE_SIZE, STRATEGY_MEDIUM_EDGE_SIZE, STRATEGY_LARGE_EDGE_SIZE]
+        }
+
+    def record(self, depth: int, original_rank: int | None, strategy_rank: int | None) -> None:
+        if depth not in self._stats or not isinstance(original_rank, int):
+            return
+        self._stats[depth]["total"] += 1
+        if isinstance(strategy_rank, int) and strategy_rank < original_rank:
+            self._stats[depth]["hits"] += 1
+
+    def success_rate(self, depth: int) -> float:
+        s = self._stats.get(depth, {})
+        total = s.get("total", 0)
+        if total < STRATEGY_FEEDBACK_MIN_SAMPLES:
+            return STRATEGY_INVERSION_CONFIDENCE_NEUTRAL
+        return round(s.get("hits", 0) / total, 3)
+
+    def adjusted_threshold(self, base_threshold: float, depth: int) -> float:
+        rate = self.success_rate(depth)
+        if rate > STRATEGY_FEEDBACK_HIGH_RATE:
+            return max(base_threshold - STRATEGY_FEEDBACK_THRESHOLD_ADJUST, 0.0)
+        if rate < STRATEGY_FEEDBACK_LOW_RATE:
+            return base_threshold + STRATEGY_FEEDBACK_THRESHOLD_ADJUST
+        return base_threshold
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            str(d): {
+                "hits": s["hits"],
+                "total": s["total"],
+                "rate": self.success_rate(d),
+            }
+            for d, s in self._stats.items()
+        }
 
 
 def _update_falling_regime_score(
@@ -806,6 +945,9 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     regime_score = 0.0
     improvement_streak = 0
     observed_ranks: List[int] = []
+    tracker = _InversionDepthTracker()
+    inversion_active: bool = False
+    persistence_counter: int = 0
 
     for item in items:
         original_hit_rank = item.get("hit_rank")
@@ -813,12 +955,37 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         trend_state = _detect_trend_state(recent_window)
         volatility = _calculate_volatility_score(recent_window)
         volatility_bonus = volatility * 0.5 if trend_state == "rising" else 0.0
+
+        last_rank = observed_ranks[-1] if observed_ranks else None
+        inverted_rank_preview = (38 - last_rank) if isinstance(last_rank, int) else None
+        inversion_confidence = _validate_inversion_confidence(
+            last_rank, inverted_rank_preview, observed_ranks
+        )
+
+        # Atualizar persistência antes de calcular o depth
+        if persistence_counter > 0:
+            persistence_counter -= 1
+
         strategy_invert_depth = _calculate_dynamic_depth(
             regime_score,
-            observed_ranks[-1] if observed_ranks else None,
+            last_rank,
             trend_state,
             volatility,
+            inversion_confidence=inversion_confidence,
+            tracker=tracker,
+            currently_active=inversion_active,
         )
+
+        # Aplicar persistência: se estava ativo e counter > 0, manter depth mínimo
+        if strategy_invert_depth == 0 and inversion_active and persistence_counter > 0:
+            strategy_invert_depth = STRATEGY_SMALL_EDGE_SIZE
+
+        # Atualizar estado para próximo item
+        if strategy_invert_depth > 0:
+            inversion_active = True
+            persistence_counter = STRATEGY_PERSISTENCE_TURNS
+        elif persistence_counter == 0:
+            inversion_active = False
         strategy_mode = "inverted_extremes" if strategy_invert_depth > 0 else "normal"
         strategy_triggered = strategy_invert_depth > 0
         strategy_trigger_reason = "falling_regime_active" if strategy_triggered else ""
@@ -831,7 +998,7 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             depth_counts[depth_key] = depth_counts.get(depth_key, 0) + 1
             triggered_items += 1
             if isinstance(original_hit_rank, int):
-                strategy_hit_rank = _invert_rank_extremes(original_hit_rank, strategy_invert_depth)
+                strategy_hit_rank = _invert_rank_zones(original_hit_rank, strategy_invert_depth)
                 strategy_plot_rank = strategy_hit_rank
             else:
                 strategy_plot_rank = STRATEGY_OUTSIDE_RANK
@@ -846,6 +1013,16 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         item["strategy_plot_rank"] = strategy_plot_rank
         item["strategy_trend_state"] = trend_state
         item["strategy_volatility"] = round(volatility, 3)
+        item["strategy_inversion_confidence"] = round(inversion_confidence, 3)
+        item["strategy_inversion_zone"] = (
+            "top" if isinstance(original_hit_rank, int) and original_hit_rank <= STRATEGY_ZONE_TOP_END
+            else "bottom" if isinstance(original_hit_rank, int) and original_hit_rank >= STRATEGY_ZONE_BOTTOM_START
+            else "middle" if isinstance(original_hit_rank, int)
+            else "none"
+        )
+        item["strategy_persistence_active"] = inversion_active
+
+        tracker.record(strategy_invert_depth, original_hit_rank, strategy_hit_rank)
 
         if isinstance(strategy_hit_rank, int):
             strategy_distribution[str(int(strategy_hit_rank))] += 1
@@ -896,6 +1073,7 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         "top_10_hits": sum(strategy_distribution[str(rank)] for rank in range(1, 11)),
         "avg_hit_rank": round(sum(int(item["strategy_hit_rank"]) for item in strategy_hit_items) / len(strategy_hit_items), 2) if strategy_hit_items else None,
         "rank_distribution": strategy_distribution,
+        "feedback_by_depth": tracker.to_dict(),
     }
 
 
