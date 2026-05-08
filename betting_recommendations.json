@@ -1,0 +1,377 @@
+{
+  "timestamp": "2026-05-08T11:34:35.765637",
+  "roulette_id": "pragmatic-auto-roulette",
+  "total_items_analyzed": 100,
+  "successful_suggestions": 58,
+  "unique_numbers": 30,
+  "avg_improvement": 12.637931034482758,
+  "assertiveness": {
+    "zone_bottom": "96.9%",
+    "zone_middle": "77.4%",
+    "zone_top": "0.0% (disabled)"
+  },
+  "top_10_recommendations": [
+    {
+      "rank": 1,
+      "number": 34,
+      "hits": 4,
+      "avg_improvement": 15.5,
+      "bottom_zone": 3,
+      "middle_zone": 1,
+      "score": 366.0
+    },
+    {
+      "rank": 2,
+      "number": 14,
+      "hits": 3,
+      "avg_improvement": 19.7,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 270.0
+    },
+    {
+      "rank": 3,
+      "number": 30,
+      "hits": 3,
+      "avg_improvement": 19.0,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 269.0
+    },
+    {
+      "rank": 4,
+      "number": 4,
+      "hits": 3,
+      "avg_improvement": 17.7,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 268.0
+    },
+    {
+      "rank": 5,
+      "number": 10,
+      "hits": 3,
+      "avg_improvement": 15.7,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 266.0
+    },
+    {
+      "rank": 6,
+      "number": 28,
+      "hits": 3,
+      "avg_improvement": 14.3,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 264.0
+    },
+    {
+      "rank": 7,
+      "number": 2,
+      "hits": 2,
+      "avg_improvement": 23.0,
+      "bottom_zone": 2,
+      "middle_zone": 0,
+      "score": 223.0
+    },
+    {
+      "rank": 8,
+      "number": 33,
+      "hits": 2,
+      "avg_improvement": 20.0,
+      "bottom_zone": 2,
+      "middle_zone": 0,
+      "score": 220.0
+    },
+    {
+      "rank": 9,
+      "number": 35,
+      "hits": 3,
+      "avg_improvement": 8.3,
+      "bottom_zone": 1,
+      "middle_zone": 2,
+      "score": 208.0
+    },
+    {
+      "rank": 10,
+      "number": 8,
+      "hits": 3,
+      "avg_improvement": 5.0,
+      "bottom_zone": 1,
+      "middle_zone": 2,
+      "score": 205.0
+    }
+  ],
+  "all_recommendations": [
+    {
+      "rank": 1,
+      "number": 34,
+      "hits": 4,
+      "avg_improvement": 15.5,
+      "bottom_zone": 3,
+      "middle_zone": 1,
+      "score": 366.0
+    },
+    {
+      "rank": 2,
+      "number": 14,
+      "hits": 3,
+      "avg_improvement": 19.7,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 270.0
+    },
+    {
+      "rank": 3,
+      "number": 30,
+      "hits": 3,
+      "avg_improvement": 19.0,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 269.0
+    },
+    {
+      "rank": 4,
+      "number": 4,
+      "hits": 3,
+      "avg_improvement": 17.7,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 268.0
+    },
+    {
+      "rank": 5,
+      "number": 10,
+      "hits": 3,
+      "avg_improvement": 15.7,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 266.0
+    },
+    {
+      "rank": 6,
+      "number": 28,
+      "hits": 3,
+      "avg_improvement": 14.3,
+      "bottom_zone": 2,
+      "middle_zone": 1,
+      "score": 264.0
+    },
+    {
+      "rank": 7,
+      "number": 2,
+      "hits": 2,
+      "avg_improvement": 23.0,
+      "bottom_zone": 2,
+      "middle_zone": 0,
+      "score": 223.0
+    },
+    {
+      "rank": 8,
+      "number": 33,
+      "hits": 2,
+      "avg_improvement": 20.0,
+      "bottom_zone": 2,
+      "middle_zone": 0,
+      "score": 220.0
+    },
+    {
+      "rank": 9,
+      "number": 35,
+      "hits": 3,
+      "avg_improvement": 8.3,
+      "bottom_zone": 1,
+      "middle_zone": 2,
+      "score": 208.0
+    },
+    {
+      "rank": 10,
+      "number": 8,
+      "hits": 3,
+      "avg_improvement": 5.0,
+      "bottom_zone": 1,
+      "middle_zone": 2,
+      "score": 205.0
+    },
+    {
+      "rank": 11,
+      "number": 7,
+      "hits": 2,
+      "avg_improvement": 12.0,
+      "bottom_zone": 1,
+      "middle_zone": 1,
+      "score": 162.0
+    },
+    {
+      "rank": 12,
+      "number": 29,
+      "hits": 2,
+      "avg_improvement": 12.0,
+      "bottom_zone": 1,
+      "middle_zone": 1,
+      "score": 162.0
+    },
+    {
+      "rank": 13,
+      "number": 36,
+      "hits": 2,
+      "avg_improvement": 9.0,
+      "bottom_zone": 1,
+      "middle_zone": 1,
+      "score": 159.0
+    },
+    {
+      "rank": 14,
+      "number": 22,
+      "hits": 1,
+      "avg_improvement": 36.0,
+      "bottom_zone": 1,
+      "middle_zone": 0,
+      "score": 136.0
+    },
+    {
+      "rank": 15,
+      "number": 9,
+      "hits": 1,
+      "avg_improvement": 31.0,
+      "bottom_zone": 1,
+      "middle_zone": 0,
+      "score": 131.0
+    },
+    {
+      "rank": 16,
+      "number": 31,
+      "hits": 1,
+      "avg_improvement": 29.0,
+      "bottom_zone": 1,
+      "middle_zone": 0,
+      "score": 129.0
+    },
+    {
+      "rank": 17,
+      "number": 17,
+      "hits": 1,
+      "avg_improvement": 25.0,
+      "bottom_zone": 1,
+      "middle_zone": 0,
+      "score": 125.0
+    },
+    {
+      "rank": 18,
+      "number": 11,
+      "hits": 1,
+      "avg_improvement": 25.0,
+      "bottom_zone": 1,
+      "middle_zone": 0,
+      "score": 125.0
+    },
+    {
+      "rank": 19,
+      "number": 1,
+      "hits": 1,
+      "avg_improvement": 21.0,
+      "bottom_zone": 1,
+      "middle_zone": 0,
+      "score": 121.0
+    },
+    {
+      "rank": 20,
+      "number": 26,
+      "hits": 1,
+      "avg_improvement": 21.0,
+      "bottom_zone": 1,
+      "middle_zone": 0,
+      "score": 121.0
+    },
+    {
+      "rank": 21,
+      "number": 16,
+      "hits": 1,
+      "avg_improvement": 17.0,
+      "bottom_zone": 1,
+      "middle_zone": 0,
+      "score": 117.0
+    },
+    {
+      "rank": 22,
+      "number": 5,
+      "hits": 2,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 2,
+      "score": 101.0
+    },
+    {
+      "rank": 23,
+      "number": 20,
+      "hits": 2,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 2,
+      "score": 101.0
+    },
+    {
+      "rank": 24,
+      "number": 24,
+      "hits": 2,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 2,
+      "score": 101.0
+    },
+    {
+      "rank": 25,
+      "number": 27,
+      "hits": 2,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 2,
+      "score": 101.0
+    },
+    {
+      "rank": 26,
+      "number": 13,
+      "hits": 2,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 2,
+      "score": 101.0
+    },
+    {
+      "rank": 27,
+      "number": 6,
+      "hits": 2,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 2,
+      "score": 101.0
+    },
+    {
+      "rank": 28,
+      "number": 21,
+      "hits": 1,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 1,
+      "score": 51.0
+    },
+    {
+      "rank": 29,
+      "number": 15,
+      "hits": 1,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 1,
+      "score": 51.0
+    },
+    {
+      "rank": 30,
+      "number": 3,
+      "hits": 1,
+      "avg_improvement": 1.0,
+      "bottom_zone": 0,
+      "middle_zone": 1,
+      "score": 51.0
+    }
+  ]
+}

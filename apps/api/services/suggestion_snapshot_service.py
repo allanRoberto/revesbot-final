@@ -656,7 +656,7 @@ STRATEGY_SCORE_MAX = 18.0
 STRATEGY_TREND_WINDOW = 5
 STRATEGY_EARLY_ACTIVATION_MARGIN = 1.5
 STRATEGY_VOLATILITY_AMPLIFY_THRESHOLD = 0.65
-STRATEGY_INVERSION_CONFIDENCE_TOLERANCE = 3
+STRATEGY_INVERSION_CONFIDENCE_TOLERANCE = 5
 STRATEGY_INVERSION_CONFIDENCE_NEUTRAL = 0.5
 STRATEGY_INVERSION_CONFIDENCE_MIN = 0.3
 STRATEGY_FEEDBACK_MIN_SAMPLES = 3
@@ -986,6 +986,10 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             persistence_counter = STRATEGY_PERSISTENCE_TURNS
         elif persistence_counter == 0:
             inversion_active = False
+        # Desativar inversão em Zone TOP (ranks 1-12 muito bons não devem ser invertidos — piora)
+        if isinstance(original_hit_rank, int) and original_hit_rank <= STRATEGY_ZONE_TOP_END:
+            strategy_invert_depth = 0
+
         strategy_mode = "inverted_extremes" if strategy_invert_depth > 0 else "normal"
         strategy_triggered = strategy_invert_depth > 0
         strategy_trigger_reason = "falling_regime_active" if strategy_triggered else ""
