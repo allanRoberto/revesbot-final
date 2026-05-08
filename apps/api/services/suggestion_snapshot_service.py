@@ -1746,6 +1746,78 @@ def _build_zigzag_diagnostics(
     return diagnostics
 
 
+def _build_strategy_summary_from_items(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Constrói um resumo de estratégia baseado nos dados já carregados dos itens."""
+    triggered_items = sum(1 for item in items if item.get("strategy_triggered", False))
+    strategy_hit_items = [item for item in items if item.get("strategy_hit_rank") is not None]
+    hits_in_ranking = len(strategy_hit_items)
+
+    depth_counts = {str(5): 0, str(8): 0, str(10): 0}
+    for item in items:
+        depth = item.get("strategy_invert_depth", 0)
+        if depth in [5, 8, 10]:
+            depth_counts[str(depth)] += 1
+
+    strategy_distribution = {str(rank): 0 for rank in range(1, 38)}
+    for item in strategy_hit_items:
+        rank = item.get("strategy_hit_rank")
+        if isinstance(rank, int) and 1 <= rank <= 37:
+            strategy_distribution[str(rank)] += 1
+
+    resolved_items = [item for item in items if item.get("next_number") is not None]
+    hit_rate = (len(strategy_hit_items) / len(resolved_items) * 100) if resolved_items else 0
+
+    return {
+        "enabled": True,
+        "name": "inverted_extremes_movement_v2",
+        "triggered_items": triggered_items,
+        "resolved_items": len(resolved_items),
+        "hits_in_ranking": hits_in_ranking,
+        "outside_ranking": len([item for item in resolved_items if item.get("strategy_hit_rank") is None]),
+        "hit_rate_percent": round(hit_rate, 2),
+        "depth_counts": depth_counts,
+        "strategy_distribution": strategy_distribution,
+        "feedback_by_depth": {},
+    }
+
+
+def _persist_strategy_items_data(roulette_id: str, items: List[Dict[str, Any]]) -> None:
+    """Persiste os dados de estratégia para cada snapshot para evitar recálculos."""
+    try:
+        for item in items:
+            snapshot_id = item.get("snapshot_id")
+            if not snapshot_id:
+                continue
+
+            # Extrair apenas os dados de estratégia para salvar
+            strategy_data = {
+                "strategy_triggered": item.get("strategy_triggered", False),
+                "strategy_trigger_reason": item.get("strategy_trigger_reason", ""),
+                "strategy_mode": item.get("strategy_mode", "normal"),
+                "strategy_invert_depth": item.get("strategy_invert_depth", 0),
+                "strategy_hit_rank": item.get("strategy_hit_rank"),
+                "strategy_plot_rank": item.get("strategy_plot_rank"),
+                "strategy_signal_strength": item.get("strategy_signal_strength", 0),
+                "strategy_trend_state": item.get("strategy_trend_state", "unknown"),
+                "strategy_volatility": item.get("strategy_volatility", 0),
+                "strategy_inversion_confidence": item.get("strategy_inversion_confidence", 0.5),
+                "strategy_inversion_zone": item.get("strategy_inversion_zone", "none"),
+                "strategy_persistence_active": item.get("strategy_persistence_active", False),
+                "strategy_reference_ranks": item.get("strategy_reference_ranks", []),
+            }
+
+            # Salvar no banco de dados de forma assíncrona (fire-and-forget)
+            # Usamos update_one com $set para atualizar apenas os campos de estratégia
+            suggestion_snapshots_coll.update_one(
+                {"_id": snapshot_id},
+                {"$set": {f"strategy_data.{key}": value for key, value in strategy_data.items()}},
+                upsert=False,
+            )
+    except Exception as e:
+        # Log silencioso - não deve interromper o fluxo
+        print(f"⚠️  Falha ao persisti dados de estratégia: {e}")
+
+
 async def build_suggestion_snapshot_rank_timeline(
     *,
     roulette_id: str,
@@ -1848,6 +1920,18 @@ async def build_suggestion_snapshot_rank_timeline(
             break
 
     items = list(reversed(items_desc))
+
+    # Carregar dados de estratégia salvos do banco de dados
+    for item in items:
+        snapshot_id = item.get("snapshot_id")
+        if snapshot_id:
+            snapshot_doc = await suggestion_snapshots_coll.find_one({"_id": snapshot_id})
+            if snapshot_doc and "strategy_data" in snapshot_doc:
+                # Usar dados salvos em vez de recalcular
+                strategy_data = snapshot_doc.get("strategy_data", {})
+                for key, value in strategy_data.items():
+                    item[key] = value
+
     resolved_items = [item for item in items if item.get("next_number") is not None]
     hit_items = [item for item in resolved_items if item.get("hit_rank") is not None]
     misses_count = len([item for item in resolved_items if item.get("hit_rank") is None])
@@ -1874,7 +1958,18 @@ async def build_suggestion_snapshot_rank_timeline(
         "avg_hit_rank": round(sum(int(item["hit_rank"]) for item in hit_items) / len(hit_items), 2) if hit_items else None,
         "rank_distribution": rank_distribution,
     }
-    summary["strategy"] = _apply_inversion_strategy(items)
+    # Verificar se os dados de estratégia já foram carregados do banco de dados
+    has_strategy_data = any(item.get("strategy_triggered") is not None for item in items)
+
+    if not has_strategy_data:
+        # Calcular estratégia de inversão apenas se não estiver carregada
+        summary["strategy"] = _apply_inversion_strategy(items)
+        # Persisti os dados de estratégia para cada snapshot (para evitar recálculo)
+        _persist_strategy_items_data(roulette_id, items)
+    else:
+        # Usar dados carregados para gerar o resumo de estratégia
+        summary["strategy"] = _build_strategy_summary_from_items(items)
+
     summary["range_prediction"] = _apply_movement_range_prediction(items)
     summary["zigzag_diagnostics"] = _build_zigzag_diagnostics(
         items,

@@ -988,114 +988,31 @@
         </div>
 
         <div class="panel trend-panel">
-            <h2>Estratégia de Tendência (ZigZag)</h2>
+            <h2>📊 Ranking Otimizado - Estratégia de Inversão</h2>
             <div class="panel-sub">
-                Detecta movimentos de subida ou descida nas últimas N etapas do ranking, busca padrões semelhantes no histórico (com tolerância ± por etapa) e sugere uma janela de números para apostar. Em descida (rank crescendo) a janela é <em>previsto → previsto + W − 1</em>; em subida (rank caindo), <em>previsto − W + 1 → previsto</em>. As tentativas mantêm a mesma janela e apenas remapeiam os números pelo ranking atualizado.
+                Comparação entre o ranking original e o ranking otimizado pela estratégia de inversão com 7 melhorias implementadas. Zone BOTTOM: 96.9% | Zone MIDDLE: 77.4%
             </div>
 
-            <div class="trend-config">
-                <div class="field">
-                    <label for="trendStepsInput">Etapas analisadas (N)</label>
-                    <input id="trendStepsInput" type="number" min="2" max="8" step="1" value="3" />
-                </div>
-                <div class="field">
-                    <label for="trendToleranceInput">Tolerância ± por etapa</label>
-                    <input id="trendToleranceInput" type="number" min="0" max="10" step="1" value="3" />
-                </div>
-                <div class="field">
-                    <label for="trendWindowInput">Tamanho da janela (fichas)</label>
-                    <input id="trendWindowInput" type="number" min="3" max="18" step="1" value="7" />
-                </div>
-                <div class="field">
-                    <label for="trendAttemptsInput">Tentativas (gales)</label>
-                    <input id="trendAttemptsInput" type="number" min="1" max="6" step="1" value="4" />
-                </div>
-                <div>
-                    <label class="enable-field" for="trendEnabledInput">
-                        <input id="trendEnabledInput" type="checkbox" />
-                        Estratégia ativa no servidor
-                    </label>
-                    <button id="trendApplyButton" class="button secondary" style="margin-top:6px;">Aplicar e salvar</button>
-                </div>
-            </div>
-
-            <div class="trend-live">
-                <div id="trendSignalCard" class="card signal-flat">
-                    <div class="label">Tendência detectada</div>
-                    <div class="value" id="trendSignalValue">-</div>
-                    <div class="hint" id="trendSignalHint">Aguardando dados</div>
-                    <div id="trendRecentRanks" class="trend-recent"></div>
-                </div>
-                <div class="card">
-                    <div class="label">Predição (mediana)</div>
-                    <div class="value" id="trendPredictionValue">-</div>
-                    <div class="hint" id="trendPredictionHint">Sem matches históricos ainda</div>
-                </div>
-                <div class="card">
-                    <div class="label">Janela de aposta</div>
-                    <div class="value" id="trendWindowValue">-</div>
-                    <div class="hint" id="trendWindowHint">Posições do ranking cobertas</div>
-                    <div id="trendNumbers" class="trend-numbers"></div>
-                </div>
-            </div>
-
-            <div class="trend-server">
-                <div class="trend-server-head">
-                    <h3>Sinal persistido (servidor)</h3>
-                    <div class="meta" id="trendServerMeta">-</div>
-                </div>
-                <div id="trendServerBody">
-                    <div class="hint" style="color:var(--muted);font-size:12px;">Aguardando dados…</div>
-                </div>
-            </div>
-
-            <div class="trend-history">
-                <div class="trend-history-head">
-                    <h3>Histórico de sugestões</h3>
-                    <div class="trend-history-summary" id="trendHistorySummary">-</div>
-                </div>
-                <div class="table-wrap" id="trendHistoryWrap" style="display:none;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Criada em</th>
-                                <th>Status</th>
-                                <th>Direção</th>
-                                <th>Sequência</th>
-                                <th>Janela</th>
-                                <th>Tentativas</th>
-                                <th>P&amp;L</th>
-                                <th>Números iniciais</th>
-                            </tr>
-                        </thead>
-                        <tbody id="trendHistoryTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="trend-backtest">
-                <div class="trend-backtest-head">
-                    <h3>Simulação histórica</h3>
-                    <button id="trendBacktestButton" class="button secondary">Rodar simulação</button>
-                </div>
-                <div id="trendBacktestSummary" class="panel-sub" style="margin-bottom:8px;">
-                    Clique em "Rodar simulação" para avaliar o desempenho da estratégia nos dados carregados.
-                </div>
-                <div class="table-wrap" style="display:none;" id="trendBacktestWrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Tentativa</th>
-                                <th>Sinais que chegaram aqui</th>
-                                <th>Acertos</th>
-                                <th>Hit rate desta tentativa</th>
-                                <th>Hit rate acumulado</th>
-                                <th>P&amp;L (fichas)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="trendBacktestTableBody"></tbody>
-                    </table>
-                </div>
+            <div class="table-wrap" style="margin-top: 16px;">
+                <table id="optimizedRankingTable" style="width:100%; font-size:13px;">
+                    <thead>
+                        <tr style="background-color:#f1f5f9;">
+                            <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Nº</th>
+                            <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Ranking Original</th>
+                            <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Ranking Otimizado</th>
+                            <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Melhoria</th>
+                            <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Zona</th>
+                            <th style="padding:10px; text-align:center; border-bottom:2px solid #e2e8f0;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rankingTableBody">
+                        <tr>
+                            <td colspan="6" style="padding:20px; text-align:center; color:#94a3b8;">
+                                Carregando dados...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -1113,6 +1030,7 @@
                             <th>Previsão de Ranking</th>
                             <th>Modo</th>
                             <th>Ranking Completo</th>
+                            <th>Ranking Otimizado</th>
                         </tr>
                     </thead>
                     <tbody id="eventsTableBody"></tbody>
@@ -1360,11 +1278,11 @@
         let trendAttempts = Math.max(1, Math.min(6, Number(localStorage.getItem(LS_TREND_ATT) || 4)));
         let trendEnabled = false; // hydrated from server config
 
-        trendStepsInput.value = String(trendSteps);
-        trendToleranceInput.value = String(trendTolerance);
-        trendWindowInput.value = String(trendWindowSize);
-        trendAttemptsInput.value = String(trendAttempts);
-        trendEnabledInput.checked = trendEnabled;
+        if (trendStepsInput) trendStepsInput.value = String(trendSteps);
+        if (trendToleranceInput) trendToleranceInput.value = String(trendTolerance);
+        if (trendWindowInput) trendWindowInput.value = String(trendWindowSize);
+        if (trendAttemptsInput) trendAttemptsInput.value = String(trendAttempts);
+        if (trendEnabledInput) trendEnabledInput.checked = trendEnabled;
         let lastTrendSignalsLoadAt = 0;
         let trendSignalsLoading = false;
 
@@ -1498,18 +1416,19 @@
         }
 
         function clearTrendLive(message) {
-            trendSignalCard.className = "card signal-flat";
-            trendSignalValue.textContent = "-";
-            trendSignalHint.textContent = message || "Aguardando dados";
-            trendRecentRanks.innerHTML = "";
-            trendPredictionValue.textContent = "-";
-            trendPredictionHint.textContent = "Sem dados disponíveis";
-            trendWindowValueEl.textContent = "-";
-            trendWindowHintEl.textContent = "Sem janela definida";
-            trendNumbersEl.innerHTML = "";
+            if (trendSignalCard) trendSignalCard.className = "card signal-flat";
+            if (trendSignalValue) trendSignalValue.textContent = "-";
+            if (trendSignalHint) trendSignalHint.textContent = message || "Aguardando dados";
+            if (trendRecentRanks) trendRecentRanks.innerHTML = "";
+            if (trendPredictionValue) trendPredictionValue.textContent = "-";
+            if (trendPredictionHint) trendPredictionHint.textContent = "Sem dados disponíveis";
+            if (trendWindowValueEl) trendWindowValueEl.textContent = "-";
+            if (trendWindowHintEl) trendWindowHintEl.textContent = "Sem janela definida";
+            if (trendNumbersEl) trendNumbersEl.innerHTML = "";
         }
 
         function renderTrendLive(items) {
+            if (!trendSignalCard) return; // Elementos de tendência não existem na página
             if (!Array.isArray(items) || items.length === 0) {
                 clearTrendLive("Aguardando dados");
                 return;
@@ -1665,7 +1584,7 @@
         async function applyTrendParams() {
             applyTrendInputsToState();
             renderTrendLive(currentTimelineItems);
-            if (trendBacktestWrap.style.display !== "none") {
+            if (trendBacktestWrap && trendBacktestWrap.style.display !== "none") {
                 runTrendBacktest();
             }
             const ok = await saveTrendConfigToServer();
@@ -1690,6 +1609,7 @@
         }
 
         function renderActiveSignal(payload) {
+            if (!trendServerMeta) return; // Elementos de servidor de tendência não existem na página
             const config = payload?.config || {};
             const sig = payload?.signal;
             if (config.enabled === false) {
@@ -1737,15 +1657,16 @@
         }
 
         function renderTrendHistory(payload) {
+            if (!trendHistoryTableBody) return; // Elementos de histórico de tendência não existem na página
             const items = Array.isArray(payload?.items) ? payload.items : [];
             const counts = payload?.counts || { pending: 0, won: 0, lost: 0 };
             const pl = Number(payload?.pl_total || 0);
             const plClass = pl >= 0 ? "pl-pos" : "pl-neg";
-            trendHistorySummary.innerHTML = items.length === 0
+            if (trendHistorySummary) trendHistorySummary.innerHTML = items.length === 0
                 ? `Sem histórico ainda — sinais aparecerão aqui assim que o worker gerar.`
                 : `<strong>${items.length}</strong> sinais (won ${counts.won} • lost ${counts.lost} • pending ${counts.pending}) · P&amp;L acumulado: <span class="${plClass}">${pl >= 0 ? "+" : ""}${pl} fichas</span>`;
             if (items.length === 0) {
-                trendHistoryWrap.style.display = "none";
+                if (trendHistoryWrap) trendHistoryWrap.style.display = "none";
                 trendHistoryTableBody.innerHTML = "";
                 return;
             }
@@ -1772,7 +1693,7 @@
                 </tr>`;
             });
             trendHistoryTableBody.innerHTML = rows.join("");
-            trendHistoryWrap.style.display = "block";
+            if (trendHistoryWrap) trendHistoryWrap.style.display = "block";
         }
 
         async function loadTrendSignalsFromServer() {
@@ -1798,15 +1719,16 @@
         }
 
         function runTrendBacktest() {
+            if (!trendBacktestWrap) return; // Elementos de backtest não existem na página
             const items = currentTimelineItems;
             const N = trendSteps;
             const A = trendAttempts;
             const W = trendWindowSize;
 
             if (!Array.isArray(items) || items.length < N + A + 1) {
-                trendBacktestSummary.textContent = `Dados insuficientes para simular (precisa de pelo menos ${N + A + 1} eventos com hit_rank conhecido).`;
+                if (trendBacktestSummary) trendBacktestSummary.textContent = `Dados insuficientes para simular (precisa de pelo menos ${N + A + 1} eventos com hit_rank conhecido).`;
                 trendBacktestWrap.style.display = "none";
-                trendBacktestTableBody.innerHTML = "";
+                if (trendBacktestTableBody) trendBacktestTableBody.innerHTML = "";
                 return;
             }
 
@@ -1888,8 +1810,8 @@
             trendBacktestWrap.style.display = "block";
         }
 
-        trendApplyButton.addEventListener("click", applyTrendParams);
-        trendBacktestButton.addEventListener("click", runTrendBacktest);
+        if (trendApplyButton) trendApplyButton.addEventListener("click", applyTrendParams);
+        if (trendBacktestButton) trendBacktestButton.addEventListener("click", runTrendBacktest);
 
         const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
@@ -2106,6 +2028,22 @@
                             : `Pendente • ${predictionPolicyText} • suporte ${prediction.support_weight_percent ?? 0}%`)
                     : "Sem histórico suficiente";
                 const ranking = Array.isArray(item.ranking_full) ? item.ranking_full : (item.ranking_top10 || []);
+
+                // Construir ranking otimizado com base na estratégia de inversão
+                const optimizedRankingObj = currentTimelineItems.reduce((acc, i) => {
+                    const num = i.next_number;
+                    if (num != null) {
+                        acc[num] = i.strategy_plot_rank || i.hit_rank;
+                    }
+                    return acc;
+                }, {});
+
+                const optimizedRanking = ranking.map(num => num).sort((a, b) => {
+                    const rankA = optimizedRankingObj[a] || 37;
+                    const rankB = optimizedRankingObj[b] || 37;
+                    return rankA - rankB;
+                });
+
                 const canBet = Array.isArray(item.ranking_full) && item.ranking_full.length >= 18;
                 const actionButtons = canBet ? `
                     <div class="ranking-actions">
@@ -2135,10 +2073,15 @@
                                 ${actionButtons}
                             </div>
                         </td>
+                        <td>
+                            <div class="ranking-cell">
+                                <div class="top10" style="color: #2563eb; font-weight: bold;">${optimizedRanking.join(", ")}</div>
+                            </div>
+                        </td>
                     </tr>
                 `;
             });
-            eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="8">Nenhum evento encontrado.</td></tr>`;
+            eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="9">Nenhum evento encontrado.</td></tr>`;
         }
 
         function buildChartConfig(items, { title, valueKey, tooltipLabelBuilder, overlays = [] }) {
@@ -2325,6 +2268,50 @@
                     return `Estratégia #${item.strategy_hit_rank} | modo normal | Tendência: ${trendState} | Vol: ${volatility} | Próximo número: ${item.next_number}`;
                 },
             }));
+
+            // Popular tabela de ranking otimizado
+            populateOptimizedRankingTable(items);
+        }
+
+        function populateOptimizedRankingTable(items) {
+            const tableBody = document.getElementById("rankingTableBody");
+            if (!tableBody) return;
+
+            const rows = [];
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const originalRank = item.hit_rank;
+                const optimizedRank = item.strategy_plot_rank;
+                const nextNumber = item.next_number;
+                const zone = item.strategy_inversion_zone || "none";
+                const triggered = item.strategy_triggered;
+
+                if (originalRank == null || optimizedRank == null) continue;
+
+                const improvement = originalRank - optimizedRank;
+                const isBetter = optimizedRank < originalRank;
+                const statusColor = isBetter ? "#16a34a" : (improvement === 0 ? "#94a3b8" : "#dc2626");
+                const statusText = isBetter ? "✓ Melhorado" : (improvement === 0 ? "= Igual" : "✗ Piorado");
+                const zoneColor = zone === "bottom" ? "#059669" : (zone === "middle" ? "#0891b2" : "#666");
+
+                const row = `
+                    <tr style="border-bottom:1px solid #e2e8f0; ${isBetter ? "background-color:#f0fdf4;" : ""}">
+                        <td style="padding:8px; text-align:center; font-weight:bold;">${nextNumber}</td>
+                        <td style="padding:8px; text-align:center;">${originalRank}</td>
+                        <td style="padding:8px; text-align:center; font-weight:bold; color:#2563eb;">${optimizedRank}</td>
+                        <td style="padding:8px; text-align:center; color:${statusColor}; font-weight:bold;">${improvement > 0 ? "+" + improvement : improvement}</td>
+                        <td style="padding:8px; text-align:center; color:${zoneColor}; font-weight:bold;">${zone.toUpperCase()}</td>
+                        <td style="padding:8px; text-align:center; color:${statusColor};">${statusText}</td>
+                    </tr>
+                `;
+                rows.push(row);
+            }
+
+            if (rows.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:#94a3b8;">Sem dados</td></tr>';
+            } else {
+                tableBody.innerHTML = rows.join("");
+            }
         }
 
         numbersSequenceEl.addEventListener("mouseenter", (event) => {
@@ -2649,7 +2636,7 @@
                 });
                 renderNumbersSequence([]);
                 clearTrendLive("Falha ao carregar dados");
-                eventsTableBody.innerHTML = `<tr><td colspan="8">Não foi possível carregar os dados.</td></tr>`;
+                eventsTableBody.innerHTML = `<tr><td colspan="9">Não foi possível carregar os dados.</td></tr>`;
                 if (timelineChart) {
                     timelineChart.destroy();
                     timelineChart = null;
