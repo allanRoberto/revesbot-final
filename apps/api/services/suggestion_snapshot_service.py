@@ -640,18 +640,24 @@ def _extract_snapshot_timeline_context(snapshot_doc: Mapping[str, Any], ranking:
 
 
 STRATEGY_OUTSIDE_RANK = 38
-ZIGZAG_DEFAULT_TOP_END = 7
-ZIGZAG_DEFAULT_BOTTOM_START = 29
+STRATEGY_DECISION_VERSION = "inverted_extremes_movement_v3"
 ZIGZAG_MIN_SAMPLE = 8
 ZIGZAG_RUNS_TEST_Z_THRESHOLD = 1.96
 STRATEGY_MIN_CORRECTION = 4
 STRATEGY_SMALL_EDGE_SIZE = 5
 STRATEGY_MEDIUM_EDGE_SIZE = 8
 STRATEGY_LARGE_EDGE_SIZE = 10
+STRATEGY_DEPTH_OPTIONS = (
+    STRATEGY_SMALL_EDGE_SIZE,
+    STRATEGY_MEDIUM_EDGE_SIZE,
+    STRATEGY_LARGE_EDGE_SIZE,
+)
+ZIGZAG_DEFAULT_TOP_END = STRATEGY_LARGE_EDGE_SIZE
+ZIGZAG_DEFAULT_BOTTOM_START = 38 - STRATEGY_LARGE_EDGE_SIZE
 STRATEGY_SCORE_THRESHOLD_SMALL = 4.0
 STRATEGY_SCORE_THRESHOLD_MEDIUM = 6.0
 STRATEGY_SCORE_THRESHOLD_LARGE = 9.0
-STRATEGY_SCORE_DECAY_PER_STEP = 0.35
+STRATEGY_SCORE_DECAY_PER_STEP = 0.7
 STRATEGY_SCORE_MAX = 18.0
 STRATEGY_TREND_WINDOW = 5
 STRATEGY_EARLY_ACTIVATION_MARGIN = 1.5
@@ -663,12 +669,13 @@ STRATEGY_FEEDBACK_MIN_SAMPLES = 3
 STRATEGY_FEEDBACK_HIGH_RATE = 0.6
 STRATEGY_FEEDBACK_LOW_RATE = 0.35
 STRATEGY_FEEDBACK_THRESHOLD_ADJUST = 0.8
-STRATEGY_ZONE_TOP_END = 12
-STRATEGY_ZONE_BOTTOM_START = 25
+STRATEGY_FEEDBACK_THRESHOLD_FLOOR = 1.0
+STRATEGY_ZONE_TOP_END = STRATEGY_LARGE_EDGE_SIZE
+STRATEGY_ZONE_BOTTOM_START = 38 - STRATEGY_LARGE_EDGE_SIZE
 STRATEGY_SCORE_DEACTIVATION_SMALL = 2.5
 STRATEGY_SCORE_DEACTIVATION_MEDIUM = 4.0
 STRATEGY_SCORE_DEACTIVATION_LARGE = 7.0
-STRATEGY_PERSISTENCE_TURNS = 3
+STRATEGY_PERSISTENCE_TURNS = 2
 RANGE_PREDICTION_LOOKBACK = 12
 RANGE_PREDICTION_NEIGHBORS = 15
 RANGE_PREDICTION_SIZE = 18
@@ -699,29 +706,73 @@ def _invert_rank_extremes(rank: int | None, edge_size: int) -> int | None:
     return safe_rank
 
 
+def _normalize_inversion_depth(depth: int | None) -> int:
+    if depth is None:
+        return 0
+    safe_depth = max(0, min(18, int(depth)))
+    if safe_depth == 0:
+        return 0
+    for option in STRATEGY_DEPTH_OPTIONS:
+        if safe_depth <= option:
+            return option
+    return STRATEGY_LARGE_EDGE_SIZE
+
+
+def _next_inversion_depth(depth: int) -> int:
+    current = _normalize_inversion_depth(depth)
+    if current == 0:
+        return STRATEGY_SMALL_EDGE_SIZE
+    for option in STRATEGY_DEPTH_OPTIONS:
+        if option > current:
+            return option
+    return STRATEGY_LARGE_EDGE_SIZE
+
+
+def _rank_zone(rank: int | None, depth: int | None = None) -> str:
+    if not isinstance(rank, int):
+        return "none"
+    safe_rank = int(rank)
+    if not (1 <= safe_rank <= 37):
+        return "none"
+    safe_depth = _normalize_inversion_depth(depth or STRATEGY_LARGE_EDGE_SIZE)
+    if safe_depth <= 0:
+        safe_depth = STRATEGY_LARGE_EDGE_SIZE
+    if safe_rank <= safe_depth:
+        return "top"
+    if safe_rank >= 38 - safe_depth:
+        return "bottom"
+    return "middle"
+
+
 def _invert_rank_zones(rank: int | None, depth: int) -> int | None:
     """
-    Inversão por zonas: top (1-12) ↔ upper-bottom (25-36), middle (13-24) com ajuste mínimo.
-    Evita saltos extremos de _invert_rank_extremes: rank 1 vai para 36 (não 37).
+    Inverte apenas as bordas definidas por ``depth``.
+
+    depth=5  -> ranks 1-5 trocam com 33-37
+    depth=8  -> ranks 1-8 trocam com 30-37
+    depth=10 -> ranks 1-10 trocam com 28-37
+
+    O miolo permanece na mesma posição e o mapeamento é uma permutação
+    1:1, sem colisões entre ranks originais.
     """
     if rank is None:
         return None
     safe_rank = int(rank)
     if not (1 <= safe_rank <= 37):
         return safe_rank
+    safe_depth = _normalize_inversion_depth(depth)
+    if safe_depth <= 0:
+        return safe_rank
 
-    if safe_rank <= STRATEGY_ZONE_TOP_END:
-        # Zone A (1-12) → Zone C adjacente (25-36)
-        # rank 1 → 36, rank 2 → 35, ..., rank 12 → 25
-        return STRATEGY_ZONE_BOTTOM_START + (STRATEGY_ZONE_TOP_END - safe_rank)
+    bottom_start = 38 - safe_depth
 
-    if safe_rank >= STRATEGY_ZONE_BOTTOM_START:
-        # Zone C (25-37) → Zone A (1-12)
-        # rank 25 → 12, rank 36 → 1, rank 37 → 1 (capped)
-        return max(1, STRATEGY_ZONE_TOP_END - (safe_rank - STRATEGY_ZONE_BOTTOM_START))
+    if safe_rank <= safe_depth:
+        return bottom_start + (safe_depth - safe_rank)
 
-    # Zone B (middle 13-24): ajuste mínimo de ±1
-    return safe_rank + (1 if safe_rank >= 19 else -1)
+    if safe_rank >= bottom_start:
+        return safe_depth - (safe_rank - bottom_start)
+
+    return safe_rank
 
 
 def _build_optimized_ranking(ranking: List[int], depth: int) -> List[int]:
@@ -736,9 +787,9 @@ def _build_optimized_ranking(ranking: List[int], depth: int) -> List[int]:
     for idx, num in enumerate(ranking):
         original_rank = idx + 1
         optimized_rank = _invert_rank_zones(original_rank, depth)
-        ranked.append((num, optimized_rank if optimized_rank is not None else original_rank))
-    ranked.sort(key=lambda x: x[1])
-    return [num for num, _ in ranked]
+        ranked.append((num, optimized_rank if optimized_rank is not None else original_rank, original_rank))
+    ranked.sort(key=lambda x: (x[1], x[2]))
+    return [num for num, _, _ in ranked]
 
 
 def _resolve_inversion_depth(regime_score: float) -> int:
@@ -812,14 +863,19 @@ def _calculate_dynamic_depth(
     inversion_confidence: float = STRATEGY_INVERSION_CONFIDENCE_NEUTRAL,
     tracker: "_InversionDepthTracker | None" = None,
     currently_active: bool = False,
+    zigzag_gate_action: str = "neutral",
 ) -> int:
     threshold_small = STRATEGY_SCORE_THRESHOLD_SMALL
     if tracker is not None:
         threshold_small = tracker.adjusted_threshold(threshold_small, STRATEGY_SMALL_EDGE_SIZE)
 
     base = _resolve_inversion_depth_with_hysteresis(regime_score, currently_active)
+    if zigzag_gate_action == "keep_normal":
+        return 0
     if base == 0:
-        if trend_state == "rising" and regime_score >= (threshold_small - STRATEGY_EARLY_ACTIVATION_MARGIN):
+        if zigzag_gate_action == "invert":
+            base = STRATEGY_SMALL_EDGE_SIZE
+        elif trend_state == "rising" and regime_score >= (threshold_small - STRATEGY_EARLY_ACTIVATION_MARGIN):
             base = STRATEGY_SMALL_EDGE_SIZE
     if base == 0:
         return 0
@@ -828,13 +884,13 @@ def _calculate_dynamic_depth(
         return 0
 
     if volatility > STRATEGY_VOLATILITY_AMPLIFY_THRESHOLD and trend_state == "rising":
-        base = min(STRATEGY_LARGE_EDGE_SIZE, base + 2)
+        base = _next_inversion_depth(base)
 
     if isinstance(current_rank, int):
         if current_rank <= 2 or current_rank >= 36:
-            base = min(base, 3)
+            base = min(base, STRATEGY_SMALL_EDGE_SIZE)
 
-    return base
+    return _normalize_inversion_depth(base)
 
 
 def _validate_inversion_confidence(
@@ -882,7 +938,7 @@ class _InversionDepthTracker:
     def adjusted_threshold(self, base_threshold: float, depth: int) -> float:
         rate = self.success_rate(depth)
         if rate > STRATEGY_FEEDBACK_HIGH_RATE:
-            return max(base_threshold - STRATEGY_FEEDBACK_THRESHOLD_ADJUST, 0.0)
+            return max(base_threshold - STRATEGY_FEEDBACK_THRESHOLD_ADJUST, STRATEGY_FEEDBACK_THRESHOLD_FLOOR)
         if rate < STRATEGY_FEEDBACK_LOW_RATE:
             return base_threshold + STRATEGY_FEEDBACK_THRESHOLD_ADJUST
         return base_threshold
@@ -974,10 +1030,10 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         volatility_bonus = volatility * 0.5 if trend_state == "rising" else 0.0
 
         last_rank = observed_ranks[-1] if observed_ranks else None
-        inverted_rank_preview = (38 - last_rank) if isinstance(last_rank, int) else None
-        inversion_confidence = _validate_inversion_confidence(
-            last_rank, inverted_rank_preview, observed_ranks
-        )
+        zigzag_gate = _resolve_rolling_zigzag_gate(observed_ranks)
+        zigzag_gate_action = str(zigzag_gate.get("action") or "neutral")
+        inverted_rank_preview = None
+        inversion_confidence = STRATEGY_INVERSION_CONFIDENCE_NEUTRAL
 
         # Atualizar persistência antes de calcular o depth
         if persistence_counter > 0:
@@ -991,10 +1047,33 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             inversion_confidence=inversion_confidence,
             tracker=tracker,
             currently_active=inversion_active,
+            zigzag_gate_action=zigzag_gate_action,
         )
 
+        if strategy_invert_depth > 0 and isinstance(last_rank, int):
+            inverted_rank_preview = _invert_rank_zones(last_rank, strategy_invert_depth)
+            inversion_confidence = _validate_inversion_confidence(
+                last_rank, inverted_rank_preview, observed_ranks
+            )
+            strategy_invert_depth = _calculate_dynamic_depth(
+                regime_score,
+                last_rank,
+                trend_state,
+                volatility,
+                inversion_confidence=inversion_confidence,
+                tracker=tracker,
+                currently_active=inversion_active,
+                zigzag_gate_action=zigzag_gate_action,
+            )
+
         # Aplicar persistência: se estava ativo e counter > 0, manter depth mínimo
-        if strategy_invert_depth == 0 and inversion_active and persistence_counter > 0:
+        if (
+            strategy_invert_depth == 0
+            and inversion_active
+            and persistence_counter > 0
+            and zigzag_gate_action != "keep_normal"
+            and inversion_confidence >= STRATEGY_INVERSION_CONFIDENCE_MIN
+        ):
             strategy_invert_depth = STRATEGY_SMALL_EDGE_SIZE
 
         # Atualizar estado para próximo item
@@ -1003,13 +1082,15 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             persistence_counter = STRATEGY_PERSISTENCE_TURNS
         elif persistence_counter == 0:
             inversion_active = False
-        # Desativar inversão em Zone TOP (ranks 1-12 muito bons não devem ser invertidos — piora)
-        if isinstance(original_hit_rank, int) and original_hit_rank <= STRATEGY_ZONE_TOP_END:
-            strategy_invert_depth = 0
 
         strategy_mode = "inverted_extremes" if strategy_invert_depth > 0 else "normal"
         strategy_triggered = strategy_invert_depth > 0
-        strategy_trigger_reason = "falling_regime_active" if strategy_triggered else ""
+        strategy_trigger_reason = (
+            "rolling_zigzag_gate"
+            if strategy_triggered and zigzag_gate_action == "invert"
+            else "falling_regime_active" if strategy_triggered
+            else ""
+        )
         strategy_reference_ranks: List[int] = observed_ranks[-3:]
         strategy_signal_strength = round(regime_score, 2)
         strategy_hit_rank = original_hit_rank
@@ -1047,11 +1128,11 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         item["strategy_trend_state"] = trend_state
         item["strategy_volatility"] = round(volatility, 3)
         item["strategy_inversion_confidence"] = round(inversion_confidence, 3)
-        item["strategy_inversion_zone"] = (
-            "top" if isinstance(original_hit_rank, int) and original_hit_rank <= STRATEGY_ZONE_TOP_END
-            else "bottom" if isinstance(original_hit_rank, int) and original_hit_rank >= STRATEGY_ZONE_BOTTOM_START
-            else "middle" if isinstance(original_hit_rank, int)
-            else "none"
+        item["strategy_inverted_rank_preview"] = inverted_rank_preview
+        item["strategy_zigzag_gate"] = zigzag_gate
+        item["strategy_inversion_zone"] = _rank_zone(
+            int(original_hit_rank) if isinstance(original_hit_rank, int) else None,
+            strategy_invert_depth or STRATEGY_LARGE_EDGE_SIZE,
         )
         item["strategy_persistence_active"] = inversion_active
 
@@ -1077,7 +1158,7 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     return {
         "enabled": True,
-        "name": "inverted_extremes_movement_v2",
+        "name": STRATEGY_DECISION_VERSION,
         "min_correction": STRATEGY_MIN_CORRECTION,
         "depth_options": [
             STRATEGY_SMALL_EDGE_SIZE,
@@ -1169,6 +1250,62 @@ def _compute_zigzag_metrics_lite(
     return out
 
 
+def _resolve_rolling_zigzag_gate(
+    previous_ranks: List[int],
+    *,
+    window: int = ROLLING_ZIGZAG_DEFAULT_WINDOW,
+    top_end: int = ZIGZAG_DEFAULT_TOP_END,
+    bottom_start: int = ZIGZAG_DEFAULT_BOTTOM_START,
+    gate_acf_threshold: float = ROLLING_ZIGZAG_GATE_ACF_THRESHOLD,
+) -> Dict[str, Any]:
+    safe_window = max(ZIGZAG_MIN_SAMPLE, min(500, int(window or ROLLING_ZIGZAG_DEFAULT_WINDOW)))
+    window_series = [
+        int(rank)
+        for rank in previous_ranks[-safe_window:]
+        if isinstance(rank, int)
+    ]
+    if len(window_series) < ZIGZAG_MIN_SAMPLE:
+        return {
+            "window_size": len(window_series),
+            "active": False,
+            "action": "neutral",
+            "reason": "insufficient_data",
+        }
+
+    metrics = _compute_zigzag_metrics_lite(
+        window_series,
+        top_end=top_end,
+        bottom_start=bottom_start,
+    )
+    gate_active = (
+        metrics["interpretation"] == "significant_zigzag"
+        and metrics["acf_lag_1"] is not None
+        and metrics["acf_lag_1"] <= gate_acf_threshold
+    )
+    last_rank = window_series[-1]
+    action = "neutral"
+    reason = str(metrics["interpretation"])
+    if gate_active:
+        if last_rank <= top_end:
+            action = "invert"
+            reason = "zigzag_after_top_expects_bottom"
+        elif last_rank >= bottom_start:
+            action = "keep_normal"
+            reason = "zigzag_after_bottom_expects_top"
+
+    return {
+        "window_size": len(window_series),
+        "active": bool(gate_active),
+        "action": action,
+        "reason": reason,
+        "acf_lag_1": metrics["acf_lag_1"],
+        "runs_z": metrics["runs_z"],
+        "last_rank": last_rank,
+        "top_end": int(top_end),
+        "bottom_start": int(bottom_start),
+    }
+
+
 def _build_rolling_zigzag_diagnostics(
     items: List[Dict[str, Any]],
     *,
@@ -1202,8 +1339,8 @@ def _build_rolling_zigzag_diagnostics(
         if series_idx is None:
             item["rolling_zigzag"] = None
             continue
-        start = max(0, series_idx - safe_window + 1)
-        window_series = series_full[start : series_idx + 1]
+        start = max(0, series_idx - safe_window)
+        window_series = series_full[start:series_idx]
         metrics = _compute_zigzag_metrics_lite(
             window_series,
             top_end=top_end,
@@ -1220,6 +1357,13 @@ def _build_rolling_zigzag_diagnostics(
             "runs_z": metrics["runs_z"],
             "interpretation": metrics["interpretation"],
             "gate_active": bool(gate_active),
+            "gate_action": _resolve_rolling_zigzag_gate(
+                window_series,
+                window=safe_window,
+                top_end=top_end,
+                bottom_start=bottom_start,
+                gate_acf_threshold=gate_acf_threshold,
+            ).get("action", "neutral"),
         }
         interp_counts[metrics["interpretation"]] += 1
         evaluated += 1
@@ -1822,6 +1966,7 @@ def _persist_strategy_items_data(roulette_id: str, items: List[Dict[str, Any]]) 
             # strategy_hit_rank e strategy_plot_rank NÃO são salvos pois dependem do
             # next_number que ainda não é conhecido quando o snapshot é gerado.
             strategy_data = {
+                "strategy_version": STRATEGY_DECISION_VERSION,
                 "strategy_triggered": item.get("strategy_triggered", False),
                 "strategy_trigger_reason": item.get("strategy_trigger_reason", ""),
                 "strategy_mode": item.get("strategy_mode", "normal"),
@@ -1830,6 +1975,8 @@ def _persist_strategy_items_data(roulette_id: str, items: List[Dict[str, Any]]) 
                 "strategy_trend_state": item.get("strategy_trend_state", "unknown"),
                 "strategy_volatility": item.get("strategy_volatility", 0),
                 "strategy_inversion_confidence": item.get("strategy_inversion_confidence", 0.5),
+                "strategy_inverted_rank_preview": item.get("strategy_inverted_rank_preview"),
+                "strategy_zigzag_gate": item.get("strategy_zigzag_gate", {}),
                 "strategy_inversion_zone": item.get("strategy_inversion_zone", "none"),
                 "strategy_persistence_active": item.get("strategy_persistence_active", False),
                 "strategy_reference_ranks": item.get("strategy_reference_ranks", []),
@@ -1960,7 +2107,9 @@ async def build_suggestion_snapshot_rank_timeline(
         ).to_list(length=len(snapshot_ids))
         for doc in saved_docs:
             sid = str(doc["_id"])
-            saved_strategy_map[sid] = doc.get("strategy_data", {})
+            strategy_data = doc.get("strategy_data", {})
+            if strategy_data.get("strategy_version") == STRATEGY_DECISION_VERSION:
+                saved_strategy_map[sid] = strategy_data
 
     # PASSO 2: Calcular estratégia para todos os itens em sequência
     # (necessário porque regime_score é acumulativo — os novos dependem dos anteriores)

@@ -110,8 +110,8 @@ async def get_suggestion_snapshot_rank_timeline_route(
     roulette_id: str = Query(..., min_length=1),
     limit: int = Query(default=200, ge=20, le=2000),
     include_all_configs: bool = Query(default=False),
-    zone_top_end: int = Query(default=7, ge=1, le=36),
-    zone_bottom_start: int = Query(default=29, ge=2, le=37),
+    zone_top_end: int = Query(default=10, ge=1, le=36),
+    zone_bottom_start: int = Query(default=28, ge=2, le=37),
     mirror_midpoint: int = Query(default=19, ge=2, le=36),
 ):
     try:
@@ -140,8 +140,8 @@ async def get_mirror_simulator_route(
     include_all_configs: bool = Query(default=False),
     window: int = Query(default=60, ge=8, le=500),
     midpoint: int = Query(default=19, ge=2, le=36),
-    zone_top_end: int = Query(default=7, ge=1, le=36),
-    zone_bottom_start: int = Query(default=29, ge=2, le=37),
+    zone_top_end: int = Query(default=10, ge=1, le=36),
+    zone_bottom_start: int = Query(default=28, ge=2, le=37),
     gate_acf_threshold: float = Query(default=-0.15, ge=-1.0, le=1.0),
 ):
     try:
