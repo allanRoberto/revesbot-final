@@ -640,7 +640,6 @@ def _extract_snapshot_timeline_context(snapshot_doc: Mapping[str, Any], ranking:
 
 
 STRATEGY_OUTSIDE_RANK = 38
-STRATEGY_DECISION_VERSION = "inverted_extremes_movement_v3"
 ZIGZAG_MIN_SAMPLE = 8
 ZIGZAG_RUNS_TEST_Z_THRESHOLD = 1.96
 STRATEGY_MIN_CORRECTION = 4
@@ -1158,7 +1157,7 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     return {
         "enabled": True,
-        "name": STRATEGY_DECISION_VERSION,
+        "name": "inverted_extremes_movement_v2",
         "min_correction": STRATEGY_MIN_CORRECTION,
         "depth_options": [
             STRATEGY_SMALL_EDGE_SIZE,
@@ -1966,7 +1965,6 @@ def _persist_strategy_items_data(roulette_id: str, items: List[Dict[str, Any]]) 
             # strategy_hit_rank e strategy_plot_rank NÃO são salvos pois dependem do
             # next_number que ainda não é conhecido quando o snapshot é gerado.
             strategy_data = {
-                "strategy_version": STRATEGY_DECISION_VERSION,
                 "strategy_triggered": item.get("strategy_triggered", False),
                 "strategy_trigger_reason": item.get("strategy_trigger_reason", ""),
                 "strategy_mode": item.get("strategy_mode", "normal"),
@@ -2107,9 +2105,7 @@ async def build_suggestion_snapshot_rank_timeline(
         ).to_list(length=len(snapshot_ids))
         for doc in saved_docs:
             sid = str(doc["_id"])
-            strategy_data = doc.get("strategy_data", {})
-            if strategy_data.get("strategy_version") == STRATEGY_DECISION_VERSION:
-                saved_strategy_map[sid] = strategy_data
+            saved_strategy_map[sid] = doc.get("strategy_data", {})
 
     # PASSO 2: Calcular estratégia para todos os itens em sequência
     # (necessário porque regime_score é acumulativo — os novos dependem dos anteriores)
