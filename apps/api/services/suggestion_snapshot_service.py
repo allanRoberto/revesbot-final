@@ -473,7 +473,7 @@ def _serialize_snapshot_response(snapshot_doc: Mapping[str, Any], *, take: int) 
             "snapshot_id": str(snapshot_doc.get("snapshot_id") or snapshot_doc.get("_id") or ""),
             "roulette_id": str(snapshot_doc.get("roulette_id") or ""),
             "anchor_history_id": str(snapshot_doc.get("anchor_history_id") or ""),
-            "anchor_number": int(snapshot_doc.get("anchor_number") or -1),
+            "anchor_number": int(v) if (v := snapshot_doc.get("anchor_number")) is not None else -1,
             "anchor_timestamp_utc": _serialize_datetime(snapshot_doc.get("anchor_timestamp_utc")),
             "config_id": str(snapshot_doc.get("config_id") or ""),
             "config_key": str(snapshot_doc.get("config_key") or ""),
@@ -722,6 +722,23 @@ def _invert_rank_zones(rank: int | None, depth: int) -> int | None:
 
     # Zone B (middle 13-24): ajuste mínimo de ±1
     return safe_rank + (1 if safe_rank >= 19 else -1)
+
+
+def _build_optimized_ranking(ranking: List[int], depth: int) -> List[int]:
+    """
+    Reconstrói o ranking aplicando a inversão por zonas.
+    Cada número recebe uma posição otimizada via _invert_rank_zones,
+    depois ordena pelo rank otimizado.
+    """
+    if not ranking or depth == 0:
+        return list(ranking)
+    ranked = []
+    for idx, num in enumerate(ranking):
+        original_rank = idx + 1
+        optimized_rank = _invert_rank_zones(original_rank, depth)
+        ranked.append((num, optimized_rank if optimized_rank is not None else original_rank))
+    ranked.sort(key=lambda x: x[1])
+    return [num for num, _ in ranked]
 
 
 def _resolve_inversion_depth(regime_score: float) -> int:
@@ -997,13 +1014,25 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         strategy_signal_strength = round(regime_score, 2)
         strategy_hit_rank = original_hit_rank
         strategy_plot_rank = item.get("plot_rank")
+
+        # Construir o ranking otimizado: reorganiza ranking_full pela estratégia de inversão
+        ranking_full = item.get("ranking_full") or []
+        optimized_ranking = _build_optimized_ranking(ranking_full, strategy_invert_depth)
+        item["ranking_otimizado"] = optimized_ranking
+
         if strategy_invert_depth > 0:
             depth_key = str(strategy_invert_depth)
             depth_counts[depth_key] = depth_counts.get(depth_key, 0) + 1
             triggered_items += 1
-            if isinstance(original_hit_rank, int):
-                strategy_hit_rank = _invert_rank_zones(original_hit_rank, strategy_invert_depth)
+            next_number = item.get("next_number")
+            if isinstance(next_number, int) and next_number in optimized_ranking:
+                # Posição real do next_number no ranking otimizado — igual ao fluxo do original
+                strategy_hit_rank = optimized_ranking.index(next_number) + 1
                 strategy_plot_rank = strategy_hit_rank
+            elif isinstance(original_hit_rank, int):
+                # Sem next_number ainda: usa a transformação matemática como proxy
+                strategy_hit_rank = None
+                strategy_plot_rank = STRATEGY_OUTSIDE_RANK
             else:
                 strategy_plot_rank = STRATEGY_OUTSIDE_RANK
 
@@ -1789,14 +1818,14 @@ def _persist_strategy_items_data(roulette_id: str, items: List[Dict[str, Any]]) 
             if not snapshot_id:
                 continue
 
-            # Extrair apenas os dados de estratégia para salvar
+            # Salvar apenas a DECISÃO da estratégia (o que foi configurado no momento do snapshot).
+            # strategy_hit_rank e strategy_plot_rank NÃO são salvos pois dependem do
+            # next_number que ainda não é conhecido quando o snapshot é gerado.
             strategy_data = {
                 "strategy_triggered": item.get("strategy_triggered", False),
                 "strategy_trigger_reason": item.get("strategy_trigger_reason", ""),
                 "strategy_mode": item.get("strategy_mode", "normal"),
                 "strategy_invert_depth": item.get("strategy_invert_depth", 0),
-                "strategy_hit_rank": item.get("strategy_hit_rank"),
-                "strategy_plot_rank": item.get("strategy_plot_rank"),
                 "strategy_signal_strength": item.get("strategy_signal_strength", 0),
                 "strategy_trend_state": item.get("strategy_trend_state", "unknown"),
                 "strategy_volatility": item.get("strategy_volatility", 0),
@@ -1875,7 +1904,7 @@ async def build_suggestion_snapshot_rank_timeline(
 
         next_doc = history_docs[anchor_idx - 1] if anchor_idx > 0 else None
         ranking = _extract_snapshot_ranking(snapshot_doc)
-        anchor_number = int(snapshot_doc.get("anchor_number") or -1)
+        anchor_number = int(v) if (v := snapshot_doc.get("anchor_number")) is not None else -1
         next_number = None
         next_history_id = ""
         next_timestamp_utc = None
@@ -1921,16 +1950,56 @@ async def build_suggestion_snapshot_rank_timeline(
 
     items = list(reversed(items_desc))
 
-    # Carregar dados de estratégia salvos do banco de dados
+    # PASSO 1: Carregar dados de estratégia já salvos do banco (em lote por snapshot_id)
+    snapshot_ids = [item["snapshot_id"] for item in items if item.get("snapshot_id")]
+    saved_strategy_map: Dict[str, Dict[str, Any]] = {}
+    if snapshot_ids:
+        saved_docs = await suggestion_snapshots_coll.find(
+            {"_id": {"$in": snapshot_ids}, "strategy_data": {"$exists": True}},
+            {"_id": 1, "strategy_data": 1},
+        ).to_list(length=len(snapshot_ids))
+        for doc in saved_docs:
+            sid = str(doc["_id"])
+            saved_strategy_map[sid] = doc.get("strategy_data", {})
+
+    # PASSO 2: Calcular estratégia para todos os itens em sequência
+    # (necessário porque regime_score é acumulativo — os novos dependem dos anteriores)
+    summary_strategy = _apply_inversion_strategy(items)
+
+    # PASSO 3: Para itens com dados salvos, restaurar a DECISÃO imutável da estratégia.
+    # Para itens novos (sem dados salvos), persistir o que foi calculado.
+    items_to_persist = []
     for item in items:
-        snapshot_id = item.get("snapshot_id")
-        if snapshot_id:
-            snapshot_doc = await suggestion_snapshots_coll.find_one({"_id": snapshot_id})
-            if snapshot_doc and "strategy_data" in snapshot_doc:
-                # Usar dados salvos em vez de recalcular
-                strategy_data = snapshot_doc.get("strategy_data", {})
-                for key, value in strategy_data.items():
-                    item[key] = value
+        sid = item.get("snapshot_id", "")
+        if sid in saved_strategy_map:
+            # Restaurar apenas a decisão salva (triggered, depth, zone, etc.)
+            for key, value in saved_strategy_map[sid].items():
+                item[key] = value
+        else:
+            # Item novo: guardar para persistir
+            items_to_persist.append(item)
+
+        # PASSO 3b: Recalcular strategy_hit_rank encontrando next_number no ranking_otimizado.
+        # Fluxo idêntico ao original: hit_rank = ranking_full.index(next_number) + 1
+        # Aqui:                        strategy_hit_rank = ranking_otimizado.index(next_number) + 1
+        invert_depth = item.get("strategy_invert_depth", 0)
+        next_number = item.get("next_number")
+        ranking_full = item.get("ranking_full") or []
+        optimized_ranking = _build_optimized_ranking(ranking_full, invert_depth)
+        item["ranking_otimizado"] = optimized_ranking
+        if invert_depth > 0 and isinstance(next_number, int) and next_number in optimized_ranking:
+            strategy_hit_rank = optimized_ranking.index(next_number) + 1
+            item["strategy_hit_rank"] = strategy_hit_rank
+            item["strategy_plot_rank"] = strategy_hit_rank
+        elif invert_depth > 0 and next_number is not None:
+            item["strategy_hit_rank"] = None
+            item["strategy_plot_rank"] = STRATEGY_OUTSIDE_RANK
+        else:
+            item["strategy_hit_rank"] = item.get("hit_rank")
+            item["strategy_plot_rank"] = item.get("hit_rank") if item.get("hit_rank") is not None else item.get("plot_rank")
+
+    if items_to_persist:
+        _persist_strategy_items_data(roulette_id, items_to_persist)
 
     resolved_items = [item for item in items if item.get("next_number") is not None]
     hit_items = [item for item in resolved_items if item.get("hit_rank") is not None]
@@ -1958,17 +2027,7 @@ async def build_suggestion_snapshot_rank_timeline(
         "avg_hit_rank": round(sum(int(item["hit_rank"]) for item in hit_items) / len(hit_items), 2) if hit_items else None,
         "rank_distribution": rank_distribution,
     }
-    # Verificar se os dados de estratégia já foram carregados do banco de dados
-    has_strategy_data = any(item.get("strategy_triggered") is not None for item in items)
-
-    if not has_strategy_data:
-        # Calcular estratégia de inversão apenas se não estiver carregada
-        summary["strategy"] = _apply_inversion_strategy(items)
-        # Persisti os dados de estratégia para cada snapshot (para evitar recálculo)
-        _persist_strategy_items_data(roulette_id, items)
-    else:
-        # Usar dados carregados para gerar o resumo de estratégia
-        summary["strategy"] = _build_strategy_summary_from_items(items)
+    summary["strategy"] = summary_strategy
 
     summary["range_prediction"] = _apply_movement_range_prediction(items)
     summary["zigzag_diagnostics"] = _build_zigzag_diagnostics(

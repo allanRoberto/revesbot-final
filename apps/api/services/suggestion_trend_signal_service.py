@@ -567,7 +567,7 @@ async def _load_trend_timeline(
             {
                 "snapshot_id": str(snap.get("snapshot_id") or snap.get("_id") or ""),
                 "anchor_history_id": anchor_history_id,
-                "anchor_number": int(snap.get("anchor_number") or -1),
+                "anchor_number": int(v) if (v := snap.get("anchor_number")) is not None else -1,
                 "anchor_timestamp_utc": snap.get("anchor_timestamp_utc"),
                 "next_history_id": next_history_id,
                 "next_number": next_number,

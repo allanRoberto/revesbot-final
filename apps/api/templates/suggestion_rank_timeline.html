@@ -2029,20 +2029,7 @@
                     : "Sem histórico suficiente";
                 const ranking = Array.isArray(item.ranking_full) ? item.ranking_full : (item.ranking_top10 || []);
 
-                // Construir ranking otimizado com base na estratégia de inversão
-                const optimizedRankingObj = currentTimelineItems.reduce((acc, i) => {
-                    const num = i.next_number;
-                    if (num != null) {
-                        acc[num] = i.strategy_plot_rank || i.hit_rank;
-                    }
-                    return acc;
-                }, {});
-
-                const optimizedRanking = ranking.map(num => num).sort((a, b) => {
-                    const rankA = optimizedRankingObj[a] || 37;
-                    const rankB = optimizedRankingObj[b] || 37;
-                    return rankA - rankB;
-                });
+                const optimizedRanking = Array.isArray(item.ranking_otimizado) ? item.ranking_otimizado : ranking;
 
                 const canBet = Array.isArray(item.ranking_full) && item.ranking_full.length >= 18;
                 const actionButtons = canBet ? `
