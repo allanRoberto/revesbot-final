@@ -79,17 +79,18 @@ def _item_for_hit(rank: int) -> dict:
     }
 
 
-def test_optimized_ranking_uses_depth() -> None:
+def test_optimized_ranking_preserves_legacy_mana_order_without_collisions() -> None:
     ranking = list(range(1, 38))
+    expected = list(service.STRATEGY_LEGACY_ZONE_ORDER)
 
     depth_5 = service._build_optimized_ranking(ranking, 5)
     depth_8 = service._build_optimized_ranking(ranking, 8)
     depth_10 = service._build_optimized_ranking(ranking, 10)
 
-    assert depth_5[:5] == [37, 36, 35, 34, 33]
-    assert depth_8[:8] == [37, 36, 35, 34, 33, 32, 31, 30]
-    assert depth_10[:10] == [37, 36, 35, 34, 33, 32, 31, 30, 29, 28]
-    assert len({tuple(depth_5), tuple(depth_8), tuple(depth_10)}) == 3
+    assert depth_5 == expected
+    assert depth_8 == expected
+    assert depth_10 == expected
+    assert sorted(depth_5) == ranking
 
 
 def test_inversion_mapping_has_no_rank_collisions() -> None:
@@ -98,23 +99,52 @@ def test_inversion_mapping_has_no_rank_collisions() -> None:
         assert sorted(mapped) == list(range(1, 38))
 
 
-def test_current_hit_rank_does_not_cancel_walk_forward_decision() -> None:
+def test_legacy_top_guard_keeps_top_base_hits_normal() -> None:
     items = [_item_for_hit(1), _item_for_hit(10), _item_for_hit(1)]
 
     service._apply_inversion_strategy(items)
 
-    assert items[2]["strategy_triggered"] is True
-    assert items[2]["strategy_invert_depth"] == service.STRATEGY_SMALL_EDGE_SIZE
-    assert items[2]["strategy_mode"] == "inverted_extremes"
+    assert items[2]["strategy_triggered"] is False
+    assert items[2]["strategy_invert_depth"] == 0
+    assert items[2]["strategy_hit_rank"] == 1
+    assert items[2]["strategy_mode"] == "normal"
+
+
+def test_live_strategy_does_not_use_current_hit_guard() -> None:
+    items = [_item_for_hit(1), _item_for_hit(10), _item_for_hit(1)]
+
+    service._apply_live_inversion_strategy(items)
+
+    assert items[2]["strategy_live_triggered"] is True
+    assert items[2]["strategy_live_invert_depth"] == service.STRATEGY_SMALL_EDGE_SIZE
+    assert items[2]["strategy_live_mode"] == "inverted_extremes"
+    assert items[2]["ranking_otimizado_live"]
+
+
+def test_strategy_persistence_includes_frozen_rankings_without_outcomes() -> None:
+    items = [_item_for_hit(1), _item_for_hit(10), _item_for_hit(30)]
+    service._apply_inversion_strategy(items)
+    for item in items:
+        item["ranking_otimizado_replay"] = list(item.get("ranking_otimizado") or [])
+        service._snapshot_strategy_fields(item, prefix="strategy_replay")
+    service._apply_live_inversion_strategy(items)
+
+    data = service._build_strategy_data_for_persistence(items[2])
+
+    assert len(data["ranking_otimizado"]) == 37
+    assert data["ranking_otimizado"] == data["ranking_otimizado_live"]
+    assert len(data["ranking_otimizado_replay"]) == 37
+    assert "strategy_live_hit_rank" not in data
+    assert "strategy_replay_hit_rank" not in data
 
 
 def test_confidence_preview_uses_zone_mapping_not_arithmetic_mirror() -> None:
-    items = [_item_for_hit(1), _item_for_hit(10), _item_for_hit(1)]
+    items = [_item_for_hit(1), _item_for_hit(25), _item_for_hit(30)]
 
     service._apply_inversion_strategy(items)
 
-    assert items[2]["strategy_inverted_rank_preview"] == service._invert_rank_zones(10, 5)
-    assert items[2]["strategy_inverted_rank_preview"] != 38 - 10
+    assert items[2]["strategy_inverted_rank_preview"] == service._invert_rank_zones(25, 5)
+    assert items[2]["strategy_inverted_rank_preview"] != 38 - 25
 
 
 def test_rolling_zigzag_gate_is_directional() -> None:

@@ -415,6 +415,111 @@ async def _load_history_doc_by_id(roulette_id: str, history_id: str) -> Dict[str
     return dict(doc) if isinstance(doc, Mapping) else None
 
 
+async def _build_live_strategy_data_for_snapshot(
+    *,
+    roulette_id: str,
+    snapshot_id: str,
+    anchor_doc: Mapping[str, Any],
+    config_key: str,
+    ranking: List[int],
+) -> Dict[str, Any]:
+    safe_ranking = _coerce_number_ranking(ranking)
+    if not safe_ranking:
+        return {}
+
+    snapshot_query: Dict[str, Any] = {
+        "roulette_id": roulette_id,
+        "config_key": config_key,
+    }
+    anchor_timestamp = anchor_doc.get("timestamp")
+    if anchor_timestamp is not None:
+        snapshot_query["anchor_timestamp_utc"] = {"$lt": anchor_timestamp}
+
+    previous_docs_raw = await (
+        suggestion_snapshots_coll.find(snapshot_query)
+        .sort("anchor_timestamp_utc", -1)
+        .limit(STRATEGY_LIVE_LOOKBACK_SNAPSHOTS)
+        .to_list(length=STRATEGY_LIVE_LOOKBACK_SNAPSHOTS)
+    )
+    previous_docs = [dict(doc) for doc in previous_docs_raw if isinstance(doc, Mapping)]
+
+    history_fetch_limit = min(
+        max((len(previous_docs) + 1) * 6, 300),
+        5000,
+    )
+    history_docs_raw = await (
+        history_coll.find({"roulette_id": roulette_id})
+        .sort("timestamp", -1)
+        .limit(history_fetch_limit)
+        .to_list(length=history_fetch_limit)
+    )
+    history_docs = [dict(doc) for doc in history_docs_raw if isinstance(doc, Mapping)]
+    history_index = {str(doc.get("_id")): idx for idx, doc in enumerate(history_docs)}
+
+    items_desc: List[Dict[str, Any]] = []
+    for snapshot_doc in previous_docs:
+        anchor_history_id = str(snapshot_doc.get("anchor_history_id") or "").strip()
+        anchor_idx = history_index.get(anchor_history_id)
+        if anchor_idx is None:
+            continue
+
+        previous_ranking = _extract_snapshot_ranking(snapshot_doc)
+        if not previous_ranking:
+            continue
+
+        next_doc = history_docs[anchor_idx - 1] if anchor_idx > 0 else None
+        next_number = None
+        hit_rank = None
+        plot_rank = None
+        if isinstance(next_doc, Mapping):
+            next_number = int(next_doc.get("value"))
+            if next_number in previous_ranking:
+                hit_rank = previous_ranking.index(next_number) + 1
+                plot_rank = hit_rank
+            else:
+                plot_rank = STRATEGY_OUTSIDE_RANK
+
+        items_desc.append(
+            {
+                "snapshot_id": str(snapshot_doc.get("snapshot_id") or snapshot_doc.get("_id") or ""),
+                "anchor_history_id": anchor_history_id,
+                "anchor_number": int(v) if (v := snapshot_doc.get("anchor_number")) is not None else -1,
+                "anchor_timestamp_utc": _serialize_datetime(snapshot_doc.get("anchor_timestamp_utc")),
+                "next_number": next_number,
+                "hit_rank": hit_rank,
+                "plot_rank": plot_rank,
+                "hit": hit_rank is not None,
+                "ranking_full": list(previous_ranking),
+                "ranking_size": len(previous_ranking),
+                "config_key": str(snapshot_doc.get("config_key") or ""),
+                "source": str(snapshot_doc.get("source") or ""),
+            }
+        )
+
+    current_item = {
+        "snapshot_id": snapshot_id,
+        "anchor_history_id": str(anchor_doc.get("_id") or ""),
+        "anchor_number": int(anchor_doc.get("value")),
+        "anchor_timestamp_utc": _serialize_datetime(anchor_doc.get("timestamp")),
+        "next_number": None,
+        "hit_rank": None,
+        "plot_rank": None,
+        "hit": False,
+        "ranking_full": list(safe_ranking),
+        "ranking_size": len(safe_ranking),
+        "config_key": config_key,
+        "source": "snapshot_creation",
+    }
+    items = list(reversed(items_desc)) + [current_item]
+    _apply_inversion_strategy(items)
+    for item in items:
+        item["ranking_otimizado_replay"] = list(item.get("ranking_otimizado") or [])
+        _snapshot_strategy_fields(item, prefix="strategy_replay")
+    _apply_live_inversion_strategy(items)
+    current = items[-1]
+    return _build_strategy_data_for_persistence(current)
+
+
 async def _compute_and_persist_snapshot(
     *,
     roulette_id: str,
@@ -438,6 +543,18 @@ async def _compute_and_persist_snapshot(
         config_doc=config_doc,
     )
     payload = await _compute_final_suggestion(request)
+    base_ranking = _extract_payload_ranking(payload if isinstance(payload, Mapping) else {})
+    try:
+        strategy_data = await _build_live_strategy_data_for_snapshot(
+            roulette_id=roulette_id,
+            snapshot_id=snapshot_id,
+            anchor_doc=anchor_doc,
+            config_key=config_key,
+            ranking=base_ranking,
+        )
+    except Exception as exc:
+        print(f"⚠️  Falha ao calcular ranking otimizado live do snapshot: {exc}")
+        strategy_data = {}
     now = datetime.now(timezone.utc)
     document = {
         "_id": snapshot_id,
@@ -451,6 +568,7 @@ async def _compute_and_persist_snapshot(
         "ranking_size": SUGGESTION_SNAPSHOT_RANKING_SIZE,
         "history_size_used": len(history_at_anchor),
         "payload": _mongo_safe_value(payload),
+        "strategy_data": _mongo_safe_value(strategy_data),
         "source": source,
         "created_at_utc": now,
         "updated_at_utc": now,
@@ -536,30 +654,38 @@ async def resolve_suggestion_snapshot_by_index(
     return response
 
 
+def _coerce_number_ranking(values: Any) -> List[int]:
+    if not isinstance(values, list):
+        return []
+    ranking: List[int] = []
+    seen: set[int] = set()
+    for value in values:
+        try:
+            number = int(value)
+        except Exception:
+            continue
+        if not (0 <= number <= 36) or number in seen:
+            continue
+        seen.add(number)
+        ranking.append(number)
+        if len(ranking) >= SUGGESTION_SNAPSHOT_RANKING_SIZE:
+            break
+    return ranking
+
+
+def _extract_payload_ranking(payload: Mapping[str, Any]) -> List[int]:
+    for key in ("suggestion", "list", "ordered_suggestion", "base_suggestion", "simple_suggestion"):
+        ranking = _coerce_number_ranking(payload.get(key))
+        if ranking:
+            return ranking
+    return []
+
+
 def _extract_snapshot_ranking(snapshot_doc: Mapping[str, Any]) -> List[int]:
     payload = snapshot_doc.get("payload") if isinstance(snapshot_doc, Mapping) else None
     if not isinstance(payload, Mapping):
         return []
-    for key in ("suggestion", "list", "ordered_suggestion", "base_suggestion", "simple_suggestion"):
-        values = payload.get(key)
-        if not isinstance(values, list):
-            continue
-        ranking: List[int] = []
-        seen: set[int] = set()
-        for value in values:
-            try:
-                number = int(value)
-            except Exception:
-                continue
-            if not (0 <= number <= 36) or number in seen:
-                continue
-            seen.add(number)
-            ranking.append(number)
-            if len(ranking) >= SUGGESTION_SNAPSHOT_RANKING_SIZE:
-                break
-        if ranking:
-            return ranking
-    return []
+    return _extract_payload_ranking(payload)
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -640,6 +766,8 @@ def _extract_snapshot_timeline_context(snapshot_doc: Mapping[str, Any], ranking:
 
 
 STRATEGY_OUTSIDE_RANK = 38
+ZIGZAG_DEFAULT_TOP_END = 7
+ZIGZAG_DEFAULT_BOTTOM_START = 29
 ZIGZAG_MIN_SAMPLE = 8
 ZIGZAG_RUNS_TEST_Z_THRESHOLD = 1.96
 STRATEGY_MIN_CORRECTION = 4
@@ -651,12 +779,10 @@ STRATEGY_DEPTH_OPTIONS = (
     STRATEGY_MEDIUM_EDGE_SIZE,
     STRATEGY_LARGE_EDGE_SIZE,
 )
-ZIGZAG_DEFAULT_TOP_END = STRATEGY_LARGE_EDGE_SIZE
-ZIGZAG_DEFAULT_BOTTOM_START = 38 - STRATEGY_LARGE_EDGE_SIZE
 STRATEGY_SCORE_THRESHOLD_SMALL = 4.0
 STRATEGY_SCORE_THRESHOLD_MEDIUM = 6.0
 STRATEGY_SCORE_THRESHOLD_LARGE = 9.0
-STRATEGY_SCORE_DECAY_PER_STEP = 0.7
+STRATEGY_SCORE_DECAY_PER_STEP = 0.35
 STRATEGY_SCORE_MAX = 18.0
 STRATEGY_TREND_WINDOW = 5
 STRATEGY_EARLY_ACTIVATION_MARGIN = 1.5
@@ -669,12 +795,22 @@ STRATEGY_FEEDBACK_HIGH_RATE = 0.6
 STRATEGY_FEEDBACK_LOW_RATE = 0.35
 STRATEGY_FEEDBACK_THRESHOLD_ADJUST = 0.8
 STRATEGY_FEEDBACK_THRESHOLD_FLOOR = 1.0
-STRATEGY_ZONE_TOP_END = STRATEGY_LARGE_EDGE_SIZE
-STRATEGY_ZONE_BOTTOM_START = 38 - STRATEGY_LARGE_EDGE_SIZE
+STRATEGY_ZONE_TOP_END = 12
+STRATEGY_ZONE_BOTTOM_START = 25
 STRATEGY_SCORE_DEACTIVATION_SMALL = 2.5
 STRATEGY_SCORE_DEACTIVATION_MEDIUM = 4.0
 STRATEGY_SCORE_DEACTIVATION_LARGE = 7.0
-STRATEGY_PERSISTENCE_TURNS = 2
+STRATEGY_PERSISTENCE_TURNS = 3
+STRATEGY_LIVE_LOOKBACK_SNAPSHOTS = 300
+STRATEGY_LEGACY_ZONE_ORDER = (
+    36, 37, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26,
+    13, 25, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+    12, 24, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
+)
+STRATEGY_LEGACY_ZONE_RANKS = {
+    original_rank: optimized_rank
+    for optimized_rank, original_rank in enumerate(STRATEGY_LEGACY_ZONE_ORDER, start=1)
+}
 RANGE_PREDICTION_LOOKBACK = 12
 RANGE_PREDICTION_NEIGHBORS = 15
 RANGE_PREDICTION_SIZE = 18
@@ -705,73 +841,36 @@ def _invert_rank_extremes(rank: int | None, edge_size: int) -> int | None:
     return safe_rank
 
 
-def _normalize_inversion_depth(depth: int | None) -> int:
-    if depth is None:
-        return 0
-    safe_depth = max(0, min(18, int(depth)))
-    if safe_depth == 0:
-        return 0
-    for option in STRATEGY_DEPTH_OPTIONS:
-        if safe_depth <= option:
-            return option
-    return STRATEGY_LARGE_EDGE_SIZE
-
-
-def _next_inversion_depth(depth: int) -> int:
-    current = _normalize_inversion_depth(depth)
-    if current == 0:
-        return STRATEGY_SMALL_EDGE_SIZE
-    for option in STRATEGY_DEPTH_OPTIONS:
-        if option > current:
-            return option
-    return STRATEGY_LARGE_EDGE_SIZE
-
-
 def _rank_zone(rank: int | None, depth: int | None = None) -> str:
     if not isinstance(rank, int):
         return "none"
     safe_rank = int(rank)
     if not (1 <= safe_rank <= 37):
         return "none"
-    safe_depth = _normalize_inversion_depth(depth or STRATEGY_LARGE_EDGE_SIZE)
-    if safe_depth <= 0:
-        safe_depth = STRATEGY_LARGE_EDGE_SIZE
-    if safe_rank <= safe_depth:
+    if safe_rank <= STRATEGY_ZONE_TOP_END:
         return "top"
-    if safe_rank >= 38 - safe_depth:
+    if safe_rank >= STRATEGY_ZONE_BOTTOM_START:
         return "bottom"
     return "middle"
 
 
 def _invert_rank_zones(rank: int | None, depth: int) -> int | None:
     """
-    Inverte apenas as bordas definidas por ``depth``.
+    Inverte pela faixa ampla do MANÁ, mas com uma permutação 1:1.
 
-    depth=5  -> ranks 1-5 trocam com 33-37
-    depth=8  -> ranks 1-8 trocam com 30-37
-    depth=10 -> ranks 1-10 trocam com 28-37
-
-    O miolo permanece na mesma posição e o mapeamento é uma permutação
-    1:1, sem colisões entre ranks originais.
+    A versão antiga usava zonas fixas 1-12 e 25-37 e produzia empates no
+    rank otimizado. Esta ordem preserva o mesmo ranking final estável, sem
+    colisões entre ranks originais.
     """
     if rank is None:
         return None
     safe_rank = int(rank)
     if not (1 <= safe_rank <= 37):
         return safe_rank
-    safe_depth = _normalize_inversion_depth(depth)
-    if safe_depth <= 0:
+    if int(depth or 0) <= 0:
         return safe_rank
 
-    bottom_start = 38 - safe_depth
-
-    if safe_rank <= safe_depth:
-        return bottom_start + (safe_depth - safe_rank)
-
-    if safe_rank >= bottom_start:
-        return safe_depth - (safe_rank - bottom_start)
-
-    return safe_rank
+    return STRATEGY_LEGACY_ZONE_RANKS.get(safe_rank, safe_rank)
 
 
 def _build_optimized_ranking(ranking: List[int], depth: int) -> List[int]:
@@ -862,19 +961,14 @@ def _calculate_dynamic_depth(
     inversion_confidence: float = STRATEGY_INVERSION_CONFIDENCE_NEUTRAL,
     tracker: "_InversionDepthTracker | None" = None,
     currently_active: bool = False,
-    zigzag_gate_action: str = "neutral",
 ) -> int:
     threshold_small = STRATEGY_SCORE_THRESHOLD_SMALL
     if tracker is not None:
         threshold_small = tracker.adjusted_threshold(threshold_small, STRATEGY_SMALL_EDGE_SIZE)
 
     base = _resolve_inversion_depth_with_hysteresis(regime_score, currently_active)
-    if zigzag_gate_action == "keep_normal":
-        return 0
     if base == 0:
-        if zigzag_gate_action == "invert":
-            base = STRATEGY_SMALL_EDGE_SIZE
-        elif trend_state == "rising" and regime_score >= (threshold_small - STRATEGY_EARLY_ACTIVATION_MARGIN):
+        if trend_state == "rising" and regime_score >= (threshold_small - STRATEGY_EARLY_ACTIVATION_MARGIN):
             base = STRATEGY_SMALL_EDGE_SIZE
     if base == 0:
         return 0
@@ -883,13 +977,13 @@ def _calculate_dynamic_depth(
         return 0
 
     if volatility > STRATEGY_VOLATILITY_AMPLIFY_THRESHOLD and trend_state == "rising":
-        base = _next_inversion_depth(base)
+        base = min(STRATEGY_LARGE_EDGE_SIZE, base + 2)
 
     if isinstance(current_rank, int):
         if current_rank <= 2 or current_rank >= 36:
-            base = min(base, STRATEGY_SMALL_EDGE_SIZE)
+            base = min(base, 3)
 
-    return _normalize_inversion_depth(base)
+    return base
 
 
 def _validate_inversion_confidence(
@@ -1005,7 +1099,11 @@ def _update_falling_regime_score(
     return (round(score, 2), streak)
 
 
-def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _apply_inversion_strategy(
+    items: List[Dict[str, Any]],
+    *,
+    use_current_hit_guard: bool = True,
+) -> Dict[str, Any]:
     triggered_items = 0
     strategy_distribution = {str(rank): 0 for rank in range(1, 38)}
     strategy_hit_items: List[Dict[str, Any]] = []
@@ -1030,9 +1128,14 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
 
         last_rank = observed_ranks[-1] if observed_ranks else None
         zigzag_gate = _resolve_rolling_zigzag_gate(observed_ranks)
-        zigzag_gate_action = str(zigzag_gate.get("action") or "neutral")
-        inverted_rank_preview = None
-        inversion_confidence = STRATEGY_INVERSION_CONFIDENCE_NEUTRAL
+        inverted_rank_preview = (
+            _invert_rank_zones(last_rank, STRATEGY_LARGE_EDGE_SIZE)
+            if isinstance(last_rank, int)
+            else None
+        )
+        inversion_confidence = _validate_inversion_confidence(
+            last_rank, inverted_rank_preview, observed_ranks
+        )
 
         # Atualizar persistência antes de calcular o depth
         if persistence_counter > 0:
@@ -1046,33 +1149,10 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             inversion_confidence=inversion_confidence,
             tracker=tracker,
             currently_active=inversion_active,
-            zigzag_gate_action=zigzag_gate_action,
         )
 
-        if strategy_invert_depth > 0 and isinstance(last_rank, int):
-            inverted_rank_preview = _invert_rank_zones(last_rank, strategy_invert_depth)
-            inversion_confidence = _validate_inversion_confidence(
-                last_rank, inverted_rank_preview, observed_ranks
-            )
-            strategy_invert_depth = _calculate_dynamic_depth(
-                regime_score,
-                last_rank,
-                trend_state,
-                volatility,
-                inversion_confidence=inversion_confidence,
-                tracker=tracker,
-                currently_active=inversion_active,
-                zigzag_gate_action=zigzag_gate_action,
-            )
-
         # Aplicar persistência: se estava ativo e counter > 0, manter depth mínimo
-        if (
-            strategy_invert_depth == 0
-            and inversion_active
-            and persistence_counter > 0
-            and zigzag_gate_action != "keep_normal"
-            and inversion_confidence >= STRATEGY_INVERSION_CONFIDENCE_MIN
-        ):
+        if strategy_invert_depth == 0 and inversion_active and persistence_counter > 0:
             strategy_invert_depth = STRATEGY_SMALL_EDGE_SIZE
 
         # Atualizar estado para próximo item
@@ -1081,15 +1161,18 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             persistence_counter = STRATEGY_PERSISTENCE_TURNS
         elif persistence_counter == 0:
             inversion_active = False
+        # Compatibilidade com o replay do MANÁ: preserva os acertos que já
+        # estavam no topo do ranking base, em vez de rebaixá-los pela inversão.
+        if (
+            use_current_hit_guard
+            and isinstance(original_hit_rank, int)
+            and original_hit_rank <= STRATEGY_ZONE_TOP_END
+        ):
+            strategy_invert_depth = 0
 
         strategy_mode = "inverted_extremes" if strategy_invert_depth > 0 else "normal"
         strategy_triggered = strategy_invert_depth > 0
-        strategy_trigger_reason = (
-            "rolling_zigzag_gate"
-            if strategy_triggered and zigzag_gate_action == "invert"
-            else "falling_regime_active" if strategy_triggered
-            else ""
-        )
+        strategy_trigger_reason = "falling_regime_active" if strategy_triggered else ""
         strategy_reference_ranks: List[int] = observed_ranks[-3:]
         strategy_signal_strength = round(regime_score, 2)
         strategy_hit_rank = original_hit_rank
@@ -1187,7 +1270,49 @@ def _apply_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         "avg_hit_rank": round(sum(int(item["strategy_hit_rank"]) for item in strategy_hit_items) / len(strategy_hit_items), 2) if strategy_hit_items else None,
         "rank_distribution": strategy_distribution,
         "feedback_by_depth": tracker.to_dict(),
+        "uses_current_hit_guard": bool(use_current_hit_guard),
     }
+
+
+_STRATEGY_FIELD_NAMES = (
+    "strategy_mode",
+    "strategy_triggered",
+    "strategy_trigger_reason",
+    "strategy_reference_ranks",
+    "strategy_invert_depth",
+    "strategy_signal_strength",
+    "strategy_hit_rank",
+    "strategy_plot_rank",
+    "strategy_trend_state",
+    "strategy_volatility",
+    "strategy_inversion_confidence",
+    "strategy_inverted_rank_preview",
+    "strategy_zigzag_gate",
+    "strategy_inversion_zone",
+    "strategy_persistence_active",
+)
+
+
+def _snapshot_strategy_fields(item: Mapping[str, Any], *, prefix: str) -> None:
+    for key in _STRATEGY_FIELD_NAMES:
+        item_key = f"{prefix}_{key.removeprefix('strategy_')}"
+        if isinstance(item, dict):
+            item[item_key] = item.get(key)
+
+
+def _apply_live_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    live_items = [dict(item) for item in items]
+    summary = _apply_inversion_strategy(live_items, use_current_hit_guard=False)
+    summary["name"] = "inverted_extremes_movement_v2_live"
+    summary["uses_current_hit_guard"] = False
+
+    for item, live_item in zip(items, live_items):
+        item["ranking_otimizado_live"] = list(live_item.get("ranking_otimizado") or [])
+        for key in _STRATEGY_FIELD_NAMES:
+            live_key = f"strategy_live_{key.removeprefix('strategy_')}"
+            item[live_key] = live_item.get(key)
+
+    return summary
 
 
 MIRROR_DEFAULT_MIDPOINT = 19
@@ -1918,39 +2043,101 @@ def _build_zigzag_diagnostics(
     return diagnostics
 
 
-def _build_strategy_summary_from_items(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _build_strategy_summary_from_items(
+    items: List[Dict[str, Any]],
+    *,
+    name: str = "inverted_extremes_movement_v2",
+    triggered_key: str = "strategy_triggered",
+    depth_key: str = "strategy_invert_depth",
+    hit_rank_key: str = "strategy_hit_rank",
+    use_current_hit_guard: bool | None = None,
+) -> Dict[str, Any]:
     """Constrói um resumo de estratégia baseado nos dados já carregados dos itens."""
-    triggered_items = sum(1 for item in items if item.get("strategy_triggered", False))
-    strategy_hit_items = [item for item in items if item.get("strategy_hit_rank") is not None]
+    triggered_items = sum(1 for item in items if item.get(triggered_key, False))
+    strategy_hit_items = [item for item in items if item.get(hit_rank_key) is not None]
     hits_in_ranking = len(strategy_hit_items)
 
     depth_counts = {str(5): 0, str(8): 0, str(10): 0}
     for item in items:
-        depth = item.get("strategy_invert_depth", 0)
+        depth = item.get(depth_key, 0)
         if depth in [5, 8, 10]:
             depth_counts[str(depth)] += 1
 
     strategy_distribution = {str(rank): 0 for rank in range(1, 38)}
     for item in strategy_hit_items:
-        rank = item.get("strategy_hit_rank")
+        rank = item.get(hit_rank_key)
         if isinstance(rank, int) and 1 <= rank <= 37:
             strategy_distribution[str(rank)] += 1
 
     resolved_items = [item for item in items if item.get("next_number") is not None]
     hit_rate = (len(strategy_hit_items) / len(resolved_items) * 100) if resolved_items else 0
 
-    return {
+    summary = {
         "enabled": True,
-        "name": "inverted_extremes_movement_v2",
+        "name": name,
+        "depth_options": [
+            STRATEGY_SMALL_EDGE_SIZE,
+            STRATEGY_MEDIUM_EDGE_SIZE,
+            STRATEGY_LARGE_EDGE_SIZE,
+        ],
         "triggered_items": triggered_items,
         "resolved_items": len(resolved_items),
         "hits_in_ranking": hits_in_ranking,
-        "outside_ranking": len([item for item in resolved_items if item.get("strategy_hit_rank") is None]),
+        "outside_ranking": len([item for item in resolved_items if item.get(hit_rank_key) is None]),
         "hit_rate_percent": round(hit_rate, 2),
         "depth_counts": depth_counts,
-        "strategy_distribution": strategy_distribution,
+        "top_1_hits": strategy_distribution["1"],
+        "top_3_hits": sum(strategy_distribution[str(rank)] for rank in range(1, 4)),
+        "top_5_hits": sum(strategy_distribution[str(rank)] for rank in range(1, 6)),
+        "top_10_hits": sum(strategy_distribution[str(rank)] for rank in range(1, 11)),
+        "avg_hit_rank": round(sum(int(item[hit_rank_key]) for item in strategy_hit_items) / len(strategy_hit_items), 2) if strategy_hit_items else None,
+        "rank_distribution": strategy_distribution,
         "feedback_by_depth": {},
     }
+    if use_current_hit_guard is not None:
+        summary["uses_current_hit_guard"] = bool(use_current_hit_guard)
+    return summary
+
+
+def _build_strategy_data_for_persistence(item: Mapping[str, Any]) -> Dict[str, Any]:
+    ranking_replay = _coerce_number_ranking(
+        item.get("ranking_otimizado_replay") or item.get("ranking_otimizado")
+    )
+    ranking_live = _coerce_number_ranking(
+        item.get("ranking_otimizado_live") or item.get("ranking_otimizado")
+    )
+
+    strategy_data = {
+        "strategy_triggered": item.get("strategy_triggered", False),
+        "strategy_trigger_reason": item.get("strategy_trigger_reason", ""),
+        "strategy_mode": item.get("strategy_mode", "normal"),
+        "strategy_invert_depth": item.get("strategy_invert_depth", 0),
+        "strategy_signal_strength": item.get("strategy_signal_strength", 0),
+        "strategy_trend_state": item.get("strategy_trend_state", "unknown"),
+        "strategy_volatility": item.get("strategy_volatility", 0),
+        "strategy_inversion_confidence": item.get("strategy_inversion_confidence", 0.5),
+        "strategy_inverted_rank_preview": item.get("strategy_inverted_rank_preview"),
+        "strategy_zigzag_gate": item.get("strategy_zigzag_gate", {}),
+        "strategy_inversion_zone": item.get("strategy_inversion_zone", "none"),
+        "strategy_persistence_active": item.get("strategy_persistence_active", False),
+        "strategy_reference_ranks": item.get("strategy_reference_ranks", []),
+        "ranking_otimizado": ranking_live or ranking_replay,
+        "ranking_otimizado_live": ranking_live,
+        "ranking_otimizado_replay": ranking_replay,
+        "strategy_ranking_mode": "live_no_current_hit_guard",
+        "strategy_ranking_algorithm": "inverted_extremes_movement_v2_mana_stable",
+    }
+    for key in _STRATEGY_FIELD_NAMES:
+        suffix = key.removeprefix("strategy_")
+        if suffix in {"hit_rank", "plot_rank"}:
+            continue
+        live_key = f"strategy_live_{suffix}"
+        replay_key = f"strategy_replay_{suffix}"
+        if live_key in item:
+            strategy_data[live_key] = item.get(live_key)
+        if replay_key in item:
+            strategy_data[replay_key] = item.get(replay_key)
+    return strategy_data
 
 
 def _persist_strategy_items_data(roulette_id: str, items: List[Dict[str, Any]]) -> None:
@@ -1961,24 +2148,10 @@ def _persist_strategy_items_data(roulette_id: str, items: List[Dict[str, Any]]) 
             if not snapshot_id:
                 continue
 
-            # Salvar apenas a DECISÃO da estratégia (o que foi configurado no momento do snapshot).
+            # Salvar a decisão e o ranking congelado da estratégia.
             # strategy_hit_rank e strategy_plot_rank NÃO são salvos pois dependem do
             # next_number que ainda não é conhecido quando o snapshot é gerado.
-            strategy_data = {
-                "strategy_triggered": item.get("strategy_triggered", False),
-                "strategy_trigger_reason": item.get("strategy_trigger_reason", ""),
-                "strategy_mode": item.get("strategy_mode", "normal"),
-                "strategy_invert_depth": item.get("strategy_invert_depth", 0),
-                "strategy_signal_strength": item.get("strategy_signal_strength", 0),
-                "strategy_trend_state": item.get("strategy_trend_state", "unknown"),
-                "strategy_volatility": item.get("strategy_volatility", 0),
-                "strategy_inversion_confidence": item.get("strategy_inversion_confidence", 0.5),
-                "strategy_inverted_rank_preview": item.get("strategy_inverted_rank_preview"),
-                "strategy_zigzag_gate": item.get("strategy_zigzag_gate", {}),
-                "strategy_inversion_zone": item.get("strategy_inversion_zone", "none"),
-                "strategy_persistence_active": item.get("strategy_persistence_active", False),
-                "strategy_reference_ranks": item.get("strategy_reference_ranks", []),
-            }
+            strategy_data = _build_strategy_data_for_persistence(item)
 
             # Salvar no banco de dados de forma assíncrona (fire-and-forget)
             # Usamos update_one com $set para atualizar apenas os campos de estratégia
@@ -2107,31 +2280,48 @@ async def build_suggestion_snapshot_rank_timeline(
             sid = str(doc["_id"])
             saved_strategy_map[sid] = doc.get("strategy_data", {})
 
-    # PASSO 2: Calcular estratégia para todos os itens em sequência
-    # (necessário porque regime_score é acumulativo — os novos dependem dos anteriores)
-    summary_strategy = _apply_inversion_strategy(items)
+    # PASSO 2: Calcular replay e live separadamente.
+    # Replay mantém a compatibilidade com o MANÁ; live não usa o hit_rank do próprio item.
+    _apply_inversion_strategy(items)
+    for item in items:
+        item["ranking_otimizado_replay"] = list(item.get("ranking_otimizado") or [])
+        _snapshot_strategy_fields(item, prefix="strategy_replay")
+    _apply_live_inversion_strategy(items)
 
-    # PASSO 3: Para itens com dados salvos, restaurar a DECISÃO imutável da estratégia.
-    # Para itens novos (sem dados salvos), persistir o que foi calculado.
+    # PASSO 3: Para itens com ranking salvo, restaurar o ranking congelado.
+    # Dados antigos sem ranking congelado são recalculados e passam a ser persistidos.
     items_to_persist = []
     for item in items:
         sid = item.get("snapshot_id", "")
-        if sid in saved_strategy_map:
-            # Restaurar apenas a decisão salva (triggered, depth, zone, etc.)
-            for key, value in saved_strategy_map[sid].items():
-                item[key] = value
-        else:
-            # Item novo: guardar para persistir
-            items_to_persist.append(item)
+        saved_strategy = saved_strategy_map.get(sid, {})
+        saved_ranking = _coerce_number_ranking(saved_strategy.get("ranking_otimizado"))
+        saved_live_ranking = _coerce_number_ranking(
+            saved_strategy.get("ranking_otimizado_live") or saved_ranking
+        )
+        saved_replay_ranking = _coerce_number_ranking(saved_strategy.get("ranking_otimizado_replay"))
+        has_frozen_ranking = bool(saved_ranking or saved_live_ranking)
 
-        # PASSO 3b: Recalcular strategy_hit_rank encontrando next_number no ranking_otimizado.
-        # Fluxo idêntico ao original: hit_rank = ranking_full.index(next_number) + 1
-        # Aqui:                        strategy_hit_rank = ranking_otimizado.index(next_number) + 1
+        if has_frozen_ranking:
+            for key, value in saved_strategy.items():
+                item[key] = value
+            if saved_replay_ranking:
+                item["ranking_otimizado_replay"] = saved_replay_ranking
+            if saved_live_ranking:
+                item["ranking_otimizado_live"] = saved_live_ranking
+            item["ranking_otimizado"] = saved_ranking or saved_live_ranking
+            item["strategy_ranking_frozen"] = True
+        else:
+            items_to_persist.append(item)
+            item["strategy_ranking_frozen"] = False
+
         invert_depth = item.get("strategy_invert_depth", 0)
         next_number = item.get("next_number")
         ranking_full = item.get("ranking_full") or []
-        optimized_ranking = _build_optimized_ranking(ranking_full, invert_depth)
-        item["ranking_otimizado"] = optimized_ranking
+        optimized_ranking = _coerce_number_ranking(item.get("ranking_otimizado"))
+        if not optimized_ranking:
+            optimized_ranking = _build_optimized_ranking(ranking_full, invert_depth)
+            item["ranking_otimizado"] = optimized_ranking
+
         if invert_depth > 0 and isinstance(next_number, int) and next_number in optimized_ranking:
             strategy_hit_rank = optimized_ranking.index(next_number) + 1
             item["strategy_hit_rank"] = strategy_hit_rank
@@ -2143,8 +2333,52 @@ async def build_suggestion_snapshot_rank_timeline(
             item["strategy_hit_rank"] = item.get("hit_rank")
             item["strategy_plot_rank"] = item.get("hit_rank") if item.get("hit_rank") is not None else item.get("plot_rank")
 
+        replay_ranking = _coerce_number_ranking(item.get("ranking_otimizado_replay"))
+        if replay_ranking and isinstance(next_number, int) and next_number in replay_ranking:
+            item["strategy_replay_hit_rank"] = replay_ranking.index(next_number) + 1
+            item["strategy_replay_plot_rank"] = item["strategy_replay_hit_rank"]
+        elif item.get("strategy_replay_invert_depth", 0) > 0 and next_number is not None:
+            item["strategy_replay_hit_rank"] = None
+            item["strategy_replay_plot_rank"] = STRATEGY_OUTSIDE_RANK
+        else:
+            item["strategy_replay_hit_rank"] = item.get("hit_rank")
+            item["strategy_replay_plot_rank"] = item.get("hit_rank") if item.get("hit_rank") is not None else item.get("plot_rank")
+
+        live_ranking = _coerce_number_ranking(item.get("ranking_otimizado_live"))
+        if live_ranking and isinstance(next_number, int) and next_number in live_ranking:
+            item["strategy_live_hit_rank"] = live_ranking.index(next_number) + 1
+            item["strategy_live_plot_rank"] = item["strategy_live_hit_rank"]
+        elif item.get("strategy_live_invert_depth", 0) > 0 and next_number is not None:
+            item["strategy_live_hit_rank"] = None
+            item["strategy_live_plot_rank"] = STRATEGY_OUTSIDE_RANK
+        else:
+            item["strategy_live_hit_rank"] = item.get("hit_rank")
+            item["strategy_live_plot_rank"] = item.get("hit_rank") if item.get("hit_rank") is not None else item.get("plot_rank")
+
     if items_to_persist:
         _persist_strategy_items_data(roulette_id, items_to_persist)
+
+    summary_strategy = _build_strategy_summary_from_items(
+        items,
+        name="inverted_extremes_movement_v2",
+        use_current_hit_guard=True,
+    )
+    summary_strategy_replay = _build_strategy_summary_from_items(
+        items,
+        name="inverted_extremes_movement_v2_replay",
+        triggered_key="strategy_replay_triggered",
+        depth_key="strategy_replay_invert_depth",
+        hit_rank_key="strategy_replay_hit_rank",
+        use_current_hit_guard=True,
+    )
+    summary_strategy_live = _build_strategy_summary_from_items(
+        items,
+        name="inverted_extremes_movement_v2_live",
+        triggered_key="strategy_live_triggered",
+        depth_key="strategy_live_invert_depth",
+        hit_rank_key="strategy_live_hit_rank",
+        use_current_hit_guard=False,
+    )
 
     resolved_items = [item for item in items if item.get("next_number") is not None]
     hit_items = [item for item in resolved_items if item.get("hit_rank") is not None]
@@ -2173,6 +2407,8 @@ async def build_suggestion_snapshot_rank_timeline(
         "rank_distribution": rank_distribution,
     }
     summary["strategy"] = summary_strategy
+    summary["strategy_replay"] = summary_strategy_replay
+    summary["strategy_live"] = summary_strategy_live
 
     summary["range_prediction"] = _apply_movement_range_prediction(items)
     summary["zigzag_diagnostics"] = _build_zigzag_diagnostics(
