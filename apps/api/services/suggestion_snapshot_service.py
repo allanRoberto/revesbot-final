@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 import hashlib
 import json
+import logging
+import os
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping
 from bson import ObjectId
@@ -19,9 +23,35 @@ from api.services.pattern_score_live_service import (
     resolve_previous_snapshot_pattern_scores,
 )
 
+logger = logging.getLogger(__name__)
+
 
 GLOBAL_SUGGESTION_SNAPSHOT_CONFIG_ID = "global-default"
 SUGGESTION_SNAPSHOT_RANKING_SIZE = 37
+
+
+def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)) or default)
+    except Exception:
+        value = int(default)
+    return max(int(minimum), min(int(maximum), int(value)))
+
+
+def _env_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    try:
+        value = float(os.getenv(name, str(default)) or default)
+    except Exception:
+        value = float(default)
+    return max(float(minimum), min(float(maximum), float(value)))
+
+
+SNAPSHOT_TIMING_LOG_THRESHOLD_SECONDS = _env_float(
+    "SUGGESTION_SNAPSHOT_TIMING_LOG_THRESHOLD_SECONDS",
+    1.0,
+    0.0,
+    60.0,
+)
 
 DEFAULT_GLOBAL_SUGGESTION_SNAPSHOT_CONFIG: Dict[str, Any] = {
     "config_id": GLOBAL_SUGGESTION_SNAPSHOT_CONFIG_ID,
@@ -442,8 +472,24 @@ async def _build_live_strategy_data_for_snapshot(
     if anchor_timestamp is not None:
         snapshot_query["anchor_timestamp_utc"] = {"$lt": anchor_timestamp}
 
+    snapshot_projection = {
+        "snapshot_id": 1,
+        "anchor_history_id": 1,
+        "anchor_number": 1,
+        "anchor_timestamp_utc": 1,
+        "config_key": 1,
+        "source": 1,
+        "payload.suggestion": 1,
+        "payload.list": 1,
+        "payload.ordered_suggestion": 1,
+        "payload.base_suggestion": 1,
+        "payload.simple_suggestion": 1,
+        "payload.simple_payload.ordered_suggestion": 1,
+        "payload.simple_payload.suggestion": 1,
+        "payload.simple_payload.list": 1,
+    }
     previous_docs_raw = await (
-        suggestion_snapshots_coll.find(snapshot_query)
+        suggestion_snapshots_coll.find(snapshot_query, projection=snapshot_projection)
         .sort("anchor_timestamp_utc", -1)
         .limit(STRATEGY_LIVE_LOOKBACK_SNAPSHOTS)
         .to_list(length=STRATEGY_LIVE_LOOKBACK_SNAPSHOTS)
@@ -455,7 +501,7 @@ async def _build_live_strategy_data_for_snapshot(
         5000,
     )
     history_docs_raw = await (
-        history_coll.find({"roulette_id": roulette_id})
+        history_coll.find({"roulette_id": roulette_id}, projection={"_id": 1, "value": 1, "timestamp": 1})
         .sort("timestamp", -1)
         .limit(history_fetch_limit)
         .to_list(length=history_fetch_limit)
@@ -524,7 +570,55 @@ async def _build_live_strategy_data_for_snapshot(
         _snapshot_strategy_fields(item, prefix="strategy_replay")
     _apply_live_inversion_strategy(items)
     current = items[-1]
-    return _build_strategy_data_for_persistence(current)
+    persisted = _build_strategy_data_for_persistence(current)
+    persisted["lookback_snapshots"] = len(previous_docs)
+    persisted["history_fetch_limit"] = history_fetch_limit
+    return persisted
+
+
+def _schedule_previous_pattern_score_resolution(
+    *,
+    roulette_id: str,
+    anchor_doc: Mapping[str, Any],
+    config_key: str,
+) -> Dict[str, Any]:
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return {"available": False, "mode": "not_scheduled", "reason": "no_running_loop"}
+
+    task = loop.create_task(
+        resolve_previous_snapshot_pattern_scores(
+            roulette_id=roulette_id,
+            current_anchor_doc=anchor_doc,
+            config_key=config_key,
+        )
+    )
+
+    def _log_result(done: asyncio.Task[Dict[str, Any]]) -> None:
+        try:
+            result = done.result()
+        except asyncio.CancelledError:
+            logger.debug("Pattern score background resolution cancelled | roulette=%s", roulette_id)
+            return
+        except Exception as exc:
+            logger.warning(
+                "Pattern score background resolution failed | roulette=%s | error=%s",
+                roulette_id,
+                exc,
+            )
+            return
+        if result.get("inserted"):
+            logger.info(
+                "Pattern score background resolved | roulette=%s | snapshot=%s | inserted=%s | skipped=%s",
+                roulette_id,
+                result.get("resolved_snapshot_id"),
+                result.get("inserted"),
+                result.get("skipped_existing"),
+            )
+
+    task.add_done_callback(_log_result)
+    return {"available": None, "mode": "background_scheduled"}
 
 
 async def _compute_and_persist_snapshot(
@@ -535,6 +629,16 @@ async def _compute_and_persist_snapshot(
     config_doc: Mapping[str, Any],
     source: str,
 ) -> Dict[str, Any]:
+    started_at = time.perf_counter()
+    last_stage_at = started_at
+    stage_timings: Dict[str, float] = {}
+
+    def mark_stage(name: str) -> None:
+        nonlocal last_stage_at
+        now = time.perf_counter()
+        stage_timings[name] = round(now - last_stage_at, 4)
+        last_stage_at = now
+
     anchor_history_id = str(anchor_doc.get("_id"))
     anchor_number = int(anchor_doc.get("value"))
     config_key = build_suggestion_snapshot_config_key(config_doc)
@@ -555,13 +659,14 @@ async def _compute_and_persist_snapshot(
     request_config_doc: Mapping[str, Any] = config_doc
     if pattern_score_meta["enabled"]:
         try:
-            pattern_score_meta["previous_resolution"] = await resolve_previous_snapshot_pattern_scores(
+            pattern_score_meta["previous_resolution"] = _schedule_previous_pattern_score_resolution(
                 roulette_id=roulette_id,
-                current_anchor_doc=anchor_doc,
+                anchor_doc=anchor_doc,
                 config_key=config_key,
             )
         except Exception as exc:
             pattern_score_meta["previous_resolution"] = {"available": False, "error": str(exc)}
+        mark_stage("pattern_score_schedule")
         try:
             score_profile = await load_pattern_score_weight_profile(
                 roulette_id=roulette_id,
@@ -579,12 +684,14 @@ async def _compute_and_persist_snapshot(
                     {
                         "applied": True,
                         "weight_count": int(score_profile.get("weight_count") or len(dynamic_weights)),
+                        "cache": str(score_profile.get("cache") or ""),
                         "top_positive": list(score_profile.get("top_positive") or [])[:12],
                         "top_negative": list(score_profile.get("top_negative") or [])[:12],
                     }
                 )
         except Exception as exc:
             pattern_score_meta["load_error"] = str(exc)
+        mark_stage("pattern_score_weights")
 
     request = build_suggestion_snapshot_request(
         history=history_at_anchor,
@@ -592,6 +699,7 @@ async def _compute_and_persist_snapshot(
         config_doc=request_config_doc,
     )
     payload = await _compute_final_suggestion(request)
+    mark_stage("final_suggestion")
     if isinstance(payload, dict):
         payload["pattern_score_weighting"] = pattern_score_meta
     base_ranking = _extract_payload_ranking(payload if isinstance(payload, Mapping) else {})
@@ -606,7 +714,15 @@ async def _compute_and_persist_snapshot(
     except Exception as exc:
         print(f"⚠️  Falha ao calcular ranking otimizado live do snapshot: {exc}")
         strategy_data = {}
+    mark_stage("live_strategy")
     now = datetime.now(timezone.utc)
+    total_elapsed = round(time.perf_counter() - started_at, 4)
+    timing_data = {
+        "total_seconds": total_elapsed,
+        "stages": dict(stage_timings),
+        "target_seconds": 3.0,
+        "within_target": total_elapsed <= 3.0,
+    }
     document = {
         "_id": snapshot_id,
         "snapshot_id": snapshot_id,
@@ -621,6 +737,7 @@ async def _compute_and_persist_snapshot(
         "payload": _mongo_safe_value(payload),
         "strategy_data": _mongo_safe_value(strategy_data),
         "pattern_score_weighting": _mongo_safe_value(pattern_score_meta),
+        "timing": timing_data,
         "source": source,
         "created_at_utc": now,
         "updated_at_utc": now,
@@ -630,8 +747,20 @@ async def _compute_and_persist_snapshot(
         {"$setOnInsert": document},
         upsert=True,
     )
-    saved = await suggestion_snapshots_coll.find_one({"_id": snapshot_id})
-    return dict(saved) if isinstance(saved, Mapping) else document
+    mark_stage("mongo_upsert")
+    total_elapsed = round(time.perf_counter() - started_at, 4)
+    timing_data["total_seconds"] = total_elapsed
+    timing_data["stages"] = dict(stage_timings)
+    timing_data["within_target"] = total_elapsed <= 3.0
+    if total_elapsed >= SNAPSHOT_TIMING_LOG_THRESHOLD_SECONDS:
+        logger.info(
+            "suggestion snapshot timing | roulette=%s | anchor=%s | total=%.3fs | target=3.000s | stages=%s",
+            roulette_id,
+            anchor_number,
+            total_elapsed,
+            " | ".join(f"{name}={elapsed:.3f}s" for name, elapsed in stage_timings.items()),
+        )
+    return document
 
 
 def _serialize_snapshot_response(snapshot_doc: Mapping[str, Any], *, take: int) -> Dict[str, Any]:
@@ -853,7 +982,12 @@ STRATEGY_SCORE_DEACTIVATION_SMALL = 2.5
 STRATEGY_SCORE_DEACTIVATION_MEDIUM = 4.0
 STRATEGY_SCORE_DEACTIVATION_LARGE = 7.0
 STRATEGY_PERSISTENCE_TURNS = 3
-STRATEGY_LIVE_LOOKBACK_SNAPSHOTS = 300
+STRATEGY_LIVE_LOOKBACK_SNAPSHOTS = _env_int(
+    "SUGGESTION_SNAPSHOT_STRATEGY_LOOKBACK",
+    120,
+    60,
+    300,
+)
 STRATEGY_LEGACY_ZONE_ORDER = (
     36, 37, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26,
     13, 25, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,

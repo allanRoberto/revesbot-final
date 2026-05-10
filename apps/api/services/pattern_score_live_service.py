@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping
@@ -26,7 +28,24 @@ PATTERN_SCORE_SAMPLE_TARGET = 30.0
 PATTERN_SCORE_EWMA_ALPHA = 0.18
 PATTERN_SCORE_TO_WEIGHT = 0.80
 
+
+def _env_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    try:
+        value = float(os.getenv(name, str(default)) or default)
+    except Exception:
+        value = float(default)
+    return max(float(minimum), min(float(maximum), float(value)))
+
+
+PATTERN_SCORE_WEIGHT_CACHE_TTL_SECONDS = _env_float(
+    "PATTERN_SCORE_WEIGHT_CACHE_TTL_SECONDS",
+    5.0,
+    0.0,
+    60.0,
+)
+
 _KNOWN_PATTERN_IDS_CACHE: List[str] | None = None
+_WEIGHT_PROFILE_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
 
 
 def _now_utc() -> datetime:
@@ -35,6 +54,15 @@ def _now_utc() -> datetime:
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
+
+
+def _clone_weight_profile(profile: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        **dict(profile),
+        "weights": dict(profile.get("weights") or {}),
+        "top_positive": [dict(item) for item in profile.get("top_positive") or [] if isinstance(item, Mapping)],
+        "top_negative": [dict(item) for item in profile.get("top_negative") or [] if isinstance(item, Mapping)],
+    }
 
 
 def _coerce_numbers(values: Any, *, limit: int = 37) -> List[int]:
@@ -442,6 +470,16 @@ async def load_pattern_score_weight_profile(
     min_activations: int = 5,
     max_weights: int = 250,
 ) -> Dict[str, Any]:
+    cache_key = f"{roulette_id}|{int(min_activations or 1)}|{int(max_weights or 250)}"
+    now_monotonic = time.monotonic()
+    cached = _WEIGHT_PROFILE_CACHE.get(cache_key)
+    if cached is not None:
+        expires_at, cached_profile = cached
+        if expires_at > now_monotonic:
+            cloned = _clone_weight_profile(cached_profile)
+            cloned["cache"] = "hit"
+            return cloned
+
     await ensure_pattern_score_indexes()
     safe_min_activations = max(1, int(min_activations or 1))
     safe_max_weights = max(1, min(1000, int(max_weights or 250)))
@@ -494,7 +532,7 @@ async def load_pattern_score_weight_profile(
 
     top_positive = sorted(details, key=lambda item: (-float(item["weight"]), -int(item["activations"])))[:12]
     top_negative = sorted(details, key=lambda item: (float(item["weight"]), -int(item["activations"])))[:12]
-    return {
+    profile = {
         "enabled": True,
         "applied": bool(weights),
         "min_activations": safe_min_activations,
@@ -502,7 +540,14 @@ async def load_pattern_score_weight_profile(
         "weights": weights,
         "top_positive": top_positive,
         "top_negative": top_negative,
+        "cache": "miss",
     }
+    if PATTERN_SCORE_WEIGHT_CACHE_TTL_SECONDS > 0:
+        _WEIGHT_PROFILE_CACHE[cache_key] = (
+            now_monotonic + PATTERN_SCORE_WEIGHT_CACHE_TTL_SECONDS,
+            _clone_weight_profile(profile),
+        )
+    return profile
 
 
 def merge_pattern_score_weights(
