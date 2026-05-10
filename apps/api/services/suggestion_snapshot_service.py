@@ -978,6 +978,10 @@ STRATEGY_FEEDBACK_THRESHOLD_ADJUST = 0.8
 STRATEGY_FEEDBACK_THRESHOLD_FLOOR = 1.0
 STRATEGY_ZONE_TOP_END = 12
 STRATEGY_ZONE_BOTTOM_START = 25
+STRATEGY_INVERSION_GATE_WINDOW = 12
+STRATEGY_INVERSION_GATE_MIN_SAMPLES = 8
+STRATEGY_INVERSION_GATE_MIN_TOP12_LIFT = 0.08
+STRATEGY_INVERSION_GATE_MIN_AVG_RANK_GAIN = 1.0
 STRATEGY_SCORE_DEACTIVATION_SMALL = 2.5
 STRATEGY_SCORE_DEACTIVATION_MEDIUM = 4.0
 STRATEGY_SCORE_DEACTIVATION_LARGE = 7.0
@@ -1193,6 +1197,98 @@ def _validate_inversion_confidence(
     return round(successes / matches, 3)
 
 
+def _evaluate_inversion_gate(
+    previous_ranks: List[int],
+    *,
+    depth: int,
+    zigzag_gate: Mapping[str, Any] | None = None,
+) -> Dict[str, Any]:
+    safe_depth = int(depth or 0)
+    if safe_depth <= 0:
+        return {
+            "allowed": False,
+            "reason": "depth_zero",
+            "depth": safe_depth,
+        }
+
+    safe_window = max(
+        STRATEGY_INVERSION_GATE_MIN_SAMPLES,
+        min(60, int(STRATEGY_INVERSION_GATE_WINDOW)),
+    )
+    ranks = [
+        int(rank)
+        for rank in previous_ranks[-safe_window:]
+        if isinstance(rank, int) and 1 <= int(rank) <= STRATEGY_OUTSIDE_RANK
+    ]
+    if len(ranks) < STRATEGY_INVERSION_GATE_MIN_SAMPLES:
+        return {
+            "allowed": False,
+            "reason": "insufficient_samples",
+            "depth": safe_depth,
+            "sample_size": len(ranks),
+            "min_samples": STRATEGY_INVERSION_GATE_MIN_SAMPLES,
+        }
+
+    transformed = [
+        int(_invert_rank_zones(rank, safe_depth) or rank)
+        for rank in ranks
+    ]
+    sample_size = len(ranks)
+    base_top_hits = sum(1 for rank in ranks if rank <= STRATEGY_ZONE_TOP_END)
+    inverted_top_hits = sum(1 for rank in transformed if rank <= STRATEGY_ZONE_TOP_END)
+    improved = sum(1 for rank, inverted_rank in zip(ranks, transformed) if inverted_rank < rank)
+    harmed = sum(1 for rank, inverted_rank in zip(ranks, transformed) if inverted_rank > rank)
+    base_top_rate = base_top_hits / sample_size
+    inverted_top_rate = inverted_top_hits / sample_size
+    projected_top12_lift = inverted_top_rate - base_top_rate
+    avg_rank_gain = sum(rank - inverted_rank for rank, inverted_rank in zip(ranks, transformed)) / sample_size
+    improve_rate = improved / sample_size
+    harm_rate = harmed / sample_size
+    last_rank = ranks[-1]
+    gate = dict(zigzag_gate or {})
+
+    result = {
+        "allowed": False,
+        "reason": "",
+        "depth": safe_depth,
+        "sample_size": sample_size,
+        "window": safe_window,
+        "last_rank": last_rank,
+        "base_top12_rate": round(base_top_rate, 4),
+        "inverted_top12_rate": round(inverted_top_rate, 4),
+        "projected_top12_lift": round(projected_top12_lift, 4),
+        "avg_rank_gain": round(avg_rank_gain, 4),
+        "improve_rate": round(improve_rate, 4),
+        "harm_rate": round(harm_rate, 4),
+        "zigzag_active": bool(gate.get("active")),
+        "zigzag_action": str(gate.get("action") or "neutral"),
+    }
+
+    if last_rank <= STRATEGY_ZONE_TOP_END:
+        result["reason"] = "base_recent_top_protected"
+        return result
+
+    if projected_top12_lift < STRATEGY_INVERSION_GATE_MIN_TOP12_LIFT:
+        result["reason"] = "no_positive_top12_lift"
+        return result
+
+    if avg_rank_gain < STRATEGY_INVERSION_GATE_MIN_AVG_RANK_GAIN:
+        result["reason"] = "weak_avg_rank_gain"
+        return result
+
+    if improve_rate <= harm_rate:
+        result["reason"] = "harm_rate_not_lower"
+        return result
+
+    result["allowed"] = True
+    result["reason"] = (
+        "zigzag_confirmed_positive_lift"
+        if bool(gate.get("active")) and str(gate.get("action") or "") == "invert"
+        else "positive_lift_gate"
+    )
+    return result
+
+
 class _InversionDepthTracker:
     def __init__(self) -> None:
         self._stats: Dict[int, Dict[str, int]] = {
@@ -1304,6 +1400,8 @@ def _apply_inversion_strategy(
     tracker = _InversionDepthTracker()
     inversion_active: bool = False
     persistence_counter: int = 0
+    gate_allowed_items = 0
+    gate_block_counts: Dict[str, int] = {}
 
     for item in items:
         original_hit_rank = item.get("hit_rank")
@@ -1327,7 +1425,7 @@ def _apply_inversion_strategy(
         if persistence_counter > 0:
             persistence_counter -= 1
 
-        strategy_invert_depth = _calculate_dynamic_depth(
+        proposed_invert_depth = _calculate_dynamic_depth(
             regime_score,
             last_rank,
             trend_state,
@@ -1338,27 +1436,56 @@ def _apply_inversion_strategy(
         )
 
         # Aplicar persistência: se estava ativo e counter > 0, manter depth mínimo
-        if strategy_invert_depth == 0 and inversion_active and persistence_counter > 0:
-            strategy_invert_depth = STRATEGY_SMALL_EDGE_SIZE
+        if proposed_invert_depth == 0 and inversion_active and persistence_counter > 0:
+            proposed_invert_depth = STRATEGY_SMALL_EDGE_SIZE
 
-        # Atualizar estado para próximo item
-        if strategy_invert_depth > 0:
-            inversion_active = True
-            persistence_counter = STRATEGY_PERSISTENCE_TURNS
-        elif persistence_counter == 0:
-            inversion_active = False
+        strategy_inversion_gate = _evaluate_inversion_gate(
+            observed_ranks,
+            depth=proposed_invert_depth,
+            zigzag_gate=zigzag_gate,
+        )
         # Compatibilidade com o replay do MANÁ: preserva os acertos que já
         # estavam no topo do ranking base, em vez de rebaixá-los pela inversão.
         if (
             use_current_hit_guard
             and isinstance(original_hit_rank, int)
             and original_hit_rank <= STRATEGY_ZONE_TOP_END
+            and proposed_invert_depth > 0
         ):
-            strategy_invert_depth = 0
+            strategy_inversion_gate = {
+                **strategy_inversion_gate,
+                "allowed": False,
+                "reason": "current_base_top_protected",
+                "current_hit_rank": int(original_hit_rank),
+            }
+
+        strategy_invert_depth = (
+            proposed_invert_depth
+            if proposed_invert_depth > 0 and bool(strategy_inversion_gate.get("allowed"))
+            else 0
+        )
+        if proposed_invert_depth > 0:
+            if strategy_invert_depth > 0:
+                gate_allowed_items += 1
+            else:
+                gate_reason = str(strategy_inversion_gate.get("reason") or "blocked")
+                gate_block_counts[gate_reason] = gate_block_counts.get(gate_reason, 0) + 1
+
+        # Atualizar estado para próximo item somente depois do gate final.
+        if strategy_invert_depth > 0:
+            inversion_active = True
+            persistence_counter = STRATEGY_PERSISTENCE_TURNS
+        elif persistence_counter == 0:
+            inversion_active = False
 
         strategy_mode = "inverted_extremes" if strategy_invert_depth > 0 else "normal"
         strategy_triggered = strategy_invert_depth > 0
-        strategy_trigger_reason = "falling_regime_active" if strategy_triggered else ""
+        if strategy_triggered:
+            strategy_trigger_reason = f"falling_regime_active:{strategy_inversion_gate.get('reason') or 'allowed'}"
+        elif proposed_invert_depth > 0:
+            strategy_trigger_reason = f"blocked:{strategy_inversion_gate.get('reason') or 'gate'}"
+        else:
+            strategy_trigger_reason = ""
         strategy_reference_ranks: List[int] = observed_ranks[-3:]
         strategy_signal_strength = round(regime_score, 2)
         strategy_hit_rank = original_hit_rank
@@ -1398,6 +1525,7 @@ def _apply_inversion_strategy(
         item["strategy_inversion_confidence"] = round(inversion_confidence, 3)
         item["strategy_inverted_rank_preview"] = inverted_rank_preview
         item["strategy_zigzag_gate"] = zigzag_gate
+        item["strategy_inversion_gate"] = strategy_inversion_gate
         item["strategy_inversion_zone"] = _rank_zone(
             int(original_hit_rank) if isinstance(original_hit_rank, int) else None,
             strategy_invert_depth or STRATEGY_LARGE_EDGE_SIZE,
@@ -1426,7 +1554,7 @@ def _apply_inversion_strategy(
 
     return {
         "enabled": True,
-        "name": "inverted_extremes_movement_v2",
+        "name": "inverted_extremes_movement_v2_gated",
         "min_correction": STRATEGY_MIN_CORRECTION,
         "depth_options": [
             STRATEGY_SMALL_EDGE_SIZE,
@@ -1456,6 +1584,15 @@ def _apply_inversion_strategy(
         "avg_hit_rank": round(sum(int(item["strategy_hit_rank"]) for item in strategy_hit_items) / len(strategy_hit_items), 2) if strategy_hit_items else None,
         "rank_distribution": strategy_distribution,
         "feedback_by_depth": tracker.to_dict(),
+        "inversion_gate": {
+            "enabled": True,
+            "window": STRATEGY_INVERSION_GATE_WINDOW,
+            "min_samples": STRATEGY_INVERSION_GATE_MIN_SAMPLES,
+            "min_top12_lift": STRATEGY_INVERSION_GATE_MIN_TOP12_LIFT,
+            "min_avg_rank_gain": STRATEGY_INVERSION_GATE_MIN_AVG_RANK_GAIN,
+            "allowed_items": gate_allowed_items,
+            "blocked_counts": gate_block_counts,
+        },
         "uses_current_hit_guard": bool(use_current_hit_guard),
     }
 
@@ -1474,6 +1611,7 @@ _STRATEGY_FIELD_NAMES = (
     "strategy_inversion_confidence",
     "strategy_inverted_rank_preview",
     "strategy_zigzag_gate",
+    "strategy_inversion_gate",
     "strategy_inversion_zone",
     "strategy_persistence_active",
 )
@@ -1489,7 +1627,7 @@ def _snapshot_strategy_fields(item: Mapping[str, Any], *, prefix: str) -> None:
 def _apply_live_inversion_strategy(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     live_items = [dict(item) for item in items]
     summary = _apply_inversion_strategy(live_items, use_current_hit_guard=False)
-    summary["name"] = "inverted_extremes_movement_v2_live"
+    summary["name"] = "inverted_extremes_movement_v2_live_gated"
     summary["uses_current_hit_guard"] = False
 
     for item, live_item in zip(items, live_items):
@@ -2304,6 +2442,7 @@ def _build_strategy_data_for_persistence(item: Mapping[str, Any]) -> Dict[str, A
         "strategy_inversion_confidence": item.get("strategy_inversion_confidence", 0.5),
         "strategy_inverted_rank_preview": item.get("strategy_inverted_rank_preview"),
         "strategy_zigzag_gate": item.get("strategy_zigzag_gate", {}),
+        "strategy_inversion_gate": item.get("strategy_inversion_gate", {}),
         "strategy_inversion_zone": item.get("strategy_inversion_zone", "none"),
         "strategy_persistence_active": item.get("strategy_persistence_active", False),
         "strategy_reference_ranks": item.get("strategy_reference_ranks", []),
@@ -2311,7 +2450,7 @@ def _build_strategy_data_for_persistence(item: Mapping[str, Any]) -> Dict[str, A
         "ranking_otimizado_live": ranking_live,
         "ranking_otimizado_replay": ranking_replay,
         "strategy_ranking_mode": "live_no_current_hit_guard",
-        "strategy_ranking_algorithm": "inverted_extremes_movement_v2_mana_stable",
+        "strategy_ranking_algorithm": "inverted_extremes_movement_v2_mana_gated",
     }
     for key in _STRATEGY_FIELD_NAMES:
         suffix = key.removeprefix("strategy_")

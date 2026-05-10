@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ if str(APPS_ROOT) not in sys.path:
     sys.path.insert(0, str(APPS_ROOT))
 
 from api.core.db import (  # noqa: E402
+    ensure_pattern_score_indexes,
     ensure_suggestion_snapshot_indexes,
     ensure_suggestion_trend_indexes,
 )
@@ -163,6 +165,7 @@ async def _process_snapshot_message(
     parsed: dict[str, Any],
     counters: dict[str, int],
 ) -> None:
+    started_at = time.perf_counter()
     roulette_id = str(parsed.get("roulette_id") or "").strip()
     result_number = int(parsed.get("result_number"))
     history_id = str(parsed.get("history_id") or "").strip()
@@ -197,7 +200,7 @@ async def _process_snapshot_message(
         else:
             counters["hit"] += 1
         logger.info(
-            "Snapshot %s | resolver=%s | roulette=%s | result=%s | history_id=%s | anchor=%s | anchor_history_id=%s | snapshot_id=%s | ranking=%s | created=%s | hit=%s | invalid=%s | skipped=%s | queued=%s | processed=%s",
+            "Snapshot %s | resolver=%s | roulette=%s | result=%s | history_id=%s | anchor=%s | anchor_history_id=%s | snapshot_id=%s | ranking=%s | elapsed_ms=%.1f | created=%s | hit=%s | invalid=%s | skipped=%s | queued=%s | processed=%s",
             cache_status,
             resolver,
             roulette_id,
@@ -207,6 +210,7 @@ async def _process_snapshot_message(
             snapshot_meta.get("anchor_history_id"),
             snapshot_meta.get("snapshot_id"),
             len(ranking),
+            (time.perf_counter() - started_at) * 1000.0,
             counters["created"],
             counters["hit"],
             counters["invalid"],
@@ -308,6 +312,7 @@ async def _worker_loop(
 async def run_worker() -> None:
     _configure_logging()
     await ensure_suggestion_snapshot_indexes()
+    await ensure_pattern_score_indexes()
     await ensure_suggestion_trend_indexes()
     config_doc = await get_or_create_global_suggestion_snapshot_config()
     config_key = build_suggestion_snapshot_config_key(config_doc)
