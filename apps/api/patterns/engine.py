@@ -240,6 +240,15 @@ class PatternEngine:
             if str(k).strip()
         }
 
+        def _profile_multiplier_for(pattern_id: str, base_pattern_id: str | None = None) -> float:
+            safe_pattern_id = str(pattern_id or "").strip()
+            safe_base_pattern_id = str(base_pattern_id or "").strip()
+            if safe_pattern_id and safe_pattern_id in normalized_profile_weights:
+                return float(normalized_profile_weights[safe_pattern_id])
+            if safe_base_pattern_id and safe_base_pattern_id in normalized_profile_weights:
+                return float(normalized_profile_weights[safe_base_pattern_id])
+            return 1.0
+
         # Cache de avaliações
         cache_key = self._build_cache_key(
             normalized_history,
@@ -314,7 +323,7 @@ class PatternEngine:
             if self.is_pattern_disabled_by_decay(definition.id):
                 continue
 
-            profile_multiplier = float(normalized_profile_weights.get(definition.id, 1.0))
+            profile_multiplier = _profile_multiplier_for(definition.id)
             profiled_weight = float(definition.weight) * profile_multiplier
             effective_definition = definition
             if runtime_overrides and isinstance(runtime_overrides, dict):
@@ -397,7 +406,8 @@ class PatternEngine:
 
                     item_pattern_id = str(item.get("pattern_id", "")).strip() or f"{definition.id}_{idx}"
                     item_pattern_name = str(item.get("pattern_name", "")).strip() or f"{definition.name} #{idx}"
-                    item_base_weight = float(item.get("weight", effective_definition.weight)) * runtime_profile_multiplier
+                    item_profile_multiplier = _profile_multiplier_for(item_pattern_id, definition.id)
+                    item_base_weight = float(item.get("weight", definition.weight)) * item_profile_multiplier
                     item_adaptive = adaptive_multipliers.get(definition.id, 1.0)
                     item_dynamic = float(item.get("dynamic_multiplier", result_dynamic_multiplier) or 1.0)
                     item_meta = item.get("meta") if isinstance(item.get("meta"), dict) else raw_meta

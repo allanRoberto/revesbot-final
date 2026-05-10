@@ -51,6 +51,7 @@ from api.core.db import (
     mongo_db,
     history_coll,
     ensure_occurrence_analysis_indexes,
+    ensure_pattern_score_indexes,
     ensure_suggestion_snapshot_indexes,
     ensure_suggestion_monitor_indexes,
 )
@@ -212,6 +213,10 @@ async def _warm_api_runtime() -> None:
         await ensure_suggestion_snapshot_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices dos snapshots de sugestão falhou: {exc}")
+    try:
+        await ensure_pattern_score_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices de score dos padrões falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:

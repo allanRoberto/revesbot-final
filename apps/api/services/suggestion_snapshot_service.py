@@ -13,6 +13,11 @@ from api.core.db import (
     suggestion_snapshots_coll,
 )
 from api.routes.patterns import FinalSuggestionRequest, _compute_final_suggestion
+from api.services.pattern_score_live_service import (
+    load_pattern_score_weight_profile,
+    merge_pattern_score_weights,
+    resolve_previous_snapshot_pattern_scores,
+)
 
 
 GLOBAL_SUGGESTION_SNAPSHOT_CONFIG_ID = "global-default"
@@ -51,6 +56,8 @@ DEFAULT_GLOBAL_SUGGESTION_SNAPSHOT_CONFIG: Dict[str, Any] = {
     "assertiveness_gate_enabled": True,
     "assertiveness_min_score": 55,
     "runtime_overrides": {},
+    "pattern_score_weighting_enabled": True,
+    "pattern_score_min_activations": 5,
 }
 
 _CONFIG_FIELDS = [
@@ -537,12 +544,56 @@ async def _compute_and_persist_snapshot(
         config_key=config_key,
     )
 
+    normalized_config = _normalize_config_document(config_doc)
+    pattern_score_meta: Dict[str, Any] = {
+        "enabled": bool(normalized_config.get("pattern_score_weighting_enabled", True)),
+        "applied": False,
+        "weight_count": 0,
+        "min_activations": int(normalized_config.get("pattern_score_min_activations") or 5),
+        "previous_resolution": {},
+    }
+    request_config_doc: Mapping[str, Any] = config_doc
+    if pattern_score_meta["enabled"]:
+        try:
+            pattern_score_meta["previous_resolution"] = await resolve_previous_snapshot_pattern_scores(
+                roulette_id=roulette_id,
+                current_anchor_doc=anchor_doc,
+                config_key=config_key,
+            )
+        except Exception as exc:
+            pattern_score_meta["previous_resolution"] = {"available": False, "error": str(exc)}
+        try:
+            score_profile = await load_pattern_score_weight_profile(
+                roulette_id=roulette_id,
+                min_activations=int(pattern_score_meta["min_activations"]),
+            )
+            dynamic_weights = dict(score_profile.get("weights") or {})
+            if dynamic_weights:
+                request_config = copy.deepcopy(dict(config_doc))
+                request_config["weight_profile_weights"] = merge_pattern_score_weights(
+                    config_doc.get("weight_profile_weights") if isinstance(config_doc, Mapping) else {},
+                    dynamic_weights,
+                )
+                request_config_doc = request_config
+                pattern_score_meta.update(
+                    {
+                        "applied": True,
+                        "weight_count": int(score_profile.get("weight_count") or len(dynamic_weights)),
+                        "top_positive": list(score_profile.get("top_positive") or [])[:12],
+                        "top_negative": list(score_profile.get("top_negative") or [])[:12],
+                    }
+                )
+        except Exception as exc:
+            pattern_score_meta["load_error"] = str(exc)
+
     request = build_suggestion_snapshot_request(
         history=history_at_anchor,
         focus_number=anchor_number,
-        config_doc=config_doc,
+        config_doc=request_config_doc,
     )
     payload = await _compute_final_suggestion(request)
+    if isinstance(payload, dict):
+        payload["pattern_score_weighting"] = pattern_score_meta
     base_ranking = _extract_payload_ranking(payload if isinstance(payload, Mapping) else {})
     try:
         strategy_data = await _build_live_strategy_data_for_snapshot(
@@ -569,6 +620,7 @@ async def _compute_and_persist_snapshot(
         "history_size_used": len(history_at_anchor),
         "payload": _mongo_safe_value(payload),
         "strategy_data": _mongo_safe_value(strategy_data),
+        "pattern_score_weighting": _mongo_safe_value(pattern_score_meta),
         "source": source,
         "created_at_utc": now,
         "updated_at_utc": now,

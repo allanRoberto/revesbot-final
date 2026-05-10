@@ -39,6 +39,8 @@ suggestion_snapshots_coll = mongo_db["suggestion_snapshots"]
 suggestion_snapshot_configs_coll = mongo_db["suggestion_snapshot_configs"]
 suggestion_trend_signals_coll = mongo_db["suggestion_trend_signals"]
 suggestion_trend_strategy_configs_coll = mongo_db["suggestion_trend_strategy_configs"]
+pattern_score_events_coll = mongo_db["pattern_score_events"]
+pattern_score_state_coll = mongo_db["pattern_score_state"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
@@ -48,6 +50,8 @@ _suggestion_snapshot_indexes_ready = False
 _suggestion_snapshot_indexes_lock = asyncio.Lock()
 _suggestion_trend_indexes_ready = False
 _suggestion_trend_indexes_lock = asyncio.Lock()
+_pattern_score_indexes_ready = False
+_pattern_score_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -247,3 +251,42 @@ async def ensure_suggestion_trend_indexes() -> None:
         )
 
         _suggestion_trend_indexes_ready = True
+
+
+async def ensure_pattern_score_indexes() -> None:
+    global _pattern_score_indexes_ready
+    if _pattern_score_indexes_ready:
+        return
+    async with _pattern_score_indexes_lock:
+        if _pattern_score_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            pattern_score_events_coll,
+            [("event_id", ASCENDING)],
+            name="pattern_score_events_event_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            pattern_score_events_coll,
+            [("roulette_id", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="pattern_score_events_roulette_anchor_ts_desc",
+        )
+        await _create_index_if_missing(
+            pattern_score_events_coll,
+            [("roulette_id", ASCENDING), ("pattern_id", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="pattern_score_events_roulette_pattern_anchor_ts_desc",
+        )
+        await _create_index_if_missing(
+            pattern_score_state_coll,
+            [("roulette_id", ASCENDING), ("pattern_id", ASCENDING)],
+            name="pattern_score_state_roulette_pattern",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            pattern_score_state_coll,
+            [("roulette_id", ASCENDING), ("current_multiplier", DESCENDING)],
+            name="pattern_score_state_roulette_multiplier_desc",
+        )
+
+        _pattern_score_indexes_ready = True
