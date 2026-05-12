@@ -14,7 +14,7 @@ from api.core.config import settings
 MONGO_URL = settings.mongo_url
 mongo_client = AsyncIOMotorClient(
     MONGO_URL,
-    tls=True,
+    tls=False,
     tlsCAFile=certifi.where()
 )
 mongo_db     = mongo_client["roleta_db"]
@@ -41,6 +41,8 @@ suggestion_trend_signals_coll = mongo_db["suggestion_trend_signals"]
 suggestion_trend_strategy_configs_coll = mongo_db["suggestion_trend_strategy_configs"]
 pattern_score_events_coll = mongo_db["pattern_score_events"]
 pattern_score_state_coll = mongo_db["pattern_score_state"]
+next_number_rankings_coll = mongo_db["next_number_rankings"]
+next_number_sequences_coll = mongo_db["next_number_sequences"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
@@ -52,6 +54,10 @@ _suggestion_trend_indexes_ready = False
 _suggestion_trend_indexes_lock = asyncio.Lock()
 _pattern_score_indexes_ready = False
 _pattern_score_indexes_lock = asyncio.Lock()
+_next_number_ranking_indexes_ready = False
+_next_number_ranking_indexes_lock = asyncio.Lock()
+_next_number_sequence_indexes_ready = False
+_next_number_sequence_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -290,3 +296,59 @@ async def ensure_pattern_score_indexes() -> None:
         )
 
         _pattern_score_indexes_ready = True
+
+
+async def ensure_next_number_ranking_indexes() -> None:
+    global _next_number_ranking_indexes_ready
+    if _next_number_ranking_indexes_ready:
+        return
+    async with _next_number_ranking_indexes_lock:
+        if _next_number_ranking_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            next_number_rankings_coll,
+            [("roulette_id", ASCENDING)],
+            name="next_number_rankings_roulette_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            next_number_rankings_coll,
+            [("updated_at_utc", DESCENDING)],
+            name="next_number_rankings_updated_desc",
+        )
+
+        _next_number_ranking_indexes_ready = True
+
+
+async def ensure_next_number_sequence_indexes() -> None:
+    global _next_number_sequence_indexes_ready
+    if _next_number_sequence_indexes_ready:
+        return
+    async with _next_number_sequence_indexes_lock:
+        if _next_number_sequence_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            next_number_sequences_coll,
+            [("roulette_id", ASCENDING), ("base_history_id", ASCENDING)],
+            name="next_number_sequences_roulette_history",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            next_number_sequences_coll,
+            [("roulette_id", ASCENDING), ("base_number", ASCENDING), ("base_hour_br", ASCENDING)],
+            name="next_number_sequences_roulette_base_hour_br",
+        )
+        await _create_index_if_missing(
+            next_number_sequences_coll,
+            [("roulette_id", ASCENDING), ("base_timestamp_utc", DESCENDING)],
+            name="next_number_sequences_roulette_base_ts_desc",
+        )
+        await _create_index_if_missing(
+            next_number_sequences_coll,
+            [("roulette_id", ASCENDING), ("base_number", ASCENDING), ("base_timestamp_utc", DESCENDING)],
+            name="next_number_sequences_roulette_base_number_ts_desc",
+        )
+
+        _next_number_sequence_indexes_ready = True
