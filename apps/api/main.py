@@ -50,6 +50,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.core.db import (
     mongo_db,
     history_coll,
+    ensure_next_number_ranking_indexes,
+    ensure_next_number_sequence_indexes,
     ensure_occurrence_analysis_indexes,
     ensure_pattern_score_indexes,
     ensure_suggestion_snapshot_indexes,
@@ -83,6 +85,8 @@ from api.routes.monitor_replay import router as monitor_replay_router
 from api.routes.occurrence_ranking import router as occurrence_ranking_router
 from api.routes.suggestion_monitor import router as suggestion_monitor_router
 from api.routes.suggestion_snapshots import router as suggestion_snapshots_router
+from api.routes.next_number_rankings import router as next_number_rankings_router
+from api.routes.next_number_sequences import router as next_number_sequences_router
 
 
 
@@ -188,6 +192,8 @@ app.include_router(monitor_replay_router)
 app.include_router(occurrence_ranking_router)
 app.include_router(suggestion_monitor_router)
 app.include_router(suggestion_snapshots_router)
+app.include_router(next_number_rankings_router)
+app.include_router(next_number_sequences_router)
 
  
 
@@ -217,6 +223,14 @@ async def _warm_api_runtime() -> None:
         await ensure_pattern_score_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices de score dos padrões falhou: {exc}")
+    try:
+        await ensure_next_number_ranking_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices dos rankings de puxadas falhou: {exc}")
+    try:
+        await ensure_next_number_sequence_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices das sequências de puxadas falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:

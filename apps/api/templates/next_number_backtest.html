@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backtest de Puxadas</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #65706c;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #a03636;
+      --warning: #9a6a16;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      letter-spacing: 0;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 72px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    main {
+      padding: 24px 0 48px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    button,
+    .link-button {
+      width: 100%;
+      height: 40px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    input,
+    select {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 10px;
+    }
+
+    input:disabled {
+      background: var(--surface-soft);
+      color: var(--muted);
+    }
+
+    button,
+    .link-button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      padding: 0 16px;
+      font-weight: 700;
+      cursor: pointer;
+      min-width: 140px;
+    }
+
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    button:hover,
+    .link-button:hover {
+      background: var(--accent-strong);
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric,
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .metric {
+      padding: 12px;
+      min-height: 78px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1.15;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .rules-panel {
+      margin-bottom: 18px;
+    }
+
+    .filter-panel {
+      margin-bottom: 18px;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) minmax(160px, 220px) minmax(220px, 1fr);
+      gap: 12px;
+      align-items: end;
+      padding: 14px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      margin: 0;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .panel h2 {
+      margin: 0;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+    }
+
+    .comparison-panel {
+      margin-bottom: 18px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 520px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 30px;
+      height: 26px;
+      border-radius: 999px;
+      background: #e7efe9;
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+
+    .pill.warn {
+      background: #fff1d5;
+      color: var(--warning);
+    }
+
+    .pill.danger {
+      background: #f8dddd;
+      color: var(--danger);
+    }
+
+    @media (max-width: 900px) {
+      .controls,
+      .filter-grid,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      button {
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <h1>Backtest de Puxadas</h1>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <a class="link-button" href="/next-number-rankings">Rankings</a>
+        <a class="link-button" href="/next-number-sequences">Sequencias</a>
+        <div id="status" class="meta">Pronto</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="controls">
+      <div>
+        <label for="limitInput">Numeros para tras</label>
+        <input id="limitInput" type="number" min="1" max="50000" value="1000">
+      </div>
+      <div>
+        <label for="attemptsInput">Tentativas</label>
+        <input id="attemptsInput" type="number" min="1" max="100" value="3">
+      </div>
+      <div>
+        <label for="betSizeInput">Numeros na aposta</label>
+        <input id="betSizeInput" type="number" min="1" max="37" value="12">
+      </div>
+      <button id="runButton" type="button">Simular</button>
+    </section>
+
+    <section class="panel filter-panel">
+      <h2>Filtros</h2>
+      <div class="filter-grid">
+        <label class="checkbox-row" for="hotNumbersOnlyInput">
+          <input id="hotNumbersOnlyInput" type="checkbox">
+          Entrar somente em numeros quentes
+        </label>
+        <div>
+          <label for="hotNumbersCountInput">Qtd. numeros quentes</label>
+          <input id="hotNumbersCountInput" type="number" min="1" max="37" value="12">
+        </div>
+        <div>
+          <label for="hotNumbersWindowInput">Janela dos quentes</label>
+          <input id="hotNumbersWindowInput" type="number" min="1" max="50000" value="1000">
+        </div>
+        <label class="checkbox-row" for="includeHotComparisonInput">
+          <input id="includeHotComparisonInput" type="checkbox" checked>
+          Comparar com e sem filtro quente
+        </label>
+      </div>
+    </section>
+
+    <section class="panel rules-panel">
+      <h2>Regras por quantidade invertida</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Invertidos</th>
+              <th>Acao</th>
+              <th>Aguardar giros</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill">0</span></td>
+              <td>
+                <select id="rule0Action">
+                  <option value="bet" selected>Apostar</option>
+                  <option value="cancel">Cancelar</option>
+                  <option value="delay">Aguardar</option>
+                </select>
+              </td>
+              <td><input id="rule0Delay" type="number" min="0" max="100" value="0"></td>
+            </tr>
+            <tr>
+              <td><span class="pill">1</span></td>
+              <td>
+                <select id="rule1Action">
+                  <option value="bet" selected>Apostar</option>
+                  <option value="cancel">Cancelar</option>
+                  <option value="delay">Aguardar</option>
+                </select>
+              </td>
+              <td><input id="rule1Delay" type="number" min="0" max="100" value="0"></td>
+            </tr>
+            <tr>
+              <td><span class="pill">2</span></td>
+              <td>
+                <select id="rule2Action">
+                  <option value="bet" selected>Apostar</option>
+                  <option value="cancel">Cancelar</option>
+                  <option value="delay">Aguardar</option>
+                </select>
+              </td>
+              <td><input id="rule2Delay" type="number" min="0" max="100" value="0"></td>
+            </tr>
+            <tr>
+              <td><span class="pill">3</span></td>
+              <td>
+                <select id="rule3Action">
+                  <option value="bet" selected>Apostar</option>
+                  <option value="cancel">Cancelar</option>
+                  <option value="delay">Aguardar</option>
+                </select>
+              </td>
+              <td><input id="rule3Delay" type="number" min="0" max="100" value="0"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <div class="metric">
+        <span>Sinais</span>
+        <strong id="signalsTotal">-</strong>
+      </div>
+      <div class="metric">
+        <span>Executadas</span>
+        <strong id="entriesTotal">-</strong>
+      </div>
+      <div class="metric">
+        <span>Canceladas</span>
+        <strong id="canceledEntries">-</strong>
+      </div>
+      <div class="metric">
+        <span>Canceladas frio</span>
+        <strong id="canceledHotEntries">-</strong>
+      </div>
+      <div class="metric">
+        <span>Atrasadas</span>
+        <strong id="delayedEntries">-</strong>
+      </div>
+      <div class="metric">
+        <span>Acertos</span>
+        <strong id="entriesHit">-</strong>
+      </div>
+      <div class="metric">
+        <span>Perdas</span>
+        <strong id="entriesMissed">-</strong>
+      </div>
+      <div class="metric">
+        <span>Assertividade</span>
+        <strong id="hitRate">-</strong>
+      </div>
+      <div class="metric">
+        <span>Tentativas para 100%</span>
+        <strong id="attemptsForAll">-</strong>
+      </div>
+      <div class="metric">
+        <span>Entradas em aberto</span>
+        <strong id="unresolvedForAll">-</strong>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Assertividade por tentativa</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tentativa</th>
+                <th>Acertos</th>
+                <th>% tentativa</th>
+                <th>% acumulado</th>
+              </tr>
+            </thead>
+            <tbody id="attemptsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Aposta paga invertida</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Grupo</th>
+                <th>Sinais</th>
+                <th>Entradas</th>
+                <th>Canceladas</th>
+                <th>Acertos</th>
+                <th>Assertividade</th>
+              </tr>
+            </thead>
+            <tbody id="invertedBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel comparison-panel">
+      <h2>Comparacao filtro quente</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cenario</th>
+              <th>Sinais</th>
+              <th>Entradas</th>
+              <th>Canceladas frio</th>
+              <th>Acertos</th>
+              <th>Perdas</th>
+              <th>Assertividade</th>
+            </tr>
+          </thead>
+          <tbody id="hotComparisonBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-bottom: 18px;">
+      <h2>Quantidade dos 3 anteriores dentro da aposta</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Qtd.</th>
+              <th>Sinais</th>
+              <th>Entradas</th>
+              <th>Canceladas</th>
+              <th>Acertos</th>
+              <th>Assertividade</th>
+            </tr>
+          </thead>
+          <tbody id="distributionBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Ultimas entradas simuladas</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Base</th>
+              <th>Regra</th>
+              <th>Aposta</th>
+              <th>3 anteriores</th>
+              <th>Invertido</th>
+              <th>Quente</th>
+              <th>Ranking quente</th>
+              <th>Espera</th>
+              <th>Status</th>
+              <th>Resultado</th>
+              <th>Tentativa</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const rouletteId = "pragmatic-auto-roulette";
+    const apiBase = window.location.protocol === "file:" ? "http://127.0.0.1:8092" : "";
+    const statusEl = document.getElementById("status");
+    const runButton = document.getElementById("runButton");
+    const limitInput = document.getElementById("limitInput");
+    const attemptsInput = document.getElementById("attemptsInput");
+    const betSizeInput = document.getElementById("betSizeInput");
+    const hotNumbersOnlyInput = document.getElementById("hotNumbersOnlyInput");
+    const hotNumbersCountInput = document.getElementById("hotNumbersCountInput");
+    const hotNumbersWindowInput = document.getElementById("hotNumbersWindowInput");
+    const includeHotComparisonInput = document.getElementById("includeHotComparisonInput");
+    const ruleCounts = ["0", "1", "2", "3"];
+    const actionLabels = {
+      bet: "Apostar",
+      cancel: "Cancelar",
+      delay: "Aguardar",
+    };
+    const statusLabels = {
+      executed: "Executada",
+      canceled_by_hot_filter: "Cancelada frio",
+      canceled_by_rule: "Cancelada",
+      canceled_during_delay: "Cancelada espera",
+    };
+    const ruleControls = ruleCounts.map((count) => ({
+      count,
+      action: document.getElementById(`rule${count}Action`),
+      delay: document.getElementById(`rule${count}Delay`),
+    }));
+
+    function fmt(value) {
+      return new Intl.NumberFormat("pt-BR").format(Number(value || 0));
+    }
+
+    function pct(value) {
+      return `${Number(value || 0).toFixed(2)}%`;
+    }
+
+    function clampInt(value, min, max, fallback) {
+      const parsed = Number.parseInt(String(value), 10);
+      if (!Number.isFinite(parsed)) return fallback;
+      return Math.max(min, Math.min(max, parsed));
+    }
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.classList.toggle("error", Boolean(isError));
+    }
+
+    function setMetric(id, value) {
+      document.getElementById(id).textContent = value;
+    }
+
+    function updateRuleDelayState() {
+      for (const control of ruleControls) {
+        control.delay.disabled = control.action.value !== "delay";
+      }
+    }
+
+    function updateHotNumbersState() {
+      const hotConfigEnabled = hotNumbersOnlyInput.checked || includeHotComparisonInput.checked;
+      hotNumbersCountInput.disabled = !hotConfigEnabled;
+      hotNumbersWindowInput.disabled = !hotConfigEnabled;
+    }
+
+    function ruleLabel(item) {
+      const action = item.inverted_rule_action || "bet";
+      if (action === "delay") {
+        return `${actionLabels[action]} ${fmt(item.inverted_rule_delay_spins)}`;
+      }
+      return actionLabels[action] || action;
+    }
+
+    function statusLabel(item) {
+      if (
+        item.entry_status === "canceled_during_delay"
+        && item.wait_cancel_number !== null
+        && item.wait_cancel_number !== undefined
+      ) {
+        return `${statusLabels[item.entry_status]} ${item.wait_cancel_number}`;
+      }
+      if (item.was_delayed) return "Atrasada";
+      return statusLabels[item.entry_status] || item.entry_status || "-";
+    }
+
+    function hotLabel(item) {
+      if (!item.hot_numbers_only && !item.hot_numbers?.length) return "-";
+      if (item.is_hot_number) {
+        return `#${item.hot_number_rank}`;
+      }
+      return "Fora";
+    }
+
+    function hotRankingLabel(item) {
+      const ranking = item.hot_numbers || [];
+      if (!ranking.length) return "-";
+      return ranking.map((hotItem) => hotItem.number).join(", ");
+    }
+
+    function renderAttempts(rows) {
+      const body = document.getElementById("attemptsBody");
+      body.innerHTML = "";
+      for (const item of rows || []) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.attempt}</td>
+          <td>${fmt(item.hits)}</td>
+          <td>${pct(item.hit_rate)}</td>
+          <td>${pct(item.cumulative_hit_rate)}</td>
+        `;
+        body.appendChild(row);
+      }
+    }
+
+    function renderInverted(data) {
+      const body = document.getElementById("invertedBody");
+      body.innerHTML = "";
+      const rows = [
+        ["Com invertido", data.inverted],
+        ["Sem invertido", data.without_inverted],
+      ];
+      for (const [label, item] of rows) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${label}</td>
+          <td>${fmt(item?.signals)}</td>
+          <td>${fmt(item?.entries)}</td>
+          <td>${fmt(item?.canceled)}</td>
+          <td>${fmt(item?.hits)}</td>
+          <td>${pct(item?.hit_rate)}</td>
+        `;
+        body.appendChild(row);
+      }
+    }
+
+    function renderDistribution(data) {
+      const body = document.getElementById("distributionBody");
+      body.innerHTML = "";
+      for (const key of ["0", "1", "2", "3"]) {
+        const item = data.inverted_match_distribution?.[key] || {};
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td><span class="pill">${key}</span></td>
+          <td>${fmt(item.signals)}</td>
+          <td>${fmt(item.entries)}</td>
+          <td>${fmt(item.canceled)}</td>
+          <td>${fmt(item.hits)}</td>
+          <td>${pct(item.hit_rate)}</td>
+        `;
+        body.appendChild(row);
+      }
+    }
+
+    function renderHotComparison(data) {
+      const body = document.getElementById("hotComparisonBody");
+      body.innerHTML = "";
+      const comparison = data.hot_comparison;
+      if (!comparison) {
+        const row = document.createElement("tr");
+        row.innerHTML = '<td colspan="7">Comparacao desativada</td>';
+        body.appendChild(row);
+        return;
+      }
+
+      const rows = [
+        ["Sem filtro quente", comparison.without_hot_filter],
+        ["Com filtro quente", comparison.with_hot_filter],
+      ];
+      for (const [label, item] of rows) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${label}</td>
+          <td>${fmt(item?.signals_total)}</td>
+          <td>${fmt(item?.entries_total)}</td>
+          <td>${fmt(item?.entries_canceled_by_hot_filter)}</td>
+          <td>${fmt(item?.entries_hit)}</td>
+          <td>${fmt(item?.entries_missed)}</td>
+          <td>${pct(item?.hit_rate)}</td>
+        `;
+        body.appendChild(row);
+      }
+    }
+
+    function renderPreview(entries) {
+      const body = document.getElementById("previewBody");
+      body.innerHTML = "";
+      for (const item of entries || []) {
+        const row = document.createElement("tr");
+        const hitClass = !item.executed || item.hit ? "" : "danger";
+        const statusClass = item.executed ? (item.was_delayed ? "warn" : "") : "danger";
+        const result = item.executed ? (item.hit ? item.hit_number : "Loss") : "-";
+        row.innerHTML = `
+          <td><span class="pill">${item.base_number}</span></td>
+          <td>${ruleLabel(item)}</td>
+          <td>${(item.bet_numbers || []).join(", ")}</td>
+          <td>${(item.previous_numbers || []).join(", ")}</td>
+          <td><span class="pill warn">${item.inverted_match_count}</span></td>
+          <td><span class="pill ${item.hot_numbers_only && !item.is_hot_number ? "danger" : ""}">${hotLabel(item)}</span></td>
+          <td>${hotRankingLabel(item)}</td>
+          <td>${(item.wait_numbers || []).join(", ") || "-"}</td>
+          <td><span class="pill ${statusClass}">${statusLabel(item)}</span></td>
+          <td><span class="pill ${hitClass}">${result}</span></td>
+          <td>${item.hit_attempt || "-"}</td>
+        `;
+        body.appendChild(row);
+      }
+    }
+
+    function render(data) {
+      const resolvedAttempts = Number(data.attempts_needed_for_resolved || 0);
+      setMetric("signalsTotal", fmt(data.signals_total));
+      setMetric("entriesTotal", fmt(data.entries_total));
+      setMetric("canceledEntries", fmt(data.entries_canceled));
+      setMetric("canceledHotEntries", fmt(data.entries_canceled_by_hot_filter));
+      setMetric("delayedEntries", fmt(data.entries_delayed));
+      setMetric("entriesHit", fmt(data.entries_hit));
+      setMetric("entriesMissed", fmt(data.entries_missed));
+      setMetric("hitRate", pct(data.hit_rate));
+      setMetric(
+        "attemptsForAll",
+        data.attempts_needed_for_all
+          ? fmt(data.attempts_needed_for_all)
+          : (resolvedAttempts > 0 ? `>= ${fmt(resolvedAttempts)}` : "-")
+      );
+      setMetric("unresolvedForAll", fmt(data.unresolved_for_all_count));
+      renderAttempts(data.attempts);
+      renderInverted(data);
+      renderDistribution(data);
+      renderHotComparison(data);
+      renderPreview(data.entries_preview);
+      setStatus(`Snapshot: ${data.snapshot_updated_at_utc || "-"}`);
+    }
+
+    async function runBacktest() {
+      const limit = clampInt(limitInput.value, 1, 50000, 1000);
+      const attempts = clampInt(attemptsInput.value, 1, 100, 3);
+      const betSize = clampInt(betSizeInput.value, 1, 37, 12);
+      const hotNumbersCount = clampInt(hotNumbersCountInput.value, 1, 37, 12);
+      const hotNumbersWindow = clampInt(hotNumbersWindowInput.value, 1, 50000, 1000);
+      limitInput.value = String(limit);
+      attemptsInput.value = String(attempts);
+      betSizeInput.value = String(betSize);
+      hotNumbersCountInput.value = String(hotNumbersCount);
+      hotNumbersWindowInput.value = String(hotNumbersWindow);
+      for (const control of ruleControls) {
+        control.delay.value = String(clampInt(control.delay.value, 0, 100, 0));
+      }
+
+      runButton.disabled = true;
+      setStatus("Simulando...");
+      try {
+        const params = new URLSearchParams({
+          limit: String(limit),
+          attempts: String(attempts),
+          bet_size: String(betSize),
+          hot_numbers_only: String(hotNumbersOnlyInput.checked),
+          hot_numbers_count: String(hotNumbersCount),
+          hot_numbers_window: String(hotNumbersWindow),
+          include_hot_comparison: String(includeHotComparisonInput.checked),
+        });
+        for (const control of ruleControls) {
+          params.set(`inverted_${control.count}_action`, control.action.value);
+          params.set(`inverted_${control.count}_delay`, control.delay.value);
+        }
+        const response = await fetch(`${apiBase}/api/next-number-rankings/${rouletteId}/backtest?${params}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        render(data);
+      } catch (error) {
+        setStatus(String(error.message || error), true);
+      } finally {
+        runButton.disabled = false;
+      }
+    }
+
+    for (const control of ruleControls) {
+      control.action.addEventListener("change", updateRuleDelayState);
+    }
+    hotNumbersOnlyInput.addEventListener("change", updateHotNumbersState);
+    includeHotComparisonInput.addEventListener("change", updateHotNumbersState);
+    updateRuleDelayState();
+    updateHotNumbersState();
+    runButton.addEventListener("click", runBacktest);
+    runBacktest();
+  </script>
+</body>
+</html>

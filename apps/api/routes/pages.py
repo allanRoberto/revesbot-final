@@ -47,6 +47,24 @@ async def occurrences_lab_page():
         return f.read()
 
 
+@router.get("/next-number-rankings", response_class=HTMLResponse)
+async def next_number_rankings_page():
+    with open(os.path.join(templates_dir, "next_number_rankings.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/next-number-rankings/backtest", response_class=HTMLResponse)
+async def next_number_rankings_backtest_page():
+    with open(os.path.join(templates_dir, "next_number_backtest.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/next-number-sequences", response_class=HTMLResponse)
+async def next_number_sequences_page():
+    with open(os.path.join(templates_dir, "next_number_sequences.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/occurrences-runs", response_class=HTMLResponse)
 @router.get("/occurrences-live-runs", response_class=HTMLResponse)
 async def occurrences_runs_page():

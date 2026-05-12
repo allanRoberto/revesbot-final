@@ -88,18 +88,24 @@ npm run build
 if [[ "$stage" == "develop" ]]; then
   api_process="api-dev"
   auth_process="auth-api-dev"
+  next_number_ranking_process="next-number-rankings-dev"
+  next_number_sequence_process="next-number-sequences-dev"
 else
   api_process="api-prod"
   auth_process="auth-api-prod"
+  next_number_ranking_process="next-number-rankings-prod"
+  next_number_sequence_process="next-number-sequences-prod"
 fi
 
-echo "==> Reloading PM2 processes: $api_process, $auth_process"
+echo "==> Reloading PM2 processes: $api_process, $auth_process, $next_number_ranking_process, $next_number_sequence_process"
 cd "$repo_dir"
 export DEPLOY_STAGE="$stage"
 export REPO_ROOT="$repo_dir"
 export PYTHON_BIN="$venv_dir/bin/python"
 pm2 startOrReload "$pm2_config" --only "$api_process" --update-env
 pm2 startOrReload "$pm2_config" --only "$auth_process" --update-env
+pm2 startOrReload "$pm2_config" --only "$next_number_ranking_process" --update-env
+pm2 startOrReload "$pm2_config" --only "$next_number_sequence_process" --update-env
 pm2 save
 
 echo "==> Deploy completed for $stage"

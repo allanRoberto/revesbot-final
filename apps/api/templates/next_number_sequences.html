@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catalogacao de Sequencias</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #65706c;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #a03636;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      letter-spacing: 0;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 72px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    main {
+      padding: 24px 0 48px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr)) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(140px, 200px) minmax(140px, 200px);
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    button,
+    .link-button {
+      width: 100%;
+      height: 40px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    input,
+    select {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 10px;
+    }
+
+    input:disabled,
+    select:disabled {
+      background: var(--surface-soft);
+      color: var(--muted);
+    }
+
+    button,
+    .link-button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      padding: 0 14px;
+      font-weight: 700;
+      cursor: pointer;
+      min-width: 130px;
+    }
+
+    button:hover,
+    .link-button:hover {
+      background: var(--accent-strong);
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      margin: 0;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .metric,
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .metric {
+      padding: 12px;
+      min-height: 74px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1.15;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      margin-bottom: 18px;
+    }
+
+    .panel h2 {
+      margin: 0;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 520px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 30px;
+      height: 26px;
+      border-radius: 999px;
+      background: #e7efe9;
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+
+    @media (max-width: 900px) {
+      .topbar,
+      .controls,
+      .filters,
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        align-items: stretch;
+      }
+
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <h1>Catalogacao de Sequencias</h1>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <a class="link-button" href="/next-number-rankings/backtest">Backtest</a>
+        <div id="status" class="meta">Pronto</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="controls">
+      <div>
+        <label for="baseNumberSelect">Numero base</label>
+        <select id="baseNumberSelect"></select>
+      </div>
+      <div>
+        <label for="positionsLimitInput">Qtd. posicoes</label>
+        <input id="positionsLimitInput" type="number" min="1" max="5" value="5">
+      </div>
+      <div>
+        <label for="hourStartInput">Hora inicial</label>
+        <input id="hourStartInput" type="number" min="0" max="23" value="0">
+      </div>
+      <div>
+        <label for="hourEndInput">Hora final</label>
+        <input id="hourEndInput" type="number" min="0" max="23" value="23">
+      </div>
+      <div>
+        <label for="modeSelect">Modo</label>
+        <select id="modeSelect">
+          <option value="both" selected>Separado + somado</option>
+          <option value="separated">Separado</option>
+          <option value="summed">Somado</option>
+        </select>
+      </div>
+      <button id="loadButton" type="button">Consultar</button>
+    </section>
+
+    <section class="filters">
+      <label class="checkbox-row" for="timeWindowEnabledInput">
+        <input id="timeWindowEnabledInput" type="checkbox">
+        Usar filtro de periodo
+      </label>
+      <div>
+        <label for="timeWindowValueInput">Quantidade</label>
+        <input id="timeWindowValueInput" type="number" min="1" max="10000" value="7">
+      </div>
+      <div>
+        <label for="timeWindowUnitSelect">Unidade</label>
+        <select id="timeWindowUnitSelect">
+          <option value="days" selected>Dias</option>
+          <option value="hours">Horas</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <div class="metric">
+        <span>Ocorrencias</span>
+        <strong id="occurrencesTotal">-</strong>
+      </div>
+      <div class="metric">
+        <span>Posicoes usadas</span>
+        <strong id="positionsUsed">-</strong>
+      </div>
+      <div class="metric">
+        <span>Horario BR</span>
+        <strong id="hourWindow">-</strong>
+      </div>
+      <div class="metric">
+        <span>Periodo</span>
+        <strong id="timeWindow">-</strong>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Ranking somado</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ranking</th>
+              <th>Numero</th>
+              <th>Ocorrencias</th>
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody id="summedBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="grid" id="separatedGrid"></section>
+
+    <section class="panel">
+      <h2>Ocorrencias recentes catalogadas</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data BR</th>
+              <th>Hora BR</th>
+              <th>Base</th>
+              <th>Proximos 5</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const rouletteId = "pragmatic-auto-roulette";
+    const apiBase = window.location.protocol === "file:" ? "http://127.0.0.1:8092" : "";
+    const baseNumberSelect = document.getElementById("baseNumberSelect");
+    const positionsLimitInput = document.getElementById("positionsLimitInput");
+    const hourStartInput = document.getElementById("hourStartInput");
+    const hourEndInput = document.getElementById("hourEndInput");
+    const modeSelect = document.getElementById("modeSelect");
+    const timeWindowEnabledInput = document.getElementById("timeWindowEnabledInput");
+    const timeWindowValueInput = document.getElementById("timeWindowValueInput");
+    const timeWindowUnitSelect = document.getElementById("timeWindowUnitSelect");
+    const loadButton = document.getElementById("loadButton");
+    const statusEl = document.getElementById("status");
+
+    for (let number = 0; number <= 36; number += 1) {
+      const option = document.createElement("option");
+      option.value = String(number);
+      option.textContent = String(number);
+      baseNumberSelect.appendChild(option);
+    }
+
+    function fmt(value) {
+      return new Intl.NumberFormat("pt-BR").format(Number(value || 0));
+    }
+
+    function pct(value) {
+      return `${Number(value || 0).toFixed(2)}%`;
+    }
+
+    function clampInt(value, min, max, fallback) {
+      const parsed = Number.parseInt(String(value), 10);
+      if (!Number.isFinite(parsed)) return fallback;
+      return Math.max(min, Math.min(max, parsed));
+    }
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.classList.toggle("error", Boolean(isError));
+    }
+
+    function updateTimeWindowState() {
+      const enabled = timeWindowEnabledInput.checked;
+      timeWindowValueInput.disabled = !enabled;
+      timeWindowUnitSelect.disabled = !enabled;
+    }
+
+    function timeWindowLabel(filters) {
+      if (!filters.time_window_enabled) return "Todo historico";
+      const label = filters.time_window_unit === "hours" ? "Ultimas" : "Ultimos";
+      const unit = filters.time_window_unit === "hours" ? "horas" : "dias";
+      return `${label} ${filters.time_window_value} ${unit}`;
+    }
+
+    function renderSummed(data) {
+      const body = document.getElementById("summedBody");
+      body.innerHTML = "";
+      const rows = data.summed_ranking?.ranking || [];
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="4">Sem dados para o filtro.</td></tr>';
+        return;
+      }
+      for (const item of rows) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.position}</td>
+          <td><span class="pill">${item.number}</span></td>
+          <td>${fmt(item.count)}</td>
+          <td>${pct(item.percentage)}</td>
+        `;
+        body.appendChild(row);
+      }
+    }
+
+    function renderSeparated(data) {
+      const grid = document.getElementById("separatedGrid");
+      grid.innerHTML = "";
+      const rankings = data.separated_rankings || {};
+      const keys = Object.keys(rankings).sort((a, b) => Number(a) - Number(b));
+      if (!keys.length) return;
+
+      for (const key of keys) {
+        const panel = document.createElement("section");
+        panel.className = "panel";
+        const rows = rankings[key]?.ranking || [];
+        panel.innerHTML = `
+          <h2>Posicao ${key}</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ranking</th>
+                  <th>Numero</th>
+                  <th>Ocorrencias</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        `;
+        const body = panel.querySelector("tbody");
+        if (!rows.length) {
+          body.innerHTML = '<tr><td colspan="4">Sem dados.</td></tr>';
+        } else {
+          for (const item of rows) {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${item.position}</td>
+              <td><span class="pill">${item.number}</span></td>
+              <td>${fmt(item.count)}</td>
+              <td>${pct(item.percentage)}</td>
+            `;
+            body.appendChild(row);
+          }
+        }
+        grid.appendChild(panel);
+      }
+    }
+
+    function renderPreview(data) {
+      const body = document.getElementById("previewBody");
+      body.innerHTML = "";
+      for (const item of data.preview || []) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.base_date_br || "-"}</td>
+          <td>${item.base_time_br || "-"}</td>
+          <td><span class="pill">${item.base_number}</span></td>
+          <td>${(item.next_values || []).join(", ")}</td>
+        `;
+        body.appendChild(row);
+      }
+    }
+
+    function render(data) {
+      document.getElementById("occurrencesTotal").textContent = fmt(data.occurrences_total);
+      document.getElementById("positionsUsed").textContent = fmt(data.filters.positions_limit);
+      document.getElementById("hourWindow").textContent = `${data.filters.hour_start}h-${data.filters.hour_end}h`;
+      document.getElementById("timeWindow").textContent = timeWindowLabel(data.filters);
+      renderSummed(data);
+      renderSeparated(data);
+      renderPreview(data);
+      setStatus(`${rouletteId} | ${fmt(data.occurrences_total)} ocorrencias`);
+    }
+
+    async function loadRankings() {
+      const baseNumber = clampInt(baseNumberSelect.value, 0, 36, 0);
+      const positionsLimit = clampInt(positionsLimitInput.value, 1, 5, 5);
+      const hourStart = clampInt(hourStartInput.value, 0, 23, 0);
+      const hourEnd = clampInt(hourEndInput.value, 0, 23, 23);
+      const timeWindowValue = clampInt(timeWindowValueInput.value, 1, 10000, 7);
+      baseNumberSelect.value = String(baseNumber);
+      positionsLimitInput.value = String(positionsLimit);
+      hourStartInput.value = String(hourStart);
+      hourEndInput.value = String(hourEnd);
+      timeWindowValueInput.value = String(timeWindowValue);
+
+      loadButton.disabled = true;
+      setStatus("Consultando...");
+      try {
+        const params = new URLSearchParams({
+          base_number: String(baseNumber),
+          positions_limit: String(positionsLimit),
+          hour_start: String(hourStart),
+          hour_end: String(hourEnd),
+          mode: modeSelect.value,
+          preview_limit: "50",
+          time_window_enabled: String(timeWindowEnabledInput.checked),
+          time_window_value: String(timeWindowValue),
+          time_window_unit: timeWindowUnitSelect.value,
+        });
+        const response = await fetch(`${apiBase}/api/next-number-sequences/${rouletteId}/rankings?${params}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        render(await response.json());
+      } catch (error) {
+        setStatus(String(error.message || error), true);
+      } finally {
+        loadButton.disabled = false;
+      }
+    }
+
+    timeWindowEnabledInput.addEventListener("change", updateTimeWindowState);
+    updateTimeWindowState();
+    loadButton.addEventListener("click", loadRankings);
+    loadRankings();
+  </script>
+</body>
+</html>

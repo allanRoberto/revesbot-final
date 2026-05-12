@@ -15,7 +15,6 @@ MONGO_URL = settings.mongo_url
 mongo_client = AsyncIOMotorClient(
     MONGO_URL,
     tls=False,
-    tlsCAFile=certifi.where()
 )
 mongo_db     = mongo_client["roleta_db"]
 history_coll = mongo_db["history"]

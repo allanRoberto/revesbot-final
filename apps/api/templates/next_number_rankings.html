@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rankings de Puxadas</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      letter-spacing: 0;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .wrap {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 72px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    main {
+      padding: 24px 0 48px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 260px) 1fr auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    select,
+    button,
+    .link-button {
+      height: 40px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 10px;
+    }
+
+    button,
+    .link-button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      padding: 0 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    button:hover,
+    .link-button:hover {
+      background: var(--accent-strong);
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    .meta {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 12px;
+      min-height: 74px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .number-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      height: 28px;
+      border-radius: 999px;
+      background: #e7efe9;
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    @media (max-width: 760px) {
+      .topbar,
+      .toolbar {
+        grid-template-columns: 1fr;
+        display: grid;
+        align-items: stretch;
+      }
+
+      .metric-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <h1>Rankings de Puxadas</h1>
+      <div id="status" class="meta">Carregando...</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="toolbar">
+      <div>
+        <label for="numberSelect">Numero base</label>
+        <select id="numberSelect"></select>
+      </div>
+      <div class="meta" id="snapshotMeta"></div>
+      <div style="display: flex; gap: 8px;">
+        <a class="link-button" href="/next-number-rankings/backtest">Backtest</a>
+        <button id="reloadButton" type="button">Atualizar</button>
+      </div>
+    </section>
+
+    <section class="metric-row" aria-label="Resumo">
+      <div class="metric">
+        <span>Ocorrencias</span>
+        <strong id="occurrenceCount">-</strong>
+      </div>
+      <div class="metric">
+        <span>Com proximo</span>
+        <strong id="withNextCount">-</strong>
+      </div>
+      <div class="metric">
+        <span>Sem proximo</span>
+        <strong id="withoutNextCount">-</strong>
+      </div>
+      <div class="metric">
+        <span>Historico</span>
+        <strong id="historyCount">-</strong>
+      </div>
+    </section>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ranking</th>
+            <th>Numero puxado</th>
+            <th>Ocorrencias</th>
+            <th>%</th>
+          </tr>
+        </thead>
+        <tbody id="rankingBody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const rouletteId = "pragmatic-auto-roulette";
+    const numberSelect = document.getElementById("numberSelect");
+    const statusEl = document.getElementById("status");
+    const snapshotMeta = document.getElementById("snapshotMeta");
+    const reloadButton = document.getElementById("reloadButton");
+    const rankingBody = document.getElementById("rankingBody");
+    const occurrenceCount = document.getElementById("occurrenceCount");
+    const withNextCount = document.getElementById("withNextCount");
+    const withoutNextCount = document.getElementById("withoutNextCount");
+    const historyCount = document.getElementById("historyCount");
+
+    let snapshot = null;
+
+    for (let number = 0; number <= 36; number += 1) {
+      const option = document.createElement("option");
+      option.value = String(number);
+      option.textContent = String(number);
+      numberSelect.appendChild(option);
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat("pt-BR").format(Number(value || 0));
+    }
+
+    function formatPercent(value) {
+      return `${Number(value || 0).toFixed(2)}%`;
+    }
+
+    function formatDate(value) {
+      if (!value) return "-";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "-";
+      return new Intl.DateTimeFormat("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "medium",
+      }).format(date);
+    }
+
+    function renderSelectedNumber() {
+      const selected = numberSelect.value || "0";
+      const data = snapshot?.numbers?.[selected];
+
+      rankingBody.innerHTML = "";
+      if (!data) {
+        occurrenceCount.textContent = "-";
+        withNextCount.textContent = "-";
+        withoutNextCount.textContent = "-";
+        return;
+      }
+
+      occurrenceCount.textContent = formatNumber(data.occurrence_count);
+      withNextCount.textContent = formatNumber(data.with_next_count);
+      withoutNextCount.textContent = formatNumber(data.without_next_count);
+
+      for (const item of data.ranking || []) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.position}</td>
+          <td><span class="number-pill">${item.number}</span></td>
+          <td>${formatNumber(item.count)}</td>
+          <td>${formatPercent(item.percentage)}</td>
+        `;
+        rankingBody.appendChild(row);
+      }
+    }
+
+    async function loadSnapshot() {
+      reloadButton.disabled = true;
+      statusEl.textContent = "Carregando...";
+      statusEl.classList.remove("error");
+      try {
+        const response = await fetch(`/api/next-number-rankings/${rouletteId}/latest`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        snapshot = await response.json();
+        statusEl.textContent = rouletteId;
+        snapshotMeta.textContent = `Atualizado em ${formatDate(snapshot.updated_at_utc)}`;
+        historyCount.textContent = formatNumber(snapshot.history_count);
+        renderSelectedNumber();
+      } catch (error) {
+        statusEl.textContent = "Ranking indisponivel";
+        statusEl.classList.add("error");
+        snapshotMeta.textContent = String(error.message || error);
+      } finally {
+        reloadButton.disabled = false;
+      }
+    }
+
+    numberSelect.addEventListener("change", renderSelectedNumber);
+    reloadButton.addEventListener("click", loadSnapshot);
+
+    loadSnapshot();
+    window.setInterval(loadSnapshot, 60000);
+  </script>
+</body>
+</html>
