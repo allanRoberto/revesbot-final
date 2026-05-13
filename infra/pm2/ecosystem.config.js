@@ -114,6 +114,21 @@ module.exports = {
       },
     },
     {
+      name: `suggestion-snapshot-${suffix}`,
+      cwd: repoRoot,
+      script: "apps/monitoring/scripts/suggestion_snapshot_worker.py",
+      interpreter: pythonBin,
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 3000,
+      kill_timeout: 5000,
+      time: true,
+      env: {
+        DEPLOY_STAGE: stage,
+        PYTHONUNBUFFERED: "1",
+      },
+    },
+    {
       name: `auth-api-${suffix}`,
       cwd: path.join(repoRoot, "apps", "auth_api"),
       script: "dist/main.js",
