@@ -87,6 +87,7 @@ from api.routes.suggestion_monitor import router as suggestion_monitor_router
 from api.routes.suggestion_snapshots import router as suggestion_snapshots_router
 from api.routes.next_number_rankings import router as next_number_rankings_router
 from api.routes.next_number_sequences import router as next_number_sequences_router
+from api.routes.triplet_lookup import router as triplet_lookup_router
 
 
 
@@ -194,6 +195,7 @@ app.include_router(suggestion_monitor_router)
 app.include_router(suggestion_snapshots_router)
 app.include_router(next_number_rankings_router)
 app.include_router(next_number_sequences_router)
+app.include_router(triplet_lookup_router)
 
  
 

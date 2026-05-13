@@ -42,6 +42,7 @@ pattern_score_events_coll = mongo_db["pattern_score_events"]
 pattern_score_state_coll = mongo_db["pattern_score_state"]
 next_number_rankings_coll = mongo_db["next_number_rankings"]
 next_number_sequences_coll = mongo_db["next_number_sequences"]
+history_triplets_coll = mongo_db["history_triplets"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
