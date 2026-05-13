@@ -188,3 +188,9 @@ async def decoder_monitor_page():
 async def ai_shadow_monitor_page():
     with open(os.path.join(templates_dir, "ai_shadow_monitor.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/triplet-lookup", response_class=HTMLResponse)
+async def triplet_lookup_page():
+    with open(os.path.join(templates_dir, "triplet_lookup.html"), "r", encoding="utf-8") as f:
+        return f.read()

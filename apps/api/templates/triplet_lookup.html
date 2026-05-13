@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Busca de Trigrama</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --black: #1a1a1a;
+      --red: #c0392b;
+      --green: #2e8b57;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 16px;
+    }
+    .container { max-width: 980px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 24px 0; font-size: 14px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .field input, .field select {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 16px;
+      background: var(--surface);
+      width: 100px;
+    }
+    .field select { width: auto; }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(23, 122, 91, 0.15);
+    }
+    .field.wide input, .field.wide select { width: 280px; }
+
+    .positions-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .positions-toggle button {
+      border: none;
+      background: var(--surface);
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text);
+      transition: background 0.15s;
+    }
+    .positions-toggle button:not(:last-child) { border-right: 1px solid var(--border); }
+    .positions-toggle button.active {
+      background: var(--accent);
+      color: white;
+    }
+    .positions-toggle button:hover:not(.active) { background: var(--surface-soft); }
+
+    .submit-btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .submit-btn:hover { background: var(--accent-strong); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: var(--surface-soft);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .summary .label { color: var(--muted); margin-right: 6px; }
+    .summary .value { font-weight: 600; color: var(--accent-strong); }
+
+    table.ranking {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    table.ranking th, table.ranking td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    table.ranking th {
+      background: var(--surface-soft);
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    table.ranking tbody tr:hover { background: rgba(23, 122, 91, 0.04); }
+    table.ranking tbody tr.top { background: rgba(46, 139, 87, 0.08); }
+    table.ranking td.pos { width: 50px; color: var(--muted); }
+    table.ranking td.num {
+      width: 60px;
+    }
+    .num-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .num-badge.red { background: var(--red); }
+    .num-badge.black { background: var(--black); }
+    .num-badge.green { background: var(--green); }
+    table.ranking td.count { width: 80px; font-variant-numeric: tabular-nums; }
+    table.ranking td.bar { width: 40%; }
+    .bar-track {
+      background: var(--surface-soft);
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bar-fill {
+      background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+      height: 100%;
+      transition: width 0.4s ease-out;
+    }
+    table.ranking td.pct {
+      width: 80px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+    }
+
+    .missing-section {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: rgba(155, 47, 47, 0.06);
+      border-left: 3px solid var(--danger);
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .missing-section .label {
+      font-weight: 600;
+      color: var(--danger);
+      margin-right: 8px;
+    }
+    .missing-section .nums { color: var(--text); }
+
+    .status { margin-top: 12px; font-size: 13px; color: var(--muted); }
+    .status.error { color: var(--danger); }
+
+    .empty {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Busca de Trigrama</h1>
+    <p class="subtitle">Digite 3 números consecutivos e veja o ranking do que veio depois nas roletas.</p>
+
+    <div class="card">
+      <form id="form" class="form-row">
+        <div class="field">
+          <label for="a">N° 1</label>
+          <input type="number" id="a" min="0" max="36" required>
+        </div>
+        <div class="field">
+          <label for="b">N° 2</label>
+          <input type="number" id="b" min="0" max="36" required>
+        </div>
+        <div class="field">
+          <label for="c">N° 3</label>
+          <input type="number" id="c" min="0" max="36" required>
+        </div>
+
+        <div class="field">
+          <label>Rodadas seguintes</label>
+          <div class="positions-toggle" id="positions-toggle">
+            <button type="button" data-value="1" class="active">1</button>
+            <button type="button" data-value="2">2</button>
+            <button type="button" data-value="3">3</button>
+          </div>
+        </div>
+
+        <div class="field wide">
+          <label for="roulette_id">Roleta (opcional)</label>
+          <select id="roulette_id">
+            <option value="">Todas as roletas</option>
+          </select>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submit-btn">Buscar</button>
+      </form>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card" id="results-card" style="display: none;">
+      <div class="summary" id="summary"></div>
+      <table class="ranking">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Número</th>
+            <th>Vezes</th>
+            <th>Distribuição</th>
+            <th>%</th>
+          </tr>
+        </thead>
+        <tbody id="ranking-body"></tbody>
+      </table>
+      <div class="missing-section" id="missing-section" style="display: none;"></div>
+    </div>
+
+    <div class="card empty" id="empty-card">
+      Aguardando consulta.
+    </div>
+  </div>
+
+  <script>
+    const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    function colorClass(n) {
+      if (n === 0) return "green";
+      return RED_NUMBERS.has(n) ? "red" : "black";
+    }
+
+    const positionsToggle = document.getElementById("positions-toggle");
+    let selectedPositions = 1;
+    positionsToggle.addEventListener("click", (e) => {
+      if (e.target.tagName !== "BUTTON") return;
+      [...positionsToggle.children].forEach(b => b.classList.remove("active"));
+      e.target.classList.add("active");
+      selectedPositions = parseInt(e.target.dataset.value, 10);
+    });
+
+    async function loadRoulettes() {
+      try {
+        const res = await fetch("/api/roulettes");
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById("roulette_id");
+        const list = Array.isArray(data) ? data : (data.roulettes || []);
+        const seen = new Set();
+        list.forEach(r => {
+          const slug = (r.slug || r.id || r.roulette_id || "").trim();
+          if (!slug || seen.has(slug)) return;
+          seen.add(slug);
+          const opt = document.createElement("option");
+          opt.value = slug;
+          opt.textContent = r.displayName || r.name || slug;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        console.warn("Falha ao carregar lista de roletas", err);
+      }
+    }
+    loadRoulettes();
+
+    const form = document.getElementById("form");
+    const statusEl = document.getElementById("status");
+    const submitBtn = document.getElementById("submit-btn");
+    const resultsCard = document.getElementById("results-card");
+    const emptyCard = document.getElementById("empty-card");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const a = parseInt(document.getElementById("a").value, 10);
+      const b = parseInt(document.getElementById("b").value, 10);
+      const c = parseInt(document.getElementById("c").value, 10);
+      const rouletteId = document.getElementById("roulette_id").value;
+
+      if ([a, b, c].some(n => isNaN(n) || n < 0 || n > 36)) {
+        statusEl.textContent = "Numeros devem estar entre 0 e 36.";
+        statusEl.classList.add("error");
+        return;
+      }
+      statusEl.classList.remove("error");
+      statusEl.textContent = "Buscando...";
+      submitBtn.disabled = true;
+
+      const params = new URLSearchParams({ a, b, c, positions: selectedPositions });
+      if (rouletteId) params.set("roulette_id", rouletteId);
+
+      try {
+        const res = await fetch(`/api/triplet-lookup?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = "Erro: " + (data.detail || res.statusText);
+          statusEl.classList.add("error");
+          return;
+        }
+        renderResults(data);
+        statusEl.textContent = `Encontrado em ${data.elapsed_ms}ms`;
+      } catch (err) {
+        statusEl.textContent = "Falha de conexao: " + err.message;
+        statusEl.classList.add("error");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    function renderResults(data) {
+      emptyCard.style.display = "none";
+      resultsCard.style.display = "block";
+
+      const summary = document.getElementById("summary");
+      const posLabel = data.positions === 1 ? "1 rodada seguinte" : `${data.positions} rodadas seguintes (combinadas)`;
+      summary.innerHTML = `
+        <div><span class="label">Sequência:</span><span class="value">${data.sequence.join(" → ")}</span></div>
+        <div><span class="label">Ocorrências:</span><span class="value">${data.total_occurrences}</span></div>
+        <div><span class="label">Análise:</span><span class="value">${posLabel}</span></div>
+        <div><span class="label">Roleta:</span><span class="value">${data.roulette_id || "todas"}</span></div>
+        <div><span class="label">Tempo:</span><span class="value">${data.elapsed_ms} ms</span></div>
+      `;
+
+      const body = document.getElementById("ranking-body");
+      body.innerHTML = "";
+
+      if (!data.ranking.length) {
+        body.innerHTML = `<tr><td colspan="5" class="empty">Nenhuma ocorrência encontrada para esta sequência.</td></tr>`;
+      } else {
+        const topCount = data.ranking[0].count;
+        data.ranking.forEach((row, i) => {
+          const widthPct = (row.count / topCount) * 100;
+          const tr = document.createElement("tr");
+          if (i === 0) tr.classList.add("top");
+          tr.innerHTML = `
+            <td class="pos">#${i + 1}</td>
+            <td class="num"><span class="num-badge ${colorClass(row.number)}">${row.number}</span></td>
+            <td class="count">${row.count}x</td>
+            <td class="bar"><div class="bar-track"><div class="bar-fill" style="width:${widthPct}%"></div></div></td>
+            <td class="pct">${row.percentage.toFixed(2)}%</td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+
+      const missingEl = document.getElementById("missing-section");
+      if (data.missing && data.missing.length) {
+        missingEl.style.display = "block";
+        missingEl.innerHTML = `<span class="label">Nunca apareceram:</span><span class="nums">${data.missing.join(", ")}</span>`;
+      } else {
+        missingEl.style.display = "none";
+      }
+    }
+  </script>
+</body>
+</html>
