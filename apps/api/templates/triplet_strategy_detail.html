@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Estratégia Trigrama — Detalhe</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -51,6 +52,9 @@
     .stat.win .value { color: var(--accent-strong); }
     .stat.loss .value { color: var(--danger); }
     .stat.assert .value { color: var(--accent); }
+    .stat.profit-up .value { color: var(--accent-strong); }
+    .stat.profit-down .value { color: var(--danger); }
+    .chart-wrap { height: 280px; }
 
     .num-badge {
       display: inline-flex;
@@ -148,6 +152,11 @@
       <div class="stats-row" id="stats-row"><div class="loading">Carregando...</div></div>
     </div>
 
+    <div class="card" id="chart-card" style="display: none;">
+      <h2>Evolução do saldo (fichas)</h2>
+      <div class="chart-wrap"><canvas id="roulette-chart"></canvas></div>
+    </div>
+
     <div class="card">
       <h2>Aposta atual</h2>
       <div id="current-bet"><div class="loading">Carregando...</div></div>
@@ -188,6 +197,99 @@
     let currentPage = 1;
     const PAGE_SIZE = 20;
     let maxAttempts = 4;
+    let totalProfit = 0;
+    let chart = null;
+
+    function formatChips(v) {
+      const sign = v >= 0 ? "+" : "";
+      return sign + v.toFixed(2);
+    }
+
+    function profitFor(bet, config) {
+      const N = bet.bet_size || 15;
+      const payouts = config.payout_by_roulette || {};
+      const P = payouts[bet.roulette_id] != null ? payouts[bet.roulette_id] : 36;
+      const stakes = config.per_attempt_per_number_stake || [1.0, 1.5, 2.0, 2.5];
+      if (bet.status === "lost") {
+        return -stakes.reduce((s, x) => s + x, 0) * N;
+      }
+      const k = bet.won_at_attempt;
+      if (!k || k < 1) return 0;
+      const cumStake = stakes.slice(0, k).reduce((s, x) => s + x, 0) * N;
+      const grossWin = stakes[k - 1] * P;
+      return grossWin - cumStake;
+    }
+
+    async function loadSeries() {
+      try {
+        const res = await fetch(`/api/triplet-strategy/series`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const config = data.config || {};
+        const filtered = (data.bets || []).filter(b => b.roulette_id === rouletteId);
+        let running = 0;
+        const points = filtered.map((b, i) => {
+          running += profitFor(b, config);
+          return { index: i + 1, balance: running };
+        });
+        totalProfit = running;
+        renderChart(points);
+      } catch (err) {
+        console.warn("series error", err);
+      }
+    }
+
+    function renderChart(points) {
+      const card = document.getElementById("chart-card");
+      const canvas = document.getElementById("roulette-chart");
+      if (!points.length) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "block";
+      const labels = points.map(p => p.index);
+      const data = points.map(p => Number(p.balance.toFixed(2)));
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        chart.update("none");
+        return;
+      }
+      chart = new Chart(canvas, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "Saldo (fichas)",
+            data,
+            borderColor: "#177a5b",
+            backgroundColor: "rgba(23, 122, 91, 0.12)",
+            fill: true,
+            tension: 0.2,
+            pointRadius: 0,
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: "index" },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => `Aposta #${items[0].label}`,
+                label: (item) => `Saldo: ${formatChips(item.parsed.y)} fichas`,
+              },
+            },
+          },
+          scales: {
+            x: { title: { display: true, text: "Apostas resolvidas" } },
+            y: { title: { display: true, text: "Saldo (fichas)" } },
+          },
+        },
+      });
+    }
 
     async function loadCurrent() {
       try {
@@ -205,10 +307,12 @@
       }
     }
     function renderStats(data) {
+      const pClass = totalProfit >= 0 ? "profit-up" : "profit-down";
       document.getElementById("stats-row").innerHTML = `
         <div class="stat win"><div class="label">Vitórias</div><div class="value">${data.won}</div></div>
         <div class="stat loss"><div class="label">Perdas</div><div class="value">${data.lost}</div></div>
         <div class="stat assert"><div class="label">Assertividade</div><div class="value">${data.assertiveness.toFixed(2)}%</div></div>
+        <div class="stat ${pClass}"><div class="label">Fichas (lucro)</div><div class="value">${formatChips(totalProfit)}</div></div>
         <div class="stat"><div class="label">Total Resolvidas</div><div class="value">${data.total_resolved}</div></div>
       `;
     }
@@ -303,8 +407,9 @@
       currentPage++; loadHistory(currentPage);
     });
 
-    function refresh() {
-      loadCurrent();
+    async function refresh() {
+      await loadSeries();
+      await loadCurrent();
       if (currentPage === 1) loadHistory(1);
     }
     refresh();

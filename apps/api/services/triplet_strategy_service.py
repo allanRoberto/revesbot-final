@@ -6,6 +6,8 @@ from api.core.db import triplet_strategy_bets_coll
 from api.services.triplet_strategy_constants import (
     MAX_ATTEMPTS,
     MONITORED_ROULETTES,
+    PAYOUT_BY_ROULETTE,
+    PER_ATTEMPT_PER_NUMBER_STAKE,
     TOP_N,
 )
 
@@ -90,6 +92,45 @@ async def get_strategy_summary() -> Dict[str, Any]:
         "roulettes": items,
         "config": {
             "top_n": TOP_N,
+            "max_attempts": MAX_ATTEMPTS,
+            "payout_by_roulette": PAYOUT_BY_ROULETTE,
+            "per_attempt_per_number_stake": PER_ATTEMPT_PER_NUMBER_STAKE,
+        },
+    }
+
+
+async def get_resolved_series() -> Dict[str, Any]:
+    pipeline = [
+        {"$match": {
+            "roulette_id": {"$in": MONITORED_ROULETTES},
+            "status": {"$in": ["won", "lost"]},
+        }},
+        {"$project": {
+            "_id": 0,
+            "roulette_id": 1,
+            "resolved_at": 1,
+            "status": 1,
+            "won_at_attempt": 1,
+            "bet_size": {"$size": {"$ifNull": ["$bet_numbers", []]}},
+        }},
+        {"$sort": {"resolved_at": 1}},
+    ]
+    rows = [doc async for doc in triplet_strategy_bets_coll.aggregate(pipeline)]
+    bets = [
+        {
+            "roulette_id": r["roulette_id"],
+            "resolved_at": r["resolved_at"].isoformat() if r.get("resolved_at") else None,
+            "status": r["status"],
+            "won_at_attempt": r.get("won_at_attempt"),
+            "bet_size": int(r.get("bet_size", 0) or 0),
+        }
+        for r in rows
+    ]
+    return {
+        "bets": bets,
+        "config": {
+            "payout_by_roulette": PAYOUT_BY_ROULETTE,
+            "per_attempt_per_number_stake": PER_ATTEMPT_PER_NUMBER_STAKE,
             "max_attempts": MAX_ATTEMPTS,
         },
     }

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Estratégia Trigrama — Roletas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -20,7 +21,7 @@
     }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
-    .container { max-width: 980px; margin: 0 auto; }
+    .container { max-width: 1080px; margin: 0 auto; }
     h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
     .subtitle { color: var(--muted); margin: 0 0 24px 0; font-size: 14px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
@@ -29,7 +30,7 @@
       color: white;
       border-radius: 12px;
       padding: 20px 24px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       display: flex;
       flex-wrap: wrap;
       gap: 16px;
@@ -37,11 +38,22 @@
       justify-content: space-around;
       box-shadow: 0 4px 16px rgba(15, 95, 70, 0.18);
     }
-    .scoreboard .sb-block { text-align: center; min-width: 110px; }
+    .scoreboard .sb-block { text-align: center; min-width: 100px; }
     .scoreboard .sb-label { font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
-    .scoreboard .sb-value { font-size: 32px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-    .scoreboard .sb-value.assert { font-size: 38px; }
+    .scoreboard .sb-value { font-size: 28px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+    .scoreboard .sb-value.assert { font-size: 32px; }
+    .scoreboard .sb-value.profit-up { color: #d4f7e0; }
+    .scoreboard .sb-value.profit-down { color: #fbcaca; }
     .scoreboard .sb-divider { width: 1px; height: 40px; background: rgba(255, 255, 255, 0.25); }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .chart-card h2 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    .chart-wrap { height: 280px; }
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -58,20 +70,22 @@
       border-color: var(--accent);
     }
     .card .name { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--accent-strong); word-break: break-all; }
-    .stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
     .stat {
       flex: 1;
-      min-width: 90px;
+      min-width: 70px;
       padding: 8px 10px;
       background: var(--surface-soft);
       border-radius: 8px;
       text-align: center;
     }
-    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat .value { font-size: 18px; font-weight: 700; margin-top: 2px; }
+    .stat .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 17px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
     .stat.win .value { color: var(--accent-strong); }
     .stat.loss .value { color: var(--danger); }
     .stat.assert .value { color: var(--accent); }
+    .stat.profit-up .value { color: var(--accent-strong); }
+    .stat.profit-down .value { color: var(--danger); }
     .badge {
       display: inline-block;
       padding: 3px 8px;
@@ -94,29 +108,126 @@
     <p class="subtitle">Clique em uma roleta para ver as apostas em tempo real.</p>
 
     <div id="scoreboard" class="scoreboard" style="display: none;"></div>
+    <div class="chart-card" id="chart-card" style="display: none;">
+      <h2>Evolução do saldo geral (fichas)</h2>
+      <div class="chart-wrap"><canvas id="global-chart"></canvas></div>
+    </div>
     <div id="content" class="loading">Carregando...</div>
     <div class="footer-note" id="footer-note"></div>
   </div>
 
   <script>
+    function formatChips(v) {
+      const sign = v >= 0 ? "+" : "";
+      return sign + v.toFixed(2);
+    }
+
+    function profitFor(bet, config) {
+      const N = bet.bet_size || 15;
+      const payouts = config.payout_by_roulette || {};
+      const P = payouts[bet.roulette_id] != null ? payouts[bet.roulette_id] : 36;
+      const stakes = config.per_attempt_per_number_stake || [1.0, 1.5, 2.0, 2.5];
+      if (bet.status === "lost") {
+        return -stakes.reduce((s, x) => s + x, 0) * N;
+      }
+      const k = bet.won_at_attempt;
+      if (!k || k < 1) return 0;
+      const cumStake = stakes.slice(0, k).reduce((s, x) => s + x, 0) * N;
+      const grossWin = stakes[k - 1] * P;
+      return grossWin - cumStake;
+    }
+
+    function computeTotals(series) {
+      const config = series.config || {};
+      let global = 0;
+      const byRoulette = {};
+      const points = [];
+      series.bets.forEach((bet, i) => {
+        const p = profitFor(bet, config);
+        global += p;
+        byRoulette[bet.roulette_id] = (byRoulette[bet.roulette_id] || 0) + p;
+        points.push({ index: i + 1, global, resolved_at: bet.resolved_at });
+      });
+      return { global, byRoulette, points };
+    }
+
+    let chart = null;
+    function renderChart(points) {
+      const card = document.getElementById("chart-card");
+      const canvas = document.getElementById("global-chart");
+      if (!points.length) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "block";
+      const labels = points.map(p => p.index);
+      const data = points.map(p => Number(p.global.toFixed(2)));
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        chart.update("none");
+        return;
+      }
+      chart = new Chart(canvas, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "Saldo (fichas)",
+            data,
+            borderColor: "#177a5b",
+            backgroundColor: "rgba(23, 122, 91, 0.12)",
+            fill: true,
+            tension: 0.2,
+            pointRadius: 0,
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: "index" },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => `Aposta #${items[0].label}`,
+                label: (item) => `Saldo: ${formatChips(item.parsed.y)} fichas`,
+              },
+            },
+          },
+          scales: {
+            x: { title: { display: true, text: "Apostas resolvidas" } },
+            y: { title: { display: true, text: "Saldo (fichas)" } },
+          },
+        },
+      });
+    }
+
     async function load() {
       const content = document.getElementById("content");
       const footer = document.getElementById("footer-note");
       try {
-        const res = await fetch("/api/triplet-strategy/summary");
-        if (!res.ok) {
-          content.innerHTML = `<div class="error">Erro ${res.status}</div>`;
+        const [summaryRes, seriesRes] = await Promise.all([
+          fetch("/api/triplet-strategy/summary"),
+          fetch("/api/triplet-strategy/series"),
+        ]);
+        if (!summaryRes.ok || !seriesRes.ok) {
+          content.innerHTML = `<div class="error">Erro ${summaryRes.status}/${seriesRes.status}</div>`;
           return;
         }
-        const data = await res.json();
-        render(data);
-        const cfg = data.config || {};
-        footer.textContent = `Cobertura: ${cfg.top_n} números + zero • Máx. tentativas por aposta: ${cfg.max_attempts}`;
+        const summary = await summaryRes.json();
+        const series = await seriesRes.json();
+        const totals = computeTotals(series);
+        render(summary, totals);
+        renderChart(totals.points);
+        const cfg = summary.config || {};
+        footer.textContent = `Cobertura: ${cfg.top_n} números + zero • Máx. tentativas: ${cfg.max_attempts} • Stakes/num por tentativa: ${(cfg.per_attempt_per_number_stake || []).join(" → ")} fichas`;
       } catch (err) {
         content.innerHTML = `<div class="error">Falha: ${err.message}</div>`;
       }
     }
-    function render(data) {
+    function render(data, totals) {
       const content = document.getElementById("content");
       const scoreboard = document.getElementById("scoreboard");
       if (!data.roulettes || data.roulettes.length === 0) {
@@ -128,6 +239,7 @@
       const totalLost = data.roulettes.reduce((s, r) => s + (r.lost || 0), 0);
       const totalResolved = totalWon + totalLost;
       const assertGeneral = totalResolved > 0 ? (totalWon / totalResolved * 100) : 0;
+      const profitClass = totals.global >= 0 ? "profit-up" : "profit-down";
       scoreboard.style.display = "flex";
       scoreboard.innerHTML = `
         <div class="sb-block"><div class="sb-label">Vitórias</div><div class="sb-value">${totalWon}</div></div>
@@ -135,6 +247,8 @@
         <div class="sb-block"><div class="sb-label">Perdas</div><div class="sb-value">${totalLost}</div></div>
         <div class="sb-divider"></div>
         <div class="sb-block"><div class="sb-label">Assertividade Geral</div><div class="sb-value assert">${assertGeneral.toFixed(2)}%</div></div>
+        <div class="sb-divider"></div>
+        <div class="sb-block"><div class="sb-label">Fichas (lucro)</div><div class="sb-value ${profitClass}">${formatChips(totals.global)}</div></div>
         <div class="sb-divider"></div>
         <div class="sb-block"><div class="sb-label">Total Resolvidas</div><div class="sb-value">${totalResolved}</div></div>
       `;
@@ -147,12 +261,15 @@
         const badge = r.has_open_bet
           ? `<span class="badge open">Aposta em ${r.current_attempts}/${(data.config || {}).max_attempts || 4}</span>`
           : `<span class="badge idle">Aguardando trio válido</span>`;
+        const profit = totals.byRoulette[r.roulette_id] || 0;
+        const pClass = profit >= 0 ? "profit-up" : "profit-down";
         a.innerHTML = `
           <div class="name">${r.roulette_id}</div>
           <div class="stats">
-            <div class="stat win"><div class="label">Vitórias</div><div class="value">${r.won}</div></div>
-            <div class="stat loss"><div class="label">Perdas</div><div class="value">${r.lost}</div></div>
-            <div class="stat assert"><div class="label">Assertividade</div><div class="value">${r.assertiveness.toFixed(2)}%</div></div>
+            <div class="stat win"><div class="label">V</div><div class="value">${r.won}</div></div>
+            <div class="stat loss"><div class="label">P</div><div class="value">${r.lost}</div></div>
+            <div class="stat assert"><div class="label">%</div><div class="value">${r.assertiveness.toFixed(1)}%</div></div>
+            <div class="stat ${pClass}"><div class="label">Fichas</div><div class="value">${formatChips(profit)}</div></div>
           </div>
           ${badge}
         `;

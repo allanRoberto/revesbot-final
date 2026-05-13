@@ -5,6 +5,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Query
 
 from api.services.triplet_strategy_service import (
+    get_resolved_series,
     get_roulette_current,
     get_roulette_history,
     get_strategy_summary,
@@ -20,6 +21,14 @@ async def triplet_strategy_summary() -> Dict[str, Any]:
         return await get_strategy_summary()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Falha ao obter summary: {exc}")
+
+
+@router.get("/api/triplet-strategy/series")
+async def triplet_strategy_series() -> Dict[str, Any]:
+    try:
+        return await get_resolved_series()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao obter serie: {exc}")
 
 
 @router.get("/api/triplet-strategy/{roulette_id}/current")

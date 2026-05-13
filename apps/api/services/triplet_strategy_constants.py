@@ -13,6 +13,14 @@ POSITIONS: int = 3
 TOP_N: int = 14
 MAX_ATTEMPTS: int = 4
 
+PAYOUT_BY_ROULETTE: dict = {
+    "pragmatic-auto-roulette": 36,
+    "pragmatic-brazilian-roulette": 36,
+    "pragmatic-mega-roulette": 30,
+}
+
+PER_ATTEMPT_PER_NUMBER_STAKE: List[float] = [1.0, 1.5, 2.0, 2.5]
+
 EUROPEAN_WHEEL: List[int] = [
     0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23,
     10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
