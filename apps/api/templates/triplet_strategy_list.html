@@ -24,6 +24,24 @@
     h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
     .subtitle { color: var(--muted); margin: 0 0 24px 0; font-size: 14px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .scoreboard {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: white;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-around;
+      box-shadow: 0 4px 16px rgba(15, 95, 70, 0.18);
+    }
+    .scoreboard .sb-block { text-align: center; min-width: 110px; }
+    .scoreboard .sb-label { font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+    .scoreboard .sb-value { font-size: 32px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+    .scoreboard .sb-value.assert { font-size: 38px; }
+    .scoreboard .sb-divider { width: 1px; height: 40px; background: rgba(255, 255, 255, 0.25); }
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -75,6 +93,7 @@
     <h1>Estratégia Trigrama — Roletas Monitoradas</h1>
     <p class="subtitle">Clique em uma roleta para ver as apostas em tempo real.</p>
 
+    <div id="scoreboard" class="scoreboard" style="display: none;"></div>
     <div id="content" class="loading">Carregando...</div>
     <div class="footer-note" id="footer-note"></div>
   </div>
@@ -99,10 +118,26 @@
     }
     function render(data) {
       const content = document.getElementById("content");
+      const scoreboard = document.getElementById("scoreboard");
       if (!data.roulettes || data.roulettes.length === 0) {
         content.innerHTML = "<p>Nenhuma roleta monitorada.</p>";
+        scoreboard.style.display = "none";
         return;
       }
+      const totalWon = data.roulettes.reduce((s, r) => s + (r.won || 0), 0);
+      const totalLost = data.roulettes.reduce((s, r) => s + (r.lost || 0), 0);
+      const totalResolved = totalWon + totalLost;
+      const assertGeneral = totalResolved > 0 ? (totalWon / totalResolved * 100) : 0;
+      scoreboard.style.display = "flex";
+      scoreboard.innerHTML = `
+        <div class="sb-block"><div class="sb-label">Vitórias</div><div class="sb-value">${totalWon}</div></div>
+        <div class="sb-divider"></div>
+        <div class="sb-block"><div class="sb-label">Perdas</div><div class="sb-value">${totalLost}</div></div>
+        <div class="sb-divider"></div>
+        <div class="sb-block"><div class="sb-label">Assertividade Geral</div><div class="sb-value assert">${assertGeneral.toFixed(2)}%</div></div>
+        <div class="sb-divider"></div>
+        <div class="sb-block"><div class="sb-label">Total Resolvidas</div><div class="sb-value">${totalResolved}</div></div>
+      `;
       const grid = document.createElement("div");
       grid.className = "grid";
       data.roulettes.forEach(r => {
