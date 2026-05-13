@@ -264,6 +264,7 @@
       }
       const rows = data.bets.map(bet => {
         const trio = bet.trigger_triplet.map(n => numBadge(n)).join("");
+        const betNums = (bet.bet_numbers || []).map(n => numBadge(n, "small")).join("");
         const attempts = bet.attempts.map(a =>
           numBadge(a.value, "small " + (a.hit ? "hit" : "miss"))
         ).join("");
@@ -274,6 +275,7 @@
           <tr class="${bet.status}">
             <td class="dt">${formatDate(bet.resolved_at)}</td>
             <td class="trio">${trio}</td>
+            <td><div class="attempts-cell">${betNums}</div></td>
             <td>${badge}</td>
             <td><div class="attempts-cell">${attempts}</div></td>
           </tr>
@@ -281,7 +283,7 @@
       }).join("");
       el.innerHTML = `
         <table class="history">
-          <thead><tr><th>Resolvida em</th><th>Trigrama</th><th>Status</th><th>Tentativas</th></tr></thead>
+          <thead><tr><th>Resolvida em</th><th>Trigrama</th><th>Números apostados</th><th>Status</th><th>Tentativas</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       `;
