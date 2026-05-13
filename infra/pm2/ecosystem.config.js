@@ -145,6 +145,22 @@ module.exports = {
       },
     },
     {
+      name: `triplet-strategy-${suffix}`,
+      cwd: repoRoot,
+      script: "apps/monitoring/scripts/triplet_strategy_worker.py",
+      interpreter: pythonBin,
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 3000,
+      kill_timeout: 5000,
+      time: true,
+      env: {
+        DEPLOY_STAGE: stage,
+        PYTHONUNBUFFERED: "1",
+        TRIPLET_STRATEGY_POLL_SECONDS: "2",
+      },
+    },
+    {
       name: `auth-api-${suffix}`,
       cwd: path.join(repoRoot, "apps", "auth_api"),
       script: "dist/main.js",

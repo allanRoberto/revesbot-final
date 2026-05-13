@@ -194,3 +194,15 @@ async def ai_shadow_monitor_page():
 async def triplet_lookup_page():
     with open(os.path.join(templates_dir, "triplet_lookup.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/triplet-strategy", response_class=HTMLResponse)
+async def triplet_strategy_list_page():
+    with open(os.path.join(templates_dir, "triplet_strategy_list.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/triplet-strategy/{roulette_id}", response_class=HTMLResponse)
+async def triplet_strategy_detail_page(roulette_id: str):
+    with open(os.path.join(templates_dir, "triplet_strategy_detail.html"), "r", encoding="utf-8") as f:
+        return f.read()

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estratégia Trigrama — Detalhe</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --warn: #b6862c;
+      --black: #1a1a1a;
+      --red: #c0392b;
+      --green: #2e8b57;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1080px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 22px; color: var(--accent-strong); word-break: break-all; }
+    .breadcrumb { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+    .breadcrumb a { color: var(--accent); text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .card h2 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    .stats-row { display: flex; flex-wrap: wrap; gap: 12px; }
+    .stat {
+      flex: 1;
+      min-width: 110px;
+      padding: 10px 14px;
+      background: var(--surface-soft);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .stat.win .value { color: var(--accent-strong); }
+    .stat.loss .value { color: var(--danger); }
+    .stat.assert .value { color: var(--accent); }
+
+    .num-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+      margin: 2px;
+    }
+    .num-badge.red { background: var(--red); }
+    .num-badge.black { background: var(--black); }
+    .num-badge.green { background: var(--green); }
+    .num-badge.small { width: 24px; height: 24px; font-size: 11px; }
+    .num-badge.hit { box-shadow: 0 0 0 3px rgba(46, 139, 87, 0.6); }
+    .num-badge.miss { opacity: 0.5; }
+
+    .trigger-trio { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+    .trigger-trio .num-badge { width: 26px; height: 26px; font-size: 12px; }
+
+    .bet-numbers { margin-top: 12px; line-height: 1.5; }
+    .attempts-line { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .attempt-slot {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      background: var(--surface-soft);
+      min-width: 40px;
+    }
+    .attempt-slot.empty { opacity: 0.5; }
+    .attempt-slot .a-label { font-size: 10px; color: var(--muted); }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .badge.open { background: rgba(182, 134, 44, 0.15); color: var(--warn); }
+    .badge.won { background: rgba(23, 122, 91, 0.15); color: var(--accent-strong); }
+    .badge.lost { background: rgba(155, 47, 47, 0.12); color: var(--danger); }
+
+    table.history {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table.history th, table.history td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    table.history th { background: var(--surface-soft); font-weight: 600; color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+    table.history tbody tr.won { background: rgba(46, 139, 87, 0.04); }
+    table.history tbody tr.lost { background: rgba(192, 57, 43, 0.04); }
+    table.history td.dt { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+    table.history td.trio .num-badge { width: 24px; height: 24px; font-size: 11px; }
+    .attempts-cell { display: flex; gap: 4px; flex-wrap: wrap; }
+
+    .pagination { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 16px; }
+    .pagination button {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pagination button:hover:not(:disabled) { background: var(--surface-soft); }
+    .pagination .info { color: var(--muted); font-size: 13px; min-width: 120px; text-align: center; }
+
+    .loading { text-align: center; color: var(--muted); padding: 24px; }
+    .error { color: var(--danger); padding: 16px; background: rgba(155, 47, 47, 0.06); border-radius: 8px; }
+    .empty { text-align: center; color: var(--muted); padding: 32px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="breadcrumb"><a href="/triplet-strategy">← Lista de roletas</a></div>
+    <h1 id="roulette-title"></h1>
+
+    <div class="card">
+      <h2>Estatísticas</h2>
+      <div class="stats-row" id="stats-row"><div class="loading">Carregando...</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Aposta atual</h2>
+      <div id="current-bet"><div class="loading">Carregando...</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Histórico de apostas</h2>
+      <div id="history-container"><div class="loading">Carregando...</div></div>
+      <div class="pagination" id="pagination" style="display: none;">
+        <button id="prev-btn">← Anterior</button>
+        <span class="info" id="page-info"></span>
+        <button id="next-btn">Próximo →</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    function colorClass(n) {
+      if (n === 0) return "green";
+      return RED_NUMBERS.has(n) ? "red" : "black";
+    }
+    function numBadge(n, extraClass = "") {
+      return `<span class="num-badge ${colorClass(n)} ${extraClass}">${n}</span>`;
+    }
+    function formatDate(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    const path = window.location.pathname;
+    const segments = path.split("/").filter(Boolean);
+    const rouletteId = decodeURIComponent(segments[segments.length - 1] || "");
+    document.getElementById("roulette-title").textContent = rouletteId;
+
+    let currentPage = 1;
+    const PAGE_SIZE = 20;
+    let maxAttempts = 4;
+
+    async function loadCurrent() {
+      try {
+        const res = await fetch(`/api/triplet-strategy/${encodeURIComponent(rouletteId)}/current`);
+        if (!res.ok) {
+          document.getElementById("stats-row").innerHTML = `<div class="error">Erro ${res.status}</div>`;
+          return;
+        }
+        const data = await res.json();
+        maxAttempts = data.max_attempts || 4;
+        renderStats(data);
+        renderCurrentBet(data);
+      } catch (err) {
+        document.getElementById("stats-row").innerHTML = `<div class="error">${err.message}</div>`;
+      }
+    }
+    function renderStats(data) {
+      document.getElementById("stats-row").innerHTML = `
+        <div class="stat win"><div class="label">Vitórias</div><div class="value">${data.won}</div></div>
+        <div class="stat loss"><div class="label">Perdas</div><div class="value">${data.lost}</div></div>
+        <div class="stat assert"><div class="label">Assertividade</div><div class="value">${data.assertiveness.toFixed(2)}%</div></div>
+        <div class="stat"><div class="label">Total Resolvidas</div><div class="value">${data.total_resolved}</div></div>
+      `;
+    }
+    function renderCurrentBet(data) {
+      const el = document.getElementById("current-bet");
+      const bet = data.current_bet;
+      if (!bet) {
+        el.innerHTML = `<div class="empty">Aguardando trio válido (sem zero, sem repetidos, sem vizinhos ou espelhos).</div>`;
+        return;
+      }
+      const attemptsHtml = [];
+      for (let i = 1; i <= maxAttempts; i++) {
+        const a = bet.attempts.find(x => x.attempt === i);
+        if (a) {
+          attemptsHtml.push(`
+            <div class="attempt-slot">
+              <div class="a-label">#${i}</div>
+              ${numBadge(a.value, a.hit ? "hit small" : "miss small")}
+            </div>
+          `);
+        } else {
+          attemptsHtml.push(`<div class="attempt-slot empty"><div class="a-label">#${i}</div><span class="num-badge small">?</span></div>`);
+        }
+      }
+      const trioBadges = bet.trigger_triplet.map(n => numBadge(n)).join("");
+      const betBadges = bet.bet_numbers.map(n => numBadge(n)).join("");
+      el.innerHTML = `
+        <div class="trigger-trio">Trigrama: ${trioBadges} <span class="badge open">Aposta aberta</span></div>
+        <div class="bet-numbers">${betBadges}</div>
+        <div class="attempts-line">${attemptsHtml.join("")}</div>
+      `;
+    }
+
+    async function loadHistory(page) {
+      try {
+        const res = await fetch(`/api/triplet-strategy/${encodeURIComponent(rouletteId)}/history?page=${page}&size=${PAGE_SIZE}`);
+        if (!res.ok) {
+          document.getElementById("history-container").innerHTML = `<div class="error">Erro ${res.status}</div>`;
+          return;
+        }
+        const data = await res.json();
+        renderHistory(data);
+        renderPagination(data);
+      } catch (err) {
+        document.getElementById("history-container").innerHTML = `<div class="error">${err.message}</div>`;
+      }
+    }
+    function renderHistory(data) {
+      const el = document.getElementById("history-container");
+      if (!data.bets || data.bets.length === 0) {
+        el.innerHTML = `<div class="empty">Nenhuma aposta resolvida ainda.</div>`;
+        return;
+      }
+      const rows = data.bets.map(bet => {
+        const trio = bet.trigger_triplet.map(n => numBadge(n)).join("");
+        const attempts = bet.attempts.map(a =>
+          numBadge(a.value, "small " + (a.hit ? "hit" : "miss"))
+        ).join("");
+        const badge = bet.status === "won"
+          ? `<span class="badge won">WIN @${bet.won_at_attempt}</span>`
+          : `<span class="badge lost">LOSS</span>`;
+        return `
+          <tr class="${bet.status}">
+            <td class="dt">${formatDate(bet.resolved_at)}</td>
+            <td class="trio">${trio}</td>
+            <td>${badge}</td>
+            <td><div class="attempts-cell">${attempts}</div></td>
+          </tr>
+        `;
+      }).join("");
+      el.innerHTML = `
+        <table class="history">
+          <thead><tr><th>Resolvida em</th><th>Trigrama</th><th>Status</th><th>Tentativas</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+    function renderPagination(data) {
+      const pag = document.getElementById("pagination");
+      if (data.total_pages <= 1) { pag.style.display = "none"; return; }
+      pag.style.display = "flex";
+      document.getElementById("page-info").textContent = `Página ${data.page} de ${data.total_pages} (${data.total} apostas)`;
+      document.getElementById("prev-btn").disabled = data.page <= 1;
+      document.getElementById("next-btn").disabled = data.page >= data.total_pages;
+    }
+    document.getElementById("prev-btn").addEventListener("click", () => {
+      if (currentPage > 1) { currentPage--; loadHistory(currentPage); }
+    });
+    document.getElementById("next-btn").addEventListener("click", () => {
+      currentPage++; loadHistory(currentPage);
+    });
+
+    function refresh() {
+      loadCurrent();
+      if (currentPage === 1) loadHistory(1);
+    }
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>
