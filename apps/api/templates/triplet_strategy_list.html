@@ -52,7 +52,25 @@
       padding: 16px;
       margin-bottom: 16px;
     }
-    .chart-card h2 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+    .chart-card h2 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    .max-loss { font-size: 13px; color: var(--muted); }
+    .max-loss strong { color: var(--danger); font-variant-numeric: tabular-nums; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
+    .filter-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      background: var(--surface-soft);
+      border-radius: 999px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid transparent;
+    }
+    .filter-item input { margin: 0; cursor: pointer; }
+    .filter-item:has(input:checked) { background: rgba(23, 122, 91, 0.12); border-color: var(--accent); color: var(--accent-strong); }
     .chart-wrap { height: 280px; }
     .card {
       background: var(--surface);
@@ -109,7 +127,11 @@
 
     <div id="scoreboard" class="scoreboard" style="display: none;"></div>
     <div class="chart-card" id="chart-card" style="display: none;">
-      <h2>Evolução do saldo geral (fichas)</h2>
+      <div class="chart-header">
+        <h2>Evolução do saldo geral (fichas)</h2>
+        <div class="max-loss">Máx. perda: <strong id="max-loss-val">0,00</strong></div>
+      </div>
+      <div class="filter-row" id="filter-row"></div>
       <div class="chart-wrap"><canvas id="global-chart"></canvas></div>
     </div>
     <div id="content" class="loading">Carregando...</div>
@@ -137,34 +159,41 @@
       return grossWin - cumStake;
     }
 
-    function computeTotals(series) {
+    function computeTotals(series, allowedSet) {
       const config = series.config || {};
       let global = 0;
       const byRoulette = {};
       const points = [];
-      series.bets.forEach((bet, i) => {
+      (series.bets || []).forEach((bet) => {
         const p = profitFor(bet, config);
-        global += p;
         byRoulette[bet.roulette_id] = (byRoulette[bet.roulette_id] || 0) + p;
-        points.push({ index: i + 1, global, resolved_at: bet.resolved_at });
+        if (allowedSet && !allowedSet.has(bet.roulette_id)) return;
+        global += p;
+        points.push({ index: points.length + 1, global, resolved_at: bet.resolved_at });
       });
-      return { global, byRoulette, points };
+      const minBalance = points.length ? Math.min(0, ...points.map(p => p.global)) : 0;
+      return { global, byRoulette, points, minBalance };
     }
 
     let chart = null;
-    function renderChart(points) {
+    function renderChart(points, minBalance) {
       const card = document.getElementById("chart-card");
       const canvas = document.getElementById("global-chart");
+      const lossEl = document.getElementById("max-loss-val");
+      const lossAbs = Math.abs(Math.min(0, minBalance || 0));
+      lossEl.textContent = lossAbs > 0 ? `-${lossAbs.toFixed(2)} fichas` : "0,00 fichas";
       if (!points.length) {
         card.style.display = "none";
         return;
       }
       card.style.display = "block";
       const labels = points.map(p => p.index);
-      const data = points.map(p => Number(p.global.toFixed(2)));
+      const balanceData = points.map(p => Number(p.global.toFixed(2)));
+      const minLineData = labels.map(() => Number((minBalance || 0).toFixed(2)));
       if (chart) {
         chart.data.labels = labels;
-        chart.data.datasets[0].data = data;
+        chart.data.datasets[0].data = balanceData;
+        chart.data.datasets[1].data = minLineData;
         chart.update("none");
         return;
       }
@@ -172,27 +201,41 @@
         type: "line",
         data: {
           labels,
-          datasets: [{
-            label: "Saldo (fichas)",
-            data,
-            borderColor: "#177a5b",
-            backgroundColor: "rgba(23, 122, 91, 0.12)",
-            fill: true,
-            tension: 0.2,
-            pointRadius: 0,
-            borderWidth: 2,
-          }],
+          datasets: [
+            {
+              label: "Saldo (fichas)",
+              data: balanceData,
+              borderColor: "#177a5b",
+              backgroundColor: "rgba(23, 122, 91, 0.12)",
+              fill: true,
+              tension: 0.2,
+              pointRadius: 0,
+              borderWidth: 2,
+            },
+            {
+              label: "Máx. perda",
+              data: minLineData,
+              borderColor: "rgba(155, 47, 47, 0.7)",
+              borderDash: [5, 5],
+              borderWidth: 1,
+              pointRadius: 0,
+              fill: false,
+            },
+          ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           interaction: { intersect: false, mode: "index" },
           plugins: {
-            legend: { display: false },
+            legend: { display: true, position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
             tooltip: {
               callbacks: {
                 title: (items) => `Aposta #${items[0].label}`,
-                label: (item) => `Saldo: ${formatChips(item.parsed.y)} fichas`,
+                label: (item) => {
+                  if (item.dataset.label === "Máx. perda") return `Máx. perda: ${formatChips(item.parsed.y)} fichas`;
+                  return `Saldo: ${formatChips(item.parsed.y)} fichas`;
+                },
               },
             },
           },
@@ -202,6 +245,40 @@
           },
         },
       });
+    }
+
+    function ensureFilter(roulettes) {
+      const row = document.getElementById("filter-row");
+      if (row.dataset.built === "1") return;
+      row.innerHTML = roulettes.map(rid => `
+        <label class="filter-item">
+          <input type="checkbox" data-rid="${rid}" checked>
+          <span>${rid}</span>
+        </label>
+      `).join("");
+      row.dataset.built = "1";
+      row.querySelectorAll("input[type=checkbox]").forEach(cb => {
+        cb.addEventListener("change", onFilterChange);
+      });
+    }
+
+    function getAllowedSet() {
+      const set = new Set();
+      document.querySelectorAll("#filter-row input[type=checkbox]").forEach(cb => {
+        if (cb.checked) set.add(cb.dataset.rid);
+      });
+      return set;
+    }
+
+    let lastSummary = null;
+    let lastSeries = null;
+
+    function onFilterChange() {
+      if (!lastSummary || !lastSeries) return;
+      const allowed = getAllowedSet();
+      const totals = computeTotals(lastSeries, allowed);
+      render(lastSummary, totals, allowed);
+      renderChart(totals.points, totals.minBalance);
     }
 
     async function load() {
@@ -218,16 +295,20 @@
         }
         const summary = await summaryRes.json();
         const series = await seriesRes.json();
-        const totals = computeTotals(series);
-        render(summary, totals);
-        renderChart(totals.points);
+        lastSummary = summary;
+        lastSeries = series;
+        ensureFilter((summary.roulettes || []).map(r => r.roulette_id));
+        const allowed = getAllowedSet();
+        const totals = computeTotals(series, allowed);
+        render(summary, totals, allowed);
+        renderChart(totals.points, totals.minBalance);
         const cfg = summary.config || {};
         footer.textContent = `Cobertura: ${cfg.top_n} números + zero • Máx. tentativas: ${cfg.max_attempts} • Stakes/num por tentativa: ${(cfg.per_attempt_per_number_stake || []).join(" → ")} fichas`;
       } catch (err) {
         content.innerHTML = `<div class="error">Falha: ${err.message}</div>`;
       }
     }
-    function render(data, totals) {
+    function render(data, totals, allowed) {
       const content = document.getElementById("content");
       const scoreboard = document.getElementById("scoreboard");
       if (!data.roulettes || data.roulettes.length === 0) {
@@ -235,13 +316,19 @@
         scoreboard.style.display = "none";
         return;
       }
-      const totalWon = data.roulettes.reduce((s, r) => s + (r.won || 0), 0);
-      const totalLost = data.roulettes.reduce((s, r) => s + (r.lost || 0), 0);
+      const filterSet = allowed || new Set(data.roulettes.map(r => r.roulette_id));
+      const filtered = data.roulettes.filter(r => filterSet.has(r.roulette_id));
+      const totalWon = filtered.reduce((s, r) => s + (r.won || 0), 0);
+      const totalLost = filtered.reduce((s, r) => s + (r.lost || 0), 0);
       const totalResolved = totalWon + totalLost;
       const assertGeneral = totalResolved > 0 ? (totalWon / totalResolved * 100) : 0;
       const profitClass = totals.global >= 0 ? "profit-up" : "profit-down";
+      const filterTag = filtered.length < data.roulettes.length
+        ? `<div style="width:100%;text-align:center;font-size:11px;opacity:0.85;margin-bottom:-6px;">${filtered.length} de ${data.roulettes.length} roletas selecionadas</div>`
+        : "";
       scoreboard.style.display = "flex";
       scoreboard.innerHTML = `
+        ${filterTag}
         <div class="sb-block"><div class="sb-label">Vitórias</div><div class="sb-value">${totalWon}</div></div>
         <div class="sb-divider"></div>
         <div class="sb-block"><div class="sb-label">Perdas</div><div class="sb-value">${totalLost}</div></div>

@@ -38,6 +38,10 @@
       margin-bottom: 16px;
     }
     .card h2 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .chart-header h2 { margin: 0; }
+    .max-loss { font-size: 13px; color: var(--muted); }
+    .max-loss strong { color: var(--danger); font-variant-numeric: tabular-nums; }
     .stats-row { display: flex; flex-wrap: wrap; gap: 12px; }
     .stat {
       flex: 1;
@@ -153,7 +157,10 @@
     </div>
 
     <div class="card" id="chart-card" style="display: none;">
-      <h2>Evolução do saldo (fichas)</h2>
+      <div class="chart-header">
+        <h2>Evolução do saldo (fichas)</h2>
+        <div class="max-loss">Máx. perda: <strong id="max-loss-val">0,00</strong></div>
+      </div>
       <div class="chart-wrap"><canvas id="roulette-chart"></canvas></div>
     </div>
 
@@ -233,25 +240,31 @@
           return { index: i + 1, balance: running };
         });
         totalProfit = running;
-        renderChart(points);
+        const minBalance = points.length ? Math.min(0, ...points.map(p => p.balance)) : 0;
+        renderChart(points, minBalance);
       } catch (err) {
         console.warn("series error", err);
       }
     }
 
-    function renderChart(points) {
+    function renderChart(points, minBalance) {
       const card = document.getElementById("chart-card");
       const canvas = document.getElementById("roulette-chart");
+      const lossEl = document.getElementById("max-loss-val");
+      const lossAbs = Math.abs(Math.min(0, minBalance || 0));
+      lossEl.textContent = lossAbs > 0 ? `-${lossAbs.toFixed(2)} fichas` : "0,00 fichas";
       if (!points.length) {
         card.style.display = "none";
         return;
       }
       card.style.display = "block";
       const labels = points.map(p => p.index);
-      const data = points.map(p => Number(p.balance.toFixed(2)));
+      const balanceData = points.map(p => Number(p.balance.toFixed(2)));
+      const minLineData = labels.map(() => Number((minBalance || 0).toFixed(2)));
       if (chart) {
         chart.data.labels = labels;
-        chart.data.datasets[0].data = data;
+        chart.data.datasets[0].data = balanceData;
+        chart.data.datasets[1].data = minLineData;
         chart.update("none");
         return;
       }
@@ -259,27 +272,41 @@
         type: "line",
         data: {
           labels,
-          datasets: [{
-            label: "Saldo (fichas)",
-            data,
-            borderColor: "#177a5b",
-            backgroundColor: "rgba(23, 122, 91, 0.12)",
-            fill: true,
-            tension: 0.2,
-            pointRadius: 0,
-            borderWidth: 2,
-          }],
+          datasets: [
+            {
+              label: "Saldo (fichas)",
+              data: balanceData,
+              borderColor: "#177a5b",
+              backgroundColor: "rgba(23, 122, 91, 0.12)",
+              fill: true,
+              tension: 0.2,
+              pointRadius: 0,
+              borderWidth: 2,
+            },
+            {
+              label: "Máx. perda",
+              data: minLineData,
+              borderColor: "rgba(155, 47, 47, 0.7)",
+              borderDash: [5, 5],
+              borderWidth: 1,
+              pointRadius: 0,
+              fill: false,
+            },
+          ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           interaction: { intersect: false, mode: "index" },
           plugins: {
-            legend: { display: false },
+            legend: { display: true, position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
             tooltip: {
               callbacks: {
                 title: (items) => `Aposta #${items[0].label}`,
-                label: (item) => `Saldo: ${formatChips(item.parsed.y)} fichas`,
+                label: (item) => {
+                  if (item.dataset.label === "Máx. perda") return `Máx. perda: ${formatChips(item.parsed.y)} fichas`;
+                  return `Saldo: ${formatChips(item.parsed.y)} fichas`;
+                },
               },
             },
           },
