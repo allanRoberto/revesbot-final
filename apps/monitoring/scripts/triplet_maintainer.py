@@ -37,7 +37,7 @@ def process_roulette(rid):
         seed_query,
         {"value": 1, "timestamp": 1, "_id": 1},
         sort=[("timestamp", -1)],
-        limit=5,
+        limit=8,
     ))
     seed.reverse()
     window = seed + candidates
@@ -45,7 +45,7 @@ def process_roulette(rid):
     insert_start = len(seed)
     for i in range(insert_start, len(window) - 5):
         base = window[i]
-        docs_to_insert.append({
+        doc = {
             "_id": base["_id"],
             "roulette_id": rid,
             "timestamp": base["timestamp"],
@@ -55,7 +55,14 @@ def process_roulette(rid):
             "next1": window[i+3]["value"],
             "next2": window[i+4]["value"],
             "next3": window[i+5]["value"],
-        })
+        }
+        if i - 1 >= 0:
+            doc["prev_1"] = window[i-1]["value"]
+        if i - 2 >= 0:
+            doc["prev_2"] = window[i-2]["value"]
+        if i - 3 >= 0:
+            doc["prev_3"] = window[i-3]["value"]
+        docs_to_insert.append(doc)
     if not docs_to_insert:
         return 0
     try:

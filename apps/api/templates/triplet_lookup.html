@@ -63,6 +63,21 @@
       box-shadow: 0 0 0 3px rgba(23, 122, 91, 0.15);
     }
     .field.wide input, .field.wide select { width: 280px; }
+    .field.window { display: flex; flex-direction: column; gap: 4px; }
+    .window-group { display: flex; gap: 6px; align-items: center; }
+    .window-group input { width: 80px; }
+    .window-group select { width: auto; }
+    .window-group button {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .window-group button:hover { background: var(--surface-soft); border-color: var(--accent); color: var(--accent-strong); }
+    .window-hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
     .positions-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
     .positions-toggle button {
@@ -228,6 +243,29 @@
           </select>
         </div>
 
+        <div class="field window">
+          <label for="window_value">Janela de tempo (opcional)</label>
+          <div class="window-group">
+            <input type="number" id="window_value" min="0" step="any" placeholder="ex: 6">
+            <select id="window_unit">
+              <option value="hours">horas</option>
+              <option value="days">dias</option>
+            </select>
+            <button type="button" id="window_clear">Todo histórico</button>
+          </div>
+          <div class="window-hint">Vazio = todo o histórico</div>
+        </div>
+
+        <div class="field">
+          <label>Rodadas anteriores</label>
+          <div class="positions-toggle" id="prev-positions-toggle">
+            <button type="button" data-value="0" class="active">0</button>
+            <button type="button" data-value="1">1</button>
+            <button type="button" data-value="2">2</button>
+            <button type="button" data-value="3">3</button>
+          </div>
+        </div>
+
         <button type="submit" class="submit-btn" id="submit-btn">Buscar</button>
       </form>
       <div class="status" id="status"></div>
@@ -269,6 +307,20 @@
       [...positionsToggle.children].forEach(b => b.classList.remove("active"));
       e.target.classList.add("active");
       selectedPositions = parseInt(e.target.dataset.value, 10);
+    });
+
+    const prevPositionsToggle = document.getElementById("prev-positions-toggle");
+    let selectedPrevPositions = 0;
+    prevPositionsToggle.addEventListener("click", (e) => {
+      if (e.target.tagName !== "BUTTON") return;
+      [...prevPositionsToggle.children].forEach(b => b.classList.remove("active"));
+      e.target.classList.add("active");
+      selectedPrevPositions = parseInt(e.target.dataset.value, 10);
+    });
+
+    document.getElementById("window_clear").addEventListener("click", () => {
+      document.getElementById("window_value").value = "";
+      document.getElementById("window_unit").value = "hours";
     });
 
     async function loadRoulettes() {
@@ -318,6 +370,13 @@
 
       const params = new URLSearchParams({ a, b, c, positions: selectedPositions });
       if (rouletteId) params.set("roulette_id", rouletteId);
+      if (selectedPrevPositions > 0) params.set("prev_positions", selectedPrevPositions);
+      const windowValueRaw = document.getElementById("window_value").value;
+      const windowUnit = document.getElementById("window_unit").value;
+      if (windowValueRaw !== "" && Number(windowValueRaw) > 0) {
+        params.set("window_value", windowValueRaw);
+        params.set("window_unit", windowUnit);
+      }
 
       try {
         const res = await fetch(`/api/triplet-lookup?${params.toString()}`);
@@ -342,11 +401,20 @@
       resultsCard.style.display = "block";
 
       const summary = document.getElementById("summary");
-      const posLabel = data.positions === 1 ? "1 rodada seguinte" : `${data.positions} rodadas seguintes (combinadas)`;
+      const partsLabel = [];
+      if (data.prev_positions) partsLabel.push(`${data.prev_positions} ant.`);
+      partsLabel.push(`${data.positions} seg.`);
+      const posLabel = `${partsLabel.join(" + ")} (combinadas)`;
+      let windowLabel = "todo histórico";
+      if (data.window_hours != null) {
+        const h = Number(data.window_hours);
+        windowLabel = (h >= 24 && h % 24 === 0) ? `últimos ${h / 24}d` : `últimas ${h}h`;
+      }
       summary.innerHTML = `
         <div><span class="label">Sequência:</span><span class="value">${data.sequence.join(" → ")}</span></div>
         <div><span class="label">Ocorrências:</span><span class="value">${data.total_occurrences}</span></div>
         <div><span class="label">Análise:</span><span class="value">${posLabel}</span></div>
+        <div><span class="label">Janela:</span><span class="value">${windowLabel}</span></div>
         <div><span class="label">Roleta:</span><span class="value">${data.roulette_id || "todas"}</span></div>
         <div><span class="label">Tempo:</span><span class="value">${data.elapsed_ms} ms</span></div>
       `;
