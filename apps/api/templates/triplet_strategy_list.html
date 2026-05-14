@@ -365,8 +365,14 @@
       content.innerHTML = "";
       content.appendChild(grid);
     }
-    load();
-    setInterval(load, 5000);
+    async function loadAndSchedule() {
+      try {
+        await load();
+      } finally {
+        setTimeout(loadAndSchedule, 15000);
+      }
+    }
+    loadAndSchedule();
   </script>
 </body>
 </html>

@@ -60,6 +60,8 @@ _next_number_ranking_indexes_ready = False
 _next_number_ranking_indexes_lock = asyncio.Lock()
 _next_number_sequence_indexes_ready = False
 _next_number_sequence_indexes_lock = asyncio.Lock()
+_triplet_strategy_indexes_ready = False
+_triplet_strategy_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -354,3 +356,20 @@ async def ensure_next_number_sequence_indexes() -> None:
         )
 
         _next_number_sequence_indexes_ready = True
+
+
+async def ensure_triplet_strategy_indexes() -> None:
+    global _triplet_strategy_indexes_ready
+    if _triplet_strategy_indexes_ready:
+        return
+    async with _triplet_strategy_indexes_lock:
+        if _triplet_strategy_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            triplet_strategy_bets_coll,
+            [("roulette_id", ASCENDING), ("status", ASCENDING), ("resolved_at", ASCENDING)],
+            name="triplet_strategy_bets_roulette_status_resolved",
+        )
+
+        _triplet_strategy_indexes_ready = True

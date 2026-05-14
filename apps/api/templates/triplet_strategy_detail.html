@@ -439,8 +439,14 @@
       await loadCurrent();
       if (currentPage === 1) loadHistory(1);
     }
-    refresh();
-    setInterval(refresh, 3000);
+    async function refreshAndSchedule() {
+      try {
+        await refresh();
+      } finally {
+        setTimeout(refreshAndSchedule, 10000);
+      }
+    }
+    refreshAndSchedule();
   </script>
 </body>
 </html>

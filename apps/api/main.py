@@ -56,6 +56,7 @@ from api.core.db import (
     ensure_pattern_score_indexes,
     ensure_suggestion_snapshot_indexes,
     ensure_suggestion_monitor_indexes,
+    ensure_triplet_strategy_indexes,
 )
 from fastapi.responses import HTMLResponse
 
@@ -235,6 +236,10 @@ async def _warm_api_runtime() -> None:
         await ensure_next_number_sequence_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices das sequências de puxadas falhou: {exc}")
+    try:
+        await ensure_triplet_strategy_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices da estratégia de trigrama falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:
