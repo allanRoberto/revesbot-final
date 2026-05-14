@@ -126,6 +126,9 @@ module.exports = {
       env: {
         DEPLOY_STAGE: stage,
         PYTHONUNBUFFERED: "1",
+        SUGGESTION_SNAPSHOT_STRATEGY_LOOKBACK: "60",
+        SUGGESTION_SNAPSHOT_ROULETTES: "pragmatic-auto-roulette,pragmatic-brazilian-roulette,pragmatic-immersive-roulette-deluxe",
+        PATTERN_ENGINE_USE_ADAPTIVE: "false",
       },
     },
     {

@@ -90,8 +90,7 @@ class Pragmatic :
                     {
                         "roulette_id": slug,
                         "external_game_id": game_id_str,
-                    },
-                    sort=[("timestamp", -1)],
+                    }
                 )
                 if existing is not None:
                     self.last_game_id_by_slug[slug] = game_id_str

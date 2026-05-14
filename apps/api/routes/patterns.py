@@ -4,6 +4,7 @@ import asyncio
 from collections import defaultdict
 import json
 import logging
+import os
 from pathlib import Path
 import time
 from typing import Any, Dict, List, Optional
@@ -1446,6 +1447,7 @@ async def _compute_final_suggestion(
     mark_stage("profile_runtime")
 
     base_list_for_engine = sorted(base_list_ranked)
+    _use_adaptive = os.getenv("PATTERN_ENGINE_USE_ADAPTIVE", "true").lower() not in ("0", "false", "no", "off")
     optimized_result = pattern_engine.evaluate(
         history=normalized_history,
         base_suggestion=base_list_for_engine,
@@ -1455,6 +1457,7 @@ async def _compute_final_suggestion(
         runtime_overrides=runtime_overrides,
         weight_profile_id=selected_profile_id,
         weight_profile_weights=effective_profile_weights,
+        use_adaptive_weights=_use_adaptive,
     )
     mark_stage("pattern_engine")
 
