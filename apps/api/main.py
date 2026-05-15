@@ -57,6 +57,7 @@ from api.core.db import (
     ensure_suggestion_snapshot_indexes,
     ensure_suggestion_monitor_indexes,
     ensure_triplet_strategy_indexes,
+    ensure_puxado_trigger_indexes,
 )
 from fastapi.responses import HTMLResponse
 
@@ -90,6 +91,7 @@ from api.routes.next_number_rankings import router as next_number_rankings_route
 from api.routes.next_number_sequences import router as next_number_sequences_router
 from api.routes.triplet_lookup import router as triplet_lookup_router
 from api.routes.triplet_strategy import router as triplet_strategy_router
+from api.routes.puxado_trigger import router as puxado_trigger_router
 
 
 
@@ -199,6 +201,7 @@ app.include_router(next_number_rankings_router)
 app.include_router(next_number_sequences_router)
 app.include_router(triplet_lookup_router)
 app.include_router(triplet_strategy_router)
+app.include_router(puxado_trigger_router)
 
  
 
@@ -240,6 +243,10 @@ async def _warm_api_runtime() -> None:
         await ensure_triplet_strategy_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices da estratégia de trigrama falhou: {exc}")
+    try:
+        await ensure_puxado_trigger_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices dos gatilhos puxados falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:

@@ -45,6 +45,7 @@ next_number_sequences_coll = mongo_db["next_number_sequences"]
 history_triplets_coll = mongo_db["history_triplets"]
 triplet_strategy_bets_coll = mongo_db["triplet_strategy_bets"]
 triplet_strategy_state_coll = mongo_db["triplet_strategy_state"]
+puxado_trigger_signals_coll = mongo_db["puxado_trigger_signals"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
@@ -62,6 +63,8 @@ _next_number_sequence_indexes_ready = False
 _next_number_sequence_indexes_lock = asyncio.Lock()
 _triplet_strategy_indexes_ready = False
 _triplet_strategy_indexes_lock = asyncio.Lock()
+_puxado_trigger_indexes_ready = False
+_puxado_trigger_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -373,3 +376,37 @@ async def ensure_triplet_strategy_indexes() -> None:
         )
 
         _triplet_strategy_indexes_ready = True
+
+
+async def ensure_puxado_trigger_indexes() -> None:
+    global _puxado_trigger_indexes_ready
+    if _puxado_trigger_indexes_ready:
+        return
+    async with _puxado_trigger_indexes_lock:
+        if _puxado_trigger_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            puxado_trigger_signals_coll,
+            [("roulette_id", ASCENDING), ("status", ASCENDING)],
+            name="puxado_trigger_rid_status",
+        )
+        await _create_index_if_missing(
+            puxado_trigger_signals_coll,
+            [("roulette_id", ASCENDING), ("created_at", DESCENDING)],
+            name="puxado_trigger_rid_created",
+        )
+        await _create_index_if_missing(
+            puxado_trigger_signals_coll,
+            [
+                ("roulette_id", ASCENDING),
+                ("triplet_a", ASCENDING),
+                ("triplet_b", ASCENDING),
+                ("triplet_c", ASCENDING),
+                ("trigger_number", ASCENDING),
+                ("status", ASCENDING),
+            ],
+            name="puxado_trigger_dedup",
+        )
+
+        _puxado_trigger_indexes_ready = True

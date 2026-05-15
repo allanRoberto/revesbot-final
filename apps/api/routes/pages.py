@@ -206,3 +206,9 @@ async def triplet_strategy_list_page():
 async def triplet_strategy_detail_page(roulette_id: str):
     with open(os.path.join(templates_dir, "triplet_strategy_detail.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/puxado-triggers", response_class=HTMLResponse)
+async def puxado_triggers_page():
+    with open(os.path.join(templates_dir, "puxado_triggers.html"), "r", encoding="utf-8") as f:
+        return f.read()

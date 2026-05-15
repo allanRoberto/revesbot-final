@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gatilhos Puxados — Sinais Ativos</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --warn: #b6862c;
+      --warn-bg: rgba(182, 134, 44, 0.10);
+      --trigger-color: #a85c00;
+      --trigger-bg: rgba(168, 92, 0, 0.13);
+      --triplet-color: #0f5f46;
+      --triplet-bg: rgba(23, 122, 91, 0.13);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 16px;
+    }
+    .container { max-width: 1120px; margin: 0 auto; }
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .page-header h1 { margin: 0 0 4px; font-size: 24px; color: var(--accent-strong); }
+    .page-header .subtitle { margin: 0; font-size: 13px; color: var(--muted); }
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      display: inline-block;
+    }
+    .dot.live { background: var(--accent); animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    /* Roulette section */
+    .section { margin-bottom: 32px; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent-strong);
+      letter-spacing: 0.2px;
+    }
+    .count-badge {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      line-height: 1.5;
+    }
+
+    /* Trigger cards grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    /* Individual trigger card */
+    .trigger-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .trigger-card:hover { border-color: var(--accent); }
+
+    /* Card top: triplet numbers + trigger badge */
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .triplet-display {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .triplet-display .arrow {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0 2px;
+    }
+    .num-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .num-chip.triplet {
+      background: var(--triplet-bg);
+      color: var(--triplet-color);
+      border: 2px solid var(--accent);
+    }
+    .num-chip.trigger {
+      background: var(--trigger-bg);
+      color: var(--trigger-color);
+      border: 2px solid var(--warn);
+      position: relative;
+    }
+    .num-chip.trigger::after {
+      content: "⚡";
+      font-size: 8px;
+      position: absolute;
+      top: -4px; right: -4px;
+      background: var(--warn);
+      color: #fff;
+      border-radius: 50%;
+      width: 14px; height: 14px;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+    }
+    .num-chip.bet-other {
+      background: var(--surface-soft);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      width: 28px; height: 28px;
+      font-size: 11px;
+    }
+    .num-chip.zero {
+      background: #1a1a1a;
+      color: #ffffff;
+      border: 2px solid #555;
+      width: 28px; height: 28px;
+      font-size: 11px;
+    }
+
+    .trigger-pct-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--trigger-bg);
+      color: var(--trigger-color);
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(168, 92, 0, 0.25);
+      white-space: nowrap;
+    }
+
+    /* Gatilho row */
+    .gatilho-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      background: var(--warn-bg);
+      border: 1px dashed rgba(182, 134, 44, 0.4);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .gatilho-row .label { color: var(--muted); font-size: 12px; }
+    .gatilho-row .value { font-weight: 700; color: var(--trigger-color); }
+
+    /* Bet numbers row */
+    .bet-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .bet-row .bet-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+    }
+    .bet-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    /* Ranking mini */
+    .ranking-section { display: flex; flex-direction: column; gap: 4px; }
+    .ranking-section .rank-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .rank-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .rank-num {
+      width: 28px;
+      font-weight: 700;
+      text-align: right;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+    .rank-bar-wrap {
+      flex: 1;
+      background: var(--surface-soft);
+      border-radius: 3px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .rank-bar { height: 100%; border-radius: 3px; background: var(--accent); }
+    .rank-bar.top { background: var(--warn); }
+    .rank-pct {
+      width: 44px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    /* Card footer: metadata */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+    .empty-state .icon { font-size: 32px; margin-bottom: 12px; }
+    .empty-state p { margin: 0; font-size: 14px; }
+
+    /* Global empty */
+    #content { }
+    .loading { text-align: center; color: var(--muted); padding: 48px; font-size: 15px; }
+    .error-msg {
+      padding: 14px 18px;
+      background: rgba(155, 47, 47, 0.07);
+      color: var(--danger);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    /* Nav link */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 13px;
+      color: var(--accent);
+      text-decoration: none;
+      margin-bottom: 16px;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    @media (max-width: 640px) {
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a class="back-link" href="/">← Início</a>
+    <div class="page-header">
+      <div>
+        <h1>Gatilhos Puxados</h1>
+        <p class="subtitle">Trios dos últimos 21 números cujo #1 puxado supera 6,5% — aguardando disparo ao vivo.</p>
+      </div>
+      <div class="status-bar">
+        <span class="dot live" id="live-dot"></span>
+        <span id="status-text">Carregando...</span>
+      </div>
+    </div>
+
+    <div id="content" class="loading">Carregando gatilhos...</div>
+  </div>
+
+  <script>
+    const REFRESH_MS = 10000;
+
+    function timeAgo(isoStr) {
+      if (!isoStr) return "—";
+      const diffMs = Date.now() - new Date(isoStr).getTime();
+      const secs = Math.floor(diffMs / 1000);
+      if (secs < 60) return `há ${secs}s`;
+      const mins = Math.floor(secs / 60);
+      if (mins < 60) return `há ${mins}min`;
+      const hrs = Math.floor(mins / 60);
+      return `há ${hrs}h`;
+    }
+
+    function buildChip(num, type) {
+      const el = document.createElement("div");
+      el.className = `num-chip ${type}`;
+      el.textContent = num;
+      el.title = `Número ${num}`;
+      return el;
+    }
+
+    function buildTriggerCard(t) {
+      const card = document.createElement("div");
+      card.className = "trigger-card";
+
+      // — top: triplet + pct badge
+      const top = document.createElement("div");
+      top.className = "card-top";
+
+      const tripletDisplay = document.createElement("div");
+      tripletDisplay.className = "triplet-display";
+      (t.triplet || []).forEach((n, i) => {
+        if (i > 0) {
+          const arrow = document.createElement("span");
+          arrow.className = "arrow";
+          arrow.textContent = "→";
+          tripletDisplay.appendChild(arrow);
+        }
+        tripletDisplay.appendChild(buildChip(n, "triplet"));
+      });
+      top.appendChild(tripletDisplay);
+
+      const pctBadge = document.createElement("div");
+      pctBadge.className = "trigger-pct-badge";
+      pctBadge.innerHTML = `⚡ ${(t.trigger_pct || 0).toFixed(2)}%`;
+      top.appendChild(pctBadge);
+      card.appendChild(top);
+
+      // — gatilho row
+      const gatilhoRow = document.createElement("div");
+      gatilhoRow.className = "gatilho-row";
+      gatilhoRow.innerHTML = `
+        <span class="label">Gatilho</span>
+        ${buildChip(t.trigger_number, "trigger").outerHTML}
+        <span class="value">${t.trigger_number}</span>
+        <span class="label" style="margin-left:auto;">${t.total_occurrences} ocorrências do trio</span>
+      `;
+      card.appendChild(gatilhoRow);
+
+      // — bet numbers
+      const betRow = document.createElement("div");
+      betRow.className = "bet-row";
+      const betLabel = document.createElement("div");
+      betLabel.className = "bet-label";
+      betLabel.textContent = `Jogada (${(t.bet_numbers || []).length} números)`;
+      betRow.appendChild(betLabel);
+
+      const betChips = document.createElement("div");
+      betChips.className = "bet-chips";
+      const tripletSet = new Set(t.triplet || []);
+      (t.bet_numbers || []).forEach(n => {
+        let type = "bet-other";
+        if (n === 0) type = "zero";
+        else if (tripletSet.has(n)) type = "triplet";
+        betChips.appendChild(buildChip(n, type));
+      });
+      betRow.appendChild(betChips);
+      card.appendChild(betRow);
+
+      // — ranking mini (top 5)
+      const ranking = (t.ranking_snapshot || []).slice(0, 5);
+      if (ranking.length > 0) {
+        const rankSection = document.createElement("div");
+        rankSection.className = "ranking-section";
+        const rl = document.createElement("div");
+        rl.className = "rank-label";
+        rl.textContent = "Ranking puxados (top 5)";
+        rankSection.appendChild(rl);
+        const maxPct = ranking[0]?.percentage || 1;
+        ranking.forEach((r, i) => {
+          const row = document.createElement("div");
+          row.className = "rank-row";
+          const barPct = Math.min(100, (r.percentage / maxPct) * 100);
+          row.innerHTML = `
+            <span class="rank-num">${r.number}</span>
+            <div class="rank-bar-wrap">
+              <div class="rank-bar ${i === 0 ? 'top' : ''}" style="width:${barPct.toFixed(1)}%"></div>
+            </div>
+            <span class="rank-pct">${r.percentage.toFixed(1)}%</span>
+          `;
+          rankSection.appendChild(row);
+        });
+        card.appendChild(rankSection);
+      }
+
+      // — footer
+      const footer = document.createElement("div");
+      footer.className = "card-footer";
+      footer.innerHTML = `
+        <span>Criado: ${timeAgo(t.created_at)}</span>
+        <span>Últimos 21: ${(t.last_21 || []).slice(-7).join(" · ")}…</span>
+      `;
+      card.appendChild(footer);
+
+      return card;
+    }
+
+    function render(data) {
+      const content = document.getElementById("content");
+      content.innerHTML = "";
+
+      const roulettes = data.roulettes || {};
+      const rouletteIds = Object.keys(roulettes);
+
+      if (rouletteIds.length === 0) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">🔍</div>
+            <p>Nenhum gatilho ativo no momento.<br>
+               O worker está analisando os últimos 21 números e aguarda trios com puxado &gt; 6,5%.</p>
+          </div>`;
+        return;
+      }
+
+      rouletteIds.forEach(rid => {
+        const triggers = roulettes[rid] || [];
+        const section = document.createElement("div");
+        section.className = "section";
+
+        const header = document.createElement("div");
+        header.className = "section-header";
+        header.innerHTML = `
+          <span class="section-title">${rid}</span>
+          <span class="count-badge">${triggers.length} gatilho${triggers.length !== 1 ? "s" : ""}</span>
+        `;
+        section.appendChild(header);
+
+        if (triggers.length === 0) {
+          section.innerHTML += `
+            <div class="empty-state" style="padding:24px;">
+              <p>Sem gatilhos ativos para esta roleta.</p>
+            </div>`;
+        } else {
+          const grid = document.createElement("div");
+          grid.className = "cards-grid";
+          triggers.forEach(t => grid.appendChild(buildTriggerCard(t)));
+          section.appendChild(grid);
+        }
+
+        content.appendChild(section);
+      });
+    }
+
+    async function load() {
+      const statusText = document.getElementById("status-text");
+      try {
+        const res = await fetch("/api/puxado-triggers?limit=100");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        render(data);
+        const now = new Date().toLocaleTimeString("pt-BR");
+        statusText.textContent = `Atualizado às ${now} · ${data.total} gatilho${data.total !== 1 ? "s" : ""} ativo${data.total !== 1 ? "s" : ""}`;
+      } catch (err) {
+        document.getElementById("content").innerHTML =
+          `<div class="error-msg">Falha ao carregar: ${err.message}</div>`;
+        statusText.textContent = "Erro ao carregar";
+      }
+    }
+
+    async function loadAndSchedule() {
+      await load();
+      setTimeout(loadAndSchedule, REFRESH_MS);
+    }
+
+    loadAndSchedule();
+  </script>
+</body>
+</html>
