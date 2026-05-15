@@ -266,6 +266,14 @@
           </div>
         </div>
 
+        <div class="field">
+          <label>Ordem</label>
+          <div class="positions-toggle" id="order-toggle">
+            <button type="button" data-value="exact" class="active">Exata</button>
+            <button type="button" data-value="any">Qualquer</button>
+          </div>
+        </div>
+
         <button type="submit" class="submit-btn" id="submit-btn">Buscar</button>
       </form>
       <div class="status" id="status"></div>
@@ -316,6 +324,15 @@
       [...prevPositionsToggle.children].forEach(b => b.classList.remove("active"));
       e.target.classList.add("active");
       selectedPrevPositions = parseInt(e.target.dataset.value, 10);
+    });
+
+    const orderToggle = document.getElementById("order-toggle");
+    let selectedAnyOrder = false;
+    orderToggle.addEventListener("click", (e) => {
+      if (e.target.tagName !== "BUTTON") return;
+      [...orderToggle.children].forEach(b => b.classList.remove("active"));
+      e.target.classList.add("active");
+      selectedAnyOrder = e.target.dataset.value === "any";
     });
 
     document.getElementById("window_clear").addEventListener("click", () => {
@@ -371,6 +388,7 @@
       const params = new URLSearchParams({ a, b, c, positions: selectedPositions });
       if (rouletteId) params.set("roulette_id", rouletteId);
       if (selectedPrevPositions > 0) params.set("prev_positions", selectedPrevPositions);
+      if (selectedAnyOrder) params.set("any_order", "true");
       const windowValueRaw = document.getElementById("window_value").value;
       const windowUnit = document.getElementById("window_unit").value;
       if (windowValueRaw !== "" && Number(windowValueRaw) > 0) {
@@ -410,8 +428,11 @@
         const h = Number(data.window_hours);
         windowLabel = (h >= 24 && h % 24 === 0) ? `últimos ${h / 24}d` : `últimas ${h}h`;
       }
+      const seqLabel = data.any_order
+        ? `{${data.sequence.join(", ")}} (qualquer ordem)`
+        : data.sequence.join(" → ");
       summary.innerHTML = `
-        <div><span class="label">Sequência:</span><span class="value">${data.sequence.join(" → ")}</span></div>
+        <div><span class="label">Sequência:</span><span class="value">${seqLabel}</span></div>
         <div><span class="label">Ocorrências:</span><span class="value">${data.total_occurrences}</span></div>
         <div><span class="label">Análise:</span><span class="value">${posLabel}</span></div>
         <div><span class="label">Janela:</span><span class="value">${windowLabel}</span></div>

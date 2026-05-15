@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta, timezone
+from itertools import permutations as _permutations
 from typing import Any, Dict, List, Optional
 
 from api.core.db import history_triplets_coll
@@ -18,6 +19,7 @@ async def lookup_triplet_ranking(
     roulette_id: Optional[str] = None,
     window_hours: Optional[float] = None,
     prev_positions: int = 0,
+    any_order: bool = False,
 ) -> Dict[str, Any]:
     if positions not in (1, 2, 3):
         raise ValueError("positions must be 1, 2 or 3")
@@ -31,12 +33,19 @@ async def lookup_triplet_ranking(
 
     t0 = time.perf_counter()
 
-    match: Dict[str, Any] = {"a": a, "b": b, "c": c}
-    if roulette_id:
-        match["roulette_id"] = roulette_id
     window_cutoff: Optional[datetime] = None
     if window_hours is not None:
         window_cutoff = datetime.now(timezone.utc) - timedelta(hours=float(window_hours))
+
+    if any_order:
+        unique_perms = list({p for p in _permutations([a, b, c])})
+        match: Dict[str, Any] = {"$or": [{"a": p[0], "b": p[1], "c": p[2]} for p in unique_perms]}
+    else:
+        match = {"a": a, "b": b, "c": c}
+
+    if roulette_id:
+        match["roulette_id"] = roulette_id
+    if window_cutoff is not None:
         match["timestamp"] = {"$gte": window_cutoff}
 
     fields = [f"$next{i}" for i in range(1, positions + 1)]
@@ -47,6 +56,7 @@ async def lookup_triplet_ranking(
     if total_occurrences == 0:
         return {
             "sequence": [a, b, c],
+            "any_order": any_order,
             "positions": positions,
             "prev_positions": prev_positions,
             "roulette_id": roulette_id,
@@ -81,6 +91,7 @@ async def lookup_triplet_ranking(
 
     return {
         "sequence": [a, b, c],
+        "any_order": any_order,
         "positions": positions,
         "prev_positions": prev_positions,
         "roulette_id": roulette_id,

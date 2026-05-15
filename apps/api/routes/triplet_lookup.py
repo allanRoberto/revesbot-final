@@ -20,6 +20,7 @@ async def triplet_lookup_route(
     roulette_id: Optional[str] = Query(default=None, description="Filtrar por roleta especifica. Omita para todas."),
     window_value: Optional[float] = Query(default=None, gt=0, description="Janela de tempo para a busca. Omita para usar todo o historico."),
     window_unit: str = Query(default="hours", regex="^(hours|days)$", description="Unidade da janela: 'hours' ou 'days'."),
+    any_order: bool = Query(default=False, description="Se true, busca qualquer ordem dos 3 numeros (todas as permutacoes)."),
 ) -> Dict[str, Any]:
     window_hours: Optional[float] = None
     if window_value is not None:
@@ -33,6 +34,7 @@ async def triplet_lookup_route(
             prev_positions=prev_positions,
             roulette_id=roulette_id,
             window_hours=window_hours,
+            any_order=any_order,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
