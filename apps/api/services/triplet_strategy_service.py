@@ -105,21 +105,19 @@ async def get_resolved_series() -> Dict[str, Any]:
             "roulette_id": {"$in": MONITORED_ROULETTES},
             "status": {"$in": ["won", "lost"]},
         }},
+        {"$sort": {"resolved_at": 1}},
         {"$project": {
             "_id": 0,
             "roulette_id": 1,
-            "resolved_at": 1,
             "status": 1,
             "won_at_attempt": 1,
             "bet_size": {"$size": {"$ifNull": ["$bet_numbers", []]}},
         }},
-        {"$sort": {"resolved_at": 1}},
     ]
     rows = [doc async for doc in triplet_strategy_bets_coll.aggregate(pipeline)]
     bets = [
         {
             "roulette_id": r["roulette_id"],
-            "resolved_at": r["resolved_at"].isoformat() if r.get("resolved_at") else None,
             "status": r["status"],
             "won_at_attempt": r.get("won_at_attempt"),
             "bet_size": int(r.get("bet_size", 0) or 0),
