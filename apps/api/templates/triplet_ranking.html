@@ -83,26 +83,26 @@
       <select id="roulette-sel"><option value="">Carregando...</option></select>
     </div>
     <div class="field">
-      <label>Histórico (nº de spins)</label>
+      <label>Spins do histórico</label>
       <input type="number" id="history-count" value="12" min="3" max="100">
     </div>
     <div class="field">
-      <label>Top next1</label>
+      <label title="Quantos números seguintes imediatos (+1 spin) considerar no ranking">Candidatos +1</label>
       <input type="number" id="top-n1" value="10" min="0" max="37">
     </div>
     <div class="field">
-      <label>Top next2</label>
+      <label title="Quantos números 2 posições à frente (+2 spins) considerar no ranking">Candidatos +2</label>
       <input type="number" id="top-n2" value="10" min="0" max="37">
     </div>
     <div class="field">
-      <label>Top next3</label>
+      <label title="Quantos números 3 posições à frente (+3 spins) considerar no ranking">Candidatos +3</label>
       <input type="number" id="top-n3" value="10" min="0" max="37">
     </div>
     <button class="btn" id="run-btn" onclick="runQuery()">Calcular</button>
   </div>
 
   <div id="history-bar" style="display:none;" class="history-bar">
-    <div class="label">Últimos <span id="nums-count">0</span> números</div>
+    <div class="label">Últimos <span id="nums-count">0</span> números <span style="font-weight:400;color:var(--muted);">(mais recente → mais antigo)</span></div>
     <div class="nums" id="nums-display"></div>
   </div>
 
@@ -194,9 +194,9 @@ async function runQuery() {
       return;
     }
 
-    // Histórico de números
+    // Histórico de números — exibe mais recente primeiro
     const numsDisplay = document.getElementById('nums-display');
-    numsDisplay.innerHTML = data.numbers.map(n => numChip(n)).join('');
+    numsDisplay.innerHTML = [...data.numbers].reverse().map(n => numChip(n)).join('');
     document.getElementById('nums-count').textContent = data.numbers.length;
     document.getElementById('history-bar').style.display = '';
 
