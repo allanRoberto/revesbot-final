@@ -46,6 +46,11 @@ history_triplets_coll = mongo_db["history_triplets"]
 triplet_strategy_bets_coll = mongo_db["triplet_strategy_bets"]
 triplet_strategy_state_coll = mongo_db["triplet_strategy_state"]
 puxado_trigger_signals_coll = mongo_db["puxado_trigger_signals"]
+puxado_trigger_assertiveness_coll = mongo_db["puxado_trigger_assertiveness"]
+gatilhos_coll = mongo_db["gatilhos"]
+sinais_coll = mongo_db["sinais"]
+roulettes_config_coll = mongo_db["roulettes_config"]
+app_settings_coll = mongo_db["app_settings"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
@@ -65,6 +70,10 @@ _triplet_strategy_indexes_ready = False
 _triplet_strategy_indexes_lock = asyncio.Lock()
 _puxado_trigger_indexes_ready = False
 _puxado_trigger_indexes_lock = asyncio.Lock()
+_gatilhos_indexes_ready = False
+_gatilhos_indexes_lock = asyncio.Lock()
+_sinais_indexes_ready = False
+_sinais_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -410,3 +419,78 @@ async def ensure_puxado_trigger_indexes() -> None:
         )
 
         _puxado_trigger_indexes_ready = True
+
+
+async def ensure_gatilhos_indexes() -> None:
+    global _gatilhos_indexes_ready
+    if _gatilhos_indexes_ready:
+        return
+    async with _gatilhos_indexes_lock:
+        if _gatilhos_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            gatilhos_coll,
+            [("trigger_number", ASCENDING), ("status", ASCENDING)],
+            name="g_trigger_status",
+        )
+        await _create_index_if_missing(
+            gatilhos_coll,
+            [("roulette_id", ASCENDING), ("status", ASCENDING), ("created_at", DESCENDING)],
+            name="g_roulette_status_created",
+        )
+        await _create_index_if_missing(
+            gatilhos_coll,
+            [("roulette_id", ASCENDING), ("triplet_a", ASCENDING), ("triplet_b", ASCENDING),
+             ("triplet_c", ASCENDING), ("trigger_number", ASCENDING), ("status", ASCENDING)],
+            name="g_dedup",
+        )
+        await _create_index_if_missing(
+            gatilhos_coll,
+            [("created_at", DESCENDING)],
+            name="g_created_desc",
+        )
+        await _create_index_if_missing(
+            gatilhos_coll,
+            [("status", ASCENDING), ("created_at", ASCENDING)],
+            name="g_status_expiry",
+        )
+
+        _gatilhos_indexes_ready = True
+
+
+async def ensure_sinais_indexes() -> None:
+    global _sinais_indexes_ready
+    if _sinais_indexes_ready:
+        return
+    async with _sinais_indexes_lock:
+        if _sinais_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            sinais_coll,
+            [("fired_roulette_id", ASCENDING), ("status", ASCENDING)],
+            name="s_fired_status",
+        )
+        await _create_index_if_missing(
+            sinais_coll,
+            [("gatilho_id", ASCENDING), ("created_at", DESCENDING)],
+            name="s_gatilho_created",
+        )
+        await _create_index_if_missing(
+            sinais_coll,
+            [("trigger_number", ASCENDING), ("status", ASCENDING), ("created_at", DESCENDING)],
+            name="s_trigger_status_created",
+        )
+        await _create_index_if_missing(
+            sinais_coll,
+            [("created_at", DESCENDING)],
+            name="s_created_desc",
+        )
+        await _create_index_if_missing(
+            sinais_coll,
+            [("status", ASCENDING), ("created_at", ASCENDING)],
+            name="s_status_expiry",
+        )
+
+        _sinais_indexes_ready = True

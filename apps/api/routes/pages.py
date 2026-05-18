@@ -212,3 +212,27 @@ async def triplet_strategy_detail_page(roulette_id: str):
 async def puxado_triggers_page():
     with open(os.path.join(templates_dir, "puxado_triggers.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/gatilhos", response_class=HTMLResponse)
+async def gatilhos_page():
+    with open(os.path.join(templates_dir, "gatilhos.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/configuracoes", response_class=HTMLResponse)
+async def configuracoes_page():
+    with open(os.path.join(templates_dir, "configuracoes.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/sinais-v2", response_class=HTMLResponse)
+async def sinais_v2_page():
+    with open(os.path.join(templates_dir, "sinais_v2.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/ranking-trios", response_class=HTMLResponse)
+async def triplet_ranking_page():
+    with open(os.path.join(templates_dir, "triplet_ranking.html"), "r", encoding="utf-8") as f:
+        return f.read()

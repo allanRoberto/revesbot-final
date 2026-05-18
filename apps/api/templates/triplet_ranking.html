@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ranking de Trios</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --surface: #fff; --surface-soft: #eef3f1;
+      --border: #d7ddd9; --text: #18211f; --muted: #63706b;
+      --accent: #177a5b; --accent-strong: #0f5f46;
+      --gold: #b6862c; --silver: #5a6a7a; --bronze: #8b4513;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    h1 { margin: 0 0 4px; font-size: 22px; color: var(--accent-strong); }
+    .subtitle { margin: 0 0 20px; font-size: 13px; color: var(--muted); }
+
+    .controls { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+    select, input[type=number] { padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); background: var(--bg); min-width: 130px; }
+    select:focus, input:focus { outline: none; border-color: var(--accent); }
+    input[type=number] { width: 90px; }
+    .btn { padding: 8px 22px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .btn:hover { background: var(--accent-strong); }
+    .btn:disabled { opacity: .5; cursor: default; }
+
+    .history-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; }
+    .history-bar .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 8px; }
+    .nums { display: flex; flex-wrap: wrap; gap: 5px; }
+    .num-chip { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; font-size: 12px; font-weight: 700; border: 2px solid transparent; flex-shrink: 0; }
+    .num-chip.green { background: rgba(23,122,91,.12); color: var(--accent-strong); border-color: rgba(23,122,91,.3); }
+    .num-chip.zero { background: #1a1a1a; color: #fff; border-color: #555; }
+    .num-chip.neutral { background: var(--surface-soft); color: var(--text); border-color: var(--border); }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .card-header { padding: 12px 16px; background: var(--surface-soft); border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 700; color: var(--accent-strong); display: flex; justify-content: space-between; align-items: center; }
+    .card-header .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); background: var(--surface-soft); border-bottom: 1px solid var(--border); }
+    th.center, td.center { text-align: center; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f5faf8; }
+    td { padding: 7px 12px; vertical-align: middle; }
+
+    .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; font-size: 11px; font-weight: 800; }
+    .rank-1 { background: #ffd700; color: #5a4000; }
+    .rank-2 { background: #c0c0c0; color: #2a2a2a; }
+    .rank-3 { background: #cd7f32; color: #fff; }
+    .rank-other { background: var(--surface-soft); color: var(--muted); }
+
+    .score-bar { display: flex; align-items: center; gap: 6px; }
+    .bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .3s; }
+    .score-val { font-size: 12px; font-weight: 700; color: var(--text); min-width: 32px; text-align: right; }
+
+    .pill { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .pill-n1 { background: rgba(23,122,91,.12); color: var(--accent-strong); }
+    .pill-n2 { background: rgba(182,134,44,.12); color: #8a5c00; }
+    .pill-n3 { background: rgba(90,106,122,.12); color: var(--silver); }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-msg { font-size: 13px; color: var(--muted); padding: 10px 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Ranking de Trios</h1>
+  <p class="subtitle">Constrói o ranking dos 37 números a partir dos trios consecutivos do histórico recente.</p>
+
+  <div class="controls">
+    <div class="field" style="min-width:200px;">
+      <label>Roleta</label>
+      <select id="roulette-sel"><option value="">Carregando...</option></select>
+    </div>
+    <div class="field">
+      <label>Histórico (nº de spins)</label>
+      <input type="number" id="history-count" value="12" min="3" max="100">
+    </div>
+    <div class="field">
+      <label>Top next1</label>
+      <input type="number" id="top-n1" value="10" min="0" max="37">
+    </div>
+    <div class="field">
+      <label>Top next2</label>
+      <input type="number" id="top-n2" value="10" min="0" max="37">
+    </div>
+    <div class="field">
+      <label>Top next3</label>
+      <input type="number" id="top-n3" value="10" min="0" max="37">
+    </div>
+    <button class="btn" id="run-btn" onclick="runQuery()">Calcular</button>
+  </div>
+
+  <div id="history-bar" style="display:none;" class="history-bar">
+    <div class="label">Últimos <span id="nums-count">0</span> números</div>
+    <div class="nums" id="nums-display"></div>
+  </div>
+
+  <div id="status" class="status-msg"></div>
+
+  <div id="results" style="display:none;">
+    <div class="layout">
+      <div class="card">
+        <div class="card-header">
+          Ranking geral
+          <span class="badge" id="trios-badge">0 trios</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th class="center">#</th>
+              <th class="center">Nº</th>
+              <th>Score total</th>
+              <th class="center">N1</th>
+              <th class="center">N2</th>
+              <th class="center">N3</th>
+            </tr>
+          </thead>
+          <tbody id="ranking-body"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Top 4 da aposta</div>
+        <div id="top4-display" style="padding:20px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+
+async function loadRoulettes() {
+  try {
+    const r = await fetch(`${BASE}/api/config/roulettes`);
+    const data = await r.json();
+    const sel = document.getElementById('roulette-sel');
+    sel.innerHTML = '';
+    (data.roulettes || []).forEach(rl => {
+      const opt = document.createElement('option');
+      opt.value = rl.slug;
+      opt.textContent = rl.name || rl.slug;
+      if (rl.slug === 'pragmatic-auto-roulette') opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    document.getElementById('roulette-sel').innerHTML = '<option value="pragmatic-auto-roulette">Auto Roulette</option>';
+  }
+}
+
+function chipClass(n) {
+  if (n === 0) return 'zero';
+  if ([1,2,3,4,5,6,7,8,9,14,15,16,17,18,19,20].includes(n)) return 'neutral';
+  return 'green';
+}
+
+function numChip(n) {
+  return `<span class="num-chip ${chipClass(n)}">${n}</span>`;
+}
+
+async function runQuery() {
+  const roulette = document.getElementById('roulette-sel').value;
+  const historyCount = parseInt(document.getElementById('history-count').value) || 12;
+  const topN1 = parseInt(document.getElementById('top-n1').value) || 0;
+  const topN2 = parseInt(document.getElementById('top-n2').value) || 0;
+  const topN3 = parseInt(document.getElementById('top-n3').value) || 0;
+
+  if (!roulette) return;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('status').innerHTML = '<span class="spinner"></span> Consultando...';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('history-bar').style.display = 'none';
+
+  try {
+    const url = `${BASE}/api/triplet-ranking/query?roulette_id=${encodeURIComponent(roulette)}&history_count=${historyCount}&top_next1=${topN1}&top_next2=${topN2}&top_next3=${topN3}`;
+    const r = await fetch(url);
+    const data = await r.json();
+
+    if (!data.ranking || data.ranking.length === 0) {
+      document.getElementById('status').textContent = 'Sem dados suficientes.';
+      return;
+    }
+
+    // Histórico de números
+    const numsDisplay = document.getElementById('nums-display');
+    numsDisplay.innerHTML = data.numbers.map(n => numChip(n)).join('');
+    document.getElementById('nums-count').textContent = data.numbers.length;
+    document.getElementById('history-bar').style.display = '';
+
+    // Badge de trios
+    document.getElementById('trios-badge').textContent = `${data.trios_count} trios`;
+
+    // Ranking
+    const maxScore = data.ranking[0]?.total || 1;
+    const tbody = document.getElementById('ranking-body');
+    tbody.innerHTML = data.ranking.map(item => {
+      const rankClass = item.rank <= 3 ? `rank-${item.rank}` : 'rank-other';
+      const pct = maxScore > 0 ? (item.total / maxScore * 100) : 0;
+      return `<tr>
+        <td class="center"><span class="rank-badge ${rankClass}">${item.rank}</span></td>
+        <td class="center">${numChip(item.number)}</td>
+        <td>
+          <div class="score-bar">
+            <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+            <span class="score-val">${item.total}</span>
+          </div>
+        </td>
+        <td class="center"><span class="pill pill-n1">${item.next1}</span></td>
+        <td class="center"><span class="pill pill-n2">${item.next2}</span></td>
+        <td class="center"><span class="pill pill-n3">${item.next3}</span></td>
+      </tr>`;
+    }).join('');
+
+    // Top 4
+    const top4 = data.ranking.slice(0, 4);
+    const top4Html = `
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;">
+        ${top4.map((item, i) => `
+          <div style="text-align:center;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">#${i+1}</div>
+            ${numChip(item.number)}
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">score ${item.total}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;border-top:1px solid var(--border);padding-top:12px;">
+        Números: <strong style="color:var(--text);">${top4.map(i => i.number).join(', ')}</strong>
+      </div>
+      <div style="margin-top:16px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Top 10 completo</div>
+        <div class="nums">${data.ranking.slice(0, 10).map(i => numChip(i.number)).join('')}</div>
+      </div>
+    `;
+    document.getElementById('top4-display').innerHTML = top4Html;
+
+    document.getElementById('status').textContent = '';
+    document.getElementById('results').style.display = '';
+  } catch(e) {
+    document.getElementById('status').textContent = 'Erro ao consultar. Verifique o console.';
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+loadRoulettes().then(() => runQuery());
+</script>
+</body>
+</html>

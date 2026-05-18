@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --surface: #fff; --surface-soft: #eef3f1;
+      --border: #d7ddd9; --text: #18211f; --muted: #63706b;
+      --accent: #177a5b; --accent-strong: #0f5f46;
+      --danger: #9b2f2f; --warn: #b6862c;
+      --trigger-color: #a85c00; --trigger-bg: rgba(168,92,0,.13);
+      --triplet-color: #0f5f46; --triplet-bg: rgba(23,122,91,.13);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+    .page-header h1 { margin: 0 0 4px; font-size: 22px; color: var(--accent-strong); }
+    .page-header .subtitle { margin: 0; font-size: 13px; color: var(--muted); }
+    .status-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+    .dot.live { background: var(--accent); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .back-link { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--accent); text-decoration: none; margin-bottom: 14px; }
+    .back-link:hover { text-decoration: underline; }
+    .nav-link { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--accent); text-decoration: none; margin-bottom: 14px; margin-left: 16px; }
+    .nav-link:hover { text-decoration: underline; }
+    .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-btn { padding: 4px 12px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); font-size: 12px; font-weight: 600; cursor: pointer; color: var(--muted); }
+    .filter-btn:hover { border-color: var(--accent); color: var(--accent-strong); }
+    .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .summary-row { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+    .summary-row strong { color: var(--text); }
+    .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1000px; }
+    thead tr { background: var(--surface-soft); border-bottom: 2px solid var(--border); }
+    thead th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); white-space: nowrap; user-select: none; }
+    thead th.sortable { cursor: pointer; }
+    thead th.sortable:hover { color: var(--accent-strong); background: #e8efec; }
+    thead th.center { text-align: center; }
+    thead th .sort-icon { display: inline-block; margin-left: 4px; opacity: .35; font-size: 10px; }
+    thead th.active { color: var(--accent-strong); }
+    thead th.active .sort-icon { opacity: 1; color: var(--accent); }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f9fafb; }
+    tbody tr.row-won { background: rgba(23,122,91,.05); }
+    tbody tr.row-lost { background: rgba(155,47,47,.04); }
+    tbody tr.row-expired { opacity: .5; }
+    td { padding: 8px 12px; vertical-align: middle; }
+    td.center { text-align: center; }
+    .date-cell .date { font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .date-cell .time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .num-chip { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .num-chip.trigger { background: var(--trigger-bg); color: var(--trigger-color); border: 2px solid #c97a1a; font-size: 14px; width: 36px; height: 36px; }
+    .num-chip.alvo { background: var(--triplet-bg); color: var(--triplet-color); border: 1.5px solid var(--accent); }
+    .num-chip.zero { background: #1a1a1a; color: #fff; border: 2px solid #555; }
+    .alvos-cell { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .arrow { font-size: 10px; color: var(--muted); }
+    .roulette-badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--surface-soft); color: var(--accent-strong); border: 1px solid var(--border); white-space: nowrap; }
+    .roulette-badge.auto { background: rgba(23,122,91,.10); border-color: rgba(23,122,91,.25); }
+    .roulette-badge.brazil { background: rgba(0,102,204,.09); color: #005599; border-color: rgba(0,102,204,.2); }
+    .roulette-badge.mega { background: rgba(120,40,180,.09); color: #6a1fa0; border-color: rgba(120,40,180,.2); }
+    .status-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .status-badge.active  { background: rgba(23,122,91,.10); color: var(--accent-strong); border: 1px solid rgba(23,122,91,.3); }
+    .status-badge.won     { background: rgba(23,122,91,.15); color: #0a4d37; border: 1px solid #7ecbb1; }
+    .status-badge.lost    { background: rgba(155,47,47,.10); color: #7a1f1f; border: 1px solid #d98080; }
+    .status-badge.expired { background: #f0f0f0; color: #888; border: 1px solid #ccc; }
+    .attempts-cell { display: flex; gap: 3px; align-items: center; }
+    .attempt-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; border: 1.5px solid; }
+    .attempt-dot.hit   { background: rgba(23,122,91,.15); color: #0a4d37; border-color: #7ecbb1; }
+    .attempt-dot.miss  { background: rgba(155,47,47,.10); color: #7a1f1f; border-color: #d98080; }
+    .attempt-dot.empty { background: #f0f0f0; color: #ccc; border-color: #ddd; }
+    .pct-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(168,92,0,.13); color: #a85c00; border: 1px solid rgba(168,92,0,.22); white-space: nowrap; }
+    .competing-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; background: rgba(168,92,0,.10); color: var(--trigger-color); border: 1px solid rgba(168,92,0,.25); }
+    .seq-cell { display: flex; flex-direction: column; gap: 3px; }
+    .seq-entry { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .seq-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 10px; font-weight: 700; background: rgba(90,40,180,.12); color: #5a28b4; border: 1.5px solid rgba(90,40,180,.3); }
+    .seq-arrow { font-size: 10px; color: #5a28b4; font-weight: 700; }
+    .seq-dir { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 999px; background: rgba(90,40,180,.10); color: #5a28b4; border: 1px solid rgba(90,40,180,.25); }
+    .top-cell { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+    .top-pct { font-size: 13px; font-weight: 700; }
+    .top-pct.high { color: #0a4d37; }
+    .top-pct.mid  { color: #b6862c; }
+    .top-pct.low  { color: #9b2f2f; }
+    .top-wl { font-size: 11px; color: var(--muted); }
+    .top-wl .w { color: #0a4d37; font-weight: 700; }
+    .top-wl .l { color: #9b2f2f; font-weight: 700; }
+    .min-badge { display: inline-flex; flex-direction: column; gap: 1px; white-space: nowrap; }
+    .min-badge .min-time { font-size: 11px; font-weight: 600; }
+    .min-badge .min-zone { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 999px; display: inline-block; }
+    .min-badge.zone-hot  .min-time { color: #0a4d37; }
+    .min-badge.zone-hot  .min-zone { background: rgba(23,122,91,.15); color: #0a4d37; border: 1px solid rgba(23,122,91,.4); }
+    .min-badge.zone-cold .min-time { color: #7a1f1f; }
+    .min-badge.zone-cold .min-zone { background: rgba(155,47,47,.12); color: #7a1f1f; border: 1px solid rgba(155,47,47,.35); }
+    .min-badge.zone-mid  .min-time { color: var(--muted); }
+    .min-badge.zone-mid  .min-zone { background: #f0f0f0; color: #888; border: 1px solid #ccc; }
+    tbody tr.row-same-roulette { background: rgba(0,100,200,.04); }
+    tbody tr.row-same-roulette:hover { background: rgba(0,100,200,.08); }
+    .same-roulette-tag { display: inline-flex; align-items: center; margin-left: 5px; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 700; background: rgba(0,85,160,.12); color: #0055a0; border: 1px solid rgba(0,85,160,.25); white-space: nowrap; }
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
+    .loading { text-align: center; color: var(--muted); padding: 40px; font-size: 14px; }
+    .error-msg { padding: 14px 18px; background: rgba(155,47,47,.07); color: var(--danger); border-radius: 8px; }
+    /* Action buttons */
+    .btn-action { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; font-size: 12px; transition: all .15s; }
+    .btn-action:hover { border-color: var(--accent); background: var(--surface-soft); }
+    .btn-action.danger:hover { border-color: var(--danger); background: rgba(155,47,47,.07); }
+    .actions-cell { display: flex; gap: 4px; align-items: center; justify-content: center; }
+    /* Modal overlay */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border-radius: 16px; padding: 24px; width: 95%; box-shadow: 0 8px 40px rgba(0,0,0,.18); max-height: 90vh; overflow-y: auto; }
+    .modal.detail-modal { max-width: 600px; }
+    .modal.confirm-modal { max-width: 420px; }
+    .modal-title { font-size: 16px; font-weight: 700; color: var(--accent-strong); margin: 0 0 4px; }
+    .modal-subtitle { font-size: 12px; color: var(--muted); margin: 0 0 20px; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .btn-cancel { padding: 8px 18px; border: 1.5px solid var(--border); border-radius: 8px; background: transparent; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); }
+    .btn-confirm { padding: 8px 18px; background: var(--accent); border: none; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .btn-confirm.danger { background: var(--danger); }
+    /* Detail modal sections */
+    .detail-section { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .detail-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .detail-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 0 0 6px; }
+    .detail-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .hist-chip { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; font-size: 11px; font-weight: 700; background: var(--surface-soft); color: var(--text); border: 1px solid var(--border); }
+    .hist-chip.is-trigger { background: var(--trigger-bg); color: var(--trigger-color); border-color: #c97a1a; width: 34px; height: 34px; font-size: 13px; }
+    .bet-chip { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; font-size: 11px; font-weight: 700; background: var(--triplet-bg); color: var(--triplet-color); border: 1.5px solid var(--accent); }
+    .detail-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; }
+    .detail-kv { display: flex; flex-direction: column; gap: 2px; }
+    .detail-kv .k { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+    .detail-kv .v { font-size: 13px; font-weight: 600; color: var(--text); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <a class="back-link" href="/">← Início</a>
+  <a class="nav-link" href="/gatilhos">Ver Gatilhos →</a>
+  <a class="nav-link" href="/configuracoes" style="margin-left:4px">⚙️ Configurações</a>
+  <div class="page-header">
+    <div>
+      <h1>Sinais</h1>
+      <p class="subtitle">Ativados quando um gatilho dispara em qualquer mesa. Atualiza a cada 5s.</p>
+    </div>
+    <div class="status-bar"><span class="dot live"></span><span id="status-text">Carregando...</span></div>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-btn active" data-status="">Todos</button>
+    <button class="filter-btn" data-status="active">Ativos</button>
+    <button class="filter-btn" data-status="won">Ganhos</button>
+    <button class="filter-btn" data-status="lost">Perdidos</button>
+    <button class="filter-btn" data-status="expired">Expirados</button>
+    <button class="filter-btn seq-filter-btn" id="seq-filter-btn" style="margin-left:8px;border-color:#9b6ee0;color:#5a28b4">Top sinais</button>
+    <button class="filter-btn" id="same-roulette-btn" style="margin-left:4px;border-color:#0070c0;color:#0055a0">Mesma roleta</button>
+    <button class="filter-btn" id="hot-zone-btn" style="margin-left:4px;border-color:#177a5b;color:#0f5f46">▲ Zona quente</button>
+    <button class="filter-btn" id="hot-late-btn" style="margin-left:4px;border-color:#b85c00;color:#8a3e00">🔥 Quente Tardia</button>
+    <button class="filter-btn" id="cold-early-btn" style="margin-left:4px;border-color:#336699;color:#1a4d80">❄️ Fria Rápida</button>
+    <button class="filter-btn" id="ctx-accord-btn" style="margin-left:4px;border-color:#7c4a9e;color:#5c2e80">🎯 Acordo c/ aposta</button>
+  </div>
+
+  <div id="summary" class="summary-row"></div>
+  <div class="table-card"><div id="content" class="loading">Carregando sinais...</div></div>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal detail-modal">
+    <p class="modal-title" id="detail-title">Detalhes do Sinal</p>
+    <div id="detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('detail-modal')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal confirm-modal">
+    <p class="modal-title">🗑️ Excluir Sinal</p>
+    <p class="modal-subtitle">Esta ação remove o sinal permanentemente.</p>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('del-modal')">Cancelar</button>
+      <button class="btn-confirm danger" id="btn-confirm-del">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const REFRESH_MS = 5000;
+const TZ = "America/Sao_Paulo";
+const MAX_ATTEMPTS = 4;
+const ROULETTE_INFO = {
+  "pragmatic-auto-roulette":      { label: "Auto",   cls: "auto"   },
+  "pragmatic-brazilian-roulette": { label: "Brazil", cls: "brazil" },
+  "pragmatic-mega-roulette":      { label: "Mega",   cls: "mega"   },
+};
+
+let sortState = { col: "date", dir: -1 };
+let statusFilter = "";
+let seqFilter = false;
+let sameRouletteFilter = false;
+let hotZoneFilter = false;
+let hotLateFilter = false;
+let coldEarlyFilter = false;
+let ctxAccordFilter = false;
+let allRows = [];
+let rouletteUrls = {};
+
+async function loadRouletteUrls() {
+  try {
+    const r = await fetch("/api/config/roulettes");
+    const d = await r.json();
+    for (const rl of (d.roulettes || [])) {
+      if (rl.url) rouletteUrls[rl.slug] = rl.url;
+    }
+  } catch(e) { /* non-critical */ }
+}
+
+function ri(rid) {
+  return ROULETTE_INFO[rid] || { label: rid ? rid.replace("pragmatic-","").slice(0,14) : "—", cls: "" };
+}
+
+function fmtDate(iso) {
+  if (!iso) return { date: "—", time: "—" };
+  const d = new Date(iso), o = { timeZone: TZ };
+  return {
+    date: d.toLocaleDateString("pt-BR", { ...o, day: "2-digit", month: "2-digit" }),
+    time: d.toLocaleTimeString("pt-BR", { ...o, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+  };
+}
+
+function chip(n, type) {
+  const cls = n === 0 ? "zero" : type;
+  return `<div class="num-chip ${cls}">${n}</div>`;
+}
+
+function attemptsHtml(attempts) {
+  const dots = [];
+  for (let i = 1; i <= MAX_ATTEMPTS; i++) {
+    const a = (attempts || []).find(x => x.attempt === i);
+    if (!a) { dots.push(`<div class="attempt-dot empty" title="Pendente">·</div>`); continue; }
+    dots.push(`<div class="attempt-dot ${a.hit ? "hit" : "miss"}" title="T${i}: ${a.value}">${a.value}</div>`);
+  }
+  return `<div class="attempts-cell">${dots.join("")}</div>`;
+}
+
+function isHotZone(m) {
+  return m != null && (m < 5 || (m >= 30 && m < 45));
+}
+function isColdZone(m) {
+  return m != null && m >= 10 && m < 30;
+}
+function isHotLate(s) {
+  return isHotZone(s.minutes_since_gatilho) && s.confirmation_spin != null && s.confirmation_spin >= 4;
+}
+function isColdEarly(s) {
+  return isColdZone(s.minutes_since_gatilho) && s.confirmation_spin != null && s.confirmation_spin <= 2;
+}
+function isCtxAccord(s) {
+  return s.ctx_triplet_matches != null && s.ctx_triplet_matches >= 1;
+}
+
+function filtered() {
+  let rows = allRows;
+  if (statusFilter)       rows = rows.filter(s => s.status === statusFilter);
+  if (seqFilter)          rows = rows.filter(s => s.has_sequence);
+  if (sameRouletteFilter) rows = rows.filter(s => s.source_roulette_id === s.fired_roulette_id);
+  if (hotZoneFilter)      rows = rows.filter(s => isHotZone(s.minutes_since_gatilho));
+  if (hotLateFilter)      rows = rows.filter(s => isHotLate(s));
+  if (coldEarlyFilter)    rows = rows.filter(s => isColdEarly(s));
+  if (ctxAccordFilter)    rows = rows.filter(s => isCtxAccord(s));
+  return rows;
+}
+
+function updateSeqBtn() {
+  const btn = document.getElementById("seq-filter-btn");
+  if (!btn) return;
+  const seq = allRows.filter(s => s.has_sequence);
+  const won  = seq.filter(s => s.status === "won").length;
+  const lost = seq.filter(s => s.status === "lost").length;
+  const fin  = won + lost;
+  const pct  = fin > 0 ? (won / fin * 100).toFixed(1) : null;
+  btn.textContent = pct !== null ? `Top sinais (${pct}%)` : "Top sinais";
+  if (seqFilter) { btn.style.background = "#5a28b4"; btn.style.color = "#fff"; btn.style.borderColor = "#5a28b4"; }
+  else           { btn.style.background = ""; btn.style.color = "#5a28b4"; btn.style.borderColor = "#9b6ee0"; }
+}
+
+function updateHotZoneBtn() {
+  const btn = document.getElementById("hot-zone-btn");
+  if (!btn) return;
+  const hot  = allRows.filter(s => isHotZone(s.minutes_since_gatilho));
+  const won  = hot.filter(s => s.status === "won").length;
+  const lost = hot.filter(s => s.status === "lost").length;
+  const fin  = won + lost;
+  const pct  = fin > 0 ? (won / fin * 100).toFixed(1) : null;
+  const count = hot.length;
+  btn.textContent = pct !== null ? `▲ Zona quente (${pct}%) · ${count}` : `▲ Zona quente · ${count}`;
+  if (hotZoneFilter) { btn.style.background = "#0f5f46"; btn.style.color = "#fff"; btn.style.borderColor = "#0f5f46"; }
+  else               { btn.style.background = ""; btn.style.color = "#0f5f46"; btn.style.borderColor = "#177a5b"; }
+}
+
+function updateHotLateBtn() {
+  const btn = document.getElementById("hot-late-btn");
+  if (!btn) return;
+  const sub  = allRows.filter(s => isHotLate(s));
+  const won  = sub.filter(s => s.status === "won").length;
+  const lost = sub.filter(s => s.status === "lost").length;
+  const fin  = won + lost;
+  const pct  = fin > 0 ? (won / fin * 100).toFixed(1) : null;
+  btn.textContent = pct !== null ? `🔥 Quente Tardia (${pct}%) · ${sub.length}` : `🔥 Quente Tardia · ${sub.length}`;
+  if (hotLateFilter) { btn.style.background = "#8a3e00"; btn.style.color = "#fff"; btn.style.borderColor = "#8a3e00"; }
+  else               { btn.style.background = ""; btn.style.color = "#8a3e00"; btn.style.borderColor = "#b85c00"; }
+}
+
+function updateColdEarlyBtn() {
+  const btn = document.getElementById("cold-early-btn");
+  if (!btn) return;
+  const sub  = allRows.filter(s => isColdEarly(s));
+  const won  = sub.filter(s => s.status === "won").length;
+  const lost = sub.filter(s => s.status === "lost").length;
+  const fin  = won + lost;
+  const pct  = fin > 0 ? (won / fin * 100).toFixed(1) : null;
+  btn.textContent = pct !== null ? `❄️ Fria Rápida (${pct}%) · ${sub.length}` : `❄️ Fria Rápida · ${sub.length}`;
+  if (coldEarlyFilter) { btn.style.background = "#1a4d80"; btn.style.color = "#fff"; btn.style.borderColor = "#1a4d80"; }
+  else                 { btn.style.background = ""; btn.style.color = "#1a4d80"; btn.style.borderColor = "#336699"; }
+}
+
+function updateCtxAccordBtn() {
+  const btn = document.getElementById("ctx-accord-btn");
+  if (!btn) return;
+  const sub  = allRows.filter(s => isCtxAccord(s));
+  const won  = sub.filter(s => s.status === "won").length;
+  const lost = sub.filter(s => s.status === "lost").length;
+  const fin  = won + lost;
+  const pct  = fin > 0 ? (won / fin * 100).toFixed(1) : null;
+  btn.textContent = pct !== null ? `🎯 2ª Validação (${pct}%) · ${sub.length}` : `🎯 2ª Validação · ${sub.length}`;
+  if (ctxAccordFilter) { btn.style.background = "#5c2e80"; btn.style.color = "#fff"; btn.style.borderColor = "#5c2e80"; }
+  else                 { btn.style.background = ""; btn.style.color = "#5c2e80"; btn.style.borderColor = "#7c4a9e"; }
+}
+
+function updateSameRouletteBtn() {
+  const btn = document.getElementById("same-roulette-btn");
+  if (!btn) return;
+  const same = allRows.filter(s => s.source_roulette_id === s.fired_roulette_id);
+  const won  = same.filter(s => s.status === "won").length;
+  const lost = same.filter(s => s.status === "lost").length;
+  const fin  = won + lost;
+  const pct  = fin > 0 ? (won / fin * 100).toFixed(1) : null;
+  const count = same.length;
+  btn.textContent = pct !== null ? `Mesma roleta (${pct}%) · ${count}` : `Mesma roleta · ${count}`;
+  if (sameRouletteFilter) { btn.style.background = "#0055a0"; btn.style.color = "#fff"; btn.style.borderColor = "#0055a0"; }
+  else                    { btn.style.background = ""; btn.style.color = "#0055a0"; btn.style.borderColor = "#0070c0"; }
+}
+
+function sortedRows(rows) {
+  return [...rows].sort((a, b) => {
+    let va, vb;
+    if (sortState.col === "date") { va = new Date(a.created_at).getTime(); vb = new Date(b.created_at).getTime(); }
+    else if (sortState.col === "n")   { va = a.trigger_number; vb = b.trigger_number; }
+    else if (sortState.col === "pct") { va = a.trigger_pct ?? 0; vb = b.trigger_pct ?? 0; }
+    else if (sortState.col === "min") { va = a.minutes_since_gatilho ?? 9999; vb = b.minutes_since_gatilho ?? 9999; }
+    else return 0;
+    return sortState.dir * (va < vb ? -1 : va > vb ? 1 : 0);
+  });
+}
+
+function sortIcon(col) {
+  return sortState.col !== col
+    ? `<span class="sort-icon">⇅</span>`
+    : `<span class="sort-icon">${sortState.dir === 1 ? "▲" : "▼"}</span>`;
+}
+
+const STATUS_LABELS = { active: "⏳ Ativo", won: "✓ Ganhou", lost: "✗ Perdeu", expired: "⌛ Expirado" };
+
+function seqCellHtml(sig) {
+  if (!sig.has_sequence || !sig.sequence_details?.length) {
+    return `<span style="color:var(--muted);font-size:11px">—</span>`;
+  }
+  return `<div class="seq-cell">${sig.sequence_details.map(s =>
+    `<div class="seq-entry">
+      ${s.numbers.map(n => `<div class="seq-num">${n}</div>`).join(`<span class="seq-arrow">${s.direction}</span>`)}
+      <span class="seq-dir">${s.direction === "→" ? "Horário" : "Anti-H."}</span>
+    </div>`
+  ).join("")}</div>`;
+}
+
+function topSinaisHtml(sig) {
+  const w = sig.gatilho_won ?? 0;
+  const l = sig.gatilho_lost ?? 0;
+  const pct = sig.gatilho_pct;
+  if (pct === null || pct === undefined) {
+    return `<span style="color:var(--muted);font-size:11px">—</span>`;
+  }
+  const cls = pct >= 85 ? "high" : pct >= 65 ? "mid" : "low";
+  return `<div class="top-cell">
+    <span class="top-pct ${cls}">${pct.toFixed(1)}%</span>
+    <span class="top-wl"><span class="w">${w}W</span> / <span class="l">${l}L</span></span>
+  </div>`;
+}
+
+function renderTable(rows) {
+  const s = sortedRows(rows);
+  if (!s.length) return `<div class="empty-state"><p>Nenhum sinal encontrado.</p></div>`;
+
+  const cols = [
+    { key: "date", label: "Data / Hora" },
+    { key: "n",    label: "Nº Gatilho", center: true },
+    { key: "pct",  label: "% Rank" },
+    { key: null,   label: "Triplet" },
+    { key: null,   label: "Origem" },
+    { key: null,   label: "Disparado em" },
+    { key: null,   label: "Tentativas" },
+    { key: null,   label: "Status" },
+    { key: "min",  label: "Δ Gatilho" },
+    { key: null,   label: "TOP sinais" },
+    { key: null,   label: "Sequência" },
+    { key: null,   label: "Concorrente" },
+    { key: null,   label: "Ações", center: true },
+  ];
+
+  const thead = `<thead><tr>${cols.map(c => {
+    const parts = [c.key ? "sortable" : "", c.key && sortState.col === c.key ? "active" : "", c.center ? "center" : ""].filter(Boolean);
+    return `<th class="${parts.join(" ")}" ${c.key ? `data-col="${c.key}"` : ""}>${c.label}${c.key ? sortIcon(c.key) : ""}</th>`;
+  }).join("")}</tr></thead>`;
+
+  const tbody = s.map(sig => {
+    const [a, b, c] = sig.triplet || [];
+    const { date, time } = fmtDate(sig.created_at);
+    const rSrc   = ri(sig.source_roulette_id);
+    const rFired = ri(sig.fired_roulette_id);
+    const rowCls = ["won","lost","expired"].includes(sig.status) ? `row-${sig.status}` : "";
+    const minVal = sig.minutes_since_gatilho;
+    let minHtml;
+    if (minVal == null) {
+      minHtml = `<span style="color:var(--muted);font-size:11px">—</span>`;
+    } else {
+      let zoneCls, zoneLabel;
+      if (minVal < 5)                    { zoneCls = "zone-hot";  zoneLabel = "▲ Quente"; }
+      else if (minVal < 10)              { zoneCls = "zone-mid";  zoneLabel = "→ Neutro"; }
+      else if (minVal < 30)              { zoneCls = "zone-cold"; zoneLabel = "▼ Fria"; }
+      else if (minVal < 45)              { zoneCls = "zone-hot";  zoneLabel = "▲ Retomada"; }
+      else                               { zoneCls = "zone-mid";  zoneLabel = "→ Neutro"; }
+      minHtml = `<div class="min-badge ${zoneCls}"><span class="min-time">🕐 ${minVal.toFixed(1)}min</span><span class="min-zone">${zoneLabel}</span></div>`;
+    }
+    const competing = sig.competing_signal_ids?.length > 0
+      ? `<span class="competing-badge">⚡ ${sig.competing_signal_ids.length}</span>`
+      : `<span style="color:var(--muted);font-size:11px">—</span>`;
+    const hasUrl = !!rouletteUrls[sig.fired_roulette_id];
+    const isSame = sig.source_roulette_id === sig.fired_roulette_id;
+    const sameTag = isSame
+      ? `<span class="same-roulette-tag" title="Gatilho e disparo na mesma roleta">↩ mesma</span>`
+      : "";
+
+    return `<tr class="${rowCls}${isSame ? " row-same-roulette" : ""}">
+      <td class="date-cell"><div class="date">${date}</div><div class="time">${time}</div></td>
+      <td class="center">${chip(sig.trigger_number, "trigger")}</td>
+      <td><span class="pct-badge">⚡ ${sig.trigger_pct != null ? Number(sig.trigger_pct).toFixed(2) + "%" : "—"}</span></td>
+      <td><div class="alvos-cell">${chip(a,"alvo")}<span class="arrow">→</span>${chip(b,"alvo")}<span class="arrow">→</span>${chip(c,"alvo")}</div></td>
+      <td><span class="roulette-badge ${rSrc.cls}">${rSrc.label}</span></td>
+      <td><span class="roulette-badge ${rFired.cls}">${rFired.label}</span>${sameTag}</td>
+      <td>${attemptsHtml(sig.attempts)}</td>
+      <td><span class="status-badge ${sig.status}">${STATUS_LABELS[sig.status] || sig.status}</span></td>
+      <td>${minHtml}</td>
+      <td>${topSinaisHtml(sig)}</td>
+      <td>${seqCellHtml(sig)}</td>
+      <td>${competing}</td>
+      <td class="center">
+        <div class="actions-cell">
+          <button class="btn-action" title="Ver detalhes" onclick="openDetailModal('${sig.id}')">🔍</button>
+          ${hasUrl ? `<a class="btn-action" title="Abrir mesa" href="${rouletteUrls[sig.fired_roulette_id]}" target="_blank" rel="noopener" style="text-decoration:none">↗</a>` : ""}
+          <button class="btn-action danger" title="Excluir" onclick="openDelModal('${sig.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  return `<table>${thead}<tbody>${tbody}</tbody></table>`;
+}
+
+function rerender() {
+  document.getElementById("content").innerHTML = renderTable(filtered());
+  document.querySelectorAll("thead th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.col;
+      sortState.col === col ? (sortState.dir *= -1) : (sortState.col = col, sortState.dir = col === "date" ? -1 : 1);
+      rerender();
+    });
+  });
+}
+
+document.querySelectorAll(".filter-btn[data-status]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    statusFilter = btn.dataset.status;
+    document.querySelectorAll(".filter-btn[data-status]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    rerender();
+    updateSummary();
+  });
+});
+
+document.getElementById("seq-filter-btn").addEventListener("click", () => {
+  seqFilter = !seqFilter;
+  updateSeqBtn();
+  rerender();
+  updateSummary();
+});
+
+document.getElementById("same-roulette-btn").addEventListener("click", () => {
+  sameRouletteFilter = !sameRouletteFilter;
+  updateSameRouletteBtn();
+  rerender();
+  updateSummary();
+});
+
+document.getElementById("hot-zone-btn").addEventListener("click", () => {
+  hotZoneFilter = !hotZoneFilter;
+  updateHotZoneBtn();
+  rerender();
+  updateSummary();
+});
+
+document.getElementById("hot-late-btn").addEventListener("click", () => {
+  hotLateFilter = !hotLateFilter;
+  updateHotLateBtn();
+  rerender();
+  updateSummary();
+});
+
+document.getElementById("cold-early-btn").addEventListener("click", () => {
+  coldEarlyFilter = !coldEarlyFilter;
+  updateColdEarlyBtn();
+  rerender();
+  updateSummary();
+});
+
+document.getElementById("ctx-accord-btn").addEventListener("click", () => {
+  ctxAccordFilter = !ctxAccordFilter;
+  updateCtxAccordBtn();
+  rerender();
+  updateSummary();
+});
+
+function updateSummary() {
+  const rows = filtered();
+  const counts = {};
+  for (const s of rows) counts[s.status] = (counts[s.status] || 0) + 1;
+  const parts = Object.entries(counts).map(([st, n]) =>
+    `<span><strong>${n}</strong> ${STATUS_LABELS[st] || st}</span>`);
+  document.getElementById("summary").innerHTML =
+    `<strong>${rows.length}</strong> sinal${rows.length !== 1 ? "is" : ""} — ` + (parts.join(" · ") || "—");
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+document.querySelectorAll(".modal-overlay").forEach(m => {
+  m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); });
+});
+
+// ── Detail modal ──────────────────────────────────────────────────────────────
+function openDetailModal(id) {
+  const sig = allRows.find(x => x.id === id);
+  if (!sig) return;
+  const [a, b, c] = sig.triplet || [];
+  const { date, time } = fmtDate(sig.created_at);
+  const rFired = ri(sig.fired_roulette_id);
+  const rSrc   = ri(sig.source_roulette_id);
+  const trigNum = sig.trigger_number;
+
+  const histChips = (sig.history_at_fire || []).map((n, i) => {
+    const isTrig = i === (sig.history_at_fire.length - 1);
+    const cls = isTrig ? "hist-chip is-trigger" : "hist-chip";
+    return `<div class="${cls}" title="${isTrig ? "Gatilho" : ""}">${n}</div>`;
+  }).join("");
+
+  const betChips = (sig.bet_numbers || []).map(n =>
+    `<div class="bet-chip">${n}</div>`
+  ).join("");
+  const origBetChips = (sig.original_bet_numbers || []).map(n =>
+    `<div class="bet-chip" style="opacity:.55;border-style:dashed">${n}</div>`
+  ).join("");
+
+  const attDots = [];
+  for (let i = 1; i <= MAX_ATTEMPTS; i++) {
+    const at = (sig.attempts || []).find(x => x.attempt === i);
+    if (!at) { attDots.push(`<div class="attempt-dot empty" style="width:28px;height:28px;font-size:11px" title="Pendente">·</div>`); continue; }
+    attDots.push(`<div class="attempt-dot ${at.hit ? "hit" : "miss"}" style="width:28px;height:28px;font-size:11px" title="T${i}: ${at.value}">${at.value}</div>`);
+  }
+
+  const seqSection = sig.has_sequence && sig.sequence_details?.length
+    ? `<div class="detail-section">
+        <p class="detail-label">Sequência na Roda</p>
+        <div class="seq-cell">${sig.sequence_details.map(s =>
+          `<div class="seq-entry">
+            ${s.numbers.map(n => `<div class="seq-num" style="width:28px;height:28px;font-size:12px">${n}</div>`).join(`<span class="seq-arrow">${s.direction}</span>`)}
+            <span class="seq-dir">${s.direction === "→" ? "Horário" : "Anti-Horário"}</span>
+          </div>`
+        ).join("")}</div>
+      </div>`
+    : "";
+
+  const topSection = sig.gatilho_pct != null
+    ? `<div class="detail-kv"><span class="k">Assertividade Gatilho</span><span class="v">${topSinaisHtml(sig)}</span></div>`
+    : "";
+
+  const urlBtn = rouletteUrls[sig.fired_roulette_id]
+    ? `<a href="${rouletteUrls[sig.fired_roulette_id]}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;background:var(--accent);color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;margin-top:4px">↗ Abrir mesa ${rFired.label}</a>`
+    : "";
+
+  const mv = sig.minutes_since_gatilho;
+  let minDetail = "—";
+  if (mv != null) {
+    let zl;
+    if (mv < 5)       zl = "▲ Quente (0–5 min)";
+    else if (mv < 10) zl = "→ Neutro (5–10 min)";
+    else if (mv < 30) zl = "▼ Fria (10–30 min)";
+    else if (mv < 45) zl = "▲ Retomada (30–45 min)";
+    else              zl = "→ Neutro (45–60 min)";
+    minDetail = `${mv.toFixed(1)} min — ${zl}`;
+  }
+  document.getElementById("detail-title").textContent = `Sinal — Gatilho #${trigNum}`;
+  document.getElementById("detail-body").innerHTML = `
+    <div class="detail-section">
+      <div class="detail-row">
+        <div class="detail-kv"><span class="k">Status</span><span class="v"><span class="status-badge ${sig.status}">${STATUS_LABELS[sig.status] || sig.status}</span></span></div>
+        <div class="detail-kv"><span class="k">Data / Hora</span><span class="v">${date} ${time}</span></div>
+        <div class="detail-kv"><span class="k">Δ Gatilho</span><span class="v">${minDetail}</span></div>
+        ${sig.confirmation_spin != null ? `<div class="detail-kv"><span class="k">Spin Confirmação</span><span class="v">${sig.confirmation_spin}/5</span></div>` : ""}
+        ${sig.ctx_triplet_matches != null ? `<div class="detail-kv"><span class="k">2ª Validação (triplet × ctx)</span><span class="v" style="color:${sig.ctx_triplet_matches >= 3 ? '#0a4d37' : sig.ctx_triplet_matches >= 2 ? '#177a5b' : '#b6862c'}">${sig.ctx_triplet_matches}/3 compatíveis</span></div>` : ""}
+        <div class="detail-kv"><span class="k">Origem</span><span class="v"><span class="roulette-badge ${rSrc.cls}">${rSrc.label}</span></span></div>
+        <div class="detail-kv"><span class="k">Disparado em</span><span class="v"><span class="roulette-badge ${rFired.cls}">${rFired.label}</span></span></div>
+        ${topSection}
+      </div>
+      ${urlBtn}
+    </div>
+    <div class="detail-section">
+      <p class="detail-label">Triplet</p>
+      <div class="detail-chips">${chip(a,"alvo")}<span class="arrow" style="font-size:14px">→</span>${chip(b,"alvo")}<span class="arrow" style="font-size:14px">→</span>${chip(c,"alvo")}<span style="font-size:20px;margin:0 8px">⟹</span>${chip(trigNum,"trigger")}</div>
+    </div>
+    <div class="detail-section">
+      <p class="detail-label">Números da Aposta — 2ª Validação (${(sig.bet_numbers||[]).length} números)</p>
+      <div class="detail-chips">${betChips || '<span style="color:var(--muted);font-size:12px">—</span>'}</div>
+      ${origBetChips ? `<p class="detail-label" style="margin-top:8px">Original do gatilho (${(sig.original_bet_numbers||[]).length} números)</p><div class="detail-chips">${origBetChips}</div>` : ""}
+    </div>
+    <div class="detail-section">
+      <p class="detail-label">Tentativas</p>
+      <div class="attempts-cell">${attDots.join("")}</div>
+      ${sig.won_at_attempt != null ? `<p style="font-size:12px;color:var(--accent-strong);margin:6px 0 0;font-weight:600">✓ Ganhou na tentativa ${sig.won_at_attempt}</p>` : ""}
+    </div>
+    ${seqSection}
+    <div class="detail-section">
+      <p class="detail-label">Histórico nos últimos spins (último = gatilho)</p>
+      <div class="detail-chips" style="gap:3px">${histChips || '<span style="color:var(--muted);font-size:12px">—</span>'}</div>
+    </div>
+  `;
+  openModal("detail-modal");
+}
+
+// ── Delete modal ──────────────────────────────────────────────────────────────
+let _delId = null;
+function openDelModal(id) {
+  _delId = id;
+  openModal("del-modal");
+}
+
+document.getElementById("btn-confirm-del").addEventListener("click", async () => {
+  if (!_delId) return;
+  const btn = document.getElementById("btn-confirm-del");
+  btn.disabled = true;
+  btn.textContent = "Excluindo...";
+  try {
+    const r = await fetch(`/api/sinais/${_delId}`, { method: "DELETE" });
+    if (!r.ok) throw new Error(await r.text());
+    closeModal("del-modal");
+    allRows = allRows.filter(s => s.id !== _delId);
+    rerender();
+    updateSummary();
+    updateSeqBtn();
+  } catch(e) { alert("Erro: " + e.message); }
+  finally { btn.disabled = false; btn.textContent = "Excluir"; _delId = null; }
+});
+
+// ── Data load ─────────────────────────────────────────────────────────────────
+async function load() {
+  try {
+    const qs = statusFilter ? `status=${statusFilter}&` : "";
+    const res = await fetch(`/api/sinais?${qs}limit=0`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    allRows = data.sinais || [];
+    rerender();
+    updateSummary();
+    updateSeqBtn();
+    updateSameRouletteBtn();
+    updateHotZoneBtn();
+    updateHotLateBtn();
+    updateColdEarlyBtn();
+    updateCtxAccordBtn();
+    const now = new Date().toLocaleTimeString("pt-BR", { timeZone: TZ });
+    document.getElementById("status-text").textContent = `Atualizado às ${now}`;
+  } catch (err) {
+    document.getElementById("content").innerHTML = `<div class="error-msg">Falha: ${err.message}</div>`;
+    document.getElementById("status-text").textContent = "Erro";
+  }
+}
+
+async function loop() { await load(); setTimeout(loop, REFRESH_MS); }
+loadRouletteUrls().then(() => loop());
+</script>
+</body>
+</html>

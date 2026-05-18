@@ -58,6 +58,8 @@ from api.core.db import (
     ensure_suggestion_monitor_indexes,
     ensure_triplet_strategy_indexes,
     ensure_puxado_trigger_indexes,
+    ensure_gatilhos_indexes,
+    ensure_sinais_indexes,
 )
 from fastapi.responses import HTMLResponse
 
@@ -92,6 +94,10 @@ from api.routes.next_number_sequences import router as next_number_sequences_rou
 from api.routes.triplet_lookup import router as triplet_lookup_router
 from api.routes.triplet_strategy import router as triplet_strategy_router
 from api.routes.puxado_trigger import router as puxado_trigger_router
+from api.routes.gatilhos import router as gatilhos_router
+from api.routes.sinais import router as sinais_router
+from api.routes.config import router as config_router
+from api.routes.triplet_ranking import router as triplet_ranking_router
 
 
 
@@ -202,8 +208,12 @@ app.include_router(next_number_sequences_router)
 app.include_router(triplet_lookup_router)
 app.include_router(triplet_strategy_router)
 app.include_router(puxado_trigger_router)
+app.include_router(gatilhos_router)
+app.include_router(sinais_router)
+app.include_router(config_router)
+app.include_router(triplet_ranking_router)
 
- 
+
 
 base_dir = os.path.dirname(__file__)
 app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "static")), name="static")
@@ -247,6 +257,14 @@ async def _warm_api_runtime() -> None:
         await ensure_puxado_trigger_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices dos gatilhos puxados falhou: {exc}")
+    try:
+        await ensure_gatilhos_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices de gatilhos falhou: {exc}")
+    try:
+        await ensure_sinais_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices de sinais falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --surface: #fff; --surface-soft: #eef3f1;
+      --border: #d7ddd9; --text: #18211f; --muted: #63706b;
+      --accent: #177a5b; --accent-strong: #0f5f46;
+      --danger: #9b2f2f; --warn: #b6862c;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 960px; margin: 0 auto; }
+    .back-link { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--accent); text-decoration: none; margin-bottom: 20px; }
+    .back-link:hover { text-decoration: underline; }
+    .page-header { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+    .page-header h1 { margin: 0; font-size: 22px; color: var(--accent-strong); }
+    .gear-icon { font-size: 22px; }
+    .section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+    .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 0 0 16px; }
+    .param-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .param-label { font-size: 14px; font-weight: 600; min-width: 260px; }
+    .param-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .param-input { display: flex; align-items: center; gap: 8px; }
+    .param-input input[type="number"] {
+      width: 90px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 14px; font-weight: 700; color: var(--text); background: var(--surface);
+    }
+    .param-input input[type="number"]:focus { outline: none; border-color: var(--accent); }
+    .btn-save { padding: 7px 18px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .btn-save:hover { background: var(--accent-strong); }
+    .btn-save:disabled { background: #aaa; cursor: default; }
+    .save-msg { font-size: 12px; color: var(--accent); font-weight: 600; display: none; }
+    .save-msg.error { color: var(--danger); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: var(--surface-soft); border-bottom: 2px solid var(--border); }
+    thead th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); white-space: nowrap; }
+    thead th.center { text-align: center; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f9fafb; }
+    td { padding: 10px 12px; vertical-align: middle; }
+    td.center { text-align: center; }
+    .name-cell { font-weight: 600; font-size: 13px; }
+    .slug-cell { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .btn-open { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
+    .btn-open:hover { background: var(--accent-strong); }
+    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 999px; transition: .2s; }
+    .slider:before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+    input:checked + .slider { background: var(--accent); }
+    input:checked + .slider:before { transform: translateX(18px); }
+    .loading { text-align: center; padding: 32px; color: var(--muted); }
+    .error-msg { padding: 12px 16px; background: rgba(155,47,47,.07); color: var(--danger); border-radius: 8px; font-size: 13px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 18px; background: var(--accent-strong); color: #fff; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+    .toast.show { opacity: 1; }
+    .btn-reset { padding: 8px 18px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .btn-reset:hover { opacity: .85; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <a class="back-link" href="/">← Início</a>
+  <a class="back-link" href="/gatilhos" style="margin-left:12px">← Gatilhos</a>
+  <a class="back-link" href="/sinais-v2" style="margin-left:12px">← Sinais</a>
+  <div class="page-header">
+    <span class="gear-icon">⚙️</span>
+    <h1>Configurações</h1>
+  </div>
+
+  <!-- Parâmetros -->
+  <div class="section">
+    <p class="section-title">Parâmetros do Sistema</p>
+    <div class="param-row">
+      <div>
+        <div class="param-label">% mínimo para ativar gatilho no ranking</div>
+        <div class="param-desc">Número do ranking precisa ter pelo menos esta porcentagem para se tornar gatilho</div>
+      </div>
+      <div class="param-input">
+        <input type="number" id="min-pct-input" min="1" max="30" step="0.1" value="4.5">
+        <span style="font-size:13px;color:var(--muted)">%</span>
+        <button class="btn-save" id="btn-save-pct">Salvar</button>
+        <span class="save-msg" id="pct-msg">Salvo!</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto-Exclusão -->
+  <div class="section">
+    <p class="section-title">Auto-Exclusão de Gatilhos</p>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">
+      Gatilhos com assertividade abaixo do limite serão excluídos automaticamente pelo servidor (junto com seus sinais).
+      O gatilho só é avaliado após atingir o número mínimo de sinais finalizados.
+    </p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <label class="toggle">
+        <input type="checkbox" id="auto-exclude-toggle">
+        <span class="slider"></span>
+      </label>
+      <span style="font-size:14px;font-weight:600">Ativar auto-exclusão</span>
+      <span class="save-msg" id="auto-exclude-status-msg"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:10px 14px;background:rgba(23,122,91,.06);border:1px solid rgba(23,122,91,.2);border-radius:8px;width:fit-content">
+      <label class="toggle">
+        <input type="checkbox" id="auto-exclude-hot-zone-toggle">
+        <span class="slider"></span>
+      </label>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--accent-strong)">▲ Avaliar somente zona quente (0–5 min e 30–45 min)</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">A assertividade será calculada apenas com sinais dessas faixas. Gatilhos com poucos sinais na zona quente ficam protegidos pelo mínimo configurado.</div>
+      </div>
+      <span class="save-msg" id="auto-exclude-hot-zone-msg"></span>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end" id="auto-exclude-params">
+      <div>
+        <div class="param-label">Assertividade mínima para sobrevivência</div>
+        <div class="param-desc">Gatilhos com % abaixo deste valor serão excluídos</div>
+        <div class="param-input" style="margin-top:6px">
+          <input type="number" id="auto-exclude-pct" min="0" max="100" step="1" value="70">
+          <span style="font-size:13px;color:var(--muted)">%</span>
+        </div>
+      </div>
+      <div>
+        <div class="param-label">Mínimo de sinais finalizados</div>
+        <div class="param-desc">Gatilhos com menos sinais não são avaliados (ainda sem histórico)</div>
+        <div class="param-input" style="margin-top:6px">
+          <input type="number" id="auto-exclude-min-sinais" min="1" max="100" step="1" value="5">
+          <span style="font-size:13px;color:var(--muted)">sinais</span>
+        </div>
+      </div>
+      <div>
+        <button class="btn-save" id="btn-save-auto-exclude">Salvar</button>
+        <span class="save-msg" id="auto-exclude-msg" style="margin-left:8px"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Roletas -->
+  <div class="section">
+    <p class="section-title">Roletas</p>
+    <div id="roulettes-content" class="loading">Carregando roletas...</div>
+  </div>
+
+  <!-- Resetar Dados -->
+  <div class="section">
+    <p class="section-title">Resetar Dados</p>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Limpa registros do banco de dados. Ações irreversíveis.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-reset" id="btn-reset-sinais" data-target="sinais" style="border-color:#b6862c;color:#7a5200">
+        🗑️ Limpar Sinais
+      </button>
+      <button class="btn-reset" id="btn-reset-gatilhos" data-target="gatilhos" style="border-color:var(--danger);color:var(--danger)">
+        🗑️ Limpar Gatilhos + Sinais
+      </button>
+      <button class="btn-reset" id="btn-reset-all" data-target="all" style="background:#9b2f2f;border-color:#9b2f2f;color:#fff">
+        ⚠️ Limpar Tudo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmação reset -->
+<div id="reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:24px;max-width:420px;width:95%;box-shadow:0 8px 40px rgba(0,0,0,.18)">
+    <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:var(--danger)">⚠️ Confirmar Reset</p>
+    <p id="reset-modal-msg" style="margin:0 0 20px;font-size:13px;color:var(--muted)"></p>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="document.getElementById('reset-modal').style.display='none'" style="padding:8px 18px;border:1.5px solid var(--border);border-radius:8px;background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)">Cancelar</button>
+      <button id="btn-reset-confirm" style="padding:8px 18px;background:var(--danger);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function showToast(msg, ok = true) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.background = ok ? "var(--accent-strong)" : "#9b2f2f";
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const r = await fetch("/api/config/settings");
+    const d = await r.json();
+    document.getElementById("min-pct-input").value = d.gatilho_min_pct;
+    document.getElementById("auto-exclude-toggle").checked = !!d.auto_exclude_enabled;
+    document.getElementById("auto-exclude-pct").value = d.auto_exclude_min_pct ?? 70;
+    document.getElementById("auto-exclude-min-sinais").value = d.auto_exclude_min_sinais ?? 5;
+    document.getElementById("auto-exclude-hot-zone-toggle").checked = !!d.auto_exclude_hot_zone_only;
+  } catch (e) { console.error(e); }
+}
+
+document.getElementById("btn-save-pct").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-save-pct");
+  const val = parseFloat(document.getElementById("min-pct-input").value);
+  if (isNaN(val) || val < 1 || val > 30) { showToast("Valor inválido (1-30)", false); return; }
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/config/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gatilho_min_pct: val }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    showToast(`% mínimo salvo: ${val}%`);
+  } catch (e) { showToast("Erro ao salvar", false); }
+  finally { btn.disabled = false; }
+});
+
+// ── Auto-Exclusão ─────────────────────────────────────────────────────────────
+document.getElementById("auto-exclude-toggle").addEventListener("change", async function() {
+  const enabled = this.checked;
+  const msg = document.getElementById("auto-exclude-status-msg");
+  try {
+    const r = await fetch("/api/config/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auto_exclude_enabled: enabled }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    msg.textContent = enabled ? "Ativado!" : "Desativado!";
+    msg.style.display = "inline";
+    msg.className = "save-msg";
+    setTimeout(() => { msg.style.display = "none"; }, 2000);
+    showToast(enabled ? "Auto-exclusão ativada" : "Auto-exclusão desativada");
+  } catch(e) {
+    this.checked = !enabled;
+    showToast("Erro ao salvar", false);
+  }
+});
+
+document.getElementById("auto-exclude-hot-zone-toggle").addEventListener("change", async function() {
+  const enabled = this.checked;
+  const msg = document.getElementById("auto-exclude-hot-zone-msg");
+  try {
+    const r = await fetch("/api/config/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auto_exclude_hot_zone_only: enabled }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    msg.textContent = enabled ? "Ativado!" : "Desativado!";
+    msg.style.display = "inline";
+    setTimeout(() => { msg.style.display = "none"; }, 2000);
+    showToast(enabled ? "Avaliação por zona quente ativada" : "Avaliação por zona quente desativada");
+  } catch(e) {
+    this.checked = !enabled;
+    showToast("Erro ao salvar", false);
+  }
+});
+
+document.getElementById("btn-save-auto-exclude").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-save-auto-exclude");
+  const pct = parseFloat(document.getElementById("auto-exclude-pct").value);
+  const minS = parseInt(document.getElementById("auto-exclude-min-sinais").value, 10);
+  if (isNaN(pct) || pct < 0 || pct > 100) { showToast("% inválido (0-100)", false); return; }
+  if (isNaN(minS) || minS < 1) { showToast("Mínimo de sinais inválido (≥ 1)", false); return; }
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/config/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auto_exclude_min_pct: pct, auto_exclude_min_sinais: minS }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const msg = document.getElementById("auto-exclude-msg");
+    msg.textContent = "Salvo!";
+    msg.style.display = "inline";
+    setTimeout(() => { msg.style.display = "none"; }, 2000);
+    showToast(`Auto-exclusão: < ${pct}% após ${minS} sinais`);
+  } catch(e) { showToast("Erro ao salvar", false); }
+  finally { btn.disabled = false; }
+});
+
+// ── Roulettes ─────────────────────────────────────────────────────────────────
+async function loadRoulettes() {
+  try {
+    const r = await fetch("/api/config/roulettes");
+    const d = await r.json();
+    renderRoulettes(d.roulettes);
+  } catch (e) {
+    document.getElementById("roulettes-content").innerHTML =
+      `<div class="error-msg">Erro ao carregar roletas: ${e.message}</div>`;
+  }
+}
+
+function renderRoulettes(roulettes) {
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Nome / Slug</th>
+          <th class="center">Abrir Mesa</th>
+          <th class="center">Monitorar Gatilhos</th>
+          <th class="center">Ativar Sinais</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${roulettes.map(r => `
+          <tr>
+            <td>
+              <div class="name-cell">${r.name}</div>
+              <div class="slug-cell">${r.slug}</div>
+            </td>
+            <td class="center">
+              ${r.url
+                ? `<a class="btn-open" href="${r.url}" target="_blank" rel="noopener">↗ Abrir mesa</a>`
+                : `<span style="color:var(--muted);font-size:11px">—</span>`}
+            </td>
+            <td class="center">
+              <label class="toggle">
+                <input type="checkbox" ${r.monitor_gatilhos ? "checked" : ""}
+                  onchange="saveRoulette('${r.slug}', this.checked, null)">
+                <span class="slider"></span>
+              </label>
+            </td>
+            <td class="center">
+              <label class="toggle">
+                <input type="checkbox" ${r.activate_sinais ? "checked" : ""}
+                  onchange="saveRoulette('${r.slug}', null, this.checked)">
+                <span class="slider"></span>
+              </label>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>`;
+  document.getElementById("roulettes-content").innerHTML = html;
+}
+
+const _rouletteState = {};
+async function saveRoulette(slug, monitorGatilhos, activateSinais) {
+  if (!_rouletteState[slug]) {
+    // read current values from DOM
+    const rows = document.querySelectorAll("tbody tr");
+    for (const row of rows) {
+      const s = row.querySelector(".slug-cell")?.textContent?.trim();
+      if (!s) continue;
+      const [mg, as] = row.querySelectorAll("input[type=checkbox]");
+      _rouletteState[s] = { monitor_gatilhos: mg.checked, activate_sinais: as.checked };
+    }
+  }
+  if (!_rouletteState[slug]) _rouletteState[slug] = { monitor_gatilhos: false, activate_sinais: false };
+  if (monitorGatilhos !== null) _rouletteState[slug].monitor_gatilhos = monitorGatilhos;
+  if (activateSinais  !== null) _rouletteState[slug].activate_sinais  = activateSinais;
+
+  try {
+    const r = await fetch(`/api/config/roulettes/${encodeURIComponent(slug)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(_rouletteState[slug]),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    showToast(`${slug.replace("pragmatic-","").replace(/-/g," ")} atualizado`);
+  } catch (e) { showToast("Erro ao salvar", false); }
+}
+
+loadSettings();
+loadRoulettes();
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+const RESET_LABELS = {
+  sinais:   "Apagar todos os sinais (os gatilhos e seus contadores serão mantidos, mas zerados).",
+  gatilhos: "Apagar todos os gatilhos e seus sinais associados.",
+  all:      "Apagar TODOS os gatilhos e sinais. Esta ação zera tudo.",
+};
+let _resetTarget = null;
+
+document.querySelectorAll(".btn-reset").forEach(btn => {
+  btn.addEventListener("click", () => {
+    _resetTarget = btn.dataset.target;
+    document.getElementById("reset-modal-msg").textContent = RESET_LABELS[_resetTarget] || "";
+    document.getElementById("reset-modal").style.display = "flex";
+  });
+});
+
+document.getElementById("btn-reset-confirm").addEventListener("click", async () => {
+  if (!_resetTarget) return;
+  const btn = document.getElementById("btn-reset-confirm");
+  btn.disabled = true;
+  btn.textContent = "Apagando...";
+  try {
+    const r = await fetch(`/api/config/reset?target=${_resetTarget}`, { method: "DELETE" });
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    document.getElementById("reset-modal").style.display = "none";
+    showToast(`Removidos: ${d.deleted_sinais ?? 0} sinais, ${d.deleted_gatilhos ?? 0} gatilhos`);
+  } catch(e) { showToast("Erro ao resetar: " + e.message, false); }
+  finally { btn.disabled = false; btn.textContent = "Confirmar"; _resetTarget = null; }
+});
+
+document.getElementById("reset-modal").addEventListener("click", e => {
+  if (e.target === document.getElementById("reset-modal"))
+    document.getElementById("reset-modal").style.display = "none";
+});
+</script>
+</body>
+</html>
