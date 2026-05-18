@@ -78,6 +78,28 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     .empty{text-align:center;padding:40px;color:var(--muted);}
 
+    /* simulação de banca */
+    .sim-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:20px;}
+    .sim-card h2{margin:0 0 14px;font-size:15px;color:var(--accent-strong);}
+    .sim-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;}
+    .sim-field{display:flex;flex-direction:column;gap:4px;}
+    .sim-field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}
+    .sim-field input{width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);background:var(--bg);}
+    .sim-field input:focus{outline:none;border-color:var(--accent);}
+    .sim-btn{padding:7px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+    .sim-btn:hover{background:var(--accent-strong);}
+    .sim-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+    .sim-stat{background:var(--surface-soft);border:1px solid var(--border);border-radius:8px;padding:8px 14px;display:flex;flex-direction:column;gap:1px;}
+    .sim-stat .sv{font-size:18px;font-weight:800;line-height:1.1;}
+    .sim-stat .sl{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}
+    .sim-stat.pos .sv{color:var(--won);}
+    .sim-stat.neg .sv{color:var(--lost);}
+    .sim-stat.neu .sv{color:var(--mon);}
+    .chart-wrap{width:100%;height:180px;position:relative;overflow:hidden;}
+    svg.banca-chart{width:100%;height:100%;}
+    .chart-label{font-size:10px;fill:var(--muted);}
+    .no-data{text-align:center;padding:30px;color:var(--muted);font-size:13px;}
+
     /* detail panel */
     .detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;justify-content:flex-end;}
     .detail-overlay.open{display:flex;}
@@ -144,6 +166,39 @@
     </table>
     <div class="empty" id="empty" style="display:none;">Nenhum sinal encontrado.</div>
   </div>
+</div>
+
+<!-- Simulação de banca -->
+<div class="sim-card">
+  <h2>Simulação de banca</h2>
+  <div class="sim-controls">
+    <div class="sim-field">
+      <label>Banca inicial (R$)</label>
+      <input type="number" id="sim-banca" value="500" min="1">
+    </div>
+    <div class="sim-field">
+      <label>Fichas — tent. 1</label>
+      <input type="number" id="sim-f1" value="5" min="1">
+    </div>
+    <div class="sim-field">
+      <label>Fichas — tent. 2</label>
+      <input type="number" id="sim-f2" value="5" min="1">
+    </div>
+    <div class="sim-field">
+      <label>Fichas — tent. 3</label>
+      <input type="number" id="sim-f3" value="5" min="1">
+    </div>
+    <div class="sim-field">
+      <label>Fichas — tent. 4</label>
+      <input type="number" id="sim-f4" value="5" min="1">
+    </div>
+    <button class="sim-btn" onclick="runSim()">Simular</button>
+  </div>
+  <div id="sim-stats" class="sim-stats" style="display:none;"></div>
+  <div id="sim-chart-wrap" class="chart-wrap" style="display:none;">
+    <svg class="banca-chart" id="sim-svg" viewBox="0 0 800 180" preserveAspectRatio="none"></svg>
+  </div>
+  <div id="sim-empty" class="no-data">Clique em Simular para ver a evolução da banca com os sinais finalizados.</div>
 </div>
 
 <!-- Detail side panel -->
@@ -324,6 +379,155 @@ function closeDetail(e) {
 }
 function closeDetailBtn() {
   document.getElementById('detail-overlay').classList.remove('open');
+}
+
+// ── Simulação de banca ────────────────────────────────────────────────────────
+let _allSignals = [];
+
+async function runSim() {
+  // Garante que temos todos os sinais finalizados
+  const r = await fetch(`${BASE}/api/trio-ranking-signals?status=all&limit=200`);
+  const data = await r.json();
+  _allSignals = (data.signals || []).filter(s => s.status === 'won' || s.status === 'lost');
+  _allSignals.reverse(); // cronológico: mais antigo primeiro
+
+  if (_allSignals.length === 0) {
+    document.getElementById('sim-empty').textContent = 'Nenhum sinal finalizado para simular.';
+    document.getElementById('sim-stats').style.display = 'none';
+    document.getElementById('sim-chart-wrap').style.display = 'none';
+    return;
+  }
+
+  const bancaInicial = parseFloat(document.getElementById('sim-banca').value) || 500;
+  const fichas = [
+    parseFloat(document.getElementById('sim-f1').value) || 5,
+    parseFloat(document.getElementById('sim-f2').value) || 5,
+    parseFloat(document.getElementById('sim-f3').value) || 5,
+    parseFloat(document.getElementById('sim-f4').value) || 5,
+  ];
+
+  let banca = bancaInicial;
+  let maxBanca = banca, minBanca = banca;
+  let seqLoss = 0, maxSeqLoss = 0;
+  let seqWon  = 0, maxSeqWon  = 0;
+  const pontos = [{ x: 0, y: banca, label: 'início' }];
+
+  _allSignals.forEach((s, idx) => {
+    const wa = s.won_at_attempt;
+    let delta;
+    if (wa != null) {
+      // Custo = fichas das tentativas 1..wa, ganho = 36
+      const custo = fichas.slice(0, wa).reduce((a, b) => a + b, 0);
+      delta = 36 - custo;
+      seqLoss = 0; seqWon++;
+      if (seqWon > maxSeqWon) maxSeqWon = seqWon;
+    } else {
+      // Perdeu: custo total de todas as tentativas
+      delta = -fichas.reduce((a, b) => a + b, 0);
+      seqWon = 0; seqLoss++;
+      if (seqLoss > maxSeqLoss) maxSeqLoss = seqLoss;
+    }
+    banca += delta;
+    if (banca > maxBanca) maxBanca = banca;
+    if (banca < minBanca) minBanca = banca;
+    pontos.push({ x: idx + 1, y: banca, won: wa != null, delta });
+  });
+
+  const lucro = banca - bancaInicial;
+  const pct   = (lucro / bancaInicial * 100).toFixed(1);
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const statsEl = document.getElementById('sim-stats');
+  statsEl.style.display = 'flex';
+  statsEl.innerHTML = `
+    <div class="sim-stat ${lucro >= 0 ? 'pos' : 'neg'}">
+      <span class="sv">R$ ${banca.toFixed(2)}</span><span class="sl">Banca final</span>
+    </div>
+    <div class="sim-stat ${lucro >= 0 ? 'pos' : 'neg'}">
+      <span class="sv">${lucro >= 0 ? '+' : ''}R$ ${lucro.toFixed(2)} (${lucro >= 0 ? '+' : ''}${pct}%)</span><span class="sl">Lucro/Prejuízo</span>
+    </div>
+    <div class="sim-stat neu">
+      <span class="sv">R$ ${maxBanca.toFixed(2)}</span><span class="sl">Máximo</span>
+    </div>
+    <div class="sim-stat neg">
+      <span class="sv">R$ ${minBanca.toFixed(2)}</span><span class="sl">Mínimo</span>
+    </div>
+    <div class="sim-stat neg">
+      <span class="sv">${maxSeqLoss}</span><span class="sl">Seq. perda máx</span>
+    </div>
+    <div class="sim-stat pos">
+      <span class="sv">${maxSeqWon}</span><span class="sl">Seq. vitória máx</span>
+    </div>
+    <div class="sim-stat neu">
+      <span class="sv">${_allSignals.length}</span><span class="sl">Sinais simulados</span>
+    </div>
+  `;
+
+  // ── Gráfico SVG ───────────────────────────────────────────────────────────
+  const W = 800, H = 180, padL = 60, padR = 12, padT = 14, padB = 24;
+  const chartW = W - padL - padR, chartH = H - padT - padB;
+  const allY   = pontos.map(p => p.y);
+  const yMin   = Math.min(...allY), yMax = Math.max(...allY);
+  const yRange = yMax - yMin || 1;
+  const n      = pontos.length;
+
+  const toX = i => padL + (i / (n - 1)) * chartW;
+  const toY = v => padT + (1 - (v - yMin) / yRange) * chartH;
+
+  // Linha de referência (banca inicial)
+  const refY = toY(bancaInicial);
+
+  // Polyline pontos
+  const pts = pontos.map((p, i) => `${toX(i)},${toY(p.y)}`).join(' ');
+
+  // Área preenchida
+  const areaPath = `M${toX(0)},${toY(pontos[0].y)} ` +
+    pontos.map((p, i) => `L${toX(i)},${toY(p.y)}`).join(' ') +
+    ` L${toX(n - 1)},${H - padB} L${toX(0)},${H - padB} Z`;
+
+  // Labels eixo Y (3 níveis)
+  const yLabels = [yMin, bancaInicial, yMax].map(v => ({
+    y: toY(v),
+    label: `R$${Math.round(v)}`,
+  }));
+
+  // Dots won/lost nos pontos
+  const dots = pontos.slice(1).map((p, i) =>
+    `<circle cx="${toX(i + 1)}" cy="${toY(p.y)}" r="3"
+      fill="${p.won ? 'var(--won)' : 'var(--lost)'}"
+      opacity="0.7">
+      <title>${p.won ? '✓' : '✗'} R$${p.y.toFixed(2)} (${p.delta >= 0 ? '+' : ''}${p.delta.toFixed(1)})</title>
+    </circle>`
+  ).join('');
+
+  document.getElementById('sim-svg').innerHTML = `
+    <defs>
+      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${lucro >= 0 ? 'rgba(23,122,91,.18)' : 'rgba(155,47,47,.14)'}"/>
+        <stop offset="100%" stop-color="transparent"/>
+      </linearGradient>
+    </defs>
+    <!-- grade horizontal -->
+    ${yLabels.map(l => `
+      <line x1="${padL}" y1="${l.y}" x2="${W - padR}" y2="${l.y}"
+        stroke="var(--border)" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="${padL - 4}" y="${l.y + 4}" text-anchor="end" class="chart-label">${l.label}</text>
+    `).join('')}
+    <!-- linha de referência banca inicial -->
+    <line x1="${padL}" y1="${refY}" x2="${W - padR}" y2="${refY}"
+      stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 4" opacity="0.5"/>
+    <!-- área preenchida -->
+    <path d="${areaPath}" fill="url(#areaGrad)"/>
+    <!-- linha principal -->
+    <polyline points="${pts}"
+      fill="none" stroke="${lucro >= 0 ? 'var(--accent)' : 'var(--lost)'}"
+      stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- dots -->
+    ${dots}
+  `;
+
+  document.getElementById('sim-empty').style.display = 'none';
+  document.getElementById('sim-chart-wrap').style.display = '';
 }
 
 // Auto-refresh a cada 5s se há sinal monitorando
