@@ -236,3 +236,9 @@ async def sinais_v2_page():
 async def triplet_ranking_page():
     with open(os.path.join(templates_dir, "triplet_ranking.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/trio-ranking-sinais", response_class=HTMLResponse)
+async def trio_ranking_signals_page():
+    with open(os.path.join(templates_dir, "trio_ranking_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()
