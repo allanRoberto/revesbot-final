@@ -812,6 +812,69 @@
             .trend-live { grid-template-columns: 1fr; }
             .trend-server-grid { grid-template-columns: 1fr; }
         }
+
+        /* Saúde estatística vs aleatório */
+        .health-panel { padding: 16px 18px; margin-bottom: 18px; }
+        .health-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+        .health-head h2 { margin: 0; font-size: 16px; }
+        .health-head .verdict {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 12px; font-weight: 700; padding: 4px 10px;
+            border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .verdict.good { background: rgba(22, 163, 74, 0.14); color: var(--good); }
+        .verdict.warn { background: rgba(234, 88, 12, 0.14); color: var(--warn); }
+        .verdict.bad  { background: rgba(220, 38, 38, 0.14); color: var(--bad); }
+        .health-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        .health-card {
+            padding: 12px 14px; border: 1px solid var(--border);
+            border-radius: 12px; background: #fff;
+        }
+        .health-card .label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px; }
+        .health-card .row { display: flex; align-items: baseline; gap: 6px; }
+        .health-card .value { font-size: 20px; font-weight: 800; }
+        .health-card .vs { font-size: 11px; color: var(--muted); }
+        .health-card .badge {
+            display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700;
+            padding: 2px 8px; border-radius: 999px;
+        }
+        .health-card.good { border-color: rgba(22, 163, 74, 0.45); background: rgba(240, 253, 244, 0.6); }
+        .health-card.warn { border-color: rgba(234, 88, 12, 0.4); background: rgba(255, 247, 237, 0.6); }
+        .health-card.bad  { border-color: rgba(220, 38, 38, 0.4); background: rgba(254, 242, 242, 0.6); }
+        .health-card .badge.good { background: rgba(22, 163, 74, 0.14); color: var(--good); }
+        .health-card .badge.warn { background: rgba(234, 88, 12, 0.14); color: var(--warn); }
+        .health-card .badge.bad  { background: rgba(220, 38, 38, 0.14); color: var(--bad); }
+
+        /* Range prediction destacado */
+        .range-spotlight { padding: 16px 18px; margin-bottom: 18px;
+            background: linear-gradient(135deg, rgba(22,163,74,0.06) 0%, rgba(37,99,235,0.06) 100%); }
+        .range-spotlight-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+        .range-spotlight h2 { margin: 0; font-size: 18px; }
+        .range-spotlight .sub { color: var(--muted); font-size: 13px; }
+        .range-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        .range-card { padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+        .range-card .label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px; }
+        .range-card .value { font-size: 22px; font-weight: 800; }
+        .range-card .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+        .range-card.hero { background: linear-gradient(160deg, #16a34a 0%, #047857 100%); color: #fff; border: none; }
+        .range-card.hero .label, .range-card.hero .hint { color: rgba(255,255,255,0.85); }
+
+        /* Mini chart binário e heatmap */
+        .binary-wrap { position: relative; height: 160px; margin-top: 14px; }
+        .heatmap-wrap { padding: 14px 4px 6px; }
+        .heatmap-row { display: grid; grid-template-columns: 80px 1fr; gap: 6px; align-items: center; margin-bottom: 4px; }
+        .heatmap-row .heatmap-label { font-size: 11px; font-weight: 700; color: var(--muted); text-align: right; }
+        .heatmap-cells { display: flex; gap: 1px; }
+        .heatmap-cell { flex: 1 1 0; height: 18px; background: #f1f5f9; border-radius: 2px; }
+        .heatmap-axis { display: grid; grid-template-columns: 80px 1fr; gap: 6px; margin-top: 6px; font-size: 10px; color: var(--muted); }
+        .heatmap-axis .ticks { display: flex; justify-content: space-between; }
+
+        @media (max-width: 1100px) {
+            .health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .range-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
     </style>
 </head>
 <body>
@@ -848,6 +911,67 @@
         </div>
 
         <div id="status" class="status">Carregando...</div>
+
+        <div class="panel range-spotlight">
+            <div class="range-spotlight-head">
+                <div>
+                    <h2>🎯 Range Prediction (movement_range_v2)</h2>
+                    <div class="sub">Único módulo que demonstra <strong>alpha real</strong> sobre o próximo número: prevê em qual faixa (range de 18 ranks) o próximo número irá cair.</div>
+                </div>
+                <div id="rangeSpotlightVerdict" class="verdict warn">—</div>
+            </div>
+            <div class="range-grid">
+                <div class="range-card hero">
+                    <div class="label">Hit rate</div>
+                    <div id="rangeHitRate" class="value">-</div>
+                    <div class="hint">Acertou em 3 tentativas dentro do range</div>
+                </div>
+                <div class="range-card">
+                    <div class="label">Vs Aleatório</div>
+                    <div id="rangeVsRandom" class="value">-</div>
+                    <div class="hint">Baseline aleatório = 18/37 ≈ 48,6%</div>
+                </div>
+                <div class="range-card">
+                    <div class="label">Cobertura</div>
+                    <div id="rangeCoverage" class="value">-</div>
+                    <div class="hint">% dos snapshots em que o modelo emite previsão</div>
+                </div>
+                <div class="range-card">
+                    <div class="label">Previsões resolvidas</div>
+                    <div id="rangeResolved" class="value">-</div>
+                    <div class="hint">Hits / total avaliado (pendentes excluídos)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel health-panel">
+            <div class="health-head">
+                <h2>📊 Saúde estatística do ranking <span style="font-weight:400;color:var(--muted);font-size:13px;">— quanto a sugestão se distingue do acaso</span></h2>
+                <div id="healthVerdict" class="verdict warn">—</div>
+            </div>
+            <div class="health-grid">
+                <div id="healthTop10" class="health-card">
+                    <div class="label">Top-10 hit rate</div>
+                    <div class="row"><span class="value">-</span><span class="vs">vs 27,0% aleatório</span></div>
+                    <span class="badge">—</span>
+                </div>
+                <div id="healthTop1" class="health-card">
+                    <div class="label">Top-1 hit rate</div>
+                    <div class="row"><span class="value">-</span><span class="vs">vs 2,7% aleatório</span></div>
+                    <span class="badge">—</span>
+                </div>
+                <div id="healthAcf" class="health-card">
+                    <div class="label">Autocorrelação lag-1</div>
+                    <div class="row"><span class="value">-</span><span class="vs">|acf|≥0,15 indica padrão</span></div>
+                    <span class="badge">—</span>
+                </div>
+                <div id="healthRuns" class="health-card">
+                    <div class="label">Runs test (z-score)</div>
+                    <div class="row"><span class="value">-</span><span class="vs">|z|≥1,96 indica zigzag/cluster</span></div>
+                    <span class="badge">—</span>
+                </div>
+            </div>
+        </div>
 
         <div class="summary-grid">
             <div class="summary-card">
@@ -956,6 +1080,20 @@
             <div class="chart-wrap">
                 <canvas id="rankTimelineChart"></canvas>
             </div>
+
+            <div class="chart-head" style="margin-top:18px;">
+                <h2 style="font-size:15px;">Taxa rolante de acerto no Top-12 (janela 30)</h2>
+                <div class="meta" id="binaryChartMeta">Baseline aleatório = 12/37 ≈ 32,4%</div>
+            </div>
+            <div class="binary-wrap">
+                <canvas id="binaryHitRateChart"></canvas>
+            </div>
+
+            <div class="chart-head" style="margin-top:18px;">
+                <h2 style="font-size:15px;">Heatmap: densidade por faixa de rank</h2>
+                <div class="meta" id="heatmapMeta">Tempo →</div>
+            </div>
+            <div class="heatmap-wrap" id="heatmapContainer"></div>
         </div>
 
         <div class="panel chart-panel">
@@ -1146,7 +1284,9 @@
 
         overlayMedian2Input.checked = localStorage.getItem(LS_OV_MEDIAN2) === "1";
         overlayEvenOddInput.checked = localStorage.getItem(LS_OV_EVENODD) === "1";
-        overlayEmaInput.checked = localStorage.getItem(LS_OV_EMA) === "1";
+        // EMA ligada por default: a série crua é estatisticamente indistinguível
+        // de ruído branco, então a EMA dá a única leitura visual interpretável.
+        overlayEmaInput.checked = localStorage.getItem(LS_OV_EMA) !== "0";
         overlayMirrorInput.checked = localStorage.getItem(LS_OV_MIRROR) === "1";
 
         function getActiveOverlays() {
@@ -1181,7 +1321,13 @@
             refreshChartOverlays();
         });
         overlayEmaInput.addEventListener("change", () => {
-            persistOverlay(LS_OV_EMA, overlayEmaInput.checked);
+            // EMA tem default ligado, então persistimos "0" quando desliga
+            // (em vez de remover a chave, que reativaria no próximo refresh).
+            if (overlayEmaInput.checked) {
+                localStorage.setItem(LS_OV_EMA, "1");
+            } else {
+                localStorage.setItem(LS_OV_EMA, "0");
+            }
             refreshChartOverlays();
         });
         overlayMirrorInput.addEventListener("change", () => {
@@ -1880,7 +2026,249 @@
             return "X";
         }
 
+        // ===== Painel de saúde estatística vs aleatório =====
+        // Baselines teóricos para o ranking de 37 números:
+        //   - Top-10: 10/37 = 27,0%
+        //   - Top-1: 1/37 = 2,7%
+        //   - acf~0 e |runs z|<1,96 indicam série indistinguível de ruído.
+        const HEALTH_BASELINE_TOP10 = 27.027;
+        const HEALTH_BASELINE_TOP1 = 2.702;
+        const HEALTH_ACF_SIG = 0.15;
+        const HEALTH_RUNS_Z_SIG = 1.96;
+        const RANGE_BASELINE_PCT = 48.65; // 18/37
+
+        function classifyAbove(value, baseline, marginGood, marginWarn) {
+            if (value == null || !Number.isFinite(value)) return { cls: "warn", label: "sem dados" };
+            const delta = value - baseline;
+            if (delta >= marginGood) return { cls: "good", label: `+${delta.toFixed(1)}pp acima` };
+            if (delta >= marginWarn) return { cls: "warn", label: `+${delta.toFixed(1)}pp` };
+            if (Math.abs(delta) < marginWarn) return { cls: "warn", label: "≈ aleatório" };
+            return { cls: "bad", label: `${delta.toFixed(1)}pp abaixo` };
+        }
+
+        function classifyMagnitude(value, sigThreshold) {
+            if (value == null || !Number.isFinite(value)) return { cls: "warn", label: "sem dados" };
+            const abs = Math.abs(value);
+            if (abs >= sigThreshold) return { cls: "good", label: "padrão detectado" };
+            if (abs >= sigThreshold * 0.5) return { cls: "warn", label: "fraco" };
+            return { cls: "bad", label: "≈ ruído" };
+        }
+
+        function updateHealthCard(cardEl, valueText, badgeInfo) {
+            if (!cardEl) return;
+            cardEl.classList.remove("good", "warn", "bad");
+            cardEl.classList.add(badgeInfo.cls);
+            const valueSpan = cardEl.querySelector(".value");
+            if (valueSpan) valueSpan.textContent = valueText;
+            const badge = cardEl.querySelector(".badge");
+            if (badge) {
+                badge.classList.remove("good", "warn", "bad");
+                badge.classList.add(badgeInfo.cls);
+                badge.textContent = badgeInfo.label;
+            }
+        }
+
+        function renderHealthPanel(summary) {
+            const resolved = Number(summary.resolved_items || 0);
+            const top10Pct = resolved > 0 ? (Number(summary.top_10_hits || 0) / resolved) * 100 : null;
+            const top1Pct = resolved > 0 ? (Number(summary.top_1_hits || 0) / resolved) * 100 : null;
+            const acf1 = summary?.zigzag_diagnostics?.autocorrelation?.lag_1;
+            const runsZ = summary?.zigzag_diagnostics?.runs_test?.z_score;
+
+            const top10Info = classifyAbove(top10Pct, HEALTH_BASELINE_TOP10, 5, 1);
+            const top1Info = classifyAbove(top1Pct, HEALTH_BASELINE_TOP1, 2, 0.5);
+            const acfInfo = classifyMagnitude(acf1, HEALTH_ACF_SIG);
+            const runsInfo = classifyMagnitude(runsZ, HEALTH_RUNS_Z_SIG);
+
+            updateHealthCard(document.getElementById("healthTop10"),
+                top10Pct == null ? "-" : `${top10Pct.toFixed(1)}%`, top10Info);
+            updateHealthCard(document.getElementById("healthTop1"),
+                top1Pct == null ? "-" : `${top1Pct.toFixed(1)}%`, top1Info);
+            updateHealthCard(document.getElementById("healthAcf"),
+                acf1 == null ? "-" : acf1.toFixed(3), acfInfo);
+            updateHealthCard(document.getElementById("healthRuns"),
+                runsZ == null ? "-" : runsZ.toFixed(2), runsInfo);
+
+            // Veredito geral: bom se ≥2 sinais, alarme se tudo no ruído.
+            const goodCount = [top10Info, top1Info, acfInfo, runsInfo].filter((i) => i.cls === "good").length;
+            const verdictEl = document.getElementById("healthVerdict");
+            if (verdictEl) {
+                verdictEl.classList.remove("good", "warn", "bad");
+                if (goodCount >= 2) {
+                    verdictEl.classList.add("good");
+                    verdictEl.textContent = "Sinal detectado";
+                } else if (goodCount === 1) {
+                    verdictEl.classList.add("warn");
+                    verdictEl.textContent = "Sinal fraco";
+                } else {
+                    verdictEl.classList.add("bad");
+                    verdictEl.textContent = "Indistinguível de aleatório";
+                }
+            }
+        }
+
+        function renderRangeSpotlight(summary) {
+            const rp = summary?.range_prediction || {};
+            const resolved = Number(rp.resolved_predictions || 0);
+            const hits = Number(rp.hits_in_range || 0);
+            const hitRate = resolved > 0 ? (hits / resolved) * 100 : null;
+            const predicted = Number(rp.predicted_items || 0);
+            const totalItems = Number(summary.resolved_items || 0);
+            const coverage = totalItems > 0 ? (predicted / totalItems) * 100 : null;
+
+            document.getElementById("rangeHitRate").textContent =
+                hitRate == null ? "-" : `${hitRate.toFixed(1)}%`;
+            document.getElementById("rangeVsRandom").textContent =
+                hitRate == null ? "-" : `+${(hitRate - RANGE_BASELINE_PCT).toFixed(1)}pp`;
+            document.getElementById("rangeCoverage").textContent =
+                coverage == null ? "-" : `${coverage.toFixed(1)}%`;
+            document.getElementById("rangeResolved").textContent =
+                `${hits}/${resolved}`;
+
+            const verdictEl = document.getElementById("rangeSpotlightVerdict");
+            if (verdictEl) {
+                verdictEl.classList.remove("good", "warn", "bad");
+                if (hitRate == null) {
+                    verdictEl.classList.add("warn");
+                    verdictEl.textContent = "Sem dados";
+                } else if (hitRate - RANGE_BASELINE_PCT >= 20) {
+                    verdictEl.classList.add("good");
+                    verdictEl.textContent = "Alpha forte vs aleatório";
+                } else if (hitRate - RANGE_BASELINE_PCT >= 5) {
+                    verdictEl.classList.add("good");
+                    verdictEl.textContent = "Alpha real";
+                } else if (hitRate - RANGE_BASELINE_PCT >= 0) {
+                    verdictEl.classList.add("warn");
+                    verdictEl.textContent = "Marginal";
+                } else {
+                    verdictEl.classList.add("bad");
+                    verdictEl.textContent = "Abaixo do aleatório";
+                }
+            }
+        }
+
+        // ===== Mini-chart: taxa rolante de top-12 hits =====
+        let binaryHitRateChart = null;
+        const BINARY_TOP_K = 12;
+        const BINARY_WINDOW = 30;
+        const BINARY_BASELINE = (BINARY_TOP_K / 37) * 100;
+
+        function renderBinaryChart(items) {
+            const canvas = document.getElementById("binaryHitRateChart");
+            if (!canvas) return;
+            const ctx = canvas.getContext("2d");
+            if (binaryHitRateChart) binaryHitRateChart.destroy();
+
+            const hits = items.map((it) =>
+                (typeof it.hit_rank === "number" && it.hit_rank >= 1 && it.hit_rank <= BINARY_TOP_K) ? 1 : 0
+            );
+            const rolling = hits.map((_, i) => {
+                const start = Math.max(0, i - BINARY_WINDOW + 1);
+                const slice = hits.slice(start, i + 1);
+                if (slice.length < Math.min(8, BINARY_WINDOW)) return null;
+                return (slice.reduce((a, b) => a + b, 0) / slice.length) * 100;
+            });
+            const labels = items.map((_, i) => `${i + 1}`);
+
+            const baselineData = rolling.map(() => BINARY_BASELINE);
+
+            binaryHitRateChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: `Top-${BINARY_TOP_K} hit rate (janela ${BINARY_WINDOW})`,
+                            data: rolling,
+                            borderColor: "#16a34a",
+                            backgroundColor: "rgba(22, 163, 74, 0.10)",
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            fill: true,
+                            spanGaps: true,
+                        },
+                        {
+                            label: `Baseline aleatório (${BINARY_BASELINE.toFixed(1)}%)`,
+                            data: baselineData,
+                            borderColor: "rgba(100, 116, 139, 0.7)",
+                            borderWidth: 1.4,
+                            borderDash: [5, 4],
+                            tension: 0,
+                            pointRadius: 0,
+                            fill: false,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: "bottom", labels: { font: { size: 11 }, boxWidth: 14, boxHeight: 3 } },
+                        tooltip: { callbacks: { label(ctx) { return `${ctx.dataset.label}: ${ctx.parsed.y == null ? "-" : ctx.parsed.y.toFixed(1) + "%"}`; } } },
+                    },
+                    scales: {
+                        x: { ticks: { autoSkip: true, maxTicksLimit: 16, font: { size: 10 } }, grid: { color: "rgba(148, 163, 184, 0.10)" } },
+                        y: { min: 0, max: 100, ticks: { stepSize: 20, font: { size: 10 }, callback: (v) => `${v}%` }, grid: { color: "rgba(148, 163, 184, 0.12)" } },
+                    },
+                },
+            });
+
+            const last = [...rolling].reverse().find((v) => v != null);
+            const metaEl = document.getElementById("binaryChartMeta");
+            if (metaEl && last != null) {
+                const delta = last - BINARY_BASELINE;
+                const sign = delta >= 0 ? "+" : "";
+                metaEl.textContent = `Atual ${last.toFixed(1)}% (${sign}${delta.toFixed(1)}pp vs ${BINARY_BASELINE.toFixed(1)}% aleatório)`;
+            }
+        }
+
+        // ===== Heatmap: densidade rank-vs-tempo =====
+        function renderHeatmap(items) {
+            const container = document.getElementById("heatmapContainer");
+            if (!container) return;
+            const buckets = [
+                { label: "1–7",   min: 1,  max: 7,  hue: 142 },
+                { label: "8–14",  min: 8,  max: 14, hue: 200 },
+                { label: "15–22", min: 15, max: 22, hue: 220 },
+                { label: "23–29", min: 23, max: 29, hue: 30  },
+                { label: "30–37", min: 30, max: 37, hue: 0   },
+                { label: "Fora",  min: null, max: null, hue: 280 },
+            ];
+            const columns = Math.min(items.length, 80);
+            const step = items.length > columns ? Math.ceil(items.length / columns) : 1;
+            const cols = [];
+            for (let i = 0; i < items.length; i += step) {
+                const slice = items.slice(i, i + step);
+                const counts = new Array(buckets.length).fill(0);
+                let total = 0;
+                for (const it of slice) {
+                    const r = it.hit_rank;
+                    if (r == null) { counts[buckets.length - 1]++; total++; continue; }
+                    for (let b = 0; b < buckets.length - 1; b++) {
+                        if (r >= buckets[b].min && r <= buckets[b].max) { counts[b]++; total++; break; }
+                    }
+                }
+                cols.push({ counts, total });
+            }
+
+            const html = buckets.map((bucket, b) => {
+                const cellHtml = cols.map((col) => {
+                    const value = col.total > 0 ? col.counts[b] / col.total : 0;
+                    const lightness = 96 - value * 56; // 96% (claro) → 40% (saturado)
+                    const bg = value === 0 ? "#f1f5f9" : `hsl(${bucket.hue}, 70%, ${lightness}%)`;
+                    return `<div class="heatmap-cell" style="background:${bg};" title="${bucket.label}: ${(value*100).toFixed(0)}% (${col.counts[b]}/${col.total})"></div>`;
+                }).join("");
+                return `<div class="heatmap-row"><div class="heatmap-label">${bucket.label}</div><div class="heatmap-cells">${cellHtml}</div></div>`;
+            }).join("");
+
+            const axisHtml = `<div class="heatmap-axis"><div></div><div class="ticks"><span>antigo</span><span>${items.length} snapshots</span><span>recente</span></div></div>`;
+            container.innerHTML = html + axisHtml;
+        }
+
         function renderSummary(summary) {
+            renderHealthPanel(summary);
+            renderRangeSpotlight(summary);
             document.getElementById("resolvedValue").textContent = String(summary.resolved_items || 0);
             document.getElementById("top1Value").textContent = String(summary.top_1_hits || 0);
             document.getElementById("top5Value").textContent = String(summary.top_5_hits || 0);
@@ -2071,11 +2459,18 @@
             eventsTableBody.innerHTML = rows.join("") || `<tr><td colspan="9">Nenhum evento encontrado.</td></tr>`;
         }
 
-        function buildChartConfig(items, { title, valueKey, tooltipLabelBuilder, overlays = [] }) {
+        function buildChartConfig(items, { title, valueKey, tooltipLabelBuilder, overlays = [], gapOnMiss = false, showBaselines = false }) {
             const labels = items.map((item, idx) => `${idx + 1}`);
-            const data = items.map((item) => item[valueKey] == null ? null : item[valueKey]);
+            const hitRankKey = valueKey === "strategy_plot_rank" ? "strategy_hit_rank" : "hit_rank";
+            // Em gapOnMiss=true os misses viram null (gap no chart), em vez do
+            // valor 38 que infla visualmente os extremos. A métrica zigzag continua
+            // usando 38 no backend para o runs-test.
+            const data = items.map((item) => {
+                if (gapOnMiss && item[hitRankKey] == null) return null;
+                return item[valueKey] == null ? null : item[valueKey];
+            });
             const pointColors = items.map((item) => {
-                const rank = item[valueKey === "strategy_plot_rank" ? "strategy_hit_rank" : "hit_rank"];
+                const rank = item[hitRankKey];
                 if (rank == null) return "#dc2626";
                 if (rank <= 5) return "#16a34a";
                 if (rank <= 10) return "#2563eb";
@@ -2147,12 +2542,56 @@
                 });
             }
 
+            const baselinePlugin = showBaselines ? {
+                id: "randomBaseline",
+                beforeDatasetsDraw(chart) {
+                    const { ctx, chartArea, scales } = chart;
+                    if (!chartArea || !scales?.y) return;
+                    const yScale = scales.y;
+                    const xLeft = chartArea.left;
+                    const xRight = chartArea.right;
+
+                    // Shading top-10 (verde claro)
+                    const yTop1 = yScale.getPixelForValue(1);
+                    const yTop10 = yScale.getPixelForValue(10);
+                    ctx.save();
+                    ctx.fillStyle = "rgba(22, 163, 74, 0.06)";
+                    ctx.fillRect(xLeft, Math.min(yTop1, yTop10), xRight - xLeft, Math.abs(yTop10 - yTop1));
+
+                    // Banda ±1σ ≈ 8,3 - 29,7 (cinza)
+                    const ySigmaTop = yScale.getPixelForValue(8.32);
+                    const ySigmaBot = yScale.getPixelForValue(29.68);
+                    ctx.fillStyle = "rgba(148, 163, 184, 0.10)";
+                    ctx.fillRect(xLeft, Math.min(ySigmaTop, ySigmaBot), xRight - xLeft, Math.abs(ySigmaBot - ySigmaTop));
+
+                    // Linha da média esperada (19)
+                    const yMean = yScale.getPixelForValue(19);
+                    ctx.strokeStyle = "rgba(100, 116, 139, 0.55)";
+                    ctx.setLineDash([5, 4]);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(xLeft, yMean);
+                    ctx.lineTo(xRight, yMean);
+                    ctx.stroke();
+
+                    // Label "média aleatória 19"
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = "rgba(71, 85, 105, 0.85)";
+                    ctx.font = "10px Inter, sans-serif";
+                    ctx.fillText("Média aleatória = 19", xLeft + 6, yMean - 4);
+                    ctx.fillStyle = "rgba(22, 163, 74, 0.85)";
+                    ctx.fillText("Top-10 (zona de acerto)", xLeft + 6, yTop10 + 12);
+                    ctx.restore();
+                }
+            } : null;
+
             return {
                 type: "line",
                 data: {
                     labels,
                     datasets,
                 },
+                plugins: baselinePlugin ? [baselinePlugin] : [],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -2217,6 +2656,8 @@
 
         function renderChart(items) {
             currentTimelineItems = Array.isArray(items) ? items.slice() : [];
+            renderBinaryChart(items);
+            renderHeatmap(items);
             const ctx = document.getElementById("rankTimelineChart").getContext("2d");
             if (timelineChart) {
                 timelineChart.destroy();
@@ -2225,6 +2666,8 @@
                 title: "Posição do acerto no ranking",
                 valueKey: "plot_rank",
                 overlays: getActiveOverlays(),
+                gapOnMiss: true,
+                showBaselines: true,
                 tooltipLabelBuilder(item) {
                     if (item.hit_rank == null) {
                         return `Fora do ranking | Próximo número: ${item.next_number ?? "-"}`;

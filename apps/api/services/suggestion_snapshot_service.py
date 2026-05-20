@@ -960,9 +960,18 @@ STRATEGY_DEPTH_OPTIONS = (
     STRATEGY_MEDIUM_EDGE_SIZE,
     STRATEGY_LARGE_EDGE_SIZE,
 )
-STRATEGY_SCORE_THRESHOLD_SMALL = 4.0
-STRATEGY_SCORE_THRESHOLD_MEDIUM = 6.0
-STRATEGY_SCORE_THRESHOLD_LARGE = 9.0
+STRATEGY_SCORE_THRESHOLD_SMALL = _env_float(
+    "SUGGESTION_SNAPSHOT_STRATEGY_THRESHOLD_SMALL", 6.0, 1.0, 20.0,
+)
+STRATEGY_SCORE_THRESHOLD_MEDIUM = _env_float(
+    "SUGGESTION_SNAPSHOT_STRATEGY_THRESHOLD_MEDIUM", 8.0, 1.0, 25.0,
+)
+STRATEGY_SCORE_THRESHOLD_LARGE = _env_float(
+    "SUGGESTION_SNAPSHOT_STRATEGY_THRESHOLD_LARGE", 11.0, 1.0, 30.0,
+)
+STRATEGY_REQUIRE_ROLLING_ZIGZAG = bool(
+    int(os.environ.get("SUGGESTION_SNAPSHOT_REQUIRE_ROLLING_ZIGZAG", "1") or 0)
+)
 STRATEGY_SCORE_DECAY_PER_STEP = 0.35
 STRATEGY_SCORE_MAX = 18.0
 STRATEGY_TREND_WINDOW = 5
@@ -1335,6 +1344,14 @@ def _evaluate_inversion_gate(
 
     if not (graph_at_upper_band or graph_is_worsening or zigzag_invert):
         result["reason"] = "graph_no_reversal_setup"
+        return result
+
+    # Quando STRATEGY_REQUIRE_ROLLING_ZIGZAG=1 (default), só liberamos a inversão
+    # se o teste de zigzag rolante (runs test + acf_lag_1) detectou padrão
+    # estatisticamente significativo. Sem isso o gate disparava em ruído e a
+    # inversão piorava o hit-rate em vez de melhorar.
+    if STRATEGY_REQUIRE_ROLLING_ZIGZAG and not zigzag_invert:
+        result["reason"] = "rolling_zigzag_inactive"
         return result
 
     if avg_rank_gain < STRATEGY_GRAPH_GATE_MIN_AVG_RANK_GAIN:
