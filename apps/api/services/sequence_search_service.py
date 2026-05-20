@@ -19,30 +19,37 @@ def _digit_sum(n: int) -> int:
     return sum(int(d) for d in str(abs(int(n))))
 
 
-def candidates_for(value: int, mode: str) -> List[int]:
-    """Retorna os candidatos de busca para um campo, sempre incluindo o numero digitado."""
+def candidates_for(value: int, modes: List[str]) -> List[int]:
+    """Retorna os candidatos de busca para um campo, sempre incluindo o numero digitado.
+    `modes` pode conter varias opcoes ('vizinhos','sequencia','espelho','soma'); os
+    candidatos sao a uniao dos conjuntos. 'exato' (ou lista vazia) significa apenas o
+    numero digitado."""
     n = int(value)
     s = {n}
-    if mode == "exato":
+    cleaned = [m for m in (modes or []) if m in VALID_MODES]
+    if not cleaned or cleaned == ["exato"]:
         return [n]
-    if mode == "vizinhos":
-        if n in WHEEL_INDEX:
-            idx = WHEEL_INDEX[n]
-            s.add(WHEEL_ORDER[(idx - 1) % len(WHEEL_ORDER)])
-            s.add(WHEEL_ORDER[(idx + 1) % len(WHEEL_ORDER)])
-    elif mode == "sequencia":
-        if n - 1 >= 0:
-            s.add(n - 1)
-        if n + 1 <= 36:
-            s.add(n + 1)
-    elif mode == "espelho":
-        for m in MIRROR_MAP.get(n, []):
-            s.add(int(m))
-    elif mode == "soma":
-        target = _digit_sum(n)
-        for x in range(37):
-            if _digit_sum(x) == target:
-                s.add(x)
+    for mode in cleaned:
+        if mode == "exato":
+            continue
+        if mode == "vizinhos":
+            if n in WHEEL_INDEX:
+                idx = WHEEL_INDEX[n]
+                s.add(WHEEL_ORDER[(idx - 1) % len(WHEEL_ORDER)])
+                s.add(WHEEL_ORDER[(idx + 1) % len(WHEEL_ORDER)])
+        elif mode == "sequencia":
+            if n - 1 >= 0:
+                s.add(n - 1)
+            if n + 1 <= 36:
+                s.add(n + 1)
+        elif mode == "espelho":
+            for m in MIRROR_MAP.get(n, []):
+                s.add(int(m))
+        elif mode == "soma":
+            target = _digit_sum(n)
+            for x in range(37):
+                if _digit_sum(x) == target:
+                    s.add(x)
     return sorted(s)
 
 
@@ -60,9 +67,12 @@ async def sequence_search(
         v = f.get("value")
         if not isinstance(v, int) or v < 0 or v > 36:
             raise ValueError("todos os valores devem estar entre 0 e 36")
-        m = f.get("mode") or "exato"
-        if m not in VALID_MODES:
-            raise ValueError(f"modo invalido: {m}")
+        modes = f.get("modes") or ["exato"]
+        if not isinstance(modes, list):
+            raise ValueError("modes deve ser uma lista")
+        for m in modes:
+            if m not in VALID_MODES:
+                raise ValueError(f"modo invalido: {m}")
 
     t0 = time.perf_counter()
 
@@ -70,7 +80,7 @@ async def sequence_search(
     target_field = DB_FIELD_SEQ[k]
 
     cands_per_field: List[List[int]] = [
-        candidates_for(int(f["value"]), f.get("mode") or "exato") for f in fields
+        candidates_for(int(f["value"]), f.get("modes") or ["exato"]) for f in fields
     ]
 
     match: Dict[str, Any] = {}

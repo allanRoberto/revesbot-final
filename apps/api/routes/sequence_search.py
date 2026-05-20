@@ -25,12 +25,16 @@ async def search(
     m6: str = Query("exato"),
     roulette_id: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
+    def _parse_modes(raw: str) -> List[str]:
+        items = [p.strip().lower() for p in (raw or "exato").split(",") if p.strip()]
+        return items or ["exato"]
+
     pairs = [(n1, m1), (n2, m2), (n3, m3), (n4, m4), (n5, m5), (n6, m6)]
     fields: List[Dict[str, Any]] = []
-    for value, mode in pairs:
+    for value, mode_str in pairs:
         if value is None:
             break
-        fields.append({"value": int(value), "mode": (mode or "exato").lower()})
+        fields.append({"value": int(value), "modes": _parse_modes(mode_str)})
 
     try:
         return await sequence_search(fields, roulette_id=roulette_id)
