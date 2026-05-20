@@ -61,6 +61,16 @@
     }
     .btn:hover { background: var(--accent-strong); }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .positions-toggle {
+      display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    }
+    .positions-toggle button {
+      border: none; background: var(--surface); padding: 9px 14px; cursor: pointer; font-size: 14px;
+      color: var(--text); transition: background 0.12s;
+    }
+    .positions-toggle button:not(:last-child) { border-right: 1px solid var(--border); }
+    .positions-toggle button:hover { background: var(--surface-soft); }
+    .positions-toggle button.active { background: var(--accent); color: white; font-weight: 600; }
 
     .status { margin-top: 12px; font-size: 13px; color: var(--muted); }
     .status.error { color: var(--danger); }
@@ -129,6 +139,14 @@
           <label for="roulette_id">Roleta</label>
           <select id="roulette_id"></select>
         </div>
+        <div class="wide-field">
+          <label>Posições à frente para o ranking</label>
+          <div class="positions-toggle" id="positions-toggle">
+            <button type="button" data-pos="1">next1</button>
+            <button type="button" data-pos="2">next1 + next2</button>
+            <button type="button" data-pos="3" class="active">next1 + next2 + next3</button>
+          </div>
+        </div>
         <button type="button" class="btn" id="validate-btn">Validar agora</button>
       </div>
       <div class="status" id="status">Selecione uma roleta e clique em Validar.</div>
@@ -181,13 +199,22 @@
       statusEl.classList.toggle("error", !!err);
     }
 
+    let selectedPositions = 3;
+    document.querySelectorAll("#positions-toggle button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#positions-toggle button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedPositions = parseInt(btn.dataset.pos, 10);
+      });
+    });
+
     validateBtn.addEventListener("click", async () => {
       const rid = document.getElementById("roulette_id").value;
       if (!rid) { setStatus("Selecione uma roleta.", true); return; }
       validateBtn.disabled = true;
       setStatus("Validando…");
       try {
-        const res = await fetch(`/api/occurrence-signal/validate?roulette_id=${encodeURIComponent(rid)}`);
+        const res = await fetch(`/api/occurrence-signal/validate?roulette_id=${encodeURIComponent(rid)}&positions=${selectedPositions}`);
         const data = await res.json();
         if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
         renderResults(data);
@@ -318,8 +345,9 @@
           <td class="pct">${r.percentage.toFixed(2)}%</td>
         </tr>`;
       }).join("");
+      const posCols = Array.from({length: d.positions || 3}, (_, i) => `next${i+1}`).join("+");
       rCard.innerHTML = `
-        <h2>Ranking (top 10) — somando next1+next2+next3 das ocorrências do trio</h2>
+        <h2>Ranking (top 10) — somando ${posCols} das ocorrências do trio</h2>
         ${rows ? `<table class="ranking"><thead><tr><th>Pos</th><th>Número</th><th>Vezes</th><th>Distribuição</th><th>%</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty">Sem ranking (0 ocorrências do trio).</div>'}
       `;
       resultsEl.appendChild(rCard);

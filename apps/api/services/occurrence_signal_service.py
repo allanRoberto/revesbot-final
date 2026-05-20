@@ -22,7 +22,7 @@ def _fmt_ts(ts: Any) -> Optional[str]:
     return str(ts)
 
 
-async def validate_occurrence_signal(roulette_id: str) -> Dict[str, Any]:
+async def validate_occurrence_signal(roulette_id: str, positions: int = 3) -> Dict[str, Any]:
     """Valida o padrao:
     1. X = ultimo numero da roleta.
     2. Bloqueia se 0 nas ultimas 7 rodadas (incluindo X).
@@ -36,6 +36,8 @@ async def validate_occurrence_signal(roulette_id: str) -> Dict[str, Any]:
     """
     if not roulette_id:
         raise ValueError("roulette_id obrigatorio")
+    if positions not in (1, 2, 3):
+        raise ValueError("positions deve ser 1, 2 ou 3")
 
     t0 = time.perf_counter()
 
@@ -67,6 +69,7 @@ async def validate_occurrence_signal(roulette_id: str) -> Dict[str, Any]:
 
     common: Dict[str, Any] = {
         "roulette_id": roulette_id,
+        "positions": positions,
         "X": X,
         "X_timestamp": X_ts,
         "X_index": L,
@@ -132,10 +135,11 @@ async def validate_occurrence_signal(roulette_id: str) -> Dict[str, Any]:
     ranking_rows: List[Dict[str, Any]] = []
     top_numbers: List[int] = []
 
+    next_fields = [f"$next{i}" for i in range(1, positions + 1)]
     if total_matches > 0:
         pipeline = [
             {"$match": match},
-            {"$project": {"nums": ["$next1", "$next2", "$next3"]}},
+            {"$project": {"nums": next_fields}},
             {"$unwind": "$nums"},
             {"$match": {"nums": {"$ne": None, "$gte": 0, "$lte": 36}}},
             {"$group": {"_id": "$nums", "count": {"$sum": 1}}},
