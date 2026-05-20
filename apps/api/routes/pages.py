@@ -260,3 +260,9 @@ async def sequence_search_page():
 async def occurrence_signal_page():
     with open(os.path.join(templates_dir, "occurrence_signal.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/sinais-ocorrencia", response_class=HTMLResponse)
+async def occurrence_signal_signals_page():
+    with open(os.path.join(templates_dir, "occurrence_signal_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()

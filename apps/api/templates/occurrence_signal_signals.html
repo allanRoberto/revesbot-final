@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — Padrão de Ocorrência</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --warn: #b8860b;
+      --info: #2563eb;
+      --black: #1a1a1a;
+      --red: #c0392b;
+      --green: #2e8b57;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 16px;
+    }
+    .container { max-width: 1180px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px 0; font-size: 14px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .stat {
+      background: var(--surface-soft);
+      padding: 12px 14px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 24px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub { font-size: 11px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); }
+    .stat.warn .value { color: var(--warn); }
+    .stat.info .value { color: var(--info); }
+
+    .filters { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .wide-field { display: flex; flex-direction: column; gap: 4px; }
+    .wide-field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .wide-field select, .wide-field input {
+      padding: 8px 11px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+      background: var(--surface); min-width: 180px;
+    }
+    .btn {
+      padding: 8px 16px; border: none; background: var(--accent); color: white; border-radius: 6px;
+      cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .btn:hover { background: var(--accent-strong); }
+    .btn.ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn.ghost:hover { background: var(--surface-soft); }
+    .auto-refresh { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+    .signal {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      background: var(--surface);
+    }
+    .signal.won    { border-left: 4px solid var(--accent); }
+    .signal.lost   { border-left: 4px solid var(--danger); }
+    .signal.monitoring { border-left: 4px solid var(--info); }
+    .sig-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .status-pill {
+      padding: 2px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-radius: 11px;
+    }
+    .status-pill.won { background: rgba(46, 139, 87, 0.16); color: var(--accent-strong); }
+    .status-pill.lost { background: rgba(155, 47, 47, 0.14); color: var(--danger); }
+    .status-pill.monitoring { background: rgba(37, 99, 235, 0.12); color: var(--info); }
+    .inversion-pill { padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 10px; background: rgba(184, 134, 11, 0.16); color: var(--warn); }
+    .inversion-pill.paid { background: rgba(46, 139, 87, 0.16); color: var(--accent-strong); }
+    .sig-head .rid { font-weight: 600; color: var(--muted); font-size: 13px; }
+    .sig-head .ts  { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+    .sig-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .sig-block .glabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+    .nums { display: flex; flex-wrap: wrap; gap: 4px; }
+    .num-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%; color: white; font-weight: 600; font-size: 12px;
+    }
+    .num-badge.sm { width: 24px; height: 24px; font-size: 11px; }
+    .num-badge.red { background: var(--red); }
+    .num-badge.black { background: var(--black); }
+    .num-badge.green { background: var(--green); }
+    .num-badge.hit { box-shadow: 0 0 0 3px var(--accent); }
+    .num-badge.miss { opacity: 0.55; }
+    .num-badge.top4 { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .num-badge.zero-bet { outline: 2px solid var(--warn); outline-offset: 1px; }
+
+    .attempts-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .attempt-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .attempt-cell .alabel { font-size: 10px; color: var(--muted); }
+
+    .empty { text-align: center; padding: 24px; color: var(--muted); }
+    .status-msg { margin-top: 10px; font-size: 13px; color: var(--muted); }
+    .status-msg.error { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sinais — Padrão de Ocorrência</h1>
+    <p class="subtitle">Acompanhamento dos sinais gerados pelo worker, com assertividade e pagamentos de inversão.</p>
+
+    <div class="card">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat"><span class="label">Total</span><span class="value">—</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="filters">
+        <div class="wide-field">
+          <label for="filter-status">Status</label>
+          <select id="filter-status">
+            <option value="all">Todos</option>
+            <option value="monitoring">Monitorando</option>
+            <option value="won">Ganhos</option>
+            <option value="lost">Perdidos</option>
+          </select>
+        </div>
+        <div class="wide-field">
+          <label for="filter-roulette">Roleta</label>
+          <select id="filter-roulette">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="wide-field">
+          <label for="filter-limit">Limite</label>
+          <input type="number" id="filter-limit" min="1" max="200" value="50">
+        </div>
+        <button type="button" class="btn" id="reload-btn">Atualizar</button>
+        <label class="auto-refresh">
+          <input type="checkbox" id="auto-refresh" checked>
+          Auto-atualizar a cada 10s
+        </label>
+      </div>
+      <div class="status-msg" id="status-msg">Carregando…</div>
+    </div>
+
+    <div id="signals"></div>
+  </div>
+
+  <script>
+    const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    const colorClass = n => n === 0 ? 'green' : (RED_NUMBERS.has(n) ? 'red' : 'black');
+    const badge = (n, extras) => `<span class="num-badge ${colorClass(n)}${extras ? ' ' + extras : ''}">${n}</span>`;
+    function fmtTs(ts) {
+      if (!ts) return "";
+      const d = new Date(ts);
+      if (isNaN(d)) return ts;
+      return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    const statsGrid = document.getElementById("stats-grid");
+    const signalsBox = document.getElementById("signals");
+    const statusMsg = document.getElementById("status-msg");
+    const reloadBtn = document.getElementById("reload-btn");
+    const autoRefresh = document.getElementById("auto-refresh");
+
+    async function loadRoulettes() {
+      try {
+        const res = await fetch("/api/roulettes");
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById("filter-roulette");
+        const list = Array.isArray(data) ? data : (data.roulettes || []);
+        const seen = new Set();
+        list.forEach(r => {
+          const slug = (r.slug || r.id || r.roulette_id || "").trim();
+          if (!slug || seen.has(slug)) return;
+          seen.add(slug);
+          const opt = document.createElement("option");
+          opt.value = slug;
+          opt.textContent = r.displayName || r.name || slug;
+          select.appendChild(opt);
+        });
+      } catch (e) {}
+    }
+    loadRoulettes();
+
+    function setStatus(msg, err) {
+      statusMsg.textContent = msg || "";
+      statusMsg.classList.toggle("error", !!err);
+    }
+
+    function renderStats(d) {
+      const cells = [
+        { label: "Total", value: d.total, cls: "" },
+        { label: "Monitorando", value: d.monitoring, cls: "info" },
+        { label: "Ganhos", value: d.won, cls: "" },
+        { label: "Perdidos", value: d.lost, cls: "danger" },
+        { label: "Assertividade", value: `${d.assertiveness_pct}%`, sub: `em ${d.resolved} resolvidos`, cls: "" },
+        { label: "Média tentativas/win", value: d.avg_attempts_to_win || "—", sub: `1: ${d.win_distribution[1]} · 2: ${d.win_distribution[2]} · 3: ${d.win_distribution[3]} · 4: ${d.win_distribution[4]}`, cls: "" },
+        { label: "Inversão paga", value: d.inversion.paid, sub: `de ${d.lost} losses (${d.inversion.pay_rate}%)`, cls: "warn" },
+        { label: "Inversão pendente", value: d.inversion.pending, cls: "warn" },
+      ];
+      statsGrid.innerHTML = cells.map(c => `
+        <div class="stat ${c.cls}">
+          <span class="label">${c.label}</span>
+          <span class="value">${c.value}</span>
+          ${c.sub ? `<span class="sub">${c.sub}</span>` : ""}
+        </div>
+      `).join("");
+    }
+
+    function renderAttempts(attempts, betSet, label) {
+      if (!attempts || !attempts.length) return `<span class="empty" style="padding:0;font-size:12px">— sem ${label} —</span>`;
+      return `<div class="attempts-row">${attempts.map((a, i) => {
+        const cls = a.hit ? "hit" : "miss";
+        const posLabel = a.attempt ? `T${a.attempt}` : `+${a.spin || (i+1)}`;
+        return `<div class="attempt-cell">
+          ${badge(a.value, cls)}
+          <span class="alabel">${posLabel}</span>
+          <span class="alabel" style="font-size:9px">${fmtTs(a.timestamp).split(', ')[1] || ""}</span>
+        </div>`;
+      }).join("")}</div>`;
+    }
+
+    function renderSignal(s) {
+      const betSet = new Set(s.bet || []);
+      const top4Set = new Set(s.top4 || []);
+      const inversionPaid = (s.post_attempts || []).some(p => p.hit);
+      const pillInv = s.status === "lost"
+        ? (inversionPaid
+            ? `<span class="inversion-pill paid">inversão paga</span>`
+            : (s.needs_post_track ? `<span class="inversion-pill">aguardando inversão</span>` : `<span class="inversion-pill">sem inversão</span>`))
+        : "";
+
+      const wonInfo = s.status === "won" ? ` · WIN na tentativa ${s.won_at_attempt}` : "";
+
+      return `<div class="signal ${s.status}">
+        <div class="sig-head">
+          <span class="status-pill ${s.status}">${s.status}${wonInfo}</span>
+          ${pillInv}
+          <span class="rid">${s.roulette_id}</span>
+          <span class="ts">criado ${fmtTs(s.created_at)}</span>
+        </div>
+        <div class="sig-grid">
+          <div class="sig-block">
+            <span class="glabel">X (gatilho)</span>
+            <div class="nums">${badge(s.X)} <span class="alabel" style="color:var(--muted);font-size:11px;margin-left:6px">${fmtTs(s.X_timestamp)}</span></div>
+          </div>
+          <div class="sig-block">
+            <span class="glabel">Trio em occ_oldest [prev, X, next]</span>
+            <div class="nums">${(s.trio||[]).map(n => badge(n)).join("")}</div>
+            <span class="alabel" style="font-size:11px;color:var(--muted)">${s.triplet_match_count != null ? s.triplet_match_count + " ocorrências do trio" : ""}</span>
+          </div>
+          <div class="sig-block">
+            <span class="glabel">Aposta (top4 + 0)</span>
+            <div class="nums">${(s.bet||[]).map(n => badge(n, n === 0 ? "zero-bet" : "top4")).join("")}</div>
+          </div>
+        </div>
+        <div style="margin-top: 10px">
+          <span class="glabel">Tentativas (até ${s.config && s.config.max_attempts || 4})</span>
+          ${renderAttempts(s.attempts, betSet, "tentativas")}
+        </div>
+        ${s.status === "lost" ? `
+          <div style="margin-top: 10px">
+            <span class="glabel">Pós-derrota (inversão) — até ${s.config && s.config.max_post || 20} spins</span>
+            ${renderAttempts(s.post_attempts, betSet, "spins pós-derrota")}
+          </div>
+        ` : ""}
+      </div>`;
+    }
+
+    async function load() {
+      const status = document.getElementById("filter-status").value;
+      const rid = document.getElementById("filter-roulette").value;
+      const limit = document.getElementById("filter-limit").value || 50;
+      const params = new URLSearchParams({ limit });
+      if (status && status !== "all") params.set("status", status);
+      if (rid) params.set("roulette_id", rid);
+
+      setStatus("Carregando…");
+      try {
+        const res = await fetch(`/api/occurrence-signal-signals?${params}`);
+        const data = await res.json();
+        if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
+        renderStats(data);
+        if (!data.signals.length) {
+          signalsBox.innerHTML = `<div class="card empty">Nenhum sinal encontrado para o filtro selecionado.</div>`;
+        } else {
+          signalsBox.innerHTML = data.signals.map(renderSignal).join("");
+        }
+        setStatus(`Atualizado · ${data.signals.length} sinais exibidos · total na coleção: ${data.total}`);
+      } catch (e) {
+        setStatus("Falha: " + e.message, true);
+      }
+    }
+
+    reloadBtn.addEventListener("click", load);
+    document.getElementById("filter-status").addEventListener("change", load);
+    document.getElementById("filter-roulette").addEventListener("change", load);
+    document.getElementById("filter-limit").addEventListener("change", load);
+
+    let refreshTimer = null;
+    function scheduleAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (autoRefresh.checked) {
+        refreshTimer = setInterval(load, 10000);
+      }
+    }
+    autoRefresh.addEventListener("change", scheduleAutoRefresh);
+
+    load();
+    scheduleAutoRefresh();
+  </script>
+</body>
+</html>
