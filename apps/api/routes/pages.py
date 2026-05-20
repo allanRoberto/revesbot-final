@@ -266,3 +266,9 @@ async def occurrence_signal_page():
 async def occurrence_signal_signals_page():
     with open(os.path.join(templates_dir, "occurrence_signal_signals.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/sinais-terminal-7", response_class=HTMLResponse)
+async def terminal_7_signal_signals_page():
+    with open(os.path.join(templates_dir, "terminal_7_signal_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()

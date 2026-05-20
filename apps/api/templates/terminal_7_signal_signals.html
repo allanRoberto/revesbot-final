@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — Terminal 7 (gatilho 34)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --warn: #b8860b;
+      --info: #2563eb;
+      --black: #1a1a1a;
+      --red: #c0392b;
+      --green: #2e8b57;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 16px;
+    }
+    .container { max-width: 1180px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px 0; font-size: 14px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .config-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--surface-soft);
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+    .config-strip .lbl { color: var(--muted); margin-right: 4px; }
+    .config-strip .v { font-weight: 600; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .stat {
+      background: var(--surface-soft);
+      padding: 12px 14px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 24px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub { font-size: 11px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); }
+    .stat.warn .value { color: var(--warn); }
+    .stat.info .value { color: var(--info); }
+    .stat.pnl-pos .value { color: var(--accent-strong); }
+    .stat.pnl-neg .value { color: var(--danger); }
+    .pnl-row {
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: var(--surface-soft);
+      border-radius: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      font-size: 12px;
+    }
+    .pnl-row .lbl { color: var(--muted); margin-right: 4px; }
+    .pnl-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .pnl-row .v.pos { color: var(--accent-strong); }
+    .pnl-row .v.neg { color: var(--danger); }
+
+    .chip-grid { display: flex; gap: 6px; }
+    .chip-grid > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .chip-grid label.small { font-size: 10px; color: var(--muted); }
+    .chip-grid input { width: 72px; padding: 7px 6px; text-align: center; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+    .chart-card .chart-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .chart-card h2 { margin: 0; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .chart-card .chart-summary { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+    .chart-card .chart-summary .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .chart-card .chart-summary .v.pos { color: var(--accent-strong); }
+    .chart-card .chart-summary .v.neg { color: var(--danger); }
+
+    .filters { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .wide-field { display: flex; flex-direction: column; gap: 4px; }
+    .wide-field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .wide-field select, .wide-field input {
+      padding: 8px 11px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+      background: var(--surface); min-width: 180px;
+    }
+    .btn {
+      padding: 8px 16px; border: none; background: var(--accent); color: white; border-radius: 6px;
+      cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .btn:hover { background: var(--accent-strong); }
+    .auto-refresh { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+    .signal {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      background: var(--surface);
+    }
+    .signal.won    { border-left: 4px solid var(--accent); }
+    .signal.lost   { border-left: 4px solid var(--danger); }
+    .signal.monitoring { border-left: 4px solid var(--info); }
+    .sig-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .status-pill {
+      padding: 2px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-radius: 11px;
+    }
+    .status-pill.won { background: rgba(46, 139, 87, 0.16); color: var(--accent-strong); }
+    .status-pill.lost { background: rgba(155, 47, 47, 0.14); color: var(--danger); }
+    .status-pill.monitoring { background: rgba(37, 99, 235, 0.12); color: var(--info); }
+    .inversion-pill { padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 10px; background: rgba(184, 134, 11, 0.16); color: var(--warn); }
+    .inversion-pill.paid { background: rgba(46, 139, 87, 0.16); color: var(--accent-strong); }
+    .sig-head .rid { font-weight: 600; color: var(--muted); font-size: 13px; }
+    .sig-head .ts  { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+    .sig-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .sig-block .glabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+    .nums { display: flex; flex-wrap: wrap; gap: 4px; }
+    .num-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%; color: white; font-weight: 600; font-size: 12px;
+    }
+    .num-badge.sm { width: 24px; height: 24px; font-size: 11px; }
+    .num-badge.red { background: var(--red); }
+    .num-badge.black { background: var(--black); }
+    .num-badge.green { background: var(--green); }
+    .num-badge.hit { box-shadow: 0 0 0 3px var(--accent); }
+    .num-badge.miss { opacity: 0.55; }
+    .num-badge.trigger { outline: 2px solid var(--warn); outline-offset: 1px; }
+
+    .attempts-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .attempt-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .attempt-cell .alabel { font-size: 10px; color: var(--muted); }
+
+    .empty { text-align: center; padding: 24px; color: var(--muted); }
+    .status-msg { margin-top: 10px; font-size: 13px; color: var(--muted); }
+    .status-msg.error { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sinais — Terminal 7 (gatilho 34)</h1>
+    <p class="subtitle">
+      Sempre que o número <strong>34</strong> aparecer, aposta nos números de terminal 7 (<strong>7, 17, 27</strong>)
+      com 1 vizinho físico para cada lado da roda. <strong>2 tentativas</strong>. Aposta fixa de 9 números.
+    </p>
+
+    <div class="card">
+      <div class="config-strip" id="config-strip"></div>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat"><span class="label">Total</span><span class="value">—</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="filters">
+        <div class="wide-field">
+          <label for="filter-status">Status</label>
+          <select id="filter-status">
+            <option value="all">Todos</option>
+            <option value="monitoring">Monitorando</option>
+            <option value="won">Ganhos</option>
+            <option value="lost">Perdidos</option>
+          </select>
+        </div>
+        <div class="wide-field">
+          <label for="filter-roulette">Roleta</label>
+          <select id="filter-roulette">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="wide-field">
+          <label for="filter-limit">Limite</label>
+          <input type="number" id="filter-limit" min="1" max="200" value="50">
+        </div>
+        <div class="wide-field">
+          <label for="initial-bank">Banca inicial (R$)</label>
+          <input type="number" id="initial-bank" min="0" step="0.01" value="100.00" style="min-width:120px">
+        </div>
+        <div class="wide-field">
+          <label>Ficha por tentativa (R$) — pleno paga 35:1</label>
+          <div class="chip-grid">
+            <div><input type="number" id="chip-1" min="0" step="0.01" value="1.00"><label class="small">T1</label></div>
+            <div><input type="number" id="chip-2" min="0" step="0.01" value="1.00"><label class="small">T2</label></div>
+          </div>
+        </div>
+        <button type="button" class="btn" id="reload-btn">Atualizar</button>
+        <label class="auto-refresh">
+          <input type="checkbox" id="auto-refresh" checked>
+          Auto-atualizar a cada 10s
+        </label>
+        <label class="auto-refresh">
+          <input type="checkbox" id="exclude-inversion">
+          Desconsiderar sinais com inversão
+        </label>
+        <label class="auto-refresh">
+          <input type="checkbox" id="exclude-neighbor">
+          Desconsiderar sinais com vizinhos pré-gatilho
+        </label>
+      </div>
+      <div class="status-msg" id="status-msg">Carregando…</div>
+    </div>
+
+    <div class="card chart-card" id="chart-card" style="display:none;">
+      <div class="chart-title">
+        <h2>Evolução da banca</h2>
+        <span class="small" id="chart-meta"></span>
+      </div>
+      <div id="chart-container"></div>
+      <div class="chart-summary" id="chart-summary"></div>
+    </div>
+
+    <div id="signals"></div>
+  </div>
+
+  <script>
+    const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    const colorClass = n => n === 0 ? 'green' : (RED_NUMBERS.has(n) ? 'red' : 'black');
+    const badge = (n, extras) => `<span class="num-badge ${colorClass(n)}${extras ? ' ' + extras : ''}">${n}</span>`;
+    function fmtTs(ts) {
+      if (!ts) return "";
+      const d = new Date(ts);
+      if (isNaN(d)) return ts;
+      return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    // Wheel constants for neighbor detection
+    const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+    const WHEEL_IDX = {}; WHEEL.forEach((n,i) => WHEEL_IDX[n] = i);
+    function wheelNeighbors(n) {
+      if (WHEEL_IDX[n] === undefined) return [];
+      const i = WHEEL_IDX[n];
+      return [WHEEL[(i - 1 + 37) % 37], WHEEL[(i + 1) % 37]];
+    }
+    function detectNeighborBefore(s) {
+      const pre = s.pre_window || [];
+      const bet = new Set(s.bet || []);
+      for (const v of pre) {
+        if (bet.has(v)) continue;
+        const nbs = wheelNeighbors(v);
+        if (nbs.some(nb => bet.has(nb))) return true;
+      }
+      return false;
+    }
+
+    const ROULETTE_PAYOUT = 36;
+    const statsGrid = document.getElementById("stats-grid");
+    const configStrip = document.getElementById("config-strip");
+    const signalsBox = document.getElementById("signals");
+    const statusMsg = document.getElementById("status-msg");
+    const reloadBtn = document.getElementById("reload-btn");
+    const autoRefresh = document.getElementById("auto-refresh");
+    const chipInputs = [1,2].map(i => document.getElementById("chip-" + i));
+    const initialBankInput = document.getElementById("initial-bank");
+
+    let lastData = null;
+
+    function getInitialBank() {
+      const v = parseFloat(initialBankInput.value);
+      return isFinite(v) ? v : 0;
+    }
+    function getChips() {
+      return chipInputs.map(el => {
+        const v = parseFloat(el.value);
+        return (isFinite(v) && v >= 0) ? v : 0;
+      });
+    }
+    function fmtBRL(v) {
+      const sign = v < 0 ? "-" : "";
+      const abs = Math.abs(v);
+      return sign + "R$ " + abs.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function simulateSignal(s, chips) {
+      const N = (s.bet || []).length;
+      if (!N) return { N: 0, attemptsPlayed: 0, cost: 0, payout: 0, pnl: 0, resolved: false };
+      const maxAttempts = (s.config && s.config.max_attempts) || 2;
+      let attemptsPlayed = 0;
+      let payout = 0;
+      let resolved = false;
+      if (s.status === "won") {
+        attemptsPlayed = s.won_at_attempt || ((s.attempts || []).length) || 1;
+        const winChip = chips[Math.min(attemptsPlayed, chips.length) - 1] || 0;
+        payout = ROULETTE_PAYOUT * winChip;
+        resolved = true;
+      } else if (s.status === "lost") {
+        attemptsPlayed = (s.attempts || []).length || maxAttempts;
+        resolved = true;
+      } else {
+        attemptsPlayed = (s.attempts || []).length;
+        resolved = false;
+      }
+      let stakeChips = 0;
+      for (let i = 0; i < attemptsPlayed && i < chips.length; i++) stakeChips += chips[i];
+      const cost = N * stakeChips;
+      const pnl = payout - cost;
+      return { N, attemptsPlayed, cost, payout, pnl, resolved };
+    }
+
+    function aggregatePnL(signals, chips) {
+      let totalCost = 0, totalPayout = 0, totalPnl = 0;
+      let resolvedCost = 0, resolvedPayout = 0, resolvedPnl = 0;
+      for (const s of signals) {
+        const sim = simulateSignal(s, chips);
+        totalCost += sim.cost;
+        totalPayout += sim.payout;
+        totalPnl += sim.pnl;
+        if (sim.resolved) {
+          resolvedCost += sim.cost;
+          resolvedPayout += sim.payout;
+          resolvedPnl += sim.pnl;
+        }
+      }
+      return {
+        totalCost, totalPayout, totalPnl,
+        resolvedCost, resolvedPayout, resolvedPnl,
+        roi: resolvedCost > 0 ? (resolvedPnl / resolvedCost) * 100 : 0,
+      };
+    }
+
+    function renderChart(signals, chips) {
+      const card = document.getElementById("chart-card");
+      const container = document.getElementById("chart-container");
+      const meta = document.getElementById("chart-meta");
+      const summaryEl = document.getElementById("chart-summary");
+
+      const sorted = [...(signals || [])]
+        .filter(s => s.status === "won" || s.status === "lost" || (s.attempts && s.attempts.length > 0))
+        .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+
+      if (!sorted.length) { card.style.display = "none"; return; }
+      card.style.display = "block";
+
+      const initialBank = getInitialBank();
+      let cum = initialBank;
+      const points = [{ x: 0, cum: initialBank, label: "início" }];
+      let peak = initialBank, trough = initialBank;
+      let bustedAt = null;
+      sorted.forEach((s, i) => {
+        const sim = simulateSignal(s, chips);
+        cum += sim.pnl;
+        if (cum > peak) peak = cum;
+        if (cum < trough) trough = cum;
+        if (bustedAt === null && cum <= 0) bustedAt = i + 1;
+        points.push({ x: i + 1, cum, label: s.status, pnl: sim.pnl, X: s.X, created_at: s.created_at });
+      });
+      const finalBank = cum;
+      const totalPnl = finalBank - initialBank;
+
+      const W = 1000, H = 280, padL = 60, padR = 16, padT = 18, padB = 28;
+      const innerW = W - padL - padR;
+      const innerH = H - padT - padB;
+      const minY = Math.min(0, trough);
+      const maxY = Math.max(initialBank, peak);
+      const range = (maxY - minY) || 1;
+      const xStep = innerW / Math.max(1, points.length - 1);
+      const yScale = v => padT + innerH - ((v - minY) / range) * innerH;
+      const xScale = i => padL + i * xStep;
+      const zeroY = yScale(0);
+      const bankY = yScale(initialBank);
+
+      let gridLines = "";
+      const gridSteps = 4;
+      for (let g = 0; g <= gridSteps; g++) {
+        const yVal = minY + (range * g / gridSteps);
+        const yy = yScale(yVal);
+        gridLines += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#eef3f1" stroke-width="1"/>`;
+        gridLines += `<text x="${padL - 6}" y="${yy + 4}" font-size="10" text-anchor="end" fill="#63706b">${fmtBRL(yVal)}</text>`;
+      }
+
+      const zeroLine = minY < 0
+        ? `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}" stroke="#9b2f2f" stroke-dasharray="2 3" stroke-width="1" opacity="0.6"/>
+           <text x="${W - padR - 4}" y="${zeroY - 4}" font-size="10" text-anchor="end" fill="#9b2f2f">zero</text>`
+        : "";
+      const bankLine = `<line x1="${padL}" y1="${bankY}" x2="${W - padR}" y2="${bankY}" stroke="#63706b" stroke-dasharray="5 4" stroke-width="1"/>
+                         <text x="${W - padR - 4}" y="${bankY - 4}" font-size="10" text-anchor="end" fill="#63706b">banca inicial ${fmtBRL(initialBank)}</text>`;
+
+      const finalPos = finalBank >= initialBank;
+      const lineColor = finalPos ? "#177a5b" : "#9b2f2f";
+      const areaColor = finalPos ? "rgba(23,122,91,0.12)" : "rgba(155,47,47,0.10)";
+
+      const polyPath = points.map((p, i) => `${i === 0 ? "M" : "L"}${xScale(i).toFixed(1)},${yScale(p.cum).toFixed(1)}`).join(" ");
+      const lastX = xScale(points.length - 1).toFixed(1);
+      const areaPath = `M${xScale(0).toFixed(1)},${bankY.toFixed(1)} ` +
+        points.map((p, i) => `L${xScale(i).toFixed(1)},${yScale(p.cum).toFixed(1)}`).join(" ") +
+        ` L${lastX},${bankY.toFixed(1)} Z`;
+
+      const dots = points.map((p, i) => {
+        if (i === 0) return "";
+        const cx = xScale(i).toFixed(1);
+        const cy = yScale(p.cum).toFixed(1);
+        const fill = p.cum >= initialBank ? "#177a5b" : "#9b2f2f";
+        return `<circle cx="${cx}" cy="${cy}" r="2.5" fill="${fill}"><title>#${i} · ${p.label} · pnl=${fmtBRL(p.pnl || 0)} · banca=${fmtBRL(p.cum)}</title></circle>`;
+      }).join("");
+
+      container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:280px;display:block;">
+        ${gridLines}
+        ${zeroLine}
+        ${bankLine}
+        <path d="${areaPath}" fill="${areaColor}" stroke="none"/>
+        <path d="${polyPath}" fill="none" stroke="${lineColor}" stroke-width="2"/>
+        ${dots}
+        <text x="${padL}" y="${H - 8}" font-size="10" fill="#63706b">início</text>
+        <text x="${W - padR}" y="${H - 8}" font-size="10" text-anchor="end" fill="#63706b">${points.length - 1} sinais</text>
+      </svg>`;
+
+      meta.textContent = `${points.length - 1} sinais plotados · ordenados por data`;
+      const finalCls = totalPnl >= 0 ? "pos" : "neg";
+      const peakCls = peak >= initialBank ? "pos" : "neg";
+      const troughCls = trough >= initialBank ? "pos" : "neg";
+      const bustNote = bustedAt !== null
+        ? ` · <span style="color:var(--danger);font-weight:600">⚠ banca zerou no sinal #${bustedAt}</span>`
+        : "";
+      summaryEl.innerHTML = `
+        <span>Banca inicial: <span class="v">${fmtBRL(initialBank)}</span></span>
+        <span>Pico: <span class="v ${peakCls}">${fmtBRL(peak)}</span></span>
+        <span>Fundo: <span class="v ${troughCls}">${fmtBRL(trough)}</span></span>
+        <span>Banca final: <span class="v ${finalCls}">${fmtBRL(finalBank)}</span></span>
+        <span>P&L: <span class="v ${finalCls}">${totalPnl >= 0 ? "+" : ""}${fmtBRL(totalPnl)}</span></span>
+        <span>Drawdown máx (do pico): <span class="v neg">${fmtBRL(trough - peak)}</span></span>
+        ${bustNote ? `<span>${bustNote}</span>` : ""}
+      `;
+    }
+
+    async function loadRoulettes() {
+      try {
+        const res = await fetch("/api/roulettes");
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById("filter-roulette");
+        const list = Array.isArray(data) ? data : (data.roulettes || []);
+        const seen = new Set();
+        list.forEach(r => {
+          const slug = (r.slug || r.id || r.roulette_id || "").trim();
+          if (!slug || seen.has(slug)) return;
+          seen.add(slug);
+          const opt = document.createElement("option");
+          opt.value = slug;
+          opt.textContent = r.displayName || r.name || slug;
+          select.appendChild(opt);
+        });
+      } catch (e) {}
+    }
+    loadRoulettes();
+
+    function setStatus(msg, err) {
+      statusMsg.textContent = msg || "";
+      statusMsg.classList.toggle("error", !!err);
+    }
+
+    function renderConfigStrip(d) {
+      // Pega a config do primeiro sinal (todas iguais, aposta fixa)
+      const sample = (d.signals || []).find(s => s.config) || {};
+      const cfg = sample.config || {};
+      const bet = sample.bet || [];
+      const trigger = cfg.trigger_value !== undefined ? cfg.trigger_value : 34;
+      const terminalNums = cfg.terminal_numbers || [];
+      const span = cfg.neighbor_span !== undefined ? cfg.neighbor_span : 1;
+      const maxAtt = cfg.max_attempts || 2;
+      const preWin = cfg.pre_window || 5;
+      configStrip.innerHTML = `
+        <span><span class="lbl">Gatilho:</span><span class="v">${badge(trigger, 'trigger')}</span></span>
+        <span><span class="lbl">Terminal:</span><span class="v">${cfg.terminal !== undefined ? cfg.terminal : 7}${terminalNums.length ? ' → ' + terminalNums.map(n => badge(n, 'sm')).join('') : ''}</span></span>
+        <span><span class="lbl">Vizinhos:</span><span class="v">±${span}</span></span>
+        <span><span class="lbl">Tentativas:</span><span class="v">${maxAtt}</span></span>
+        <span><span class="lbl">Pré-gatilho:</span><span class="v">${preWin}</span></span>
+        <span><span class="lbl">Aposta (${bet.length}):</span><span class="v">${bet.map(n => badge(n, 'sm')).join('')}</span></span>
+      `;
+    }
+
+    function renderStats(d) {
+      const chips = getChips();
+      const sim = aggregatePnL(d.signals || [], chips);
+      const pnlCls = sim.resolvedPnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const chipsLabel = chips.map(c => c.toFixed(2)).join(" / ");
+      const dist = d.win_distribution || {};
+      const cells = [
+        { label: "Total", value: d.total, cls: "" },
+        { label: "Monitorando", value: d.monitoring, cls: "info" },
+        { label: "Ganhos", value: d.won, cls: "" },
+        { label: "Perdidos", value: d.lost, cls: "danger" },
+        { label: "Assertividade", value: `${d.assertiveness_pct}%`, sub: `em ${d.resolved} resolvidos`, cls: "" },
+        { label: "Média tentativas/win", value: d.avg_attempts_to_win || "—", sub: `T1: ${dist[1]||0} · T2: ${dist[2]||0}`, cls: "" },
+        { label: "Inversão paga (pré-gatilho)", value: d.inversion.paid, sub: `de ${d.total} sinais (${d.inversion.pay_rate}%)`, cls: "warn" },
+        { label: "Vizinhos pré-gatilho", value: (d.neighbor && d.neighbor.detected) || 0, sub: `de ${d.total} (${(d.neighbor && d.neighbor.rate) || 0}%)`, cls: "warn" },
+        { label: `Lucro (fichas ${chipsLabel})`, value: fmtBRL(sim.resolvedPnl), sub: `stake R$ ${sim.resolvedCost.toFixed(2)} · retorno R$ ${sim.resolvedPayout.toFixed(2)} (resolvidos)`, cls: pnlCls },
+        { label: "ROI", value: `${sim.roi.toFixed(2)}%`, sub: `lucro / stake nos resolvidos`, cls: pnlCls },
+      ];
+      statsGrid.innerHTML = cells.map(c => `
+        <div class="stat ${c.cls}">
+          <span class="label">${c.label}</span>
+          <span class="value">${c.value}</span>
+          ${c.sub ? `<span class="sub">${c.sub}</span>` : ""}
+        </div>
+      `).join("");
+    }
+
+    function renderAttempts(attempts, betSet, label) {
+      if (!attempts || !attempts.length) return `<span class="empty" style="padding:0;font-size:12px">— sem ${label} —</span>`;
+      return `<div class="attempts-row">${attempts.map((a, i) => {
+        const cls = a.hit ? "hit" : "miss";
+        const posLabel = a.attempt ? `T${a.attempt}` : `+${a.spin || (i+1)}`;
+        return `<div class="attempt-cell">
+          ${badge(a.value, cls)}
+          <span class="alabel">${posLabel}</span>
+          <span class="alabel" style="font-size:9px">${fmtTs(a.timestamp).split(', ')[1] || ""}</span>
+        </div>`;
+      }).join("")}</div>`;
+    }
+
+    function renderSignal(s) {
+      const betSet = new Set(s.bet || []);
+      const pillInv = s.inversion_paid_before
+        ? `<span class="inversion-pill paid">inversão paga (pré-gatilho)</span>`
+        : (s.pre_window && s.pre_window.length
+            ? `<span class="inversion-pill">sem inversão</span>`
+            : "");
+      const hasNeighbor = detectNeighborBefore(s);
+      const pillNeighbor = hasNeighbor
+        ? `<span class="inversion-pill">vizinho pré-gatilho</span>`
+        : "";
+
+      const wonInfo = s.status === "won" ? ` · WIN na T${s.won_at_attempt}` : "";
+      const chips = getChips();
+      const sim = simulateSignal(s, chips);
+      const pnlCls = sim.pnl >= 0 ? "pos" : "neg";
+      const chipsUsed = chips.slice(0, Math.max(sim.attemptsPlayed, 1)).map(c => "R$ " + c.toFixed(2)).join(" → ");
+      const pnlRow = sim.N > 0 ? `
+        <div class="pnl-row">
+          <span><span class="lbl">Fichas usadas:</span><span class="v">${chipsUsed || "—"}</span></span>
+          <span><span class="lbl">N° por giro:</span><span class="v">${sim.N}</span></span>
+          <span><span class="lbl">Tentativas:</span><span class="v">${sim.attemptsPlayed}</span></span>
+          <span><span class="lbl">Stake:</span><span class="v">${fmtBRL(sim.cost)}</span></span>
+          <span><span class="lbl">Retorno:</span><span class="v">${fmtBRL(sim.payout)}</span></span>
+          <span><span class="lbl">Lucro:</span><span class="v ${pnlCls}">${fmtBRL(sim.pnl)}</span></span>
+        </div>
+      ` : "";
+
+      const preBlock = (s.pre_window && s.pre_window.length) ? `
+        <div style="margin-top: 10px">
+          <span class="glabel">Inversão — ${s.pre_window.length} jogadas antes do gatilho (cronológico)</span>
+          <div class="attempts-row">
+            ${s.pre_window.map((v, i) => {
+              const inBet = betSet.has(v);
+              const cls = inBet ? "hit" : "miss";
+              const posLabel = `-${s.pre_window.length - i}`;
+              const ts = (s.pre_window_ts && s.pre_window_ts[i]) || "";
+              const tsShort = (fmtTs(ts).split(", ")[1] || "");
+              return `<div class="attempt-cell">
+                ${badge(v, cls)}
+                <span class="alabel">${posLabel}</span>
+                <span class="alabel" style="font-size:9px">${tsShort}</span>
+              </div>`;
+            }).join("")}
+            <span class="alabel" style="margin-left:8px;color:${s.inversion_paid_before ? 'var(--accent-strong)' : 'var(--muted)'};font-weight:600">
+              ${s.inversion_paid_before ? "✓ algum da aposta apareceu" : "nenhum da aposta apareceu"}
+            </span>
+          </div>
+        </div>` : "";
+
+      return `<div class="signal ${s.status}">
+        <div class="sig-head">
+          <span class="status-pill ${s.status}">${s.status}${wonInfo}</span>
+          ${pillInv}
+          ${pillNeighbor}
+          <span class="rid">${s.roulette_id}</span>
+          <span class="ts">criado ${fmtTs(s.created_at)}</span>
+        </div>
+        <div class="sig-grid">
+          <div class="sig-block">
+            <span class="glabel">Gatilho</span>
+            <div class="nums">${badge(s.X, 'trigger')} <span class="alabel" style="color:var(--muted);font-size:11px;margin-left:6px">${fmtTs(s.X_timestamp)}</span></div>
+          </div>
+          <div class="sig-block">
+            <span class="glabel">Aposta fixa (${(s.bet||[]).length} números)</span>
+            <div class="nums">${(s.bet||[]).map(n => badge(n)).join("")}</div>
+          </div>
+        </div>
+        ${preBlock}
+        <div style="margin-top: 10px">
+          <span class="glabel">Tentativas (até ${(s.config && s.config.max_attempts) || 2})</span>
+          ${renderAttempts(s.attempts, betSet, "tentativas")}
+        </div>
+        ${pnlRow}
+      </div>`;
+    }
+
+    function computeClientStats(signals) {
+      const dist = { 1: 0, 2: 0 };
+      let won = 0, lost = 0, monitoring = 0;
+      let invPaid = 0, neighbors = 0;
+      let attemptsSumOnWins = 0;
+      for (const s of signals) {
+        if (s.status === "won") {
+          won++;
+          const att = parseInt(s.won_at_attempt || 0, 10);
+          attemptsSumOnWins += att;
+          if (dist[att] !== undefined) dist[att]++;
+        } else if (s.status === "lost") {
+          lost++;
+        } else if (s.status === "monitoring") {
+          monitoring++;
+        }
+        if (s.inversion_paid_before) invPaid++;
+        if (detectNeighborBefore(s)) neighbors++;
+      }
+      const total = signals.length;
+      const resolved = won + lost;
+      return {
+        total, won, lost, monitoring, resolved,
+        assertiveness_pct: resolved > 0 ? Math.round((won / resolved) * 10000) / 100 : 0,
+        avg_attempts_to_win: won > 0 ? Math.round((attemptsSumOnWins / won) * 100) / 100 : 0,
+        win_distribution: dist,
+        inversion: {
+          paid: invPaid,
+          pending: 0,
+          pay_rate: total > 0 ? Math.round((invPaid / total) * 10000) / 100 : 0,
+        },
+        neighbor: {
+          detected: neighbors,
+          rate: total > 0 ? Math.round((neighbors / total) * 10000) / 100 : 0,
+        },
+        signals,
+      };
+    }
+
+    function rerenderFromCache() {
+      if (!lastData) return;
+      const chips = getChips();
+      const excludeInv = document.getElementById("exclude-inversion").checked;
+      const excludeNb  = document.getElementById("exclude-neighbor").checked;
+      const baseSignals = lastData.signals || [];
+      let filtered = baseSignals;
+      if (excludeInv) filtered = filtered.filter(s => !s.inversion_paid_before);
+      if (excludeNb)  filtered = filtered.filter(s => !detectNeighborBefore(s));
+      const data = computeClientStats(filtered);
+      data.signals = filtered;
+      renderConfigStrip(lastData);
+      renderStats(data);
+      renderChart(filtered, chips);
+      if (!filtered.length) {
+        signalsBox.innerHTML = `<div class="card empty">Nenhum sinal restante após o filtro.</div>`;
+      } else {
+        signalsBox.innerHTML = filtered.map(renderSignal).join("");
+      }
+    }
+
+    async function load() {
+      const status = document.getElementById("filter-status").value;
+      const rid = document.getElementById("filter-roulette").value;
+      const limit = document.getElementById("filter-limit").value || 50;
+      const params = new URLSearchParams({ limit });
+      if (status && status !== "all") params.set("status", status);
+      if (rid) params.set("roulette_id", rid);
+
+      setStatus("Carregando…");
+      try {
+        const res = await fetch(`/api/terminal-7-signal-signals?${params}`);
+        const data = await res.json();
+        if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
+        lastData = data;
+        rerenderFromCache();
+        setStatus(`Atualizado · ${data.signals.length} sinais exibidos · total na coleção: ${data.total}`);
+      } catch (e) {
+        setStatus("Falha: " + e.message, true);
+      }
+    }
+
+    reloadBtn.addEventListener("click", load);
+    document.getElementById("filter-status").addEventListener("change", load);
+    document.getElementById("filter-roulette").addEventListener("change", load);
+    document.getElementById("filter-limit").addEventListener("change", load);
+    chipInputs.forEach(el => {
+      el.addEventListener("input", rerenderFromCache);
+      el.addEventListener("change", rerenderFromCache);
+    });
+    initialBankInput.addEventListener("input", rerenderFromCache);
+    initialBankInput.addEventListener("change", rerenderFromCache);
+    document.getElementById("exclude-inversion").addEventListener("change", rerenderFromCache);
+    document.getElementById("exclude-neighbor").addEventListener("change", rerenderFromCache);
+
+    let refreshTimer = null;
+    function scheduleAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (autoRefresh.checked) refreshTimer = setInterval(load, 10000);
+    }
+    autoRefresh.addEventListener("change", scheduleAutoRefresh);
+
+    load();
+    scheduleAutoRefresh();
+  </script>
+</body>
+</html>
