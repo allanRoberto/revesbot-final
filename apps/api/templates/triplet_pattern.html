@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validar Padrão de Trios</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --black: #1a1a1a;
+      --red: #c0392b;
+      --green: #2e8b57;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 16px;
+    }
+    .container { max-width: 1040px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 24px 0; font-size: 14px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .trio-block {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      background: var(--surface-soft);
+    }
+    .trio-head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .trio-head .name { font-weight: 700; color: var(--accent-strong); font-size: 14px; }
+    .trio-head .maps { font-size: 12px; color: var(--muted); }
+    .trio-inputs { display: flex; gap: 10px; flex-wrap: wrap; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .field input, .field select {
+      padding: 9px 11px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 16px;
+      background: var(--surface);
+      width: 88px;
+    }
+    .field select { width: auto; }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(23, 122, 91, 0.15);
+    }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin-top: 8px; }
+    .field.wide select { width: 260px; }
+
+    .btn {
+      padding: 10px 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--surface-soft); border-color: var(--accent); }
+    .btn.primary {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .btn.primary:hover { background: var(--accent-strong); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status { margin-top: 12px; font-size: 13px; color: var(--muted); }
+    .status.error { color: var(--danger); }
+
+    .funnel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      padding: 14px 16px;
+      background: var(--surface-soft);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .funnel .stat { display: flex; flex-direction: column; gap: 2px; }
+    .funnel .stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .funnel .stat .value { font-size: 22px; font-weight: 700; color: var(--accent-strong); }
+
+    .occ {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+    }
+    .occ-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .occ-head .rid { font-weight: 700; color: var(--accent-strong); }
+    .occ-head .ts { color: var(--muted); font-size: 12px; }
+
+    .seq-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 10px; }
+    .seq-group { display: flex; flex-direction: column; gap: 4px; }
+    .seq-group .glabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .seq-nums { display: flex; gap: 5px; }
+
+    .num-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .num-badge.red { background: var(--red); }
+    .num-badge.black { background: var(--black); }
+    .num-badge.green { background: var(--green); }
+    .num-badge.sm { width: 26px; height: 26px; font-size: 12px; }
+
+    table.pos {
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    table.pos th, table.pos td {
+      padding: 5px 10px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    table.pos th { background: var(--surface-soft); color: var(--muted); font-size: 11px; text-transform: uppercase; }
+    .rel-exato { color: var(--accent-strong); font-weight: 700; }
+    .rel-vizinho { color: #b8860b; font-weight: 600; }
+    .rel-sequencia { color: #2563eb; font-weight: 600; }
+    .rel-espelho { color: #7c3aed; font-weight: 600; }
+    .rel-none { color: var(--muted); }
+
+    .conf-label { font-size: 12px; font-weight: 600; color: var(--muted); margin: 8px 0 4px; }
+    .post-box {
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: rgba(23, 122, 91, 0.06);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+    }
+    .post-box .plabel { font-size: 12px; font-weight: 600; color: var(--accent-strong); margin-bottom: 6px; }
+    .post-nums { display: flex; flex-wrap: wrap; gap: 4px; }
+
+    table.post-table {
+      border-collapse: collapse;
+      font-size: 13px;
+      background: var(--surface);
+    }
+    table.post-table th, table.post-table td {
+      padding: 5px 10px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    table.post-table th {
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    table.post-table td.pos { color: var(--muted); font-variant-numeric: tabular-nums; }
+    table.post-table td.hora { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+
+    .empty { text-align: center; padding: 32px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Validar Padrão de Trios</h1>
+    <p class="subtitle">
+      9 números em ordem cronológica (o que saiu primeiro à esquerda).
+      Confirmação 1: busca exata do trio mais antigo nos campos <code>prev</code>.
+      Confirmação 2: trio do meio vs <code>a/b/c</code>. Confirmação 3: trio recente vs <code>next</code>.
+    </p>
+
+    <div class="card">
+      <div class="trio-block">
+        <div class="trio-head">
+          <span class="name">Trio 1 — mais antigo (zzz)</span>
+          <span class="maps">→ busca exata em prev_3, prev_2, prev_1</span>
+        </div>
+        <div class="trio-inputs">
+          <div class="field"><label>prev_3</label><input type="number" id="n1" min="0" max="36"></div>
+          <div class="field"><label>prev_2</label><input type="number" id="n2" min="0" max="36"></div>
+          <div class="field"><label>prev_1</label><input type="number" id="n3" min="0" max="36"></div>
+        </div>
+      </div>
+
+      <div class="trio-block">
+        <div class="trio-head">
+          <span class="name">Trio 2 — meio (yyy)</span>
+          <span class="maps">→ compara com a, b, c</span>
+        </div>
+        <div class="trio-inputs">
+          <div class="field"><label>a</label><input type="number" id="n4" min="0" max="36"></div>
+          <div class="field"><label>b</label><input type="number" id="n5" min="0" max="36"></div>
+          <div class="field"><label>c</label><input type="number" id="n6" min="0" max="36"></div>
+        </div>
+      </div>
+
+      <div class="trio-block">
+        <div class="trio-head">
+          <span class="name">Trio 3 — mais recente (xxx)</span>
+          <span class="maps">→ compara com next1, next2, next3</span>
+        </div>
+        <div class="trio-inputs">
+          <div class="field"><label>next1</label><input type="number" id="n7" min="0" max="36"></div>
+          <div class="field"><label>next2</label><input type="number" id="n8" min="0" max="36"></div>
+          <div class="field"><label>next3</label><input type="number" id="n9" min="0" max="36"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="field wide">
+          <label for="roulette_id">Roleta</label>
+          <select id="roulette_id"></select>
+        </div>
+        <button type="button" class="btn" id="pull-btn">Puxar últimos 9 da roleta</button>
+        <div class="field">
+          <label for="filter_conf1">Confirmação 1</label>
+          <select id="filter_conf1">
+            <option value="all">Buscar em todas as roletas</option>
+            <option value="this">Só na roleta selecionada</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="neighbor_span">Vizinhos (casas/lado)</label>
+          <select id="neighbor_span">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <button type="button" class="btn primary" id="validate-btn">Validar padrão</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card" id="results-card" style="display:none;">
+      <div class="funnel" id="funnel"></div>
+      <div id="occurrences"></div>
+    </div>
+
+    <div class="card empty" id="empty-card">Aguardando validação.</div>
+  </div>
+
+  <script>
+    const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    function colorClass(n) {
+      if (n === 0) return "green";
+      return RED_NUMBERS.has(n) ? "red" : "black";
+    }
+    function badge(n, sm) {
+      return `<span class="num-badge ${colorClass(n)}${sm ? " sm" : ""}">${n}</span>`;
+    }
+
+    const inputs = [1,2,3,4,5,6,7,8,9].map(i => document.getElementById("n" + i));
+    const statusEl = document.getElementById("status");
+    const validateBtn = document.getElementById("validate-btn");
+    const pullBtn = document.getElementById("pull-btn");
+    const resultsCard = document.getElementById("results-card");
+    const emptyCard = document.getElementById("empty-card");
+
+    async function loadRoulettes() {
+      try {
+        const res = await fetch("/api/roulettes");
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById("roulette_id");
+        const list = Array.isArray(data) ? data : (data.roulettes || []);
+        const seen = new Set();
+        list.forEach(r => {
+          const slug = (r.slug || r.id || r.roulette_id || "").trim();
+          if (!slug || seen.has(slug)) return;
+          seen.add(slug);
+          const opt = document.createElement("option");
+          opt.value = slug;
+          opt.textContent = r.displayName || r.name || slug;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        console.warn("Falha ao carregar roletas", err);
+      }
+    }
+    loadRoulettes();
+
+    pullBtn.addEventListener("click", async () => {
+      const rid = document.getElementById("roulette_id").value;
+      if (!rid) { setStatus("Selecione uma roleta primeiro.", true); return; }
+      setStatus("Puxando últimos 9 números...", false);
+      try {
+        const res = await fetch(`/api/triplet-pattern/last-spins?roulette_id=${encodeURIComponent(rid)}&count=9`);
+        const data = await res.json();
+        if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
+        const nums = data.numbers || [];
+        if (nums.length < 9) { setStatus(`Roleta tem só ${nums.length} números no histórico.`, true); return; }
+        nums.forEach((v, i) => inputs[i].value = v);
+        setStatus("9 números carregados (mais antigo → mais recente). Pode editar e validar.", false);
+      } catch (err) {
+        setStatus("Falha de conexão: " + err.message, true);
+      }
+    });
+
+    validateBtn.addEventListener("click", async () => {
+      const vals = inputs.map(el => parseInt(el.value, 10));
+      if (vals.some(n => isNaN(n) || n < 0 || n > 36)) {
+        setStatus("Preencha os 9 números (0 a 36).", true);
+        return;
+      }
+      setStatus("Validando...", false);
+      validateBtn.disabled = true;
+
+      const params = new URLSearchParams();
+      vals.forEach((v, i) => params.set("n" + (i + 1), v));
+      params.set("neighbor_span", document.getElementById("neighbor_span").value);
+      if (document.getElementById("filter_conf1").value === "this") {
+        const rid = document.getElementById("roulette_id").value;
+        if (rid) params.set("roulette_id", rid);
+      }
+
+      try {
+        const res = await fetch(`/api/triplet-pattern/validate?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
+        renderResults(data);
+        setStatus(`Validado em ${data.elapsed_ms}ms`, false);
+      } catch (err) {
+        setStatus("Falha de conexão: " + err.message, true);
+      } finally {
+        validateBtn.disabled = false;
+      }
+    });
+
+    function setStatus(msg, isError) {
+      statusEl.textContent = msg;
+      statusEl.classList.toggle("error", !!isError);
+    }
+
+    function fmtHora(ts) {
+      if (!ts) return "—";
+      const d = new Date(ts);
+      if (isNaN(d)) return "—";
+      return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function postTable(rows) {
+      const body = rows.map((p, i) => `<tr>
+        <td class="pos">${i + 1}</td>
+        <td>${badge(p.value, true)}</td>
+        <td class="hora">${fmtHora(p.timestamp)}</td>
+      </tr>`).join("");
+      return `<table class="post-table">
+        <thead><tr><th>Posição</th><th>Número</th><th>Horário</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>`;
+    }
+
+    function posTable(rows) {
+      const head = rows.map(r => `<th>pos ${r.pos}</th>`).join("");
+      const inp = rows.map(r => `<td>${badge(r.input, true)}</td>`).join("");
+      const act = rows.map(r => `<td>${badge(r.actual, true)}</td>`).join("");
+      const rel = rows.map(r => `<td class="rel-${r.relation || 'none'}">${r.relation || '—'}</td>`).join("");
+      return `<table class="pos">
+        <tr><th></th>${head}</tr>
+        <tr><td>Digitado</td>${inp}</tr>
+        <tr><td>Banco</td>${act}</tr>
+        <tr><td>Relação</td>${rel}</tr>
+      </table>`;
+    }
+
+    function renderResults(data) {
+      emptyCard.style.display = "none";
+      resultsCard.style.display = "block";
+
+      const f = data.funnel;
+      document.getElementById("funnel").innerHTML = `
+        <div class="stat"><span class="label">Confirmação 1 (exatas)</span><span class="value">${f.conf1}</span></div>
+        <div class="stat"><span class="label">Passou Confirmação 2</span><span class="value">${f.conf2}</span></div>
+        <div class="stat"><span class="label">Confirmadas (1+2+3)</span><span class="value">${f.confirmed}</span></div>
+        <div class="stat"><span class="label">Vizinhos</span><span class="value">±${data.neighbor_span}</span></div>
+      `;
+
+      const occBox = document.getElementById("occurrences");
+      if (!data.confirmed.length) {
+        let msg = "Nenhuma ocorrência passou nas 3 confirmações.";
+        if (data.truncated) msg += " (busca truncada — refine os números)";
+        occBox.innerHTML = `<div class="empty">${msg}</div>`;
+        return;
+      }
+
+      occBox.innerHTML = data.confirmed.map(occ => {
+        const m = occ.matched;
+        const seq = (label, arr) => `<div class="seq-group"><span class="glabel">${label}</span><div class="seq-nums">${arr.map(n => badge(n)).join("")}</div></div>`;
+        const post = occ.post_numbers.length
+          ? postTable(occ.post_numbers)
+          : '<span class="rel-none">sem números após a sequência ainda</span>';
+        return `<div class="occ">
+          <div class="occ-head">
+            <span class="rid">${occ.roulette_id || "?"}</span>
+            <span class="ts">${occ.timestamp || ""}</span>
+          </div>
+          <div class="seq-row">
+            ${seq("prev (Conf. 1 exata)", m.prev)}
+            ${seq("a / b / c", m.abc)}
+            ${seq("next1 / next2 / next3", m.next)}
+          </div>
+          <div class="conf-label">Confirmação 2 — trio do meio vs a/b/c</div>
+          ${posTable(occ.conf2_positions)}
+          <div class="conf-label">Confirmação 3 — trio recente vs next</div>
+          ${posTable(occ.conf3_positions)}
+          <div class="post-box">
+            <div class="plabel">Aposta — ${occ.post_numbers.length} números que vieram depois da sequência</div>
+            <div class="post-nums">${post}</div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+  </script>
+</body>
+</html>

@@ -242,3 +242,9 @@ async def triplet_ranking_page():
 async def trio_ranking_signals_page():
     with open(os.path.join(templates_dir, "trio_ranking_signals.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/validar-padrao", response_class=HTMLResponse)
+async def triplet_pattern_page():
+    with open(os.path.join(templates_dir, "triplet_pattern.html"), "r", encoding="utf-8") as f:
+        return f.read()
