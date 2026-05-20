@@ -55,6 +55,8 @@ def compute_bet() -> List[int]:
             s.add(n)
             for nb in wheel_neighbors(n, span=NEIGHBOR_SPAN):
                 s.add(nb)
+    # O 0 sempre entra na aposta (cobertura do verde)
+    s.add(0)
     return sorted(s)
 
 
