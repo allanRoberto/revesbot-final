@@ -42,6 +42,8 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
         }
         for p in (doc.get("post_attempts") or [])
     ]
+    pre_window_ts_raw = doc.get("pre_window_ts") or []
+    pre_window_ts = [_fmt_ts(t) for t in pre_window_ts_raw]
     return {
         "id":                  str(doc["_id"]),
         "roulette_id":         doc.get("roulette_id", ""),
@@ -53,6 +55,9 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
         "bet":                 doc.get("bet", []),
         "ranking_top10":       doc.get("ranking_top10", []),
         "triplet_match_count": doc.get("triplet_match_count"),
+        "pre_window":          doc.get("pre_window") or [],
+        "pre_window_ts":       pre_window_ts,
+        "inversion_paid_before": bool(doc.get("inversion_paid_before", False)),
         "attempts":            attempts,
         "post_attempts":       post_attempts,
         "won_at_attempt":      doc.get("won_at_attempt"),
@@ -84,17 +89,13 @@ async def list_signals(
     lost       = await signals_coll.count_documents({**base_filt, "status": "lost"})
     monitoring = await signals_coll.count_documents({**base_filt, "status": "monitoring"})
 
-    # Inversao paga: sinais perdidos cuja janela pos-derrota teve hit
+    # Inversao paga: signal cuja janela de 5 jogadas ANTES do gatilho teve
+    # algum numero da aposta (top4 + 0). Calculado no momento da criacao.
     inversion_paid = await signals_coll.count_documents({
         **base_filt,
-        "status": "lost",
-        "post_attempts.hit": True,
+        "inversion_paid_before": True,
     })
-    inversion_pending = await signals_coll.count_documents({
-        **base_filt,
-        "status": "lost",
-        "needs_post_track": True,
-    })
+    inversion_pending = 0  # conceito nao se aplica mais (era do tracking pos-derrota legado)
 
     # Media de tentativas para vencer
     avg_attempts_to_win = 0.0
@@ -114,7 +115,8 @@ async def list_signals(
 
     resolved = won + lost
     assertiveness_pct = round(won / resolved * 100, 2) if resolved > 0 else 0.0
-    inversion_pay_rate = round(inversion_paid / lost * 100, 2) if lost > 0 else 0.0
+    # Taxa de inversao agora considera todos os sinais (calculo no momento da criacao)
+    inversion_pay_rate = round(inversion_paid / total * 100, 2) if total > 0 else 0.0
 
     return {
         "filters": {"roulette_id": roulette_id, "status": status},

@@ -23,6 +23,7 @@ MONGO_URL = os.getenv(
 ROULETTE_ID    = os.getenv("OCCURRENCE_SIGNAL_ROULETTE_ID",   "pragmatic-auto-roulette")
 SPINS_TO_FETCH = int(os.getenv("OCCURRENCE_SIGNAL_SPINS",      "1000"))
 ZERO_WINDOW    = int(os.getenv("OCCURRENCE_SIGNAL_ZERO_WINDOW", "7"))
+PRE_WINDOW     = int(os.getenv("OCCURRENCE_SIGNAL_PRE_WINDOW",  "5"))
 TOP_N          = int(os.getenv("OCCURRENCE_SIGNAL_TOP_N",       "4"))
 MAX_ATTEMPTS   = int(os.getenv("OCCURRENCE_SIGNAL_MAX_ATTEMPTS", "4"))
 MAX_POST_TRACK = int(os.getenv("OCCURRENCE_SIGNAL_MAX_POST",    "20"))
@@ -114,6 +115,11 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
 
     bet = sorted(set(top4 + [0]))
 
+    # Janela pre-gatilho: ate `PRE_WINDOW` jogadas imediatamente antes de X (cronologico)
+    pre_start = max(0, L - PRE_WINDOW)
+    pre_window = [spins[i]["value"] for i in range(pre_start, L)]
+    pre_window_ts = [spins[i]["timestamp"] for i in range(pre_start, L)]
+
     return {
         "X": X,
         "X_timestamp": spins[L]["timestamp"],
@@ -127,6 +133,8 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
         "check_middle_window": middle_window,
         "check_recent_window": recent_window,
         "zero_window": zero_window,
+        "pre_window": pre_window,
+        "pre_window_ts": pre_window_ts,
         "triplet_match_count": triplet_match_count,
         "ranking_top10": [{"number": int(r["_id"]), "count": int(r["count"])} for r in rows[:10]],
     }
@@ -134,10 +142,14 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
 
 def create_signal(info: Dict[str, Any]) -> Dict[str, Any]:
     now = datetime.now(tz=timezone.utc)
+    bet = info["bet"]
+    pre_window = info.get("pre_window", []) or []
+    inversion_paid_before = any(v in bet for v in pre_window)
     doc = {
         "roulette_id":         ROULETTE_ID,
         "config": {
             "zero_window":  ZERO_WINDOW,
+            "pre_window":   PRE_WINDOW,
             "top_n":        TOP_N,
             "max_attempts": MAX_ATTEMPTS,
             "max_post":     MAX_POST_TRACK,
@@ -151,6 +163,9 @@ def create_signal(info: Dict[str, Any]) -> Dict[str, Any]:
         "check_middle_window": info["check_middle_window"],
         "check_recent_window": info["check_recent_window"],
         "zero_window":         info["zero_window"],
+        "pre_window":          pre_window,
+        "pre_window_ts":       info.get("pre_window_ts", []),
+        "inversion_paid_before": inversion_paid_before,
         "triplet_match_count": info["triplet_match_count"],
         "status":              "monitoring",
         "attempts":            [],

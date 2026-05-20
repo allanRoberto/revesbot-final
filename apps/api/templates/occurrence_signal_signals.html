@@ -143,7 +143,10 @@
 <body>
   <div class="container">
     <h1>Sinais — Padrão de Ocorrência</h1>
-    <p class="subtitle">Acompanhamento dos sinais gerados pelo worker, com assertividade e pagamentos de inversão.</p>
+    <p class="subtitle">
+      Acompanhamento dos sinais gerados pelo worker.
+      <strong>Inversão paga</strong> = algum número da aposta (top4 + 0) apareceu nas <em>5 jogadas antes do gatilho X</em> — sinal calculado no momento da criação.
+    </p>
 
     <div class="card">
       <div class="stats-grid" id="stats-grid">
@@ -235,8 +238,7 @@
         { label: "Perdidos", value: d.lost, cls: "danger" },
         { label: "Assertividade", value: `${d.assertiveness_pct}%`, sub: `em ${d.resolved} resolvidos`, cls: "" },
         { label: "Média tentativas/win", value: d.avg_attempts_to_win || "—", sub: `1: ${d.win_distribution[1]} · 2: ${d.win_distribution[2]} · 3: ${d.win_distribution[3]} · 4: ${d.win_distribution[4]}`, cls: "" },
-        { label: "Inversão paga", value: d.inversion.paid, sub: `de ${d.lost} losses (${d.inversion.pay_rate}%)`, cls: "warn" },
-        { label: "Inversão pendente", value: d.inversion.pending, cls: "warn" },
+        { label: "Inversão paga (pré-gatilho)", value: d.inversion.paid, sub: `de ${d.total} sinais (${d.inversion.pay_rate}%)`, cls: "warn" },
       ];
       statsGrid.innerHTML = cells.map(c => `
         <div class="stat ${c.cls}">
@@ -263,12 +265,11 @@
     function renderSignal(s) {
       const betSet = new Set(s.bet || []);
       const top4Set = new Set(s.top4 || []);
-      const inversionPaid = (s.post_attempts || []).some(p => p.hit);
-      const pillInv = s.status === "lost"
-        ? (inversionPaid
-            ? `<span class="inversion-pill paid">inversão paga</span>`
-            : (s.needs_post_track ? `<span class="inversion-pill">aguardando inversão</span>` : `<span class="inversion-pill">sem inversão</span>`))
-        : "";
+      const pillInv = s.inversion_paid_before
+        ? `<span class="inversion-pill paid">inversão paga (pré-gatilho)</span>`
+        : (s.pre_window && s.pre_window.length
+            ? `<span class="inversion-pill">sem inversão</span>`
+            : "");
 
       const wonInfo = s.status === "won" ? ` · WIN na tentativa ${s.won_at_attempt}` : "";
 
@@ -294,16 +295,32 @@
             <div class="nums">${(s.bet||[]).map(n => badge(n, n === 0 ? "zero-bet" : "top4")).join("")}</div>
           </div>
         </div>
+        ${(s.pre_window && s.pre_window.length) ? `
+          <div style="margin-top: 10px">
+            <span class="glabel">Inversão — 5 jogadas antes do gatilho (cronológico)</span>
+            <div class="attempts-row">
+              ${s.pre_window.map((v, i) => {
+                const inBet = betSet.has(v);
+                const cls = inBet ? "hit" : "miss";
+                const posLabel = `-${s.pre_window.length - i}`;
+                const ts = (s.pre_window_ts && s.pre_window_ts[i]) || "";
+                const tsShort = (fmtTs(ts).split(", ")[1] || "");
+                return `<div class="attempt-cell">
+                  ${badge(v, cls)}
+                  <span class="alabel">${posLabel}</span>
+                  <span class="alabel" style="font-size:9px">${tsShort}</span>
+                </div>`;
+              }).join("")}
+              <span class="alabel" style="margin-left:8px;color:${s.inversion_paid_before ? 'var(--accent-strong)' : 'var(--muted)'};font-weight:600">
+                ${s.inversion_paid_before ? "✓ algum da aposta apareceu" : "nenhum da aposta apareceu"}
+              </span>
+            </div>
+          </div>
+        ` : ""}
         <div style="margin-top: 10px">
           <span class="glabel">Tentativas (até ${s.config && s.config.max_attempts || 4})</span>
           ${renderAttempts(s.attempts, betSet, "tentativas")}
         </div>
-        ${s.status === "lost" ? `
-          <div style="margin-top: 10px">
-            <span class="glabel">Pós-derrota (inversão) — até ${s.config && s.config.max_post || 20} spins</span>
-            ${renderAttempts(s.post_attempts, betSet, "spins pós-derrota")}
-          </div>
-        ` : ""}
       </div>`;
     }
 
