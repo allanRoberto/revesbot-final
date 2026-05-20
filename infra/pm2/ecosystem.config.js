@@ -293,7 +293,7 @@ module.exports = {
       env: {
         DEPLOY_STAGE: stage,
         PYTHONUNBUFFERED: "1",
-        TERMINAL_7_ROULETTE_ID: "pragmatic-auto-roulette",
+        TERMINAL_7_ROULETTE_IDS: "all",
         TERMINAL_7_TRIGGER_VALUE: "34",
         TERMINAL_7_TERMINAL: "7",
         TERMINAL_7_NEIGHBOR_SPAN: "1",

@@ -20,7 +20,9 @@ MONGO_URL = os.getenv(
     "MONGO_URL",
     "mongodb://revesbot:DlBnGmlimRZpIblr@127.0.0.1:27017/roleta_db?authSource=admin",
 )
-ROULETTE_ID    = os.getenv("TERMINAL_7_ROULETTE_ID",   "pragmatic-auto-roulette")
+# Pode ser "all" (default) ou lista separada por virgulas (ex: "pragmatic-auto-roulette,pragmatic-mega-roulette").
+# Aceita TERMINAL_7_ROULETTE_ID (singular, legado) ou TERMINAL_7_ROULETTE_IDS (plural).
+ROULETTE_IDS_RAW = os.getenv("TERMINAL_7_ROULETTE_IDS") or os.getenv("TERMINAL_7_ROULETTE_ID") or "all"
 TRIGGER_VALUE  = int(os.getenv("TERMINAL_7_TRIGGER_VALUE", "34"))
 TERMINAL       = int(os.getenv("TERMINAL_7_TERMINAL",      "7"))
 NEIGHBOR_SPAN  = int(os.getenv("TERMINAL_7_NEIGHBOR_SPAN", "1"))
@@ -28,6 +30,7 @@ MAX_ATTEMPTS   = int(os.getenv("TERMINAL_7_MAX_ATTEMPTS",  "2"))
 PRE_WINDOW     = int(os.getenv("TERMINAL_7_PRE_WINDOW",    "5"))
 MAX_POST_TRACK = int(os.getenv("TERMINAL_7_MAX_POST",      "20"))
 POLL_SECONDS   = float(os.getenv("TERMINAL_7_POLL_SECONDS", "2"))
+PRAGMATIC_PREFIX = os.getenv("TERMINAL_7_PRAGMATIC_PREFIX", "pragmatic-")
 
 # Roda europeia
 WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
@@ -67,16 +70,28 @@ history_coll: Collection = _db["history"]
 signals_coll: Collection = _db["terminal_7_signal_signals"]
 
 
+def resolve_target_roulettes() -> List[str]:
+    raw = (ROULETTE_IDS_RAW or "all").strip().lower()
+    if raw in ("", "all", "*"):
+        # Pega todas as roletas pragmatic presentes no historico
+        slugs = [
+            s for s in history_coll.distinct("roulette_id")
+            if isinstance(s, str) and s.startswith(PRAGMATIC_PREFIX)
+        ]
+        return sorted(slugs)
+    return [s.strip() for s in raw.split(",") if s.strip()]
+
+
 def ensure_indexes() -> None:
     signals_coll.create_index([("roulette_id", ASCENDING), ("status", ASCENDING)])
     signals_coll.create_index([("created_at", DESCENDING)])
     signals_coll.create_index([("status", ASCENDING), ("needs_post_track", ASCENDING)])
 
 
-def get_pre_window(latest_ts: Any) -> List[Dict[str, Any]]:
+def get_pre_window(rid: str, latest_ts: Any) -> List[Dict[str, Any]]:
     docs = list(
         history_coll.find(
-            {"roulette_id": ROULETTE_ID, "timestamp": {"$lt": latest_ts}},
+            {"roulette_id": rid, "timestamp": {"$lt": latest_ts}},
             {"value": 1, "timestamp": 1},
         ).sort("timestamp", DESCENDING).limit(PRE_WINDOW)
     )
@@ -84,14 +99,14 @@ def get_pre_window(latest_ts: Any) -> List[Dict[str, Any]]:
     return docs
 
 
-def create_signal(trigger_value: int, trigger_ts: Any) -> Dict[str, Any]:
-    pre_docs = get_pre_window(trigger_ts)
+def create_signal(rid: str, trigger_value: int, trigger_ts: Any) -> Dict[str, Any]:
+    pre_docs = get_pre_window(rid, trigger_ts)
     pre_vals = [int(d["value"]) for d in pre_docs]
     pre_ts   = [d["timestamp"] for d in pre_docs]
     inversion_paid_before = any(v in BET for v in pre_vals)
     now = datetime.now(tz=timezone.utc)
     doc = {
-        "roulette_id":   ROULETTE_ID,
+        "roulette_id":   rid,
         "config": {
             "trigger_value":     trigger_value,
             "terminal":          TERMINAL,
@@ -117,134 +132,147 @@ def create_signal(trigger_value: int, trigger_ts: Any) -> Dict[str, Any]:
     }
     result = signals_coll.insert_one(doc)
     doc["_id"] = result.inserted_id
-    log.info("SIGNAL trigger=%d bet=%s pre=%s inv=%s", trigger_value, BET, pre_vals, inversion_paid_before)
+    log.info("[%s] SIGNAL trigger=%d bet=%s pre=%s inv=%s",
+             rid, trigger_value, BET, pre_vals, inversion_paid_before)
     return doc
+
+
+def process_roulette(rid: str, st: Dict[str, Any]) -> None:
+    latest_doc = history_coll.find_one(
+        {"roulette_id": rid},
+        {"value": 1, "timestamp": 1},
+        sort=[("timestamp", DESCENDING)],
+    )
+    if not latest_doc:
+        return
+
+    latest_ts  = latest_doc["timestamp"]
+    latest_val = int(latest_doc["value"])
+
+    if st.get("last_ts") is not None and latest_ts <= st["last_ts"]:
+        return
+    st["last_ts"] = latest_ts
+
+    active = st.get("active")
+
+    # 1. Tentativa do sinal ativo
+    if active is not None:
+        attempt_num = len(active.get("attempts", [])) + 1
+        hit         = latest_val in BET
+        entry = {
+            "attempt":   attempt_num,
+            "value":     latest_val,
+            "hit":       hit,
+            "timestamp": latest_ts,
+        }
+        if hit:
+            signals_coll.update_one(
+                {"_id": active["_id"]},
+                {"$set": {
+                    "status":         "won",
+                    "won_at_attempt": attempt_num,
+                    "resolved_at":    datetime.now(tz=timezone.utc),
+                },
+                 "$push": {"attempts": entry}},
+            )
+            log.info("[%s] WON attempt=%d value=%d", rid, attempt_num, latest_val)
+            active = None
+        elif attempt_num >= MAX_ATTEMPTS:
+            signals_coll.update_one(
+                {"_id": active["_id"]},
+                {"$set": {
+                    "status":           "lost",
+                    "resolved_at":      datetime.now(tz=timezone.utc),
+                    "needs_post_track": True,
+                },
+                 "$push": {"attempts": entry}},
+            )
+            log.info("[%s] LOST apos %d tentativas", rid, MAX_ATTEMPTS)
+            active = None
+        else:
+            signals_coll.update_one(
+                {"_id": active["_id"]},
+                {"$push": {"attempts": entry}},
+            )
+            active.setdefault("attempts", []).append(entry)
+            log.info("[%s] attempt %d/%d: %d (%s)", rid, attempt_num, MAX_ATTEMPTS, latest_val,
+                     "HIT" if hit else "miss")
+
+    # 2. Gatilho -> cria sinal novo se nao ha ativo
+    if active is None and latest_val == TRIGGER_VALUE:
+        active = create_signal(rid, latest_val, latest_ts)
+
+    st["active"] = active
+
+    # 3. Rastreia pos-derrota da roleta corrente
+    lost_tracking = signals_coll.find_one(
+        {"roulette_id": rid, "status": "lost", "needs_post_track": True},
+        sort=[("resolved_at", DESCENDING)],
+    )
+    if lost_tracking:
+        post = lost_tracking.get("post_attempts", [])
+        already_found = any(p.get("hit") for p in post)
+        if already_found or len(post) >= MAX_POST_TRACK:
+            signals_coll.update_one(
+                {"_id": lost_tracking["_id"]},
+                {"$set": {"needs_post_track": False}},
+            )
+        else:
+            hit_post = latest_val in lost_tracking["bet"]
+            signals_coll.update_one(
+                {"_id": lost_tracking["_id"]},
+                {"$push": {"post_attempts": {
+                    "spin":      len(post) + 1,
+                    "value":     latest_val,
+                    "hit":       hit_post,
+                    "timestamp": latest_ts,
+                }}},
+            )
+            if hit_post:
+                signals_coll.update_one(
+                    {"_id": lost_tracking["_id"]},
+                    {"$set": {"needs_post_track": False}},
+                )
+                log.info("[%s] POST PAGO no spin extra %d, valor=%d",
+                         rid, len(post) + 1, latest_val)
 
 
 def main() -> None:
     ensure_indexes()
+
+    targets = resolve_target_roulettes()
+    if not targets:
+        log.error("Nenhuma roleta para monitorar (TERMINAL_7_ROULETTE_IDS=%s). Encerrando.", ROULETTE_IDS_RAW)
+        return
+
     log.info(
-        "Worker iniciado. Roleta=%s trigger=%d terminal=%d span=%d max_attempts=%d bet=%s",
-        ROULETTE_ID, TRIGGER_VALUE, TERMINAL, NEIGHBOR_SPAN, MAX_ATTEMPTS, BET,
+        "Worker iniciado. Roletas (%d) trigger=%d terminal=%d span=%d max_attempts=%d bet=%s",
+        len(targets), TRIGGER_VALUE, TERMINAL, NEIGHBOR_SPAN, MAX_ATTEMPTS, BET,
     )
+    log.info("Roletas monitoradas: %s", ", ".join(targets))
 
-    active: Optional[Dict] = signals_coll.find_one(
-        {"roulette_id": ROULETTE_ID, "status": "monitoring"},
-        sort=[("created_at", DESCENDING)],
-    )
-    if active:
-        log.info("Sinal ativo retomado: id=%s attempts=%d", active["_id"], len(active.get("attempts", [])))
-
-    last_ts: Optional[Any] = None
-    if active and active.get("attempts"):
-        last_ts = max(a["timestamp"] for a in active["attempts"])
-    elif active:
-        last_ts = active.get("X_timestamp")
+    state: Dict[str, Dict[str, Any]] = {}
+    for rid in targets:
+        active = signals_coll.find_one(
+            {"roulette_id": rid, "status": "monitoring"},
+            sort=[("created_at", DESCENDING)],
+        )
+        last_ts: Optional[Any] = None
+        if active and active.get("attempts"):
+            last_ts = max(a["timestamp"] for a in active["attempts"])
+        elif active:
+            last_ts = active.get("X_timestamp")
+        state[rid] = {"active": active, "last_ts": last_ts}
+        if active:
+            log.info("[%s] sinal ativo retomado: id=%s attempts=%d",
+                     rid, active["_id"], len(active.get("attempts", [])))
 
     while True:
-        try:
-            latest_doc = history_coll.find_one(
-                {"roulette_id": ROULETTE_ID},
-                {"value": 1, "timestamp": 1},
-                sort=[("timestamp", DESCENDING)],
-            )
-            if not latest_doc:
-                time.sleep(POLL_SECONDS)
-                continue
-
-            latest_ts  = latest_doc["timestamp"]
-            latest_val = int(latest_doc["value"])
-
-            if last_ts is not None and latest_ts <= last_ts:
-                time.sleep(POLL_SECONDS)
-                continue
-            last_ts = latest_ts
-
-            # 1. Processa tentativa do sinal ativo
-            if active is not None:
-                attempt_num = len(active.get("attempts", [])) + 1
-                hit         = latest_val in BET
-                entry = {
-                    "attempt":   attempt_num,
-                    "value":     latest_val,
-                    "hit":       hit,
-                    "timestamp": latest_ts,
-                }
-
-                if hit:
-                    signals_coll.update_one(
-                        {"_id": active["_id"]},
-                        {"$set": {
-                            "status":         "won",
-                            "won_at_attempt": attempt_num,
-                            "resolved_at":    datetime.now(tz=timezone.utc),
-                        },
-                         "$push": {"attempts": entry}},
-                    )
-                    log.info("WON attempt=%d value=%d", attempt_num, latest_val)
-                    active = None
-
-                elif attempt_num >= MAX_ATTEMPTS:
-                    signals_coll.update_one(
-                        {"_id": active["_id"]},
-                        {"$set": {
-                            "status":           "lost",
-                            "resolved_at":      datetime.now(tz=timezone.utc),
-                            "needs_post_track": True,
-                        },
-                         "$push": {"attempts": entry}},
-                    )
-                    log.info("LOST apos %d tentativas (bet=%s)", MAX_ATTEMPTS, BET)
-                    active = None
-
-                else:
-                    signals_coll.update_one(
-                        {"_id": active["_id"]},
-                        {"$push": {"attempts": entry}},
-                    )
-                    active.setdefault("attempts", []).append(entry)
-                    log.info("attempt %d/%d: %d (%s)", attempt_num, MAX_ATTEMPTS, latest_val, "HIT" if hit else "miss")
-
-            # 2. Detecta gatilho e cria novo sinal se nao ha ativo
-            if active is None and latest_val == TRIGGER_VALUE:
-                active = create_signal(latest_val, latest_ts)
-
-            # 3. Rastreia pos-derrota
-            lost_tracking = signals_coll.find_one(
-                {"roulette_id": ROULETTE_ID, "status": "lost", "needs_post_track": True},
-                sort=[("resolved_at", DESCENDING)],
-            )
-            if lost_tracking:
-                post = lost_tracking.get("post_attempts", [])
-                already_found = any(p.get("hit") for p in post)
-                if already_found or len(post) >= MAX_POST_TRACK:
-                    signals_coll.update_one(
-                        {"_id": lost_tracking["_id"]},
-                        {"$set": {"needs_post_track": False}},
-                    )
-                else:
-                    hit_post = latest_val in lost_tracking["bet"]
-                    signals_coll.update_one(
-                        {"_id": lost_tracking["_id"]},
-                        {"$push": {"post_attempts": {
-                            "spin":      len(post) + 1,
-                            "value":     latest_val,
-                            "hit":       hit_post,
-                            "timestamp": latest_ts,
-                        }}},
-                    )
-                    if hit_post:
-                        signals_coll.update_one(
-                            {"_id": lost_tracking["_id"]},
-                            {"$set": {"needs_post_track": False}},
-                        )
-                        log.info("POST PAGO no spin extra %d, valor=%d", len(post) + 1, latest_val)
-
-        except Exception as exc:
-            log.exception("erro no loop: %s", exc)
-            time.sleep(5)
-            continue
-
+        for rid in targets:
+            try:
+                process_roulette(rid, state[rid])
+            except Exception as exc:
+                log.exception("[%s] erro: %s", rid, exc)
         time.sleep(POLL_SECONDS)
 
 
