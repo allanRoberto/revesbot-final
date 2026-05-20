@@ -78,6 +78,18 @@
     .pnl-row .v.pos { color: var(--accent-strong); }
     .pnl-row .v.neg { color: var(--danger); }
 
+    .chip-grid { display: flex; gap: 6px; }
+    .chip-grid > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .chip-grid label.small { font-size: 10px; color: var(--muted); }
+    .chip-grid input { width: 72px; padding: 7px 6px; text-align: center; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+    .chart-card .chart-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .chart-card h2 { margin: 0; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .chart-card .chart-summary { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+    .chart-card .chart-summary .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .chart-card .chart-summary .v.pos { color: var(--accent-strong); }
+    .chart-card .chart-summary .v.neg { color: var(--danger); }
+
     .filters { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
     .wide-field { display: flex; flex-direction: column; gap: 4px; }
     .wide-field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -192,8 +204,13 @@
           <input type="number" id="filter-limit" min="1" max="200" value="50">
         </div>
         <div class="wide-field">
-          <label for="chip-value">Ficha (R$) — pleno paga 35:1</label>
-          <input type="number" id="chip-value" min="0.01" step="0.01" value="1.00">
+          <label>Ficha por tentativa (R$) — pleno paga 35:1</label>
+          <div class="chip-grid">
+            <div><input type="number" id="chip-1" min="0" step="0.01" value="1.00"><label class="small">T1</label></div>
+            <div><input type="number" id="chip-2" min="0" step="0.01" value="1.00"><label class="small">T2</label></div>
+            <div><input type="number" id="chip-3" min="0" step="0.01" value="1.00"><label class="small">T3</label></div>
+            <div><input type="number" id="chip-4" min="0" step="0.01" value="1.00"><label class="small">T4</label></div>
+          </div>
         </div>
         <button type="button" class="btn" id="reload-btn">Atualizar</button>
         <label class="auto-refresh">
@@ -202,6 +219,15 @@
         </label>
       </div>
       <div class="status-msg" id="status-msg">Carregando…</div>
+    </div>
+
+    <div class="card chart-card" id="chart-card" style="display:none;">
+      <div class="chart-title">
+        <h2>Evolução da banca</h2>
+        <span class="small" id="chart-meta"></span>
+      </div>
+      <div id="chart-container"></div>
+      <div class="chart-summary" id="chart-summary"></div>
     </div>
 
     <div id="signals"></div>
@@ -223,15 +249,17 @@
     const statusMsg = document.getElementById("status-msg");
     const reloadBtn = document.getElementById("reload-btn");
     const autoRefresh = document.getElementById("auto-refresh");
-    const chipInput = document.getElementById("chip-value");
+    const chipInputs = [1,2,3,4].map(i => document.getElementById("chip-" + i));
 
     // Estado cache da ultima resposta para re-renderizar quando muda a ficha
     let lastData = null;
 
     const ROULETTE_PAYOUT = 36; // pleno paga 35:1 (retorno bruto = 36x a ficha)
-    function getChip() {
-      const v = parseFloat(chipInput.value);
-      return (isFinite(v) && v > 0) ? v : 1.0;
+    function getChips() {
+      return chipInputs.map(el => {
+        const v = parseFloat(el.value);
+        return (isFinite(v) && v >= 0) ? v : 0;
+      });
     }
     function fmtBRL(v) {
       const sign = v < 0 ? "-" : "";
@@ -240,14 +268,15 @@
     }
 
     /**
-     * Calcula custo, retorno e lucro para um sinal dada a ficha.
+     * Calcula custo, retorno e lucro para um sinal dadas as fichas por tentativa.
      * Regras:
-     * - Em cada tentativa apostamos N = len(bet) fichas (uma em cada número).
-     * - WIN no attempt k: gastou N*k*chip, recebe 36*chip de volta, lucro = (36 - N*k)*chip.
-     * - LOSS: gastou N*max_attempts*chip, recebe 0, lucro = -N*max_attempts*chip.
-     * - MONITORING: gastou N*attempts_so_far*chip, lucro parcial negativo (sem retorno ainda).
+     * - Em cada tentativa k apostamos N = len(bet) fichas no valor chips[k-1].
+     * - Stake ate a tentativa k = N * sum(chips[0..k-1]).
+     * - WIN no attempt k: stake = N * sum(chips[0..k-1]), payout = 36 * chips[k-1] (ficha vencedora unica).
+     * - LOSS: stake = N * sum(chips[0..max-1]), payout = 0.
+     * - MONITORING: stake parcial ate o spin atual, payout = 0.
      */
-    function simulateSignal(s, chip) {
+    function simulateSignal(s, chips) {
       const N = (s.bet || []).length;
       if (!N) return { N: 0, attemptsPlayed: 0, cost: 0, payout: 0, pnl: 0, resolved: false };
       const maxAttempts = (s.config && s.config.max_attempts) || 4;
@@ -256,27 +285,28 @@
       let resolved = false;
       if (s.status === "won") {
         attemptsPlayed = s.won_at_attempt || ((s.attempts || []).length) || 1;
-        payout = ROULETTE_PAYOUT * chip;
+        const winChip = chips[Math.min(attemptsPlayed, chips.length) - 1] || 0;
+        payout = ROULETTE_PAYOUT * winChip;
         resolved = true;
       } else if (s.status === "lost") {
         attemptsPlayed = (s.attempts || []).length || maxAttempts;
-        payout = 0;
         resolved = true;
       } else {
         attemptsPlayed = (s.attempts || []).length;
-        payout = 0;
         resolved = false;
       }
-      const cost = N * attemptsPlayed * chip;
+      let stakeChips = 0;
+      for (let i = 0; i < attemptsPlayed && i < chips.length; i++) stakeChips += chips[i];
+      const cost = N * stakeChips;
       const pnl = payout - cost;
       return { N, attemptsPlayed, cost, payout, pnl, resolved };
     }
 
-    function aggregatePnL(signals, chip) {
+    function aggregatePnL(signals, chips) {
       let totalCost = 0, totalPayout = 0, totalPnl = 0;
       let resolvedCost = 0, resolvedPayout = 0, resolvedPnl = 0;
       for (const s of signals) {
-        const sim = simulateSignal(s, chip);
+        const sim = simulateSignal(s, chips);
         totalCost += sim.cost;
         totalPayout += sim.payout;
         totalPnl += sim.pnl;
@@ -291,6 +321,107 @@
         resolvedCost, resolvedPayout, resolvedPnl,
         roi: resolvedCost > 0 ? (resolvedPnl / resolvedCost) * 100 : 0,
       };
+    }
+
+    function renderChart(signals, chips) {
+      const card = document.getElementById("chart-card");
+      const container = document.getElementById("chart-container");
+      const meta = document.getElementById("chart-meta");
+      const summaryEl = document.getElementById("chart-summary");
+
+      const sorted = [...(signals || [])]
+        .filter(s => s.status === "won" || s.status === "lost" || (s.attempts && s.attempts.length > 0))
+        .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+
+      if (!sorted.length) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "block";
+
+      let cum = 0;
+      const points = [{ x: 0, cum: 0, label: "início" }];
+      let peak = 0, trough = 0;
+      sorted.forEach((s, i) => {
+        const sim = simulateSignal(s, chips);
+        cum += sim.pnl;
+        if (cum > peak) peak = cum;
+        if (cum < trough) trough = cum;
+        points.push({ x: i + 1, cum, label: s.status, pnl: sim.pnl, X: s.X, created_at: s.created_at });
+      });
+
+      const W = 1000, H = 280, padL = 60, padR = 16, padT = 18, padB = 28;
+      const innerW = W - padL - padR;
+      const innerH = H - padT - padB;
+      const minY = Math.min(0, ...points.map(p => p.cum));
+      const maxY = Math.max(0, ...points.map(p => p.cum));
+      const range = (maxY - minY) || 1;
+      const xStep = innerW / Math.max(1, points.length - 1);
+      const yScale = v => padT + innerH - ((v - minY) / range) * innerH;
+      const xScale = i => padL + i * xStep;
+      const zeroY = yScale(0);
+
+      // gridlines (4 horizontais)
+      let gridLines = "";
+      const gridSteps = 4;
+      for (let g = 0; g <= gridSteps; g++) {
+        const yVal = minY + (range * g / gridSteps);
+        const yy = yScale(yVal);
+        gridLines += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#eef3f1" stroke-width="1"/>`;
+        gridLines += `<text x="${padL - 6}" y="${yy + 4}" font-size="10" text-anchor="end" fill="#63706b">${fmtBRL(yVal)}</text>`;
+      }
+
+      // Linha zero destacada
+      const zeroLine = `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}" stroke="#d7ddd9" stroke-dasharray="4 3" stroke-width="1"/>`;
+
+      // Area: gradiente abaixo da linha
+      const finalPos = cum >= 0;
+      const lineColor = finalPos ? "#177a5b" : "#9b2f2f";
+      const areaColor = finalPos ? "rgba(23,122,91,0.12)" : "rgba(155,47,47,0.10)";
+
+      const polyPath = points.map((p, i) => `${i === 0 ? "M" : "L"}${xScale(i).toFixed(1)},${yScale(p.cum).toFixed(1)}`).join(" ");
+      // Area path para preencher entre linha e zero
+      const lastX = xScale(points.length - 1).toFixed(1);
+      const areaPath = `M${xScale(0).toFixed(1)},${zeroY.toFixed(1)} ` +
+        points.map((p, i) => `L${xScale(i).toFixed(1)},${yScale(p.cum).toFixed(1)}`).join(" ") +
+        ` L${lastX},${zeroY.toFixed(1)} Z`;
+
+      // Pontos
+      const dots = points.map((p, i) => {
+        if (i === 0) return "";
+        const cx = xScale(i).toFixed(1);
+        const cy = yScale(p.cum).toFixed(1);
+        const fill = p.cum >= 0 ? "#177a5b" : "#9b2f2f";
+        return `<circle cx="${cx}" cy="${cy}" r="2.5" fill="${fill}"><title>#${i} · ${p.label} · X=${p.X} · pnl=${fmtBRL(p.pnl || 0)} · acum=${fmtBRL(p.cum)}</title></circle>`;
+      }).join("");
+
+      // Label de inicio e fim de eixo X
+      const xAxis = `
+        <text x="${padL}" y="${H - 8}" font-size="10" fill="#63706b">início</text>
+        <text x="${W - padR}" y="${H - 8}" font-size="10" text-anchor="end" fill="#63706b">${points.length - 1} sinais</text>
+      `;
+
+      container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:280px;display:block;">
+        ${gridLines}
+        ${zeroLine}
+        <path d="${areaPath}" fill="${areaColor}" stroke="none"/>
+        <path d="${polyPath}" fill="none" stroke="${lineColor}" stroke-width="2"/>
+        ${dots}
+        ${xAxis}
+      </svg>`;
+
+      meta.textContent = `${points.length - 1} sinais plotados · ordenados por data`;
+
+      const finalCls = cum >= 0 ? "pos" : "neg";
+      const peakCls = peak >= 0 ? "pos" : "neg";
+      const troughCls = trough >= 0 ? "pos" : "neg";
+      summaryEl.innerHTML = `
+        <span>Início: <span class="v">R$ 0,00</span></span>
+        <span>Pico: <span class="v ${peakCls}">${fmtBRL(peak)}</span></span>
+        <span>Fundo: <span class="v ${troughCls}">${fmtBRL(trough)}</span></span>
+        <span>Final: <span class="v ${finalCls}">${fmtBRL(cum)}</span></span>
+        <span>Drawdown máx: <span class="v neg">${fmtBRL(trough - peak)}</span></span>
+      `;
     }
 
     async function loadRoulettes() {
@@ -320,9 +451,10 @@
     }
 
     function renderStats(d) {
-      const chip = getChip();
-      const sim = aggregatePnL(d.signals || [], chip);
+      const chips = getChips();
+      const sim = aggregatePnL(d.signals || [], chips);
       const pnlCls = sim.resolvedPnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const chipsLabel = chips.map(c => c.toFixed(2)).join(" / ");
       const cells = [
         { label: "Total", value: d.total, cls: "" },
         { label: "Monitorando", value: d.monitoring, cls: "info" },
@@ -331,7 +463,7 @@
         { label: "Assertividade", value: `${d.assertiveness_pct}%`, sub: `em ${d.resolved} resolvidos`, cls: "" },
         { label: "Média tentativas/win", value: d.avg_attempts_to_win || "—", sub: `1: ${d.win_distribution[1]} · 2: ${d.win_distribution[2]} · 3: ${d.win_distribution[3]} · 4: ${d.win_distribution[4]}`, cls: "" },
         { label: "Inversão paga (pré-gatilho)", value: d.inversion.paid, sub: `de ${d.total} sinais (${d.inversion.pay_rate}%)`, cls: "warn" },
-        { label: `Lucro (ficha R$ ${chip.toFixed(2)})`, value: fmtBRL(sim.resolvedPnl), sub: `stake R$ ${sim.resolvedCost.toFixed(2)} · retorno R$ ${sim.resolvedPayout.toFixed(2)} (resolvidos)`, cls: pnlCls },
+        { label: `Lucro (fichas ${chipsLabel})`, value: fmtBRL(sim.resolvedPnl), sub: `stake R$ ${sim.resolvedCost.toFixed(2)} · retorno R$ ${sim.resolvedPayout.toFixed(2)} (resolvidos)`, cls: pnlCls },
         { label: "ROI", value: `${sim.roi.toFixed(2)}%`, sub: `lucro / stake nos resolvidos`, cls: pnlCls },
       ];
       statsGrid.innerHTML = cells.map(c => `
@@ -367,12 +499,13 @@
 
       const wonInfo = s.status === "won" ? ` · WIN na tentativa ${s.won_at_attempt}` : "";
 
-      const chip = getChip();
-      const sim = simulateSignal(s, chip);
+      const chips = getChips();
+      const sim = simulateSignal(s, chips);
       const pnlCls = sim.pnl >= 0 ? "pos" : "neg";
+      const chipsUsed = chips.slice(0, Math.max(sim.attemptsPlayed, 1)).map(c => "R$ " + c.toFixed(2)).join(" → ");
       const pnlRow = sim.N > 0 ? `
         <div class="pnl-row">
-          <span><span class="lbl">Ficha:</span><span class="v">${fmtBRL(chip)}</span></span>
+          <span><span class="lbl">Fichas usadas:</span><span class="v">${chipsUsed || "—"}</span></span>
           <span><span class="lbl">N° por giro:</span><span class="v">${sim.N}</span></span>
           <span><span class="lbl">Tentativas jogadas:</span><span class="v">${sim.attemptsPlayed}</span></span>
           <span><span class="lbl">Stake:</span><span class="v">${fmtBRL(sim.cost)}</span></span>
@@ -435,7 +568,9 @@
 
     function rerenderFromCache() {
       if (!lastData) return;
+      const chips = getChips();
       renderStats(lastData);
+      renderChart(lastData.signals || [], chips);
       if (!lastData.signals.length) {
         signalsBox.innerHTML = `<div class="card empty">Nenhum sinal encontrado para o filtro selecionado.</div>`;
       } else {
@@ -468,9 +603,11 @@
     document.getElementById("filter-status").addEventListener("change", load);
     document.getElementById("filter-roulette").addEventListener("change", load);
     document.getElementById("filter-limit").addEventListener("change", load);
-    // Mudou a ficha -> recalcula sem refazer fetch
-    chipInput.addEventListener("input", rerenderFromCache);
-    chipInput.addEventListener("change", rerenderFromCache);
+    // Mudou alguma ficha -> recalcula sem refazer fetch
+    chipInputs.forEach(el => {
+      el.addEventListener("input", rerenderFromCache);
+      el.addEventListener("change", rerenderFromCache);
+    });
 
     let refreshTimer = null;
     function scheduleAutoRefresh() {
