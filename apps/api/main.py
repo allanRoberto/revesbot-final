@@ -101,6 +101,7 @@ from api.routes.triplet_ranking import router as triplet_ranking_router
 from api.routes.triplet_pattern import router as triplet_pattern_router
 from api.routes.sequence_search import router as sequence_search_router
 from api.routes.occurrence_signal import router as occurrence_signal_router
+from api.routes.occurrence_signal_signals import router as occurrence_signal_signals_router
 from api.routes.trio_ranking_signals import router as trio_ranking_signals_router
 
 
@@ -219,6 +220,7 @@ app.include_router(triplet_ranking_router)
 app.include_router(triplet_pattern_router)
 app.include_router(sequence_search_router)
 app.include_router(occurrence_signal_router)
+app.include_router(occurrence_signal_signals_router)
 app.include_router(trio_ranking_signals_router)
 
 
