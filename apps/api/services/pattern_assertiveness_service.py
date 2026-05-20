@@ -8,6 +8,7 @@ hit-rate, baseline aleatório esperado, lift, z-score (binomial Poisson).
 from __future__ import annotations
 
 import math
+import time
 from collections import defaultdict
 from typing import Any, Dict, List, Mapping
 
@@ -16,6 +17,8 @@ from api.core.db import history_coll, suggestion_snapshots_coll
 
 DEFAULT_GALE_LEVELS = (1, 2, 3, 5)
 WHEEL_SIZE = 37
+CACHE_TTL_SECONDS = 600  # 10 min — o backtest fica indistinguível até chegarem snapshots novos
+_report_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
 
 
 def _extract_contributions(snapshot_doc: Mapping[str, Any]) -> List[Dict[str, Any]]:
@@ -78,6 +81,15 @@ async def build_pattern_assertiveness_report(
     safe_limit = max(50, min(5000, int(limit or 2000)))
     safe_gale_levels = sorted({max(1, min(20, int(level))) for level in (gale_levels or DEFAULT_GALE_LEVELS)})
     max_gale = max(safe_gale_levels) if safe_gale_levels else 1
+
+    cache_key = f"{roulette_id}|{safe_limit}|{int(include_all_configs)}|{','.join(map(str, safe_gale_levels))}"
+    now = time.time()
+    cached = _report_cache.get(cache_key)
+    if cached and (now - cached[0]) < CACHE_TTL_SECONDS:
+        cached_payload = dict(cached[1])
+        cached_payload["cached"] = True
+        cached_payload["cache_age_seconds"] = round(now - cached[0], 1)
+        return cached_payload
 
     snapshot_query: Dict[str, Any] = {"roulette_id": roulette_id}
     if not include_all_configs:
@@ -249,7 +261,7 @@ async def build_pattern_assertiveness_report(
     aggregate_hits = sum(r["hits"] for r in rows)
     aggregate_expected = sum(r["expected_hits"] for r in rows)
 
-    return {
+    report = {
         "available": True,
         "roulette_id": roulette_id,
         "requested_limit": safe_limit,
@@ -262,7 +274,10 @@ async def build_pattern_assertiveness_report(
         "aggregate_expected_hits": round(aggregate_expected, 2),
         "gale_levels": safe_gale_levels,
         "rows": rows,
+        "cached": False,
     }
+    _report_cache[cache_key] = (time.time(), report)
+    return report
 
 
 def _classify(z_score: float, signals: int) -> str:
