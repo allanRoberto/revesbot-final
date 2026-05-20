@@ -220,14 +220,15 @@
     const TARGET_FOR = ["prev_2","prev_1","a","b","c","next1"]; // target when k=1..6, but min is 2
 
     const MODES = [
+      { value: "exato",     label: "Exato" },
       { value: "vizinhos",  label: "Viz" },
       { value: "sequencia", label: "Seq" },
       { value: "espelho",   label: "Esp" },
       { value: "soma",      label: "Σ dig" },
     ];
 
-    // Per-field selected modes (Set). Empty = exato.
-    const selectedModes = Array.from({ length: 6 }, () => new Set());
+    // Per-field selected modes (Set). Default: 'exato' selected.
+    const selectedModes = Array.from({ length: 6 }, () => new Set(["exato"]));
 
     // Render the 6 field cards
     const fieldsRow = document.getElementById("fields-row");
@@ -238,7 +239,7 @@
         <div class="flabel">Campo ${i} → ${DB_FIELDS[i-1]}</div>
         <input type="number" min="0" max="36" id="n${i}" placeholder="0–36">
         <div class="mode-toggles" id="mt${i}">
-          ${MODES.map(m => `<button type="button" data-mode="${m.value}" title="${m.value}">${m.label}</button>`).join("")}
+          ${MODES.map(m => `<button type="button" data-mode="${m.value}" title="${m.value}"${m.value === "exato" ? ' class="active"' : ""}>${m.label}</button>`).join("")}
         </div>
         <div class="mode-hint" id="mh${i}">Exato</div>
         <div class="target-tag empty" id="tag${i}">—</div>
@@ -266,8 +267,9 @@
     function updateModeHint(i) {
       const set = selectedModes[i - 1];
       const hint = document.getElementById("mh" + i);
-      if (!set.size) { hint.textContent = "Exato"; return; }
-      const labels = [...set].map(v => (MODES.find(m => m.value === v) || {}).label || v);
+      if (!set.size) { hint.textContent = "(sem modo)"; return; }
+      // Preserva a ordem do array MODES para a exibicao
+      const labels = MODES.filter(m => set.has(m.value)).map(m => m.label);
       hint.textContent = labels.join(" + ");
     }
 
@@ -303,12 +305,12 @@
     const MIRROR = {1:[10],2:[20],3:[30],10:[1],12:[21],13:[31],20:[2],21:[12],23:[32],30:[3],31:[13],32:[23]};
     const digitSum = n => String(Math.abs(n)).split("").reduce((s,d)=>s+(+d),0);
     function localCandidates(n, modes) {
-      const s = new Set([n]);
+      const s = new Set();
       const list = (modes && modes.length) ? modes : ["exato"];
-      if (list.length === 1 && list[0] === "exato") return [n];
       for (const mode of list) {
-        if (mode === "exato") continue;
-        if (mode === "vizinhos") {
+        if (mode === "exato") {
+          s.add(n);
+        } else if (mode === "vizinhos") {
           if (WHEEL_IDX[n] !== undefined) {
             s.add(WHEEL[(WHEEL_IDX[n]-1+37)%37]);
             s.add(WHEEL[(WHEEL_IDX[n]+1)%37]);
@@ -320,7 +322,7 @@
           (MIRROR[n] || []).forEach(m => s.add(m));
         } else if (mode === "soma") {
           const t = digitSum(n);
-          for (let x = 0; x <= 36; x++) if (digitSum(x) === t) s.add(x);
+          for (let x = 0; x <= 36; x++) if (x !== n && digitSum(x) === t) s.add(x);
         }
       }
       return [...s].sort((a,b)=>a-b);
@@ -441,7 +443,10 @@
       for (let i = 1; i <= 6; i++) {
         document.getElementById("n"+i).value = "";
         selectedModes[i-1].clear();
-        document.querySelectorAll(`#mt${i} button`).forEach(b => b.classList.remove("active"));
+        selectedModes[i-1].add("exato");
+        document.querySelectorAll(`#mt${i} button`).forEach(b => {
+          b.classList.toggle("active", b.dataset.mode === "exato");
+        });
         updateModeHint(i);
       }
       document.getElementById("roulette_id").value = "";

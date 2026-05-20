@@ -20,19 +20,18 @@ def _digit_sum(n: int) -> int:
 
 
 def candidates_for(value: int, modes: List[str]) -> List[int]:
-    """Retorna os candidatos de busca para um campo, sempre incluindo o numero digitado.
-    `modes` pode conter varias opcoes ('vizinhos','sequencia','espelho','soma'); os
-    candidatos sao a uniao dos conjuntos. 'exato' (ou lista vazia) significa apenas o
-    numero digitado."""
+    """Retorna os candidatos de busca para um campo unindo todos os modos selecionados.
+    Cada modo contribui apenas com seus proprios numeros derivados; o numero digitado
+    so entra se 'exato' estiver na lista. Lista vazia -> ['exato'] por seguranca."""
     n = int(value)
-    s = {n}
     cleaned = [m for m in (modes or []) if m in VALID_MODES]
-    if not cleaned or cleaned == ["exato"]:
-        return [n]
+    if not cleaned:
+        cleaned = ["exato"]
+    s: set = set()
     for mode in cleaned:
         if mode == "exato":
-            continue
-        if mode == "vizinhos":
+            s.add(n)
+        elif mode == "vizinhos":
             if n in WHEEL_INDEX:
                 idx = WHEEL_INDEX[n]
                 s.add(WHEEL_ORDER[(idx - 1) % len(WHEEL_ORDER)])
@@ -48,7 +47,7 @@ def candidates_for(value: int, modes: List[str]) -> List[int]:
         elif mode == "soma":
             target = _digit_sum(n)
             for x in range(37):
-                if _digit_sum(x) == target:
+                if x != n and _digit_sum(x) == target:
                     s.add(x)
     return sorted(s)
 
@@ -82,6 +81,22 @@ async def sequence_search(
     cands_per_field: List[List[int]] = [
         candidates_for(int(f["value"]), f.get("modes") or ["exato"]) for f in fields
     ]
+
+    # Se algum campo tem 0 candidatos (ex: 'espelho' sozinho num numero sem espelho),
+    # nada pode casar: retorna ranking vazio sem fazer query.
+    if any(len(c) == 0 for c in cands_per_field):
+        return {
+            "filled": k,
+            "target_field": target_field,
+            "match_fields": match_db_fields,
+            "candidates_per_field": cands_per_field,
+            "fields": fields,
+            "roulette_id": roulette_id,
+            "total_occurrences": 0,
+            "ranking": [],
+            "missing": list(range(37)),
+            "elapsed_ms": int((time.perf_counter() - t0) * 1000),
+        }
 
     match: Dict[str, Any] = {}
     for db_field, cands in zip(match_db_fields, cands_per_field):
