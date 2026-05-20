@@ -225,6 +225,10 @@
           <input type="checkbox" id="exclude-inversion">
           Desconsiderar sinais com inversão
         </label>
+        <label class="auto-refresh">
+          <input type="checkbox" id="exclude-neighbor">
+          Desconsiderar sinais com vizinhos pré-gatilho
+        </label>
       </div>
       <div class="status-msg" id="status-msg">Carregando…</div>
     </div>
@@ -268,6 +272,25 @@
     let lastData = null;
 
     const ROULETTE_PAYOUT = 36; // pleno paga 35:1 (retorno bruto = 36x a ficha)
+    const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+    const WHEEL_IDX = {}; WHEEL.forEach((n,i) => WHEEL_IDX[n] = i);
+    function wheelNeighbors(n) {
+      if (WHEEL_IDX[n] === undefined) return [];
+      const i = WHEEL_IDX[n];
+      return [WHEEL[(i - 1 + 37) % 37], WHEEL[(i + 1) % 37]];
+    }
+    // Verdadeiro se algum numero da pre_window for vizinho fisico de algum numero da aposta
+    // (e nao o proprio numero exato — esse caso e "inversao", checado separadamente).
+    function detectNeighborBefore(s) {
+      const pre = s.pre_window || [];
+      const bet = new Set(s.bet || []);
+      for (const v of pre) {
+        if (bet.has(v)) continue; // exato = inversao, ignora aqui
+        const nbs = wheelNeighbors(v);
+        if (nbs.some(nb => bet.has(nb))) return true;
+      }
+      return false;
+    }
     function getChips() {
       return chipInputs.map(el => {
         const v = parseFloat(el.value);
@@ -494,6 +517,7 @@
         { label: "Assertividade", value: `${d.assertiveness_pct}%`, sub: `em ${d.resolved} resolvidos`, cls: "" },
         { label: "Média tentativas/win", value: d.avg_attempts_to_win || "—", sub: `1: ${d.win_distribution[1]} · 2: ${d.win_distribution[2]} · 3: ${d.win_distribution[3]} · 4: ${d.win_distribution[4]}`, cls: "" },
         { label: "Inversão paga (pré-gatilho)", value: d.inversion.paid, sub: `de ${d.total} sinais (${d.inversion.pay_rate}%)`, cls: "warn" },
+        { label: "Vizinhos pré-gatilho", value: (d.neighbor && d.neighbor.detected) || 0, sub: `de ${d.total} (${(d.neighbor && d.neighbor.rate) || 0}%)`, cls: "warn" },
         { label: `Lucro (fichas ${chipsLabel})`, value: fmtBRL(sim.resolvedPnl), sub: `stake R$ ${sim.resolvedCost.toFixed(2)} · retorno R$ ${sim.resolvedPayout.toFixed(2)} (resolvidos)`, cls: pnlCls },
         { label: "ROI", value: `${sim.roi.toFixed(2)}%`, sub: `lucro / stake nos resolvidos`, cls: pnlCls },
       ];
@@ -527,6 +551,10 @@
         : (s.pre_window && s.pre_window.length
             ? `<span class="inversion-pill">sem inversão</span>`
             : "");
+      const hasNeighbor = detectNeighborBefore(s);
+      const pillNeighbor = hasNeighbor
+        ? `<span class="inversion-pill">vizinho pré-gatilho</span>`
+        : "";
 
       const wonInfo = s.status === "won" ? ` · WIN na tentativa ${s.won_at_attempt}` : "";
 
@@ -549,6 +577,7 @@
         <div class="sig-head">
           <span class="status-pill ${s.status}">${s.status}${wonInfo}</span>
           ${pillInv}
+          ${pillNeighbor}
           <span class="rid">${s.roulette_id}</span>
           <span class="ts">criado ${fmtTs(s.created_at)}</span>
         </div>
@@ -601,7 +630,7 @@
       // Recalcula os mesmos campos que a API retorna, a partir de uma lista filtrada
       const dist = { 1: 0, 2: 0, 3: 0, 4: 0 };
       let won = 0, lost = 0, monitoring = 0;
-      let invPaid = 0;
+      let invPaid = 0, neighbors = 0;
       let attemptsSumOnWins = 0;
       for (const s of signals) {
         if (s.status === "won") {
@@ -615,6 +644,7 @@
           monitoring++;
         }
         if (s.inversion_paid_before) invPaid++;
+        if (detectNeighborBefore(s)) neighbors++;
       }
       const total = signals.length;
       const resolved = won + lost;
@@ -628,6 +658,10 @@
           pending: 0,
           pay_rate: total > 0 ? Math.round((invPaid / total) * 10000) / 100 : 0,
         },
+        neighbor: {
+          detected: neighbors,
+          rate: total > 0 ? Math.round((neighbors / total) * 10000) / 100 : 0,
+        },
         signals,
       };
     }
@@ -636,16 +670,19 @@
       if (!lastData) return;
       const chips = getChips();
       const excludeInv = document.getElementById("exclude-inversion").checked;
+      const excludeNb  = document.getElementById("exclude-neighbor").checked;
       const baseSignals = lastData.signals || [];
-      const filtered = excludeInv ? baseSignals.filter(s => !s.inversion_paid_before) : baseSignals;
-      const data = excludeInv ? computeClientStats(filtered) : lastData;
+      let filtered = baseSignals;
+      if (excludeInv) filtered = filtered.filter(s => !s.inversion_paid_before);
+      if (excludeNb)  filtered = filtered.filter(s => !detectNeighborBefore(s));
+      const dataUsesClient = excludeInv || excludeNb;
+      const data = dataUsesClient ? computeClientStats(filtered) : computeClientStats(baseSignals);
+      // mantem alguns campos do servidor que nao recalculo (e nao mudam com filtro client-side)
+      data.signals = filtered;
       renderStats(data);
       renderChart(filtered, chips);
       if (!filtered.length) {
-        const msg = excludeInv
-          ? "Todos os sinais tinham inversão e foram filtrados."
-          : "Nenhum sinal encontrado para o filtro selecionado.";
-        signalsBox.innerHTML = `<div class="card empty">${msg}</div>`;
+        signalsBox.innerHTML = `<div class="card empty">Nenhum sinal restante após o filtro.</div>`;
       } else {
         signalsBox.innerHTML = filtered.map(renderSignal).join("");
       }
@@ -684,6 +721,7 @@
     initialBankInput.addEventListener("input", rerenderFromCache);
     initialBankInput.addEventListener("change", rerenderFromCache);
     document.getElementById("exclude-inversion").addEventListener("change", rerenderFromCache);
+    document.getElementById("exclude-neighbor").addEventListener("change", rerenderFromCache);
 
     let refreshTimer = null;
     function scheduleAutoRefresh() {
