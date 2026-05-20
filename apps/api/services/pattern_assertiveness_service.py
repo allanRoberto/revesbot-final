@@ -90,8 +90,15 @@ async def build_pattern_assertiveness_report(
         snapshot_query["config_key"] = build_suggestion_snapshot_config_key(config_doc)
 
     fetch_limit = min(safe_limit + 20, 5500)
+    # Projection: só os campos que vamos usar. payload completo é gigante e
+    # estoura o tempo de download/transferência sem essa redução.
+    snapshot_projection = {
+        "anchor_history_id": 1,
+        "anchor_timestamp_utc": 1,
+        "payload.optimized_payload.contributions": 1,
+    }
     snapshot_docs = await (
-        suggestion_snapshots_coll.find(snapshot_query)
+        suggestion_snapshots_coll.find(snapshot_query, snapshot_projection)
         .sort("anchor_timestamp_utc", -1)
         .limit(fetch_limit)
         .to_list(length=fetch_limit)
@@ -103,8 +110,9 @@ async def build_pattern_assertiveness_report(
     # Carregamos o history em ordem desc para encontrar o "próximo número" relativo
     # a cada snapshot. anchor_idx-1 é o próximo (mais novo), anchor_idx-2 o seguinte etc.
     history_fetch_limit = min(max(fetch_limit * 4, 500), 8000)
+    history_projection = {"_id": 1, "value": 1, "timestamp": 1}
     history_docs_raw = await (
-        history_coll.find({"roulette_id": roulette_id})
+        history_coll.find({"roulette_id": roulette_id}, history_projection)
         .sort("timestamp", -1)
         .limit(history_fetch_limit)
         .to_list(length=history_fetch_limit)
