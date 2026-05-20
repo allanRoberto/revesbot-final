@@ -119,6 +119,23 @@
       cursor: pointer; font-size: 13px;
     }
     .btn:hover { background: var(--surface-soft); border-color: var(--accent); }
+    .scope-toggle {
+      display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    }
+    .scope-toggle button {
+      border: none; background: var(--surface); padding: 8px 12px; cursor: pointer; font-size: 13px;
+      color: var(--text); transition: background 0.12s;
+    }
+    .scope-toggle button:not(:last-child) { border-right: 1px solid var(--border); }
+    .scope-toggle button:hover { background: var(--surface-soft); }
+    .scope-toggle button.active {
+      background: var(--accent); color: white; font-weight: 600;
+    }
+    .pull-group { display: flex; align-items: center; gap: 6px; }
+    .pull-group input {
+      width: 60px; padding: 8px 6px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; text-align: center;
+    }
 
     .summary {
       display: flex; flex-wrap: wrap; gap: 22px; padding: 12px 16px;
@@ -180,12 +197,23 @@
 
       <div class="controls">
         <div class="wide-field">
-          <label for="roulette_id">Roleta (opcional)</label>
-          <select id="roulette_id">
-            <option value="">Todas as roletas</option>
-          </select>
+          <label for="roulette_id">Roleta</label>
+          <select id="roulette_id"></select>
         </div>
-        <button type="button" class="btn" id="pull-btn">Puxar últimos 6 da roleta</button>
+        <div class="wide-field">
+          <label>Pesquisar histórico em</label>
+          <div class="scope-toggle" id="scope-toggle">
+            <button type="button" data-scope="all" class="active">Todas as roletas</button>
+            <button type="button" data-scope="this">Apenas esta roleta</button>
+          </div>
+        </div>
+        <div class="wide-field">
+          <label for="pull-count">Quantos puxar</label>
+          <div class="pull-group">
+            <input type="number" id="pull-count" min="2" max="6" value="6">
+            <button type="button" class="btn" id="pull-btn">Puxar últimos 6 da roleta</button>
+          </div>
+        </div>
         <button type="button" class="btn" id="clear-btn">Limpar</button>
       </div>
       <div class="status" id="status">Preencha pelo menos 2 campos para começar.</div>
@@ -295,9 +323,38 @@
           opt.textContent = r.displayName || r.name || slug;
           select.appendChild(opt);
         });
+        // Seleciona a roleta com mais historico (primeira da lista) por padrao
+        if (select.options.length > 0 && !select.value) select.selectedIndex = 0;
       } catch (e) {}
     }
     loadRoulettes();
+
+    // Escopo de pesquisa: "all" (todas as roletas) ou "this" (apenas a roleta selecionada)
+    let searchScope = "all";
+    document.querySelectorAll("#scope-toggle button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#scope-toggle button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        searchScope = btn.dataset.scope;
+        scheduleSearch();
+      });
+    });
+
+    // Quantos numeros puxar ao clicar no botao
+    const pullCountInput = document.getElementById("pull-count");
+    const pullBtn = document.getElementById("pull-btn");
+    function clampPullCount() {
+      let n = parseInt(pullCountInput.value, 10);
+      if (isNaN(n)) n = 6;
+      if (n < 2) n = 2;
+      if (n > 6) n = 6;
+      pullCountInput.value = n;
+      pullBtn.textContent = `Puxar últimos ${n} da roleta`;
+      return n;
+    }
+    pullCountInput.addEventListener("input", clampPullCount);
+    pullCountInput.addEventListener("change", clampPullCount);
+    clampPullCount();
 
     // Local candidate computation (preview chips before fetch)
     const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
@@ -388,8 +445,10 @@
         params.set("n" + (i+1), f.value);
         params.set("m" + (i+1), (f.modes && f.modes.length) ? f.modes.join(",") : "exato");
       });
-      const rid = document.getElementById("roulette_id").value;
-      if (rid) params.set("roulette_id", rid);
+      if (searchScope === "this") {
+        const rid = document.getElementById("roulette_id").value;
+        if (rid) params.set("roulette_id", rid);
+      }
 
       setStatus("Buscando…");
       if (inflight) inflight.abort();
@@ -420,21 +479,24 @@
     }
     document.getElementById("roulette_id").addEventListener("change", scheduleSearch);
 
-    document.getElementById("pull-btn").addEventListener("click", async () => {
+    pullBtn.addEventListener("click", async () => {
       const rid = document.getElementById("roulette_id").value;
       if (!rid) { setStatus("Selecione uma roleta primeiro.", true); return; }
-      setStatus("Puxando últimos 6 números…");
+      const count = clampPullCount();
+      setStatus(`Puxando últimos ${count} números…`);
       try {
-        const res = await fetch(`/api/triplet-pattern/last-spins?roulette_id=${encodeURIComponent(rid)}&count=6`);
+        const res = await fetch(`/api/triplet-pattern/last-spins?roulette_id=${encodeURIComponent(rid)}&count=${count}`);
         const data = await res.json();
         if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
         const nums = data.numbers || [];
-        if (nums.length < 6) { setStatus(`Roleta tem só ${nums.length} números no histórico.`, true); return; }
-        // Numeros vem do mais antigo para o mais recente: preenche n1..n6 nessa ordem
-        nums.forEach((v, i) => { document.getElementById("n" + (i+1)).value = v; });
+        if (nums.length < count) { setStatus(`Roleta tem só ${nums.length} números no histórico.`, true); return; }
+        // Numeros vem do mais antigo para o mais recente: preenche os `count` primeiros campos
+        for (let i = 0; i < 6; i++) {
+          document.getElementById("n" + (i+1)).value = i < count ? nums[i] : "";
+        }
         updateChipsAndTags();
         scheduleSearch();
-        setStatus("6 números carregados (mais antigo → mais recente). Pode editar e os modos continuam ativos.");
+        setStatus(`${count} números carregados (mais antigo → mais recente). Modos por campo preservados.`);
       } catch (err) {
         setStatus("Falha de conexão: " + err.message, true);
       }
