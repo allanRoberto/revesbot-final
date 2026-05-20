@@ -90,6 +90,51 @@
     .chart-card .chart-summary .v.pos { color: var(--accent-strong); }
     .chart-card .chart-summary .v.neg { color: var(--danger); }
 
+    .roulette-picker {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: var(--surface);
+      max-height: 130px;
+      overflow-y: auto;
+      min-width: 320px;
+    }
+    .roulette-picker .head {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; color: var(--muted); margin-bottom: 6px;
+    }
+    .roulette-picker .head .actions a {
+      color: var(--accent); cursor: pointer; margin-left: 8px; text-decoration: underline;
+    }
+    .roulette-picker .list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2px 12px;
+    }
+    .roulette-picker label {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: var(--text);
+      cursor: pointer;
+      padding: 2px 0;
+    }
+    .roulette-picker input[type=checkbox] { margin: 0; }
+
+    .pagination {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin: 16px 0;
+    }
+    .pagination button {
+      padding: 6px 12px; border: 1px solid var(--border); background: var(--surface);
+      border-radius: 6px; cursor: pointer; font-size: 13px;
+    }
+    .pagination button:hover:not(:disabled) { background: var(--surface-soft); border-color: var(--accent); }
+    .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pagination .info { font-size: 13px; color: var(--muted); margin: 0 8px; }
+    .pagination .input-page {
+      width: 60px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px;
+      font-size: 13px; text-align: center;
+    }
+
     .filters { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
     .wide-field { display: flex; flex-direction: column; gap: 4px; }
     .wide-field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -193,15 +238,22 @@
             <option value="lost">Perdidos</option>
           </select>
         </div>
-        <div class="wide-field">
-          <label for="filter-roulette">Roleta</label>
-          <select id="filter-roulette">
-            <option value="">Todas</option>
-          </select>
+        <div class="wide-field" style="flex:1; min-width: 320px;">
+          <label>Roletas <span id="roulette-counter" style="color:var(--muted);font-weight:400">(carregando…)</span></label>
+          <div class="roulette-picker" id="roulette-picker">
+            <div class="head">
+              <span id="roulette-picker-status">—</span>
+              <span class="actions">
+                <a id="rp-all">Marcar todas</a>
+                <a id="rp-none">Desmarcar todas</a>
+              </span>
+            </div>
+            <div class="list" id="roulette-list"></div>
+          </div>
         </div>
         <div class="wide-field">
-          <label for="filter-limit">Limite</label>
-          <input type="number" id="filter-limit" min="1" max="200" value="50">
+          <label for="filter-limit">Limite (últimos N)</label>
+          <input type="number" id="filter-limit" min="1" max="500" value="500">
         </div>
         <div class="wide-field">
           <label for="initial-bank">Banca inicial (R$)</label>
@@ -242,7 +294,9 @@
       <div class="chart-summary" id="chart-summary"></div>
     </div>
 
+    <div class="pagination" id="pagination-top" style="display:none;"></div>
     <div id="signals"></div>
+    <div class="pagination" id="pagination-bottom" style="display:none;"></div>
   </div>
 
   <script>
@@ -478,26 +532,74 @@
       `;
     }
 
+    // Multi-select de roletas (estado)
+    const selectedRoulettes = new Set();
+    const allRoulettes = []; // [{slug, name}]
+
+    function updateRouletteCounter() {
+      const total = allRoulettes.length;
+      const sel = selectedRoulettes.size;
+      const counterEl = document.getElementById("roulette-counter");
+      const statusEl  = document.getElementById("roulette-picker-status");
+      counterEl.textContent = total ? `(${sel}/${total} selecionadas)` : "";
+      statusEl.textContent = total ? `${sel}/${total} selecionadas` : "—";
+    }
+
     async function loadRoulettes() {
       try {
         const res = await fetch("/api/roulettes");
         if (!res.ok) return;
         const data = await res.json();
-        const select = document.getElementById("filter-roulette");
         const list = Array.isArray(data) ? data : (data.roulettes || []);
         const seen = new Set();
         list.forEach(r => {
           const slug = (r.slug || r.id || r.roulette_id || "").trim();
           if (!slug || seen.has(slug)) return;
           seen.add(slug);
-          const opt = document.createElement("option");
-          opt.value = slug;
-          opt.textContent = r.displayName || r.name || slug;
-          select.appendChild(opt);
+          allRoulettes.push({ slug, name: r.displayName || r.name || slug });
         });
+        // Por padrao todas selecionadas
+        allRoulettes.forEach(r => selectedRoulettes.add(r.slug));
+        renderRouletteList();
       } catch (e) {}
     }
+
+    function renderRouletteList() {
+      const box = document.getElementById("roulette-list");
+      box.innerHTML = allRoulettes.map(r => {
+        const checked = selectedRoulettes.has(r.slug) ? "checked" : "";
+        return `<label><input type="checkbox" value="${r.slug}" ${checked}>${r.name}</label>`;
+      }).join("");
+      box.querySelectorAll("input[type=checkbox]").forEach(cb => {
+        cb.addEventListener("change", () => {
+          if (cb.checked) selectedRoulettes.add(cb.value);
+          else selectedRoulettes.delete(cb.value);
+          updateRouletteCounter();
+          currentPage = 1;
+          rerenderFromCache();
+        });
+      });
+      updateRouletteCounter();
+    }
+
+    document.getElementById("rp-all").addEventListener("click", () => {
+      allRoulettes.forEach(r => selectedRoulettes.add(r.slug));
+      renderRouletteList();
+      currentPage = 1;
+      rerenderFromCache();
+    });
+    document.getElementById("rp-none").addEventListener("click", () => {
+      selectedRoulettes.clear();
+      renderRouletteList();
+      currentPage = 1;
+      rerenderFromCache();
+    });
+
     loadRoulettes();
+
+    // Pagina atual (1-based)
+    let currentPage = 1;
+    const PAGE_SIZE = 20;
 
     function setStatus(msg, err) {
       statusMsg.textContent = msg || "";
@@ -666,6 +768,42 @@
       };
     }
 
+    function renderPagination(totalItems) {
+      const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      const html = totalItems > PAGE_SIZE ? `
+        <button id="pg-first" ${currentPage===1?'disabled':''}>« primeira</button>
+        <button id="pg-prev"  ${currentPage===1?'disabled':''}>‹ anterior</button>
+        <span class="info">Página
+          <input type="number" class="input-page" id="pg-input" min="1" max="${totalPages}" value="${currentPage}">
+          de ${totalPages} · ${totalItems} sinais
+        </span>
+        <button id="pg-next" ${currentPage===totalPages?'disabled':''}>próxima ›</button>
+        <button id="pg-last" ${currentPage===totalPages?'disabled':''}>última »</button>
+      ` : "";
+      ["pagination-top","pagination-bottom"].forEach(id => {
+        const el = document.getElementById(id);
+        el.style.display = totalItems > PAGE_SIZE ? "flex" : "none";
+        el.innerHTML = html;
+      });
+      function go(p) {
+        currentPage = Math.max(1, Math.min(totalPages, p));
+        rerenderFromCache();
+      }
+      ["pagination-top","pagination-bottom"].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || !el.firstChild) return;
+        const f = el.querySelector("#pg-first"); if (f) f.addEventListener("click", ()=>go(1));
+        const p = el.querySelector("#pg-prev");  if (p) p.addEventListener("click", ()=>go(currentPage-1));
+        const n = el.querySelector("#pg-next");  if (n) n.addEventListener("click", ()=>go(currentPage+1));
+        const lst = el.querySelector("#pg-last");if (lst) lst.addEventListener("click", ()=>go(totalPages));
+        const inp = el.querySelector("#pg-input"); if (inp) {
+          inp.addEventListener("change", () => go(parseInt(inp.value,10) || 1));
+        }
+      });
+    }
+
     function rerenderFromCache() {
       if (!lastData) return;
       const chips = getChips();
@@ -673,28 +811,39 @@
       const excludeNb  = document.getElementById("exclude-neighbor").checked;
       const baseSignals = lastData.signals || [];
       let filtered = baseSignals;
+      // Filtro de roletas (multi-select): so passa se a roleta esta selecionada.
+      // Se a lista ainda nao carregou (selectedRoulettes vazio mas tem sinais com slug),
+      // assume "todas" para nao zerar a tela.
+      if (allRoulettes.length > 0) {
+        filtered = filtered.filter(s => selectedRoulettes.has(s.roulette_id));
+      }
       if (excludeInv) filtered = filtered.filter(s => !s.inversion_paid_before);
       if (excludeNb)  filtered = filtered.filter(s => !detectNeighborBefore(s));
-      const dataUsesClient = excludeInv || excludeNb;
-      const data = dataUsesClient ? computeClientStats(filtered) : computeClientStats(baseSignals);
-      // mantem alguns campos do servidor que nao recalculo (e nao mudam com filtro client-side)
+      const data = computeClientStats(filtered);
       data.signals = filtered;
       renderStats(data);
       renderChart(filtered, chips);
-      if (!filtered.length) {
-        signalsBox.innerHTML = `<div class="card empty">Nenhum sinal restante após o filtro.</div>`;
-      } else {
-        signalsBox.innerHTML = filtered.map(renderSignal).join("");
+
+      const totalItems = filtered.length;
+      if (!totalItems) {
+        signalsBox.innerHTML = `<div class="card empty">Nenhum sinal restante após os filtros.</div>`;
+        renderPagination(0);
+        return;
       }
+      const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = filtered.slice(start, start + PAGE_SIZE);
+      signalsBox.innerHTML = pageItems.map(renderSignal).join("");
+      renderPagination(totalItems);
     }
 
     async function load() {
       const status = document.getElementById("filter-status").value;
-      const rid = document.getElementById("filter-roulette").value;
-      const limit = document.getElementById("filter-limit").value || 50;
+      const limit = document.getElementById("filter-limit").value || 500;
       const params = new URLSearchParams({ limit });
       if (status && status !== "all") params.set("status", status);
-      if (rid) params.set("roulette_id", rid);
 
       setStatus("Carregando…");
       try {
@@ -702,8 +851,9 @@
         const data = await res.json();
         if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
         lastData = data;
+        currentPage = 1;
         rerenderFromCache();
-        setStatus(`Atualizado · ${data.signals.length} sinais exibidos · total na coleção: ${data.total}`);
+        setStatus(`Atualizado · ${data.signals.length} sinais carregados · total na coleção: ${data.total}`);
       } catch (e) {
         setStatus("Falha: " + e.message, true);
       }
@@ -711,7 +861,6 @@
 
     reloadBtn.addEventListener("click", load);
     document.getElementById("filter-status").addEventListener("change", load);
-    document.getElementById("filter-roulette").addEventListener("change", load);
     document.getElementById("filter-limit").addEventListener("change", load);
     // Mudou alguma ficha ou banca -> recalcula sem refazer fetch
     chipInputs.forEach(el => {

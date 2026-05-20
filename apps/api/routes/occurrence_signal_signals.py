@@ -72,7 +72,7 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
 async def list_signals(
     roulette_id: Optional[str] = Query(None),
     status: Optional[str]      = Query(None),
-    limit:  int                = Query(50, ge=1, le=200),
+    limit:  int                = Query(50, ge=1, le=500),
     skip:   int                = Query(0, ge=0),
 ) -> Dict[str, Any]:
     filt: Dict[str, Any] = {}
