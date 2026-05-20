@@ -221,6 +221,10 @@
           <input type="checkbox" id="auto-refresh" checked>
           Auto-atualizar a cada 10s
         </label>
+        <label class="auto-refresh">
+          <input type="checkbox" id="exclude-inversion">
+          Desconsiderar sinais com inversão
+        </label>
       </div>
       <div class="status-msg" id="status-msg">Carregando…</div>
     </div>
@@ -593,15 +597,57 @@
       </div>`;
     }
 
+    function computeClientStats(signals) {
+      // Recalcula os mesmos campos que a API retorna, a partir de uma lista filtrada
+      const dist = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      let won = 0, lost = 0, monitoring = 0;
+      let invPaid = 0;
+      let attemptsSumOnWins = 0;
+      for (const s of signals) {
+        if (s.status === "won") {
+          won++;
+          const att = parseInt(s.won_at_attempt || 0, 10);
+          attemptsSumOnWins += att;
+          if (dist[att] !== undefined) dist[att]++;
+        } else if (s.status === "lost") {
+          lost++;
+        } else if (s.status === "monitoring") {
+          monitoring++;
+        }
+        if (s.inversion_paid_before) invPaid++;
+      }
+      const total = signals.length;
+      const resolved = won + lost;
+      return {
+        total, won, lost, monitoring, resolved,
+        assertiveness_pct: resolved > 0 ? Math.round((won / resolved) * 10000) / 100 : 0,
+        avg_attempts_to_win: won > 0 ? Math.round((attemptsSumOnWins / won) * 100) / 100 : 0,
+        win_distribution: dist,
+        inversion: {
+          paid: invPaid,
+          pending: 0,
+          pay_rate: total > 0 ? Math.round((invPaid / total) * 10000) / 100 : 0,
+        },
+        signals,
+      };
+    }
+
     function rerenderFromCache() {
       if (!lastData) return;
       const chips = getChips();
-      renderStats(lastData);
-      renderChart(lastData.signals || [], chips);
-      if (!lastData.signals.length) {
-        signalsBox.innerHTML = `<div class="card empty">Nenhum sinal encontrado para o filtro selecionado.</div>`;
+      const excludeInv = document.getElementById("exclude-inversion").checked;
+      const baseSignals = lastData.signals || [];
+      const filtered = excludeInv ? baseSignals.filter(s => !s.inversion_paid_before) : baseSignals;
+      const data = excludeInv ? computeClientStats(filtered) : lastData;
+      renderStats(data);
+      renderChart(filtered, chips);
+      if (!filtered.length) {
+        const msg = excludeInv
+          ? "Todos os sinais tinham inversão e foram filtrados."
+          : "Nenhum sinal encontrado para o filtro selecionado.";
+        signalsBox.innerHTML = `<div class="card empty">${msg}</div>`;
       } else {
-        signalsBox.innerHTML = lastData.signals.map(renderSignal).join("");
+        signalsBox.innerHTML = filtered.map(renderSignal).join("");
       }
     }
 
@@ -637,6 +683,7 @@
     });
     initialBankInput.addEventListener("input", rerenderFromCache);
     initialBankInput.addEventListener("change", rerenderFromCache);
+    document.getElementById("exclude-inversion").addEventListener("change", rerenderFromCache);
 
     let refreshTimer = null;
     function scheduleAutoRefresh() {
