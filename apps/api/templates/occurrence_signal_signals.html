@@ -61,6 +61,22 @@
     .stat.danger .value { color: var(--danger); }
     .stat.warn .value { color: var(--warn); }
     .stat.info .value { color: var(--info); }
+    .stat.pnl-pos .value { color: var(--accent-strong); }
+    .stat.pnl-neg .value { color: var(--danger); }
+    .pnl-row {
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: var(--surface-soft);
+      border-radius: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      font-size: 12px;
+    }
+    .pnl-row .lbl { color: var(--muted); margin-right: 4px; }
+    .pnl-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .pnl-row .v.pos { color: var(--accent-strong); }
+    .pnl-row .v.neg { color: var(--danger); }
 
     .filters { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
     .wide-field { display: flex; flex-direction: column; gap: 4px; }
@@ -175,6 +191,10 @@
           <label for="filter-limit">Limite</label>
           <input type="number" id="filter-limit" min="1" max="200" value="50">
         </div>
+        <div class="wide-field">
+          <label for="chip-value">Ficha (R$) — pleno paga 35:1</label>
+          <input type="number" id="chip-value" min="0.01" step="0.01" value="1.00">
+        </div>
         <button type="button" class="btn" id="reload-btn">Atualizar</button>
         <label class="auto-refresh">
           <input type="checkbox" id="auto-refresh" checked>
@@ -203,6 +223,75 @@
     const statusMsg = document.getElementById("status-msg");
     const reloadBtn = document.getElementById("reload-btn");
     const autoRefresh = document.getElementById("auto-refresh");
+    const chipInput = document.getElementById("chip-value");
+
+    // Estado cache da ultima resposta para re-renderizar quando muda a ficha
+    let lastData = null;
+
+    const ROULETTE_PAYOUT = 36; // pleno paga 35:1 (retorno bruto = 36x a ficha)
+    function getChip() {
+      const v = parseFloat(chipInput.value);
+      return (isFinite(v) && v > 0) ? v : 1.0;
+    }
+    function fmtBRL(v) {
+      const sign = v < 0 ? "-" : "";
+      const abs = Math.abs(v);
+      return sign + "R$ " + abs.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    /**
+     * Calcula custo, retorno e lucro para um sinal dada a ficha.
+     * Regras:
+     * - Em cada tentativa apostamos N = len(bet) fichas (uma em cada número).
+     * - WIN no attempt k: gastou N*k*chip, recebe 36*chip de volta, lucro = (36 - N*k)*chip.
+     * - LOSS: gastou N*max_attempts*chip, recebe 0, lucro = -N*max_attempts*chip.
+     * - MONITORING: gastou N*attempts_so_far*chip, lucro parcial negativo (sem retorno ainda).
+     */
+    function simulateSignal(s, chip) {
+      const N = (s.bet || []).length;
+      if (!N) return { N: 0, attemptsPlayed: 0, cost: 0, payout: 0, pnl: 0, resolved: false };
+      const maxAttempts = (s.config && s.config.max_attempts) || 4;
+      let attemptsPlayed = 0;
+      let payout = 0;
+      let resolved = false;
+      if (s.status === "won") {
+        attemptsPlayed = s.won_at_attempt || ((s.attempts || []).length) || 1;
+        payout = ROULETTE_PAYOUT * chip;
+        resolved = true;
+      } else if (s.status === "lost") {
+        attemptsPlayed = (s.attempts || []).length || maxAttempts;
+        payout = 0;
+        resolved = true;
+      } else {
+        attemptsPlayed = (s.attempts || []).length;
+        payout = 0;
+        resolved = false;
+      }
+      const cost = N * attemptsPlayed * chip;
+      const pnl = payout - cost;
+      return { N, attemptsPlayed, cost, payout, pnl, resolved };
+    }
+
+    function aggregatePnL(signals, chip) {
+      let totalCost = 0, totalPayout = 0, totalPnl = 0;
+      let resolvedCost = 0, resolvedPayout = 0, resolvedPnl = 0;
+      for (const s of signals) {
+        const sim = simulateSignal(s, chip);
+        totalCost += sim.cost;
+        totalPayout += sim.payout;
+        totalPnl += sim.pnl;
+        if (sim.resolved) {
+          resolvedCost += sim.cost;
+          resolvedPayout += sim.payout;
+          resolvedPnl += sim.pnl;
+        }
+      }
+      return {
+        totalCost, totalPayout, totalPnl,
+        resolvedCost, resolvedPayout, resolvedPnl,
+        roi: resolvedCost > 0 ? (resolvedPnl / resolvedCost) * 100 : 0,
+      };
+    }
 
     async function loadRoulettes() {
       try {
@@ -231,6 +320,9 @@
     }
 
     function renderStats(d) {
+      const chip = getChip();
+      const sim = aggregatePnL(d.signals || [], chip);
+      const pnlCls = sim.resolvedPnl >= 0 ? "pnl-pos" : "pnl-neg";
       const cells = [
         { label: "Total", value: d.total, cls: "" },
         { label: "Monitorando", value: d.monitoring, cls: "info" },
@@ -239,6 +331,8 @@
         { label: "Assertividade", value: `${d.assertiveness_pct}%`, sub: `em ${d.resolved} resolvidos`, cls: "" },
         { label: "Média tentativas/win", value: d.avg_attempts_to_win || "—", sub: `1: ${d.win_distribution[1]} · 2: ${d.win_distribution[2]} · 3: ${d.win_distribution[3]} · 4: ${d.win_distribution[4]}`, cls: "" },
         { label: "Inversão paga (pré-gatilho)", value: d.inversion.paid, sub: `de ${d.total} sinais (${d.inversion.pay_rate}%)`, cls: "warn" },
+        { label: `Lucro (ficha R$ ${chip.toFixed(2)})`, value: fmtBRL(sim.resolvedPnl), sub: `stake R$ ${sim.resolvedCost.toFixed(2)} · retorno R$ ${sim.resolvedPayout.toFixed(2)} (resolvidos)`, cls: pnlCls },
+        { label: "ROI", value: `${sim.roi.toFixed(2)}%`, sub: `lucro / stake nos resolvidos`, cls: pnlCls },
       ];
       statsGrid.innerHTML = cells.map(c => `
         <div class="stat ${c.cls}">
@@ -272,6 +366,20 @@
             : "");
 
       const wonInfo = s.status === "won" ? ` · WIN na tentativa ${s.won_at_attempt}` : "";
+
+      const chip = getChip();
+      const sim = simulateSignal(s, chip);
+      const pnlCls = sim.pnl >= 0 ? "pos" : "neg";
+      const pnlRow = sim.N > 0 ? `
+        <div class="pnl-row">
+          <span><span class="lbl">Ficha:</span><span class="v">${fmtBRL(chip)}</span></span>
+          <span><span class="lbl">N° por giro:</span><span class="v">${sim.N}</span></span>
+          <span><span class="lbl">Tentativas jogadas:</span><span class="v">${sim.attemptsPlayed}</span></span>
+          <span><span class="lbl">Stake:</span><span class="v">${fmtBRL(sim.cost)}</span></span>
+          <span><span class="lbl">Retorno:</span><span class="v">${fmtBRL(sim.payout)}</span></span>
+          <span><span class="lbl">Lucro:</span><span class="v ${pnlCls}">${fmtBRL(sim.pnl)}</span></span>
+        </div>
+      ` : "";
 
       return `<div class="signal ${s.status}">
         <div class="sig-head">
@@ -321,7 +429,18 @@
           <span class="glabel">Tentativas (até ${s.config && s.config.max_attempts || 4})</span>
           ${renderAttempts(s.attempts, betSet, "tentativas")}
         </div>
+        ${pnlRow}
       </div>`;
+    }
+
+    function rerenderFromCache() {
+      if (!lastData) return;
+      renderStats(lastData);
+      if (!lastData.signals.length) {
+        signalsBox.innerHTML = `<div class="card empty">Nenhum sinal encontrado para o filtro selecionado.</div>`;
+      } else {
+        signalsBox.innerHTML = lastData.signals.map(renderSignal).join("");
+      }
     }
 
     async function load() {
@@ -337,12 +456,8 @@
         const res = await fetch(`/api/occurrence-signal-signals?${params}`);
         const data = await res.json();
         if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
-        renderStats(data);
-        if (!data.signals.length) {
-          signalsBox.innerHTML = `<div class="card empty">Nenhum sinal encontrado para o filtro selecionado.</div>`;
-        } else {
-          signalsBox.innerHTML = data.signals.map(renderSignal).join("");
-        }
+        lastData = data;
+        rerenderFromCache();
         setStatus(`Atualizado · ${data.signals.length} sinais exibidos · total na coleção: ${data.total}`);
       } catch (e) {
         setStatus("Falha: " + e.message, true);
@@ -353,6 +468,9 @@
     document.getElementById("filter-status").addEventListener("change", load);
     document.getElementById("filter-roulette").addEventListener("change", load);
     document.getElementById("filter-limit").addEventListener("change", load);
+    // Mudou a ficha -> recalcula sem refazer fetch
+    chipInput.addEventListener("input", rerenderFromCache);
+    chipInput.addEventListener("change", rerenderFromCache);
 
     let refreshTimer = null;
     function scheduleAutoRefresh() {
