@@ -929,7 +929,7 @@
                 <div class="range-card">
                     <div class="label">Vs Aleatório</div>
                     <div id="rangeVsRandom" class="value">-</div>
-                    <div class="hint">Baseline aleatório = 18/37 ≈ 48,6%</div>
+                    <div class="hint">Baseline em 3 tentativas = 1-(19/37)³ ≈ 86,5%</div>
                 </div>
                 <div class="range-card">
                     <div class="label">Cobertura</div>
@@ -2035,7 +2035,10 @@
         const HEALTH_BASELINE_TOP1 = 2.702;
         const HEALTH_ACF_SIG = 0.15;
         const HEALTH_RUNS_Z_SIG = 1.96;
-        const RANGE_BASELINE_PCT = 48.65; // 18/37
+        // O modelo dá 3 tentativas para confirmar a previsão, então o baseline
+        // aleatório de cair num range de 18 ranks em pelo menos uma de 3 tentativas é
+        // 1 - (1 - 18/37)^3 ≈ 86,46% — bem mais alto que 18/37 ≈ 48,65% (1 tentativa).
+        const RANGE_BASELINE_PCT = 86.46;
 
         function classifyAbove(value, baseline, marginGood, marginWarn) {
             if (value == null || !Number.isFinite(value)) return { cls: "warn", label: "sem dados" };
@@ -2131,13 +2134,13 @@
                 if (hitRate == null) {
                     verdictEl.classList.add("warn");
                     verdictEl.textContent = "Sem dados";
-                } else if (hitRate - RANGE_BASELINE_PCT >= 20) {
+                } else if (hitRate - RANGE_BASELINE_PCT >= 8) {
                     verdictEl.classList.add("good");
                     verdictEl.textContent = "Alpha forte vs aleatório";
-                } else if (hitRate - RANGE_BASELINE_PCT >= 5) {
+                } else if (hitRate - RANGE_BASELINE_PCT >= 3) {
                     verdictEl.classList.add("good");
                     verdictEl.textContent = "Alpha real";
-                } else if (hitRate - RANGE_BASELINE_PCT >= 0) {
+                } else if (hitRate - RANGE_BASELINE_PCT >= -1) {
                     verdictEl.classList.add("warn");
                     verdictEl.textContent = "Marginal";
                 } else {
