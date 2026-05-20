@@ -271,7 +271,7 @@ module.exports = {
       env: {
         DEPLOY_STAGE: stage,
         PYTHONUNBUFFERED: "1",
-        OCCURRENCE_SIGNAL_ROULETTE_ID: "pragmatic-auto-roulette",
+        OCCURRENCE_SIGNAL_ROULETTE_IDS: "all",
         OCCURRENCE_SIGNAL_SPINS: "1000",
         OCCURRENCE_SIGNAL_ZERO_WINDOW: "7",
         OCCURRENCE_SIGNAL_TOP_N: "4",
