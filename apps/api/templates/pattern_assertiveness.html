@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backtest de Assertividade dos Padrões</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #f8fafc; --panel: #ffffff; --muted: #64748b; --text: #0f172a;
+            --border: #e2e8f0; --accent: #2563eb; --accent-soft: rgba(37, 99, 235, 0.12);
+            --good: #16a34a; --warn: #ea580c; --bad: #dc2626;
+            --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); color: var(--text);
+        }
+        .page { width: min(1500px, calc(100vw - 32px)); margin: 28px auto 40px; }
+        .header { margin-bottom: 20px; }
+        .header h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.1; }
+        .header p { margin: 0; color: var(--muted); font-size: 14px; }
+        .panel { background: var(--panel); border: 1px solid var(--border);
+            border-radius: 16px; box-shadow: var(--shadow); }
+        .controls { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(120px, 140px) auto auto;
+            gap: 12px; padding: 16px; align-items: end; margin-bottom: 16px; }
+        .field label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+        .field input, .field select { width: 100%; border: 1px solid var(--border); border-radius: 10px;
+            background: #fff; padding: 10px 12px; font-size: 14px; color: var(--text); }
+        .field.inline { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; }
+        .button { height: 40px; border: 0; border-radius: 10px; padding: 0 16px;
+            font-size: 14px; font-weight: 700; cursor: pointer; }
+        .button.primary { background: var(--accent); color: #fff; }
+        .summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px; margin-bottom: 16px; }
+        .summary-card { padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: #fff; }
+        .summary-card .label { color: var(--muted); font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.04em; margin-bottom: 6px; font-weight: 700; }
+        .summary-card .value { font-size: 22px; line-height: 1; font-weight: 800; }
+        .summary-card .hint { margin-top: 6px; color: var(--muted); font-size: 11px; }
+        .status { margin-bottom: 14px; color: var(--muted); font-size: 14px; }
+        .status.error { color: var(--bad); }
+        .chart-panel { padding: 16px; margin-bottom: 16px; }
+        .chart-wrap { position: relative; height: 360px; }
+        .chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+        .chart-head h2 { margin: 0; font-size: 16px; }
+        .chart-head .meta { color: var(--muted); font-size: 12px; }
+        .filters { display: flex; gap: 10px; flex-wrap: wrap; padding: 12px 16px; align-items: center; }
+        .filters .filter-btn {
+            padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px;
+            background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--muted);
+        }
+        .filters .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .table-panel { padding: 16px; }
+        .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border);
+            font-size: 13px; vertical-align: middle; }
+        th { position: sticky; top: 0; background: #f8fafc; color: var(--muted);
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+            cursor: pointer; user-select: none; }
+        th.sort-asc::after { content: " ↑"; color: var(--accent); }
+        th.sort-desc::after { content: " ↓"; color: var(--accent); }
+        td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .verdict-pill {
+            display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .verdict-pill.alpha_forte { background: rgba(22, 163, 74, 0.18); color: var(--good); }
+        .verdict-pill.alpha_real { background: rgba(22, 163, 74, 0.12); color: var(--good); }
+        .verdict-pill.marginal { background: rgba(234, 88, 12, 0.14); color: var(--warn); }
+        .verdict-pill.neutro { background: rgba(148, 163, 184, 0.16); color: var(--muted); }
+        .verdict-pill.abaixo_aleatorio { background: rgba(220, 38, 38, 0.14); color: var(--bad); }
+        .verdict-pill.amostra_pequena { background: rgba(148, 163, 184, 0.10); color: var(--muted); }
+        .z-bar { display: inline-block; width: 80px; height: 6px; background: #e2e8f0; border-radius: 3px;
+            position: relative; overflow: hidden; vertical-align: middle; margin-right: 6px; }
+        .z-bar > .fill { position: absolute; top: 0; bottom: 0; }
+        .z-bar > .fill.pos { left: 50%; background: var(--good); }
+        .z-bar > .fill.neg { right: 50%; background: var(--bad); }
+        .gale-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+        .gale-chip { font-size: 11px; padding: 2px 7px; border-radius: 6px;
+            background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+        .gale-chip.win { background: rgba(22, 163, 74, 0.14); color: var(--good); }
+        .gale-chip.loss { background: rgba(220, 38, 38, 0.10); color: var(--bad); }
+        @media (max-width: 1100px) {
+            .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="header">
+            <h1>Backtest de Assertividade dos Padrões</h1>
+            <p>Para cada padrão (de <code>optimized_payload.contributions</code>), mede com que frequência o número sorteado caiu no <strong>set de números indicado pelo padrão</strong>. Compara com o baseline aleatório (size/37) via z-score binomial, considerando o tamanho variável do set.</p>
+        </div>
+
+        <div class="panel controls">
+            <div class="field">
+                <label for="rouletteSelect">Roleta</label>
+                <select id="rouletteSelect"></select>
+            </div>
+            <div class="field">
+                <label for="limitInput">Snapshots</label>
+                <input id="limitInput" type="number" min="50" max="5000" step="50" value="2000" />
+            </div>
+            <div class="field inline">
+                <input id="includeAllConfigsInput" type="checkbox" />
+                <label for="includeAllConfigsInput">Misturar configs antigas</label>
+            </div>
+            <div>
+                <button id="reloadButton" class="button primary">Rodar Backtest</button>
+            </div>
+        </div>
+
+        <div id="status" class="status">Carregando...</div>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="label">Snapshots resolvidos</div>
+                <div id="snapResolved" class="value">-</div>
+                <div class="hint">Com next_number conhecido</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Padrões avaliados</div>
+                <div id="patEvaluated" class="value">-</div>
+                <div class="hint">Com ≥1 signal</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Sinais totais</div>
+                <div id="signalsTotal" class="value">-</div>
+                <div class="hint">Soma de signals por padrão</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Hits acumulados</div>
+                <div id="hitsTotal" class="value">-</div>
+                <div class="hint">Acertos no set indicado</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Esperado aleatório</div>
+                <div id="expectedTotal" class="value">-</div>
+                <div class="hint">Σ p_i (size/37) por signal</div>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <div class="chart-head">
+                <h2>Z-score por padrão (vs aleatório)</h2>
+                <div class="meta">|z|≥2 = alpha forte • |z|≥1 = marginal • |z|&lt;1 = ruído</div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="zScoreChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="filters">
+                <span style="color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Filtrar:</span>
+                <button class="filter-btn active" data-filter="all">Todos</button>
+                <button class="filter-btn" data-filter="alpha">Alpha (z≥1,5)</button>
+                <button class="filter-btn" data-filter="marginal">Marginais</button>
+                <button class="filter-btn" data-filter="neutro">Neutros</button>
+                <button class="filter-btn" data-filter="abaixo">Abaixo do aleatório</button>
+                <span style="margin-left:auto;color:var(--muted);font-size:12px;" id="rowsCount">0 padrões</span>
+            </div>
+            <div class="table-panel">
+                <div class="table-wrap">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th data-sort="pattern_name">Padrão</th>
+                                <th data-sort="z_score">Z-score</th>
+                                <th data-sort="lift">Lift</th>
+                                <th data-sort="hit_rate">Hit rate</th>
+                                <th data-sort="baseline_rate">Baseline</th>
+                                <th data-sort="signals">Signals</th>
+                                <th data-sort="hits">Hits</th>
+                                <th data-sort="avg_set_size">Set médio</th>
+                                <th data-sort="verdict">Veredito</th>
+                                <th>Gale (1/2/3/5)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const rouletteSelect = document.getElementById("rouletteSelect");
+        const limitInput = document.getElementById("limitInput");
+        const includeAllConfigsInput = document.getElementById("includeAllConfigsInput");
+        const reloadButton = document.getElementById("reloadButton");
+        const statusEl = document.getElementById("status");
+        const tbody = document.getElementById("resultsBody");
+        const rowsCount = document.getElementById("rowsCount");
+
+        let zScoreChart = null;
+        let currentRows = [];
+        let currentSort = { key: "z_score", dir: "desc" };
+        let currentFilter = "all";
+
+        function setStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.className = `status${isError ? " error" : ""}`;
+        }
+
+        async function loadRoulettes() {
+            const r = await fetch("/api/roulettes");
+            if (!r.ok) throw new Error("Falha ao carregar roletas");
+            const items = await r.json();
+            const list = (Array.isArray(items) ? items : []).filter(x => String(x.slug || "").startsWith("pragmatic"));
+            rouletteSelect.innerHTML = list.map(x => {
+                const selected = x.slug === "pragmatic-auto-roulette" ? "selected" : "";
+                return `<option value="${x.slug}" ${selected}>${x.displayName || x.name || x.slug}</option>`;
+            }).join("");
+        }
+
+        function classifyVerdictLabel(v) {
+            return {
+                alpha_forte: "Alpha forte",
+                alpha_real: "Alpha real",
+                marginal: "Marginal",
+                neutro: "Neutro",
+                abaixo_aleatorio: "Abaixo aleatório",
+                amostra_pequena: "Amostra pequena",
+            }[v] || v;
+        }
+
+        function passesFilter(row) {
+            if (currentFilter === "all") return true;
+            if (currentFilter === "alpha") return row.z_score >= 1.5;
+            if (currentFilter === "marginal") return row.verdict === "marginal";
+            if (currentFilter === "neutro") return row.verdict === "neutro";
+            if (currentFilter === "abaixo") return row.verdict === "abaixo_aleatorio";
+            return true;
+        }
+
+        function buildZBar(z) {
+            // Escala: |z|=4 → 100% do lado, clamp.
+            const pct = Math.min(100, (Math.abs(z) / 4) * 100);
+            if (z >= 0) {
+                return `<span class="z-bar"><span class="fill pos" style="width:${pct / 2}%"></span></span>${z.toFixed(2)}`;
+            }
+            return `<span class="z-bar"><span class="fill neg" style="width:${pct / 2}%"></span></span>${z.toFixed(2)}`;
+        }
+
+        function buildGaleCell(gale) {
+            if (!Array.isArray(gale) || gale.length === 0) return `<span style="color:var(--muted);">-</span>`;
+            return `<div class="gale-cell">${gale.map(g => {
+                const win = g.lift >= 1.05 ? "win" : (g.lift <= 0.95 ? "loss" : "");
+                return `<span class="gale-chip ${win}" title="signals=${g.signals} hits=${g.hits} baseline=${(g.baseline_rate*100).toFixed(1)}%">G${g.level}: ${(g.hit_rate*100).toFixed(0)}% (×${g.lift.toFixed(2)})</span>`;
+            }).join("")}</div>`;
+        }
+
+        function renderRows() {
+            const sorted = [...currentRows].sort((a, b) => {
+                const k = currentSort.key;
+                const av = a[k], bv = b[k];
+                if (typeof av === "string") {
+                    return currentSort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+                }
+                return currentSort.dir === "asc" ? (av - bv) : (bv - av);
+            }).filter(passesFilter);
+            rowsCount.textContent = `${sorted.length} padrão${sorted.length === 1 ? "" : "ões"}`;
+
+            tbody.innerHTML = sorted.map(r => {
+                const hitPct = (r.hit_rate * 100).toFixed(1);
+                const basePct = (r.baseline_rate * 100).toFixed(1);
+                return `<tr>
+                    <td><strong>${r.pattern_name}</strong><div style="font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;">${r.pattern_id}</div></td>
+                    <td class="num">${buildZBar(r.z_score)}</td>
+                    <td class="num">×${r.lift.toFixed(2)}</td>
+                    <td class="num">${hitPct}%</td>
+                    <td class="num" style="color:var(--muted);">${basePct}%</td>
+                    <td class="num">${r.signals}</td>
+                    <td class="num">${r.hits}</td>
+                    <td class="num">${r.avg_set_size.toFixed(1)}</td>
+                    <td><span class="verdict-pill ${r.verdict}">${classifyVerdictLabel(r.verdict)}</span></td>
+                    <td>${buildGaleCell(r.gale)}</td>
+                </tr>`;
+            }).join("") || `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px;">Sem dados</td></tr>`;
+        }
+
+        function renderChart(rows) {
+            const ctx = document.getElementById("zScoreChart").getContext("2d");
+            if (zScoreChart) zScoreChart.destroy();
+            // Top 20 por |z|
+            const top = [...rows].sort((a, b) => Math.abs(b.z_score) - Math.abs(a.z_score)).slice(0, 20)
+                .sort((a, b) => b.z_score - a.z_score);
+            const labels = top.map(r => r.pattern_name.length > 28 ? r.pattern_name.slice(0, 26) + "…" : r.pattern_name);
+            const data = top.map(r => r.z_score);
+            const colors = top.map(r => {
+                if (r.z_score >= 1.5) return "#16a34a";
+                if (r.z_score >= 0.5) return "#ea580c";
+                if (r.z_score > -0.5) return "#94a3b8";
+                return "#dc2626";
+            });
+            zScoreChart = new Chart(ctx, {
+                type: "bar",
+                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
+                options: {
+                    indexAxis: "y",
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label(c) {
+                            const row = top[c.dataIndex];
+                            return `z=${row.z_score} • lift ×${row.lift} • ${row.hits}/${row.signals} (${(row.hit_rate*100).toFixed(1)}%)`;
+                        } } },
+                    },
+                    scales: {
+                        x: { grid: { color: "rgba(148,163,184,0.15)" }, ticks: { font: { size: 11 } } },
+                        y: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                    },
+                },
+            });
+        }
+
+        function applySortFromHeader(th) {
+            const key = th.dataset.sort;
+            if (!key) return;
+            if (currentSort.key === key) {
+                currentSort.dir = currentSort.dir === "asc" ? "desc" : "asc";
+            } else {
+                currentSort.key = key;
+                currentSort.dir = key === "pattern_name" ? "asc" : "desc";
+            }
+            document.querySelectorAll("th[data-sort]").forEach(h => h.classList.remove("sort-asc", "sort-desc"));
+            th.classList.add(currentSort.dir === "asc" ? "sort-asc" : "sort-desc");
+            renderRows();
+        }
+
+        async function runBacktest() {
+            const rouletteId = rouletteSelect.value;
+            const limit = Number(limitInput.value || 2000);
+            const includeAll = includeAllConfigsInput.checked;
+            if (!rouletteId) { setStatus("Selecione uma roleta.", true); return; }
+            setStatus("Rodando backtest...");
+            reloadButton.disabled = true;
+            try {
+                const params = new URLSearchParams({
+                    roulette_id: rouletteId,
+                    limit: String(limit),
+                    include_all_configs: includeAll ? "true" : "false",
+                });
+                const t0 = Date.now();
+                const r = await fetch(`/api/pattern-assertiveness?${params.toString()}`, { cache: "no-store" });
+                const payload = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(payload.detail || "Falha no backtest.");
+                const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+
+                document.getElementById("snapResolved").textContent = payload.resolved_snapshots || 0;
+                document.getElementById("patEvaluated").textContent = payload.patterns_evaluated || 0;
+                document.getElementById("signalsTotal").textContent = payload.aggregate_signals || 0;
+                document.getElementById("hitsTotal").textContent = payload.aggregate_hits || 0;
+                document.getElementById("expectedTotal").textContent = (payload.aggregate_expected_hits || 0).toFixed(1);
+
+                currentRows = Array.isArray(payload.rows) ? payload.rows : [];
+                renderChart(currentRows);
+                renderRows();
+                setStatus(`Backtest pronto em ${elapsed}s — ${payload.resolved_snapshots} snapshots, ${payload.patterns_evaluated} padrões`);
+            } catch (err) {
+                setStatus(err.message || "Falha no backtest.", true);
+                currentRows = [];
+                renderRows();
+            } finally {
+                reloadButton.disabled = false;
+            }
+        }
+
+        document.querySelectorAll("th[data-sort]").forEach(th => th.addEventListener("click", () => applySortFromHeader(th)));
+        document.querySelectorAll(".filter-btn").forEach(btn => btn.addEventListener("click", () => {
+            document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            currentFilter = btn.dataset.filter;
+            renderRows();
+        }));
+        reloadButton.addEventListener("click", runBacktest);
+        rouletteSelect.addEventListener("change", runBacktest);
+
+        (async function bootstrap() {
+            try {
+                await loadRoulettes();
+                await runBacktest();
+            } catch (err) {
+                setStatus(err.message || "Falha ao iniciar.", true);
+            }
+        })();
+    </script>
+</body>
+</html>

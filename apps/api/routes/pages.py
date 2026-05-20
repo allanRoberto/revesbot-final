@@ -244,6 +244,12 @@ async def trio_ranking_signals_page():
         return f.read()
 
 
+@router.get("/pattern-assertiveness", response_class=HTMLResponse)
+async def pattern_assertiveness_page():
+    with open(os.path.join(templates_dir, "pattern_assertiveness.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/validar-padrao", response_class=HTMLResponse)
 async def triplet_pattern_page():
     with open(os.path.join(templates_dir, "triplet_pattern.html"), "r", encoding="utf-8") as f:

@@ -89,6 +89,7 @@ from api.routes.monitor_replay import router as monitor_replay_router
 from api.routes.occurrence_ranking import router as occurrence_ranking_router
 from api.routes.suggestion_monitor import router as suggestion_monitor_router
 from api.routes.suggestion_snapshots import router as suggestion_snapshots_router
+from api.routes.pattern_assertiveness import router as pattern_assertiveness_router
 from api.routes.next_number_rankings import router as next_number_rankings_router
 from api.routes.next_number_sequences import router as next_number_sequences_router
 from api.routes.triplet_lookup import router as triplet_lookup_router
@@ -209,6 +210,7 @@ app.include_router(monitor_replay_router)
 app.include_router(occurrence_ranking_router)
 app.include_router(suggestion_monitor_router)
 app.include_router(suggestion_snapshots_router)
+app.include_router(pattern_assertiveness_router)
 app.include_router(next_number_rankings_router)
 app.include_router(next_number_sequences_router)
 app.include_router(triplet_lookup_router)
