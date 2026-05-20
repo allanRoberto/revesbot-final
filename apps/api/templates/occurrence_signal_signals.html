@@ -281,6 +281,10 @@
           <input type="checkbox" id="exclude-neighbor">
           Desconsiderar sinais com vizinhos pré-gatilho
         </label>
+        <label class="auto-refresh">
+          <input type="checkbox" id="exclude-mirror-trio">
+          Desconsiderar sinais com espelho de X no trio
+        </label>
       </div>
       <div class="status-msg" id="status-msg">Carregando…</div>
     </div>
@@ -344,6 +348,18 @@
         if (nbs.some(nb => bet.has(nb))) return true;
       }
       return false;
+    }
+
+    // Espelho (MIRROR_MAP): mesmas duplas que o backend (1<->10, 2<->20, 3<->30,
+    // 12<->21, 13<->31, 23<->32). Detecta se o prev OU next do trio occ_oldest
+    // e espelho do numero base X.
+    const MIRROR = {1:[10],2:[20],3:[30],10:[1],12:[21],13:[31],20:[2],21:[12],23:[32],30:[3],31:[13],32:[23]};
+    function detectMirrorInTrio(s) {
+      const trio = s.trio || [];
+      if (trio.length !== 3) return false;
+      const prev = +trio[0], x = +trio[1], next = +trio[2];
+      const mirrors = MIRROR[x] || [];
+      return mirrors.includes(prev) || mirrors.includes(next);
     }
     function getChips() {
       return chipInputs.map(el => {
@@ -620,6 +636,7 @@
         { label: "Média tentativas/win", value: d.avg_attempts_to_win || "—", sub: `1: ${d.win_distribution[1]} · 2: ${d.win_distribution[2]} · 3: ${d.win_distribution[3]} · 4: ${d.win_distribution[4]}`, cls: "" },
         { label: "Inversão paga (pré-gatilho)", value: d.inversion.paid, sub: `de ${d.total} sinais (${d.inversion.pay_rate}%)`, cls: "warn" },
         { label: "Vizinhos pré-gatilho", value: (d.neighbor && d.neighbor.detected) || 0, sub: `de ${d.total} (${(d.neighbor && d.neighbor.rate) || 0}%)`, cls: "warn" },
+        { label: "Espelho de X no trio", value: (d.mirror_trio && d.mirror_trio.detected) || 0, sub: `de ${d.total} (${(d.mirror_trio && d.mirror_trio.rate) || 0}%)`, cls: "warn" },
         { label: `Lucro (fichas ${chipsLabel})`, value: fmtBRL(sim.resolvedPnl), sub: `stake R$ ${sim.resolvedCost.toFixed(2)} · retorno R$ ${sim.resolvedPayout.toFixed(2)} (resolvidos)`, cls: pnlCls },
         { label: "ROI", value: `${sim.roi.toFixed(2)}%`, sub: `lucro / stake nos resolvidos`, cls: pnlCls },
       ];
@@ -657,6 +674,10 @@
       const pillNeighbor = hasNeighbor
         ? `<span class="inversion-pill">vizinho pré-gatilho</span>`
         : "";
+      const hasMirrorTrio = detectMirrorInTrio(s);
+      const pillMirror = hasMirrorTrio
+        ? `<span class="inversion-pill">espelho de X no trio</span>`
+        : "";
 
       const wonInfo = s.status === "won" ? ` · WIN na tentativa ${s.won_at_attempt}` : "";
 
@@ -680,6 +701,7 @@
           <span class="status-pill ${s.status}">${s.status}${wonInfo}</span>
           ${pillInv}
           ${pillNeighbor}
+          ${pillMirror}
           <span class="rid">${s.roulette_id}</span>
           <span class="ts">criado ${fmtTs(s.created_at)}</span>
         </div>
@@ -732,7 +754,7 @@
       // Recalcula os mesmos campos que a API retorna, a partir de uma lista filtrada
       const dist = { 1: 0, 2: 0, 3: 0, 4: 0 };
       let won = 0, lost = 0, monitoring = 0;
-      let invPaid = 0, neighbors = 0;
+      let invPaid = 0, neighbors = 0, mirrors = 0;
       let attemptsSumOnWins = 0;
       for (const s of signals) {
         if (s.status === "won") {
@@ -747,6 +769,7 @@
         }
         if (s.inversion_paid_before) invPaid++;
         if (detectNeighborBefore(s)) neighbors++;
+        if (detectMirrorInTrio(s)) mirrors++;
       }
       const total = signals.length;
       const resolved = won + lost;
@@ -763,6 +786,10 @@
         neighbor: {
           detected: neighbors,
           rate: total > 0 ? Math.round((neighbors / total) * 10000) / 100 : 0,
+        },
+        mirror_trio: {
+          detected: mirrors,
+          rate: total > 0 ? Math.round((mirrors / total) * 10000) / 100 : 0,
         },
         signals,
       };
@@ -819,6 +846,8 @@
       }
       if (excludeInv) filtered = filtered.filter(s => !s.inversion_paid_before);
       if (excludeNb)  filtered = filtered.filter(s => !detectNeighborBefore(s));
+      const excludeMir = document.getElementById("exclude-mirror-trio").checked;
+      if (excludeMir) filtered = filtered.filter(s => !detectMirrorInTrio(s));
       const data = computeClientStats(filtered);
       data.signals = filtered;
       renderStats(data);
@@ -871,6 +900,7 @@
     initialBankInput.addEventListener("change", rerenderFromCache);
     document.getElementById("exclude-inversion").addEventListener("change", rerenderFromCache);
     document.getElementById("exclude-neighbor").addEventListener("change", rerenderFromCache);
+    document.getElementById("exclude-mirror-trio").addEventListener("change", rerenderFromCache);
 
     let refreshTimer = null;
     function scheduleAutoRefresh() {
