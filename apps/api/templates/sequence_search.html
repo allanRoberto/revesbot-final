@@ -185,6 +185,7 @@
             <option value="">Todas as roletas</option>
           </select>
         </div>
+        <button type="button" class="btn" id="pull-btn">Puxar últimos 6 da roleta</button>
         <button type="button" class="btn" id="clear-btn">Limpar</button>
       </div>
       <div class="status" id="status">Preencha pelo menos 2 campos para começar.</div>
@@ -416,6 +417,26 @@
       document.getElementById("n"+i).addEventListener("input", scheduleSearch);
     }
     document.getElementById("roulette_id").addEventListener("change", scheduleSearch);
+
+    document.getElementById("pull-btn").addEventListener("click", async () => {
+      const rid = document.getElementById("roulette_id").value;
+      if (!rid) { setStatus("Selecione uma roleta primeiro.", true); return; }
+      setStatus("Puxando últimos 6 números…");
+      try {
+        const res = await fetch(`/api/triplet-pattern/last-spins?roulette_id=${encodeURIComponent(rid)}&count=6`);
+        const data = await res.json();
+        if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
+        const nums = data.numbers || [];
+        if (nums.length < 6) { setStatus(`Roleta tem só ${nums.length} números no histórico.`, true); return; }
+        // Numeros vem do mais antigo para o mais recente: preenche n1..n6 nessa ordem
+        nums.forEach((v, i) => { document.getElementById("n" + (i+1)).value = v; });
+        updateChipsAndTags();
+        scheduleSearch();
+        setStatus("6 números carregados (mais antigo → mais recente). Pode editar e os modos continuam ativos.");
+      } catch (err) {
+        setStatus("Falha de conexão: " + err.message, true);
+      }
+    });
     document.getElementById("clear-btn").addEventListener("click", () => {
       for (let i = 1; i <= 6; i++) {
         document.getElementById("n"+i).value = "";
