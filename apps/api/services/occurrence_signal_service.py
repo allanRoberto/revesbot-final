@@ -14,6 +14,85 @@ ATTEMPTS = 4
 TOP_N = 4
 
 
+async def precompute_occurrence_signal(
+    history: List[int],
+    *,
+    zero_window: int = ZERO_WINDOW,
+    top_n: int = TOP_N,
+    positions: int = 3,
+) -> Optional[Dict[str, Any]]:
+    """Para o padrao 'occurrence_signal' do engine de sugestao.
+    Recebe `history` em ordem MAIS RECENTE PRIMEIRO (convencao do engine) e devolve
+    {top4, X, trio} se o sinal estiver ativo; None caso nao atenda alguma pre-condicao.
+    Faz a query no `history_triplets` em todas as roletas (sem filtro de roleta).
+    """
+    if positions not in (1, 2, 3):
+        positions = 3
+    if not history or len(history) < 10:
+        return None
+
+    chrono = list(reversed([int(n) for n in history]))  # oldest -> newest
+    L = len(chrono) - 1
+    X = chrono[L]
+
+    zero_start = max(0, L - zero_window + 1)
+    if 0 in chrono[zero_start : L + 1]:
+        return None
+
+    prior = [i for i in range(L) if chrono[i] == X]
+    if len(prior) < 3:
+        return None
+
+    occ_oldest_idx, occ_middle_idx, occ_recent_idx = prior[-3:]
+    if occ_oldest_idx == 0 or occ_oldest_idx >= L:
+        return None
+
+    prev_n = chrono[occ_oldest_idx - 1]
+    next_n = chrono[occ_oldest_idx + 1]
+    trio = [prev_n, X, next_n]
+
+    match = {"a": prev_n, "b": X, "c": next_n}
+    total_matches = await history_triplets_coll.count_documents(match)
+    if total_matches == 0:
+        return None
+
+    next_fields = [f"$next{i}" for i in range(1, positions + 1)]
+    pipeline = [
+        {"$match": match},
+        {"$project": {"nums": next_fields}},
+        {"$unwind": "$nums"},
+        {"$match": {"nums": {"$ne": None, "$gte": 0, "$lte": 36}}},
+        {"$group": {"_id": "$nums", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1, "_id": 1}},
+        {"$limit": max(1, top_n)},
+    ]
+    rows = [d async for d in history_triplets_coll.aggregate(pipeline)]
+    if not rows:
+        return None
+
+    top = [int(r["_id"]) for r in rows]
+
+    def window_after(idx: int) -> List[int]:
+        out: List[int] = []
+        for offset in range(1, 4):
+            j = idx + offset
+            if j >= L:
+                break
+            out.append(chrono[j])
+        return out
+
+    check_values = window_after(occ_middle_idx) + window_after(occ_recent_idx)
+    if any(v in top for v in check_values):
+        return None  # top ja apareceu na janela de verificacao -> sinal inativo
+
+    return {
+        "precomputed_top4": top,
+        "precomputed_X": X,
+        "precomputed_trio": trio,
+        "precomputed_match_count": total_matches,
+    }
+
+
 def _fmt_ts(ts: Any) -> Optional[str]:
     if ts is None:
         return None

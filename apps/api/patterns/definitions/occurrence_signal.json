@@ -1,0 +1,27 @@
+{
+  "id": "occurrence_signal",
+  "name": "Occurrence Signal",
+  "kind": "positive",
+  "version": "1.0.0",
+  "active": true,
+  "priority": 95,
+  "weight": 3.5,
+  "evaluator": "occurrence_signal",
+  "max_numbers": 5,
+  "params": {
+    "zero_window": 7,
+    "top_n": 4,
+    "positions": 3,
+    "base_score": 1.0,
+    "score_decay": 0.05,
+    "zero_score": 0.6,
+    "adaptive": {
+      "enabled": true,
+      "lookahead": 4,
+      "window": 400,
+      "min_signals": 12,
+      "min_multiplier": 0.5,
+      "max_multiplier": 1.6
+    }
+  }
+}

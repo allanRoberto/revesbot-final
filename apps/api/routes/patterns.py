@@ -23,6 +23,7 @@ from api.services.pattern_training_service import pattern_training_service
 from api.services.pattern_training_jobs import pattern_training_jobs
 from api.services.pattern_score_training_service import pattern_score_training_service
 from api.services.pattern_weight_profiles import pattern_weight_profiles
+from api.services.occurrence_signal_service import precompute_occurrence_signal
 from api.services.final_suggestion_signal_policy import final_suggestion_signal_policy
 from api.services.final_suggestion_entry_intelligence import final_suggestion_entry_intelligence
 from api.services.final_suggestion_protection import build_protected_coverage_suggestion
@@ -1860,6 +1861,19 @@ async def get_optimized_suggestion(payload: OptimizedSuggestionRequest):
             for key, value in dict(payload.runtime_overrides or {}).items()
             if isinstance(value, dict)
         }
+
+        # Pre-compute do padrao 'occurrence_signal' (faz query em history_triplets).
+        # Se o caller ja injetou um precomputed_top4 via runtime_overrides, respeita.
+        try:
+            existing_occ = runtime_overrides.get("occurrence_signal") or {}
+            if "precomputed_top4" not in existing_occ:
+                occ_payload = await precompute_occurrence_signal(payload.history)
+                if occ_payload:
+                    merged_occ = dict(existing_occ)
+                    merged_occ.update(occ_payload)
+                    runtime_overrides["occurrence_signal"] = merged_occ
+        except Exception as exc:
+            logger.warning("falha no pre-compute do occurrence_signal: %s", exc)
 
         result = pattern_engine.evaluate(
             history=payload.history,

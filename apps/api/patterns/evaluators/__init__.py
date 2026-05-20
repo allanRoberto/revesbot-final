@@ -59,6 +59,7 @@ from . import puxados_boost as puxados_boost_module
 from . import numeros_puxando_boost as numeros_puxando_boost_module
 from . import score_boost as score_boost_module
 from . import legacy_processing_bridge as legacy_processing_bridge_module
+from . import occurrence_signal as occurrence_signal_module
 
 _EVALUATORS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "terminal_repeat_sum_neighbors": terminal_repeat_sum_neighbors_module.evaluate,
@@ -118,6 +119,7 @@ _EVALUATORS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "numeros_puxando_boost": numeros_puxando_boost_module.evaluate,
     "score_boost": score_boost_module.evaluate,
     "legacy_processing_bridge": legacy_processing_bridge_module.evaluate,
+    "occurrence_signal": occurrence_signal_module.evaluate,
 }
 
 def build_evaluator_registry(engine: Any) -> Dict[str, Callable[[List[int], List[int], int, Any, int | None], Dict[str, Any]]]:

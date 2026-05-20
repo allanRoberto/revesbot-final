@@ -8655,5 +8655,69 @@ class PatternEngine:
             "explanation": f"Score: base={base}, {len(sorted_numbers)} numeros com scoring combinado.",
         }
 
+    def _eval_occurrence_signal(
+        self,
+        history: List[int],
+        base_suggestion: List[int],
+        from_index: int,
+        definition: PatternDefinition,
+        focus_number: int | None = None,
+    ) -> Dict[str, Any]:
+        """Padrao Occurrence Signal:
+        Consome o top4 pre-calculado pela rota (a query no history_triplets e as
+        pre-condicoes do padrao sao feitas em /api/patterns/optimized-suggestion).
+        Se 'precomputed_top4' nao estiver presente ou vier vazio, o padrao retorna
+        vazio (inativo nesta chamada).
+        """
+        params = dict(definition.params or {})
+        precomputed = params.get("precomputed_top4")
+        if precomputed is None:
+            return {
+                "numbers": [],
+                "explanation": "occurrence_signal: pre-compute ausente no roteador.",
+            }
+
+        try:
+            top4 = [int(n) for n in precomputed if 0 <= int(n) <= 36]
+        except Exception:
+            top4 = []
+
+        top4 = top4[: max(1, int(params.get("top_n", 4)))]
+        if not top4:
+            return {
+                "numbers": [],
+                "explanation": "occurrence_signal: top4 vazio (pre-condicoes nao atendidas).",
+            }
+
+        base_score = float(params.get("base_score", 1.0))
+        score_decay = float(params.get("score_decay", 0.05))
+        zero_score = float(params.get("zero_score", 0.6))
+        max_numbers = max(1, int(definition.max_numbers))
+
+        scores: Dict[int, float] = {}
+        for i, n in enumerate(top4):
+            scores[n] = max(0.0, base_score * (1.0 - i * score_decay))
+        if 0 not in scores:
+            scores[0] = zero_score
+
+        ordered = sorted(scores.keys(), key=lambda n: (-scores[n], n))[:max_numbers]
+        final_scores = {n: round(scores[n], 4) for n in ordered}
+
+        ctx_x = params.get("precomputed_X")
+        ctx_trio = params.get("precomputed_trio")
+        details: List[str] = []
+        if ctx_x is not None:
+            details.append(f"X={ctx_x}")
+        if ctx_trio:
+            details.append(f"trio={ctx_trio}")
+        details.append(f"top4={top4}")
+        explanation = "occurrence_signal: " + ", ".join(details) + "."
+
+        return {
+            "numbers": ordered,
+            "scores": final_scores,
+            "explanation": explanation,
+        }
+
 
 pattern_engine = PatternEngine()
