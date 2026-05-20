@@ -204,6 +204,10 @@
           <input type="number" id="filter-limit" min="1" max="200" value="50">
         </div>
         <div class="wide-field">
+          <label for="initial-bank">Banca inicial (R$)</label>
+          <input type="number" id="initial-bank" min="0" step="0.01" value="100.00" style="min-width:120px">
+        </div>
+        <div class="wide-field">
           <label>Ficha por tentativa (R$) — pleno paga 35:1</label>
           <div class="chip-grid">
             <div><input type="number" id="chip-1" min="0" step="0.01" value="1.00"><label class="small">T1</label></div>
@@ -250,6 +254,11 @@
     const reloadBtn = document.getElementById("reload-btn");
     const autoRefresh = document.getElementById("auto-refresh");
     const chipInputs = [1,2,3,4].map(i => document.getElementById("chip-" + i));
+    const initialBankInput = document.getElementById("initial-bank");
+    function getInitialBank() {
+      const v = parseFloat(initialBankInput.value);
+      return isFinite(v) ? v : 0;
+    }
 
     // Estado cache da ultima resposta para re-renderizar quando muda a ficha
     let lastData = null;
@@ -339,27 +348,34 @@
       }
       card.style.display = "block";
 
-      let cum = 0;
-      const points = [{ x: 0, cum: 0, label: "início" }];
-      let peak = 0, trough = 0;
+      const initialBank = getInitialBank();
+      let cum = initialBank;
+      const points = [{ x: 0, cum: initialBank, label: "início" }];
+      let peak = initialBank, trough = initialBank;
+      let bustedAt = null; // primeiro indice (1-based) onde a banca cai <= 0
       sorted.forEach((s, i) => {
         const sim = simulateSignal(s, chips);
         cum += sim.pnl;
         if (cum > peak) peak = cum;
         if (cum < trough) trough = cum;
+        if (bustedAt === null && cum <= 0) bustedAt = i + 1;
         points.push({ x: i + 1, cum, label: s.status, pnl: sim.pnl, X: s.X, created_at: s.created_at });
       });
+      const finalBank = cum;
+      const totalPnl = finalBank - initialBank;
 
       const W = 1000, H = 280, padL = 60, padR = 16, padT = 18, padB = 28;
       const innerW = W - padL - padR;
       const innerH = H - padT - padB;
-      const minY = Math.min(0, ...points.map(p => p.cum));
-      const maxY = Math.max(0, ...points.map(p => p.cum));
+      // Eixo Y: cobre desde 0 (ou trough se for negativo) ate o peak
+      const minY = Math.min(0, trough);
+      const maxY = Math.max(initialBank, peak);
       const range = (maxY - minY) || 1;
       const xStep = innerW / Math.max(1, points.length - 1);
       const yScale = v => padT + innerH - ((v - minY) / range) * innerH;
       const xScale = i => padL + i * xStep;
       const zeroY = yScale(0);
+      const bankY = yScale(initialBank);
 
       // gridlines (4 horizontais)
       let gridLines = "";
@@ -371,20 +387,25 @@
         gridLines += `<text x="${padL - 6}" y="${yy + 4}" font-size="10" text-anchor="end" fill="#63706b">${fmtBRL(yVal)}</text>`;
       }
 
-      // Linha zero destacada
-      const zeroLine = `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}" stroke="#d7ddd9" stroke-dasharray="4 3" stroke-width="1"/>`;
+      // Linha do zero e linha da banca inicial
+      const zeroLine = minY < 0
+        ? `<line x1="${padL}" y1="${zeroY}" x2="${W - padR}" y2="${zeroY}" stroke="#9b2f2f" stroke-dasharray="2 3" stroke-width="1" opacity="0.6"/>
+           <text x="${W - padR - 4}" y="${zeroY - 4}" font-size="10" text-anchor="end" fill="#9b2f2f">zero</text>`
+        : "";
+      const bankLine = `<line x1="${padL}" y1="${bankY}" x2="${W - padR}" y2="${bankY}" stroke="#63706b" stroke-dasharray="5 4" stroke-width="1"/>
+                         <text x="${W - padR - 4}" y="${bankY - 4}" font-size="10" text-anchor="end" fill="#63706b">banca inicial ${fmtBRL(initialBank)}</text>`;
 
-      // Area: gradiente abaixo da linha
-      const finalPos = cum >= 0;
+      // Area: cor verde se acima da banca inicial, vermelho se abaixo
+      const finalPos = finalBank >= initialBank;
       const lineColor = finalPos ? "#177a5b" : "#9b2f2f";
       const areaColor = finalPos ? "rgba(23,122,91,0.12)" : "rgba(155,47,47,0.10)";
 
       const polyPath = points.map((p, i) => `${i === 0 ? "M" : "L"}${xScale(i).toFixed(1)},${yScale(p.cum).toFixed(1)}`).join(" ");
-      // Area path para preencher entre linha e zero
+      // Area path entre a linha e a banca inicial
       const lastX = xScale(points.length - 1).toFixed(1);
-      const areaPath = `M${xScale(0).toFixed(1)},${zeroY.toFixed(1)} ` +
+      const areaPath = `M${xScale(0).toFixed(1)},${bankY.toFixed(1)} ` +
         points.map((p, i) => `L${xScale(i).toFixed(1)},${yScale(p.cum).toFixed(1)}`).join(" ") +
-        ` L${lastX},${zeroY.toFixed(1)} Z`;
+        ` L${lastX},${bankY.toFixed(1)} Z`;
 
       // Pontos
       const dots = points.map((p, i) => {
@@ -404,6 +425,7 @@
       container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:280px;display:block;">
         ${gridLines}
         ${zeroLine}
+        ${bankLine}
         <path d="${areaPath}" fill="${areaColor}" stroke="none"/>
         <path d="${polyPath}" fill="none" stroke="${lineColor}" stroke-width="2"/>
         ${dots}
@@ -412,15 +434,20 @@
 
       meta.textContent = `${points.length - 1} sinais plotados · ordenados por data`;
 
-      const finalCls = cum >= 0 ? "pos" : "neg";
-      const peakCls = peak >= 0 ? "pos" : "neg";
-      const troughCls = trough >= 0 ? "pos" : "neg";
+      const finalCls = totalPnl >= 0 ? "pos" : "neg";
+      const peakCls = peak >= initialBank ? "pos" : "neg";
+      const troughCls = trough >= initialBank ? "pos" : "neg";
+      const bustNote = bustedAt !== null
+        ? ` · <span style="color:var(--danger);font-weight:600">⚠ banca zerou no sinal #${bustedAt}</span>`
+        : "";
       summaryEl.innerHTML = `
-        <span>Início: <span class="v">R$ 0,00</span></span>
+        <span>Banca inicial: <span class="v">${fmtBRL(initialBank)}</span></span>
         <span>Pico: <span class="v ${peakCls}">${fmtBRL(peak)}</span></span>
         <span>Fundo: <span class="v ${troughCls}">${fmtBRL(trough)}</span></span>
-        <span>Final: <span class="v ${finalCls}">${fmtBRL(cum)}</span></span>
-        <span>Drawdown máx: <span class="v neg">${fmtBRL(trough - peak)}</span></span>
+        <span>Banca final: <span class="v ${finalCls}">${fmtBRL(finalBank)}</span></span>
+        <span>P&L: <span class="v ${finalCls}">${totalPnl >= 0 ? "+" : ""}${fmtBRL(totalPnl)}</span></span>
+        <span>Drawdown máx (do pico): <span class="v neg">${fmtBRL(trough - peak)}</span></span>
+        ${bustNote ? `<span>${bustNote}</span>` : ""}
       `;
     }
 
@@ -603,11 +630,13 @@
     document.getElementById("filter-status").addEventListener("change", load);
     document.getElementById("filter-roulette").addEventListener("change", load);
     document.getElementById("filter-limit").addEventListener("change", load);
-    // Mudou alguma ficha -> recalcula sem refazer fetch
+    // Mudou alguma ficha ou banca -> recalcula sem refazer fetch
     chipInputs.forEach(el => {
       el.addEventListener("input", rerenderFromCache);
       el.addEventListener("change", rerenderFromCache);
     });
+    initialBankInput.addEventListener("input", rerenderFromCache);
+    initialBankInput.addEventListener("change", rerenderFromCache);
 
     let refreshTimer = null;
     function scheduleAutoRefresh() {
