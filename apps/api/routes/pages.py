@@ -248,3 +248,9 @@ async def trio_ranking_signals_page():
 async def triplet_pattern_page():
     with open(os.path.join(templates_dir, "triplet_pattern.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/buscar-sequencia", response_class=HTMLResponse)
+async def sequence_search_page():
+    with open(os.path.join(templates_dir, "sequence_search.html"), "r", encoding="utf-8") as f:
+        return f.read()
