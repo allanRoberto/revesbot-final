@@ -68,7 +68,7 @@ class OptimizedSuggestionRequest(BaseModel):
     from_index: int = 0
     max_numbers: int = 18
     log_event: bool = True
-    runtime_overrides: Dict[str, Dict[str, float | int | bool]] = Field(default_factory=dict)
+    runtime_overrides: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
 
 class PatternBacktestRequest(BaseModel):
