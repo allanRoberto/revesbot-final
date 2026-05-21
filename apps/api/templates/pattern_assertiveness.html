@@ -83,8 +83,43 @@
             background: var(--accent-soft); color: var(--accent); font-weight: 700; }
         .gale-chip.win { background: rgba(22, 163, 74, 0.14); color: var(--good); }
         .gale-chip.loss { background: rgba(220, 38, 38, 0.10); color: var(--bad); }
+
+        /* Walk-forward */
+        .wf-panel { padding: 16px; margin-top: 18px; }
+        .wf-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
+        .wf-head h2 { margin: 0; font-size: 16px; }
+        .wf-head .meta { color: var(--muted); font-size: 12px; }
+        .wf-class-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+        .wf-class-card { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #fff; }
+        .wf-class-card .label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; color: var(--muted); }
+        .wf-class-card .value { font-size: 20px; font-weight: 800; margin-top: 4px; }
+        .wf-class-card.consistente_positivo { border-color: rgba(22,163,74,0.5); background: rgba(240,253,244,0.6); }
+        .wf-class-card.colapsou { border-color: rgba(234,88,12,0.5); background: rgba(255,247,237,0.6); }
+        .wf-class-card.consistente_negativo { border-color: rgba(220,38,38,0.45); background: rgba(254,242,242,0.5); }
+        .wf-class-pill {
+            display: inline-flex; padding: 3px 9px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .wf-class-pill.consistente_positivo { background: rgba(22,163,74,0.18); color: var(--good); }
+        .wf-class-pill.consistente_negativo { background: rgba(220,38,38,0.18); color: var(--bad); }
+        .wf-class-pill.colapsou { background: rgba(234,88,12,0.18); color: var(--warn); }
+        .wf-class-pill.virou { background: rgba(37,99,235,0.18); color: var(--accent); }
+        .wf-class-pill.estavel_neutro { background: rgba(148,163,184,0.18); color: var(--muted); }
+        .wf-class-pill.inconclusivo { background: rgba(148,163,184,0.10); color: var(--muted); }
+        .wf-split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 8px 0; }
+        .wf-split .panel-mini { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: #fafafa; }
+        .wf-split .panel-mini.train { border-left: 4px solid #94a3b8; }
+        .wf-split .panel-mini.test { border-left: 4px solid var(--accent); }
+        .wf-split .panel-mini .label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; color: var(--muted); margin-bottom: 4px; }
+        .wf-split .panel-mini .num-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+        .wf-split .panel-mini .num-row span { font-size: 12px; }
+        .wf-split .panel-mini .num-row .big { font-size: 15px; font-weight: 700; }
+
         @media (max-width: 1100px) {
             .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .wf-class-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
     </style>
 </head>
@@ -150,6 +185,32 @@
             </div>
             <div class="chart-wrap">
                 <canvas id="zScoreChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel wf-panel">
+            <div class="wf-head">
+                <div>
+                    <h2>🔬 Walk-forward (validação out-of-sample)</h2>
+                    <div class="meta">Divide os snapshots em <strong>train</strong> (50% mais antigos) e <strong>test</strong> (50% mais recentes). Padrões com alpha real mantêm z-score ≥ 1 nas duas metades — os "colapsados" pareciam bons mas eram só sorte amostral.</div>
+                </div>
+                <button id="runWalkforwardButton" class="button primary">Rodar walk-forward</button>
+            </div>
+            <div id="wfClassGrid" class="wf-class-grid" style="display:none;"></div>
+            <div id="wfStatus" class="status">Clique em "Rodar walk-forward" para validar os padrões.</div>
+            <div id="wfTableWrap" class="table-wrap" style="display:none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Padrão</th>
+                            <th>Classe</th>
+                            <th style="background:rgba(148,163,184,0.10);">Train (50% antigos)</th>
+                            <th style="background:rgba(37,99,235,0.06);">Test (50% recentes)</th>
+                            <th>Lift Δ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wfTableBody"></tbody>
+                </table>
             </div>
         </div>
 
@@ -370,6 +431,124 @@
                 reloadButton.disabled = false;
             }
         }
+
+        // ============ Walk-forward =============
+        const runWfBtn = document.getElementById("runWalkforwardButton");
+        const wfStatus = document.getElementById("wfStatus");
+        const wfClassGrid = document.getElementById("wfClassGrid");
+        const wfTableWrap = document.getElementById("wfTableWrap");
+        const wfTableBody = document.getElementById("wfTableBody");
+
+        const WF_CLASS_LABEL = {
+            consistente_positivo: "Consistente +",
+            colapsou: "Colapsou (overfit)",
+            virou: "Virou (regime change)",
+            estavel_neutro: "Estável neutro",
+            consistente_negativo: "Consistente −",
+            inconclusivo: "Inconclusivo (n baixo)",
+        };
+        const WF_CLASS_TONE = {
+            consistente_positivo: { card: "consistente_positivo" },
+            colapsou: { card: "colapsou" },
+            virou: { card: "" },
+            estavel_neutro: { card: "" },
+            consistente_negativo: { card: "consistente_negativo" },
+            inconclusivo: { card: "" },
+        };
+
+        function renderWfSummary(classCounts) {
+            const order = ["consistente_positivo", "colapsou", "virou", "estavel_neutro", "consistente_negativo", "inconclusivo"];
+            wfClassGrid.innerHTML = order.map(k => {
+                const tone = WF_CLASS_TONE[k]?.card || "";
+                return `<div class="wf-class-card ${tone}">
+                    <div class="label">${WF_CLASS_LABEL[k]}</div>
+                    <div class="value">${classCounts[k] || 0}</div>
+                </div>`;
+            }).join("");
+            wfClassGrid.style.display = "grid";
+        }
+
+        function buildSplitCell(row, prefix) {
+            const cls = prefix === "train" ? "train" : "test";
+            const z = row[`${prefix}_z_score`];
+            const lift = row[`${prefix}_lift`];
+            const signals = row[`${prefix}_signals`];
+            const hits = row[`${prefix}_hits`];
+            const hitRate = row[`${prefix}_hit_rate`];
+            const baseline = row[`${prefix}_baseline_rate`];
+            if (!signals) {
+                return `<div class="panel-mini ${cls}" style="opacity:0.6;"><div class="label">${cls.toUpperCase()}</div><div style="color:var(--muted);font-size:11px;">sem signals</div></div>`;
+            }
+            return `<div class="panel-mini ${cls}">
+                <div class="label">${cls.toUpperCase()} (${signals} signals)</div>
+                <div class="num-row">
+                    <span class="big">z=${z.toFixed(2)}</span>
+                    <span>×${lift.toFixed(2)}</span>
+                    <span style="color:var(--muted);">${hits}/${signals} (${(hitRate*100).toFixed(1)}%)</span>
+                    <span style="color:var(--muted);">vs base ${(baseline*100).toFixed(1)}%</span>
+                </div>
+            </div>`;
+        }
+
+        function renderWfRows(rows) {
+            wfTableBody.innerHTML = rows.map(r => {
+                const cls = r.walkforward_class;
+                const decayColor = r.lift_decay >= 0 ? "var(--good)" : "var(--bad)";
+                const decaySign = r.lift_decay > 0 ? "+" : "";
+                return `<tr>
+                    <td style="min-width:240px;">
+                        <strong>${r.pattern_name}</strong>
+                        <div style="font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;">${r.pattern_id}</div>
+                    </td>
+                    <td><span class="wf-class-pill ${cls}">${WF_CLASS_LABEL[cls] || cls}</span></td>
+                    <td style="min-width:280px;">${buildSplitCell(r, "train")}</td>
+                    <td style="min-width:280px;">${buildSplitCell(r, "test")}</td>
+                    <td class="num" style="color:${decayColor};font-weight:700;">${decaySign}${r.lift_decay.toFixed(2)}</td>
+                </tr>`;
+            }).join("") || `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted);">Sem dados</td></tr>`;
+        }
+
+        async function runWalkforward() {
+            const rouletteId = rouletteSelect.value;
+            const limit = Number(limitInput.value || 2000);
+            const includeAll = includeAllConfigsInput.checked;
+            if (!rouletteId) { wfStatus.textContent = "Selecione uma roleta."; wfStatus.className = "status error"; return; }
+            wfStatus.textContent = "Rodando walk-forward...";
+            wfStatus.className = "status";
+            runWfBtn.disabled = true;
+            try {
+                const params = new URLSearchParams({
+                    roulette_id: rouletteId,
+                    limit: String(limit),
+                    include_all_configs: includeAll ? "true" : "false",
+                    train_ratio: "0.5",
+                });
+                const t0 = Date.now();
+                const r = await fetch(`/api/pattern-assertiveness/walkforward?${params.toString()}`, { cache: "no-store" });
+                const payload = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(payload.detail || "Falha no walk-forward.");
+                const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+
+                const rows = Array.isArray(payload.rows) ? payload.rows : [];
+                // Filtrar para mostrar só padrões com n>=30 em pelo menos uma das duas metades
+                const shown = rows.filter(r => r.train_signals >= 30 || r.test_signals >= 30);
+                renderWfSummary(payload.class_counts || {});
+                renderWfRows(shown);
+                wfTableWrap.style.display = "block";
+
+                const cacheNote = payload.cached ? ` (cache ${payload.cache_age_seconds}s)` : "";
+                const consPos = (payload.class_counts || {}).consistente_positivo || 0;
+                const collapsed = (payload.class_counts || {}).colapsou || 0;
+                wfStatus.textContent = `Walk-forward pronto em ${elapsed}s${cacheNote} — train ${payload.train_snapshots} / test ${payload.test_snapshots} • ${consPos} padrões consistentes (+), ${collapsed} colapsaram`;
+            } catch (err) {
+                wfStatus.textContent = err.message || "Falha no walk-forward.";
+                wfStatus.className = "status error";
+            } finally {
+                runWfBtn.disabled = false;
+            }
+        }
+
+        runWfBtn.addEventListener("click", runWalkforward);
 
         document.querySelectorAll("th[data-sort]").forEach(th => th.addEventListener("click", () => applySortFromHeader(th)));
         document.querySelectorAll(".filter-btn").forEach(btn => btn.addEventListener("click", () => {
