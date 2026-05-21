@@ -39,4 +39,4 @@ jobs:
           DEPLOY_USER: root
         run: |
           ssh "$DEPLOY_USER@$DEPLOY_HOST" \
-            "bash -lc 'cd /var/www/revesbot-final/main && ./infra/deploy/deploy.sh main'"
+            "bash -lc 'cd /var/www/revesbot-final && ./infra/deploy/deploy.sh main'"
