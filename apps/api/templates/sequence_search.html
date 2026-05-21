@@ -359,7 +359,7 @@
     // Local candidate computation (preview chips before fetch)
     const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
     const WHEEL_IDX = {}; WHEEL.forEach((n,i) => WHEEL_IDX[n] = i);
-    const MIRROR = {1:[10],2:[20],3:[30],10:[1],12:[21],13:[31],20:[2],21:[12],23:[32],30:[3],31:[13],32:[23]};
+    const MIRROR = {1:[10],2:[20],3:[30],6:[9],9:[6],10:[1],12:[21],13:[31],16:[19],19:[16],20:[2],21:[12],23:[32],26:[29],29:[26],30:[3],31:[13],32:[23]};
     const digitSum = n => String(Math.abs(n)).split("").reduce((s,d)=>s+(+d),0);
     function localCandidates(n, modes) {
       const s = new Set();

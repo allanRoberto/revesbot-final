@@ -350,10 +350,9 @@
       return false;
     }
 
-    // Espelho (MIRROR_MAP): mesmas duplas que o backend (1<->10, 2<->20, 3<->30,
-    // 12<->21, 13<->31, 23<->32). Detecta se o prev OU next do trio occ_oldest
-    // e espelho do numero base X.
-    const MIRROR = {1:[10],2:[20],3:[30],10:[1],12:[21],13:[31],20:[2],21:[12],23:[32],30:[3],31:[13],32:[23]};
+    // Espelho (MIRROR_MAP): pares definidos no backend
+    // (1<->10, 2<->20, 3<->30, 6<->9, 12<->21, 13<->31, 16<->19, 23<->32, 26<->29)
+    const MIRROR = {1:[10],2:[20],3:[30],6:[9],9:[6],10:[1],12:[21],13:[31],16:[19],19:[16],20:[2],21:[12],23:[32],26:[29],29:[26],30:[3],31:[13],32:[23]};
     function detectMirrorInTrio(s) {
       const trio = s.trio || [];
       if (trio.length !== 3) return false;
