@@ -162,6 +162,10 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
 
     bet = sorted(set(top4 + [0]))
 
+    # Numero imediatamente ANTES de occ_middle e occ_recent (para link analysis)
+    middle_prev_value = spins[occ_middle_idx - 1]["value"] if occ_middle_idx - 1 >= 0 else None
+    recent_prev_value = spins[occ_recent_idx - 1]["value"] if occ_recent_idx - 1 >= 0 else None
+
     pre_start = max(0, L - PRE_WINDOW)
     pre_window = [spins[i]["value"] for i in range(pre_start, L)]
     pre_window_ts = [spins[i]["timestamp"] for i in range(pre_start, L)]
@@ -178,6 +182,8 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
         "bet": bet,
         "check_middle_window": middle_window,
         "check_recent_window": recent_window,
+        "middle_prev_value": middle_prev_value,
+        "recent_prev_value": recent_prev_value,
         "zero_window": zero_window,
         "pre_window": pre_window,
         "pre_window_ts": pre_window_ts,
@@ -196,6 +202,8 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
     rec_win = info.get("check_recent_window") or []
     middle_next_link = link_to_bet(mid_win[0] if mid_win else None, bet_set)
     recent_next_link = link_to_bet(rec_win[0] if rec_win else None, bet_set)
+    middle_prev_link = link_to_bet(info.get("middle_prev_value"), bet_set)
+    recent_prev_link = link_to_bet(info.get("recent_prev_value"), bet_set)
     doc = {
         "roulette_id":         rid,
         "config": {
@@ -219,6 +227,8 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
         "inversion_paid_before": inversion_paid_before,
         "middle_next_link":    middle_next_link,
         "recent_next_link":    recent_next_link,
+        "middle_prev_link":    middle_prev_link,
+        "recent_prev_link":    recent_prev_link,
         "triplet_match_count": info["triplet_match_count"],
         "status":              "monitoring",
         "attempts":            [],
