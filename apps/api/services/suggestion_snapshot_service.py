@@ -428,6 +428,45 @@ async def get_or_create_global_suggestion_snapshot_config() -> Dict[str, Any]:
     return document
 
 
+async def update_global_suggestion_snapshot_weight_profile(
+    weight_profile_weights: Mapping[str, float],
+    *,
+    weight_profile_id: str | None = None,
+) -> Dict[str, Any]:
+    """Atualiza os pesos por pattern_id no documento global.
+
+    Snapshots já calculados ficam preservados (continuam com o config_key
+    antigo). Snapshots NOVOS passam a usar o novo profile.
+    """
+    normalized_weights: Dict[str, float] = {}
+    for key, value in (weight_profile_weights or {}).items():
+        safe_key = str(key or "").strip()
+        if not safe_key:
+            continue
+        try:
+            normalized_weights[safe_key] = max(0.0, min(5.0, float(value)))
+        except (TypeError, ValueError):
+            continue
+
+    safe_profile_id = str(weight_profile_id or "").strip() or None
+    update_payload: Dict[str, Any] = {
+        "weight_profile_weights": normalized_weights,
+        "weight_profile_id": safe_profile_id,
+        "updated_at_utc": datetime.now(timezone.utc),
+    }
+    await suggestion_snapshot_configs_coll.update_one(
+        {"config_id": GLOBAL_SUGGESTION_SNAPSHOT_CONFIG_ID},
+        {"$set": update_payload},
+        upsert=True,
+    )
+    refreshed = await suggestion_snapshot_configs_coll.find_one(
+        {"config_id": GLOBAL_SUGGESTION_SNAPSHOT_CONFIG_ID}
+    )
+    if isinstance(refreshed, Mapping):
+        return _normalize_config_document(refreshed)
+    return _normalize_config_document(update_payload)
+
+
 async def _load_history_docs_for_anchor(roulette_id: str, *, from_index: int, history_limit: int) -> List[Dict[str, Any]]:
     safe_from_index = max(0, int(from_index))
     safe_limit = max(50, min(20000, safe_from_index + max(1, int(history_limit))))

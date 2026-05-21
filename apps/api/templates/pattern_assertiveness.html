@@ -191,6 +191,33 @@
         <div class="panel wf-panel">
             <div class="wf-head">
                 <div>
+                    <h2>⚖️ Pesos ativos em produção</h2>
+                    <div class="meta">Multiplicadores aplicados por pattern_id no engine de sugestões. Valores >1 boostam o padrão, <1 reduzem, 0 desliga.</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button id="applyRecommendedButton" class="button primary">Aplicar recomendação walk-forward</button>
+                    <button id="resetWeightsButton" class="button secondary" style="background:var(--accent-soft);color:var(--accent);">Resetar (sem boost)</button>
+                </div>
+            </div>
+            <div id="weightsStatus" class="status">Carregando pesos ativos…</div>
+            <div id="weightsTableWrap" class="table-wrap" style="display:none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Pattern ID</th>
+                            <th>Peso atual</th>
+                            <th>Recomendado walk-forward</th>
+                            <th>Origem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weightsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel wf-panel">
+            <div class="wf-head">
+                <div>
                     <h2>🔬 Walk-forward (validação out-of-sample)</h2>
                     <div class="meta">Divide os snapshots em <strong>train</strong> (50% mais antigos) e <strong>test</strong> (50% mais recentes). Padrões com alpha real mantêm z-score ≥ 1 nas duas metades — os "colapsados" pareciam bons mas eram só sorte amostral.</div>
                 </div>
@@ -432,6 +459,103 @@
             }
         }
 
+        // ============ Pesos ativos =============
+        const weightsStatus = document.getElementById("weightsStatus");
+        const weightsTableWrap = document.getElementById("weightsTableWrap");
+        const weightsTableBody = document.getElementById("weightsTableBody");
+        const applyRecommendedBtn = document.getElementById("applyRecommendedButton");
+        const resetWeightsBtn = document.getElementById("resetWeightsButton");
+        let recommendedWeights = {};
+
+        function renderWeightsTable(active, recommended) {
+            const all = new Set([...Object.keys(active || {}), ...Object.keys(recommended || {})]);
+            const rows = Array.from(all).map(pid => {
+                const a = active[pid];
+                const r = recommended[pid];
+                const aText = (a === undefined) ? `<span style="color:var(--muted);">1.00 (default)</span>` : `<strong>${a.toFixed(2)}×</strong>`;
+                const rText = (r === undefined) ? `<span style="color:var(--muted);">—</span>` : `${r.toFixed(2)}×`;
+                let origem = "—";
+                if (a !== undefined && r !== undefined && Math.abs(a - r) < 0.01) origem = `<span style="color:var(--good);font-weight:700;">walk-forward</span>`;
+                else if (a !== undefined) origem = `<span style="color:var(--accent);">customizado</span>`;
+                else if (r !== undefined) origem = `<span style="color:var(--muted);">recomendado (não aplicado)</span>`;
+                return `<tr>
+                    <td><code style="font-size:11px;">${pid}</code></td>
+                    <td class="num">${aText}</td>
+                    <td class="num">${rText}</td>
+                    <td>${origem}</td>
+                </tr>`;
+            });
+            weightsTableBody.innerHTML = rows.join("") || `<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--muted);">Sem pesos configurados — todos os padrões usam multiplicador 1.0</td></tr>`;
+            weightsTableWrap.style.display = "block";
+        }
+
+        async function loadWeights() {
+            weightsStatus.className = "status";
+            weightsStatus.textContent = "Carregando pesos ativos…";
+            try {
+                const r = await fetch("/api/pattern-assertiveness/weights", { cache: "no-store" });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(data.detail || "Falha ao carregar pesos.");
+                recommendedWeights = data.recommended_weights || {};
+                const active = data.active_weights || {};
+                renderWeightsTable(active, recommendedWeights);
+                const totalActive = Object.keys(active).length;
+                weightsStatus.textContent = totalActive
+                    ? `${totalActive} peso(s) ativo(s)${data.active_profile_id ? ` • profile_id=${data.active_profile_id}` : ""}.`
+                    : "Nenhum peso aplicado — engine roda no default (todos os padrões com multiplicador 1.0).";
+            } catch (err) {
+                weightsStatus.className = "status error";
+                weightsStatus.textContent = err.message || "Falha ao carregar pesos.";
+            }
+        }
+
+        async function putWeights(weights, profileId) {
+            const r = await fetch("/api/pattern-assertiveness/weights", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ weights, profile_id: profileId || null }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.detail || "Falha ao atualizar pesos.");
+            return data;
+        }
+
+        applyRecommendedBtn.addEventListener("click", async () => {
+            if (!confirm("Vai aplicar boost ~1.4× nos 4 padrões validados e zerar os 2 com drag confirmado. Snapshots novos a partir de agora usarão esses pesos. Confirmar?")) return;
+            applyRecommendedBtn.disabled = true;
+            weightsStatus.className = "status";
+            weightsStatus.textContent = "Aplicando recomendação…";
+            try {
+                await putWeights(recommendedWeights, "walkforward_2026_05_21");
+                weightsStatus.className = "status success";
+                weightsStatus.textContent = "Pesos aplicados. Os próximos snapshots vão usar a nova configuração.";
+                await loadWeights();
+            } catch (err) {
+                weightsStatus.className = "status error";
+                weightsStatus.textContent = err.message;
+            } finally {
+                applyRecommendedBtn.disabled = false;
+            }
+        });
+
+        resetWeightsBtn.addEventListener("click", async () => {
+            if (!confirm("Vai remover todos os pesos customizados — engine volta ao default. Confirmar?")) return;
+            resetWeightsBtn.disabled = true;
+            weightsStatus.className = "status";
+            weightsStatus.textContent = "Resetando…";
+            try {
+                await putWeights({}, null);
+                weightsStatus.className = "status success";
+                weightsStatus.textContent = "Pesos resetados ao default.";
+                await loadWeights();
+            } catch (err) {
+                weightsStatus.className = "status error";
+                weightsStatus.textContent = err.message;
+            } finally {
+                resetWeightsBtn.disabled = false;
+            }
+        });
+
         // ============ Walk-forward =============
         const runWfBtn = document.getElementById("runWalkforwardButton");
         const wfStatus = document.getElementById("wfStatus");
@@ -563,7 +687,7 @@
         (async function bootstrap() {
             try {
                 await loadRoulettes();
-                await runBacktest();
+                await Promise.all([runBacktest(), loadWeights()]);
             } catch (err) {
                 setStatus(err.message || "Falha ao iniciar.", true);
             }
