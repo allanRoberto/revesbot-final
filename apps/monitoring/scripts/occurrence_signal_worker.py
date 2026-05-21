@@ -36,6 +36,37 @@ MAX_POST_TRACK = int(os.getenv("OCCURRENCE_SIGNAL_MAX_POST",    "20"))
 POLL_SECONDS   = float(os.getenv("OCCURRENCE_SIGNAL_POLL_SECONDS", "2"))
 PRAGMATIC_PREFIX = os.getenv("OCCURRENCE_SIGNAL_PRAGMATIC_PREFIX", "pragmatic-")
 
+WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
+WHEEL_IDX = {n: i for i, n in enumerate(WHEEL)}
+MIRROR = {1:[10],2:[20],3:[30],10:[1],12:[21],13:[31],20:[2],21:[12],23:[32],30:[3],31:[13],32:[23]}
+
+
+def link_to_bet(value: Optional[int], bet_set: set) -> Dict[str, Any]:
+    """Verifica se `value` tem alguma ligacao (sequencia +-1, vizinho de roda, ou espelho)
+    com algum numero da `bet_set`. Matches exatos sao ignorados (esses ja foram filtrados
+    pelo anti-eco). Retorna {value, has_link, types, hits}."""
+    if value is None:
+        return {"value": None, "has_link": False, "types": [], "hits": []}
+    v = int(value)
+    types: set = set()
+    hits: List[List[Any]] = []
+    # Sequencia numerica
+    for nb in (v - 1, v + 1):
+        if 0 <= nb <= 36 and nb in bet_set and nb != v:
+            types.add("sequencia"); hits.append([v, nb, "sequencia"])
+    # Vizinho na roda
+    if v in WHEEL_IDX:
+        i = WHEEL_IDX[v]
+        for nb in (WHEEL[(i - 1) % 37], WHEEL[(i + 1) % 37]):
+            if nb in bet_set and nb != v:
+                types.add("vizinho"); hits.append([v, nb, "vizinho"])
+    # Espelho
+    for nb in MIRROR.get(v, []):
+        if nb in bet_set and nb != v:
+            types.add("espelho"); hits.append([v, nb, "espelho"])
+    return {"value": v, "has_link": len(types) > 0, "types": sorted(types), "hits": hits}
+
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 log = logging.getLogger("occurrence-signal-worker")
 
@@ -158,8 +189,13 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
 def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
     now = datetime.now(tz=timezone.utc)
     bet = info["bet"]
+    bet_set = set(bet)
     pre_window = info.get("pre_window", []) or []
     inversion_paid_before = any(v in bet for v in pre_window)
+    mid_win = info.get("check_middle_window") or []
+    rec_win = info.get("check_recent_window") or []
+    middle_next_link = link_to_bet(mid_win[0] if mid_win else None, bet_set)
+    recent_next_link = link_to_bet(rec_win[0] if rec_win else None, bet_set)
     doc = {
         "roulette_id":         rid,
         "config": {
@@ -181,6 +217,8 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
         "pre_window":          pre_window,
         "pre_window_ts":       info.get("pre_window_ts", []),
         "inversion_paid_before": inversion_paid_before,
+        "middle_next_link":    middle_next_link,
+        "recent_next_link":    recent_next_link,
         "triplet_match_count": info["triplet_match_count"],
         "status":              "monitoring",
         "attempts":            [],
