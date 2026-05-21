@@ -24,6 +24,7 @@ async def search(
     m5: str = Query("exato"),
     m6: str = Query("exato"),
     roulette_id: Optional[str] = Query(None),
+    shuffled: bool = Query(False),
 ) -> Dict[str, Any]:
     def _parse_modes(raw: str) -> List[str]:
         items = [p.strip().lower() for p in (raw or "exato").split(",") if p.strip()]
@@ -37,7 +38,7 @@ async def search(
         fields.append({"value": int(value), "modes": _parse_modes(mode_str)})
 
     try:
-        return await sequence_search(fields, roulette_id=roulette_id)
+        return await sequence_search(fields, roulette_id=roulette_id, shuffled=shuffled)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:

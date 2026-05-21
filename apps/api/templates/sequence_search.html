@@ -190,6 +190,7 @@
       Preencha de 2 a 6 campos da esquerda para a direita.
       A busca casa <code>prev_3</code>, <code>prev_2</code>, <code>prev_1</code>, <code>a</code>, <code>b</code>, <code>c</code> nessa ordem
       e o ranking sai do campo seguinte (chega até <code>next1</code> com os 6 preenchidos).
+      No modo <strong>Embaralhado</strong>, os números informados casam contra essas posições em qualquer ordem.
     </p>
 
     <div class="card">
@@ -212,6 +213,13 @@
           <div class="pull-group">
             <input type="number" id="pull-count" min="2" max="6" value="6">
             <button type="button" class="btn" id="pull-btn">Puxar últimos 6 da roleta</button>
+          </div>
+        </div>
+        <div class="wide-field">
+          <label>Ordem</label>
+          <div class="scope-toggle" id="order-toggle">
+            <button type="button" data-order="ordered" class="active">Posicional</button>
+            <button type="button" data-order="shuffled">Embaralhado</button>
           </div>
         </div>
         <button type="button" class="btn" id="clear-btn">Limpar</button>
@@ -340,6 +348,17 @@
       });
     });
 
+    // Ordem de matching: "ordered" (posicional, padrao) ou "shuffled" (qualquer ordem)
+    let searchOrder = "ordered";
+    document.querySelectorAll("#order-toggle button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#order-toggle button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        searchOrder = btn.dataset.order;
+        scheduleSearch();
+      });
+    });
+
     // Quantos numeros puxar ao clicar no botao
     const pullCountInput = document.getElementById("pull-count");
     const pullBtn = document.getElementById("pull-btn");
@@ -448,6 +467,9 @@
       if (searchScope === "this") {
         const rid = document.getElementById("roulette_id").value;
         if (rid) params.set("roulette_id", rid);
+      }
+      if (searchOrder === "shuffled") {
+        params.set("shuffled", "true");
       }
 
       setStatus("Buscando…");
