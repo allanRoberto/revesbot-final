@@ -9,11 +9,14 @@ from api.core.db import history_triplets_coll
 from api.services.base_suggestion import MIRROR_MAP, WHEEL_ORDER, WHEEL_INDEX
 
 
-# Ordem do esquema do history_triplets:
-# prev_3, prev_2, prev_1, a, b, c, next1, next2, next3
-# Quando o usuario preenche k campos (2..6), casamos os k primeiros e
-# fazemos o ranking no campo (k+1)-esimo.
-DB_FIELD_SEQ: List[str] = ["prev_3", "prev_2", "prev_1", "a", "b", "c", "next1"]
+# Ordem completa do esquema do history_triplets (9 posicoes por documento).
+# Quando o usuario preenche k campos (2..6), casamos os k primeiros e fazemos
+# o ranking nas posicoes seguintes (1..horizonte, limitado a 9-k posicoes).
+SCHEMA_FIELDS: List[str] = [
+    "prev_3", "prev_2", "prev_1", "a", "b", "c", "next1", "next2", "next3",
+]
+# Mantido por compatibilidade: as k+1 primeiras posicoes do esquema.
+DB_FIELD_SEQ: List[str] = SCHEMA_FIELDS[:7]
 VALID_MODES = {"exato", "vizinhos", "sequencia", "espelho", "soma"}
 
 
@@ -58,9 +61,13 @@ async def sequence_search(
     fields: List[Dict[str, Any]],
     roulette_id: Optional[str] = None,
     shuffled: bool = False,
+    horizon: int = 1,
 ) -> Dict[str, Any]:
     """Busca documentos em history_triplets casando os k primeiros campos do esquema
-    e monta o ranking no (k+1)-esimo campo. fields = [{value:int, mode:str}, ...] (2..6 itens).
+    e monta o ranking nas posicoes seguintes. fields = [{value:int, mode:str}, ...] (2..6 itens).
+
+    horizon = quantas posicoes a frente agregar no ranking (1..7). O efetivo e
+    limitado a 9-k (tamanho do esquema menos os campos casados).
 
     Se shuffled=True, os valores casam contra os k primeiros campos do esquema em
     QUALQUER ordem (matching bipartite: cada campo do usuario precisa achar uma
@@ -68,6 +75,13 @@ async def sequence_search(
     k = len(fields)
     if k < 2 or k > 6:
         raise ValueError("preencha entre 2 e 6 campos")
+
+    try:
+        horizon = int(horizon)
+    except (TypeError, ValueError):
+        horizon = 1
+    if horizon < 1:
+        horizon = 1
 
     for f in fields:
         v = f.get("value")
@@ -82,8 +96,13 @@ async def sequence_search(
 
     t0 = time.perf_counter()
 
-    match_db_fields = DB_FIELD_SEQ[:k]
-    target_field = DB_FIELD_SEQ[k]
+    match_db_fields = SCHEMA_FIELDS[:k]
+    # Posicoes a frente disponiveis no esquema: 9-k. Clampa o horizonte.
+    max_horizon = len(SCHEMA_FIELDS) - k
+    effective_horizon = min(horizon, max_horizon)
+    target_fields = SCHEMA_FIELDS[k:k + effective_horizon]
+    # Compat: primeira posicao a frente.
+    target_field = target_fields[0] if target_fields else None
 
     cands_per_field: List[List[int]] = [
         candidates_for(int(f["value"]), f.get("modes") or ["exato"]) for f in fields
@@ -95,10 +114,15 @@ async def sequence_search(
         return {
             "filled": k,
             "target_field": target_field,
+            "target_fields": target_fields,
             "match_fields": match_db_fields,
             "candidates_per_field": cands_per_field,
             "fields": fields,
             "roulette_id": roulette_id,
+            "shuffled": shuffled,
+            "horizon": horizon,
+            "effective_horizon": effective_horizon,
+            "max_horizon": max_horizon,
             "total_occurrences": 0,
             "ranking": [],
             "missing": list(range(37)),
@@ -108,14 +132,14 @@ async def sequence_search(
     if shuffled:
         ranking, total_occ = await _search_shuffled(
             match_db_fields,
-            target_field,
+            target_fields,
             cands_per_field,
             roulette_id,
         )
     else:
         ranking, total_occ = await _search_ordered(
             match_db_fields,
-            target_field,
+            target_fields,
             cands_per_field,
             roulette_id,
         )
@@ -126,11 +150,15 @@ async def sequence_search(
     return {
         "filled": k,
         "target_field": target_field,
+        "target_fields": target_fields,
         "match_fields": match_db_fields,
         "candidates_per_field": cands_per_field,
         "fields": fields,
         "roulette_id": roulette_id,
         "shuffled": shuffled,
+        "horizon": horizon,
+        "effective_horizon": effective_horizon,
+        "max_horizon": max_horizon,
         "total_occurrences": total_occ,
         "ranking": ranking,
         "missing": missing,
@@ -140,7 +168,7 @@ async def sequence_search(
 
 async def _search_ordered(
     match_db_fields: List[str],
-    target_field: str,
+    target_fields: List[str],
     cands_per_field: List[List[int]],
     roulette_id: Optional[str],
 ) -> tuple[List[Dict[str, Any]], int]:
@@ -154,13 +182,17 @@ async def _search_ordered(
         match["roulette_id"] = roulette_id
 
     total_occ = await history_triplets_coll.count_documents(match)
-    if total_occ == 0:
-        return [], 0
+    if total_occ == 0 or not target_fields:
+        return [], total_occ
 
+    # Agrega o ranking ao longo de todas as posicoes do horizonte: monta um
+    # array com os valores das target_fields, desenrola e agrupa.
     pipeline = [
         {"$match": match},
-        {"$match": {target_field: {"$ne": None}}},
-        {"$group": {"_id": f"${target_field}", "count": {"$sum": 1}}},
+        {"$project": {"_vals": [f"${tf}" for tf in target_fields]}},
+        {"$unwind": "$_vals"},
+        {"$match": {"_vals": {"$ne": None}}},
+        {"$group": {"_id": "$_vals", "count": {"$sum": 1}}},
         {"$sort": {"count": -1, "_id": 1}},
     ]
     rows = [doc async for doc in history_triplets_coll.aggregate(pipeline)]
@@ -178,18 +210,21 @@ async def _search_ordered(
 
 async def _search_shuffled(
     match_db_fields: List[str],
-    target_field: str,
+    target_fields: List[str],
     cands_per_field: List[List[int]],
     roulette_id: Optional[str],
 ) -> tuple[List[Dict[str, Any]], int]:
     """Busca permitindo que os k campos do usuario casem em qualquer ordem
-    contra as k primeiras posicoes do esquema (prev_3..c)."""
+    contra as k primeiras posicoes do esquema (prev_3..c). O ranking agrega
+    todas as posicoes do horizonte (target_fields)."""
     k = len(match_db_fields)
+    if not target_fields:
+        return [], 0
 
     # Pre-filtro DB: cada uma das k posicoes tem que estar na UNIAO de todos
-    # os candidatos. E necessario que o doc tenha valor nao-nulo no target.
+    # os candidatos.
     union_cands = sorted({c for cands in cands_per_field for c in cands})
-    match: Dict[str, Any] = {target_field: {"$ne": None}}
+    match: Dict[str, Any] = {}
     for db_field in match_db_fields:
         match[db_field] = {"$in": union_cands}
     if roulette_id:
@@ -199,14 +234,15 @@ async def _search_shuffled(
     field_cand_sets: List[set] = [set(c) for c in cands_per_field]
 
     projection = {f: 1 for f in match_db_fields}
-    projection[target_field] = 1
+    for tf in target_fields:
+        projection[tf] = 1
     projection["_id"] = 0
 
     # Permutacoes pre-computadas (k <= 6 -> 720 worst case).
     perms = list(permutations(range(k)))
 
     target_counts: Counter = Counter()
-    total_occ = 0
+    total_occ = 0  # numero de janelas (documentos) que casaram
 
     cursor = history_triplets_coll.find(match, projection)
     async for doc in cursor:
@@ -226,11 +262,11 @@ async def _search_shuffled(
                 break
         if not matched:
             continue
-        tgt = doc.get(target_field)
-        if tgt is None:
-            continue
-        target_counts[int(tgt)] += 1
         total_occ += 1
+        for tf in target_fields:
+            tgt = doc.get(tf)
+            if tgt is not None:
+                target_counts[int(tgt)] += 1
 
     total_appearances = sum(target_counts.values()) or 1
     rows = sorted(target_counts.items(), key=lambda kv: (-kv[1], kv[0]))

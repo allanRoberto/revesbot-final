@@ -191,6 +191,7 @@
       A busca casa <code>prev_3</code>, <code>prev_2</code>, <code>prev_1</code>, <code>a</code>, <code>b</code>, <code>c</code> nessa ordem
       e o ranking sai do campo seguinte (chega até <code>next1</code> com os 6 preenchidos).
       No modo <strong>Embaralhado</strong>, os números informados casam contra essas posições em qualquer ordem.
+      O <strong>Horizonte</strong> define quantos spins à frente agregar no ranking (limitado a 9 − campos preenchidos).
     </p>
 
     <div class="card">
@@ -220,6 +221,13 @@
           <div class="scope-toggle" id="order-toggle">
             <button type="button" data-order="ordered" class="active">Posicional</button>
             <button type="button" data-order="shuffled">Embaralhado</button>
+          </div>
+        </div>
+        <div class="wide-field">
+          <label for="horizon">Horizonte (nº à frente)</label>
+          <div class="pull-group">
+            <input type="number" id="horizon" min="1" max="7" value="1">
+            <span class="mode-hint" id="horizon-hint">1 spin à frente</span>
           </div>
         </div>
         <button type="button" class="btn" id="clear-btn">Limpar</button>
@@ -375,6 +383,40 @@
     pullCountInput.addEventListener("change", clampPullCount);
     clampPullCount();
 
+    // Horizonte: quantas posicoes a frente agregar no ranking.
+    // O maximo real depende dos campos preenchidos (9 - k).
+    const horizonInput = document.getElementById("horizon");
+    const horizonHint = document.getElementById("horizon-hint");
+    function countFilled() {
+      let n = 0;
+      for (let i = 1; i <= 6; i++) {
+        const v = document.getElementById("n"+i).value.trim();
+        if (v !== "") n++;
+      }
+      return n;
+    }
+    function clampHorizon() {
+      let h = parseInt(horizonInput.value, 10);
+      if (isNaN(h) || h < 1) h = 1;
+      if (h > 7) h = 7;
+      const k = countFilled();
+      const maxH = k >= 2 ? Math.min(7, 9 - k) : 7;
+      let effective = Math.min(h, maxH);
+      horizonInput.value = h;
+      horizonInput.max = maxH;
+      if (k >= 2 && h > maxH) {
+        horizonHint.textContent = `máx ${maxH} com ${k} campos (será limitado)`;
+      } else {
+        horizonHint.textContent = effective === 1
+          ? "1 spin à frente"
+          : `${effective} spins à frente`;
+      }
+      return h;
+    }
+    horizonInput.addEventListener("input", () => { clampHorizon(); scheduleSearch(); });
+    horizonInput.addEventListener("change", () => { clampHorizon(); scheduleSearch(); });
+    clampHorizon();
+
     // Local candidate computation (preview chips before fetch)
     const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
     const WHEEL_IDX = {}; WHEEL.forEach((n,i) => WHEEL_IDX[n] = i);
@@ -453,6 +495,7 @@
     async function runSearch() {
       const filled = readFields();
       updateChipsAndTags();
+      clampHorizon();
       if (filled.length < 2) {
         setStatus("Preencha pelo menos 2 campos para começar.");
         resultsCard.style.display = "none";
@@ -471,6 +514,7 @@
       if (searchOrder === "shuffled") {
         params.set("shuffled", "true");
       }
+      params.set("horizon", clampHorizon());
 
       setStatus("Buscando…");
       if (inflight) inflight.abort();
@@ -481,7 +525,8 @@
         const data = await res.json();
         if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
         renderResults(data);
-        setStatus(`OK em ${data.elapsed_ms}ms · casou ${data.match_fields.join("+")} → ranking em ${data.target_field}`);
+        const tf = data.target_fields || (data.target_field ? [data.target_field] : []);
+        setStatus(`OK em ${data.elapsed_ms}ms · casou ${data.match_fields.join("+")} → ranking em ${tf.join("+")}`);
       } catch (e) {
         if (e.name === "AbortError") return;
         setStatus("Falha: " + e.message, true);
@@ -535,6 +580,7 @@
       }
       document.getElementById("roulette_id").value = "";
       updateChipsAndTags();
+      clampHorizon();
       setStatus("Preencha pelo menos 2 campos para começar.");
       resultsCard.style.display = "none";
       emptyCard.style.display = "block";
@@ -550,10 +596,19 @@
       const candidates = (data.candidates_per_field || [])
         .map((arr, i) => `<span><span class="label">${data.match_fields[i]}:</span>${arr.map(n => badge(n, true)).join(" ")}</span>`)
         .join(" ");
+      const targetFields = data.target_fields || (data.target_field ? [data.target_field] : []);
+      const effH = data.effective_horizon || targetFields.length || 1;
+      const reqH = data.horizon || effH;
+      const horizonLabel = effH === 1
+        ? `${targetFields.join(", ")} (1 spin)`
+        : `${targetFields.join(" + ")} (${effH} spins à frente)`;
+      const clampNote = (reqH > effH)
+        ? ` <span style="color:var(--danger);">— pedido ${reqH}, limitado a ${effH} pelo schema</span>`
+        : "";
       summary.innerHTML = `
         <div><span class="label">Campos preenchidos:</span><span class="value">${data.filled}</span></div>
-        <div><span class="label">Ranking de:</span><span class="value">${data.target_field}</span></div>
-        <div><span class="label">Ocorrências:</span><span class="value">${data.total_occurrences}</span></div>
+        <div><span class="label">Ranking de:</span><span class="value">${horizonLabel}</span>${clampNote}</div>
+        <div><span class="label">Ocorrências (janelas):</span><span class="value">${data.total_occurrences}</span></div>
         <div><span class="label">Tempo:</span><span class="value">${data.elapsed_ms} ms</span></div>
         <div style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
           <span class="label">Candidatos por campo:</span>${candidates}
@@ -583,8 +638,11 @@
 
       const missingEl = document.getElementById("missing-section");
       if (data.missing && data.missing.length) {
+        const scopeLabel = (targetFields.length > 1)
+          ? `nas ${targetFields.length} posições à frente`
+          : `em ${targetFields[0] || "—"}`;
         missingEl.style.display = "block";
-        missingEl.innerHTML = `<span class="label">Nunca apareceram em ${data.target_field}:</span>${data.missing.join(", ")}`;
+        missingEl.innerHTML = `<span class="label">Nunca apareceram ${scopeLabel}:</span>${data.missing.join(", ")}`;
       } else {
         missingEl.style.display = "none";
       }
