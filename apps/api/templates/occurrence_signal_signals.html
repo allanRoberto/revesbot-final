@@ -745,13 +745,21 @@
           const rv = s.recent3_validation || {};
           if (!rv.trio || !(rv.top10 && rv.top10.length)) return "";
           const confirmed = new Set(rv.bet_in_top10 || []);
-          const top10html = rv.top10.map(n => badge(n, confirmed.has(n) ? "hit" : "")).join("");
           const cnt = rv.bet_in_top10_count || 0;
+          // top10 pode ser [int] (formato antigo) ou [{number,count}] (novo)
+          const top10cells = rv.top10.map((t, i) => {
+            const n = (t && typeof t === "object") ? t.number : t;
+            const ct = (t && typeof t === "object") ? t.count : null;
+            return `<div class="attempt-cell">
+              ${badge(n, confirmed.has(n) ? "hit" : "")}
+              <span class="alabel">#${i + 1}</span>
+              ${ct != null ? `<span class="alabel" style="font-size:9px">${ct}x</span>` : ""}
+            </div>`;
+          }).join("");
           return `<div style="margin-top: 10px">
-            <span class="glabel">Validação recent3 — ranking dos 3 últimos [${rv.trio.join(", ")}]</span>
-            <div class="attempts-row" style="margin-bottom:4px">
-              <span class="alabel" style="margin-right:4px">top 10:</span>
-              ${top10html}
+            <span class="glabel">Validação recent3 — ranking dos 3 últimos [${rv.trio.join(", ")}]${rv.match_count != null ? ' · ' + rv.match_count + ' ocorrências' : ''}</span>
+            <div class="attempts-row" style="margin-bottom:6px">
+              ${top10cells}
             </div>
             <div class="attempts-row">
               <span class="alabel" style="margin-right:4px">confirmaram da aposta (${cnt}):</span>

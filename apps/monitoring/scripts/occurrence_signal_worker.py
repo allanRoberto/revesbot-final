@@ -122,9 +122,10 @@ def recent3_ranking_check(a: int, b: int, c: int, bet: List[int]) -> Dict[str, A
         {"$sort": {"count": -1, "_id": 1}},
         {"$limit": 10},
     ]))
-    top10 = [int(r["_id"]) for r in rows]
+    top10 = [{"number": int(r["_id"]), "count": int(r["count"])} for r in rows]
+    top10_numbers = [t["number"] for t in top10]
     bet_set = set(bet)
-    in_top10 = sorted(n for n in top10 if n in bet_set)
+    in_top10 = sorted(n for n in top10_numbers if n in bet_set)
     return {
         "trio": [int(a), int(b), int(c)],
         "top10": top10,
