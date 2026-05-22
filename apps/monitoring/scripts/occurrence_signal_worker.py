@@ -40,6 +40,9 @@ RECENT3_GATE = os.getenv("OCCURRENCE_SIGNAL_RECENT3_GATE", "true").strip().lower
 # Gate 2: so cria se houver vizinho/espelho da aposta nas 3 casas a frente de AMBAS
 # as ocorrencias (occ_middle E occ_recent).
 VE_BOTH_GATE = os.getenv("OCCURRENCE_SIGNAL_VE_BOTH_GATE", "true").strip().lower() in ("1", "true", "yes")
+# Gate 3: descarta o sinal se houver qualquer relacao de espelho dentro do trio
+# [prev, X, next] (espelho-qualquer). Backtest: -2,95pp.
+MIRROR_TRIO_GATE = os.getenv("OCCURRENCE_SIGNAL_MIRROR_TRIO_GATE", "true").strip().lower() in ("1", "true", "yes")
 
 WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
 WHEEL_IDX = {n: i for i, n in enumerate(WHEEL)}
@@ -180,6 +183,14 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
 
     prev_n = spins[occ_oldest_idx - 1]["value"]
     next_n = spins[occ_oldest_idx + 1]["value"]
+
+    # GATE 3: descarta se houver QUALQUER relacao de espelho dentro do trio
+    # [prev, X, next] (prev<->X, X<->next ou prev<->next). Backtest: -2,95pp.
+    if MIRROR_TRIO_GATE:
+        if (X in MIRROR.get(prev_n, [])
+                or X in MIRROR.get(next_n, [])
+                or next_n in MIRROR.get(prev_n, [])):
+            return None
 
     match = {"a": prev_n, "b": X, "c": next_n}
     rows = list(triplets_coll.aggregate([
@@ -419,8 +430,8 @@ def main() -> None:
         return
 
     log.info(
-        "Worker iniciado. Roletas (%d) max_attempts=%d top_n=%d zero_window=%d pre_window=%d max_post=%d poll=%ss recent3_gate=%s ve_both_gate=%s",
-        len(targets), MAX_ATTEMPTS, TOP_N, ZERO_WINDOW, PRE_WINDOW, MAX_POST_TRACK, POLL_SECONDS, RECENT3_GATE, VE_BOTH_GATE,
+        "Worker iniciado. Roletas (%d) max_attempts=%d top_n=%d zero_window=%d pre_window=%d max_post=%d poll=%ss recent3_gate=%s ve_both_gate=%s mirror_trio_gate=%s",
+        len(targets), MAX_ATTEMPTS, TOP_N, ZERO_WINDOW, PRE_WINDOW, MAX_POST_TRACK, POLL_SECONDS, RECENT3_GATE, VE_BOTH_GATE, MIRROR_TRIO_GATE,
     )
     log.info("Roletas monitoradas: %s", ", ".join(targets))
 
