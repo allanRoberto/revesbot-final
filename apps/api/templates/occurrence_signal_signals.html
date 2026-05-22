@@ -741,6 +741,25 @@
             </div>
           </div>
         ` : ""}
+        ${(() => {
+          const rv = s.recent3_validation || {};
+          if (!rv.trio || !(rv.top10 && rv.top10.length)) return "";
+          const confirmed = new Set(rv.bet_in_top10 || []);
+          const top10html = rv.top10.map(n => badge(n, confirmed.has(n) ? "hit" : "")).join("");
+          const cnt = rv.bet_in_top10_count || 0;
+          return `<div style="margin-top: 10px">
+            <span class="glabel">Validação recent3 — ranking dos 3 últimos [${rv.trio.join(", ")}]</span>
+            <div class="attempts-row" style="margin-bottom:4px">
+              <span class="alabel" style="margin-right:4px">top 10:</span>
+              ${top10html}
+            </div>
+            <div class="attempts-row">
+              <span class="alabel" style="margin-right:4px">confirmaram da aposta (${cnt}):</span>
+              ${(rv.bet_in_top10 && rv.bet_in_top10.length) ? rv.bet_in_top10.map(n => badge(n, "hit")).join("") : '<span class="alabel">nenhum</span>'}
+              <span class="inversion-pill ${rv.passed ? 'paid' : ''}" style="margin-left:8px">${rv.passed ? 'passou (≥2)' : 'reprovou (<2)'}</span>
+            </div>
+          </div>`;
+        })()}
         <div style="margin-top: 10px">
           <span class="glabel">Tentativas (até ${s.config && s.config.max_attempts || 4})</span>
           ${renderAttempts(s.attempts, betSet, "tentativas")}

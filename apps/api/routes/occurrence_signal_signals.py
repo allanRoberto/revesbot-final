@@ -58,6 +58,7 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
         "pre_window":          doc.get("pre_window") or [],
         "pre_window_ts":       pre_window_ts,
         "inversion_paid_before": bool(doc.get("inversion_paid_before", False)),
+        "recent3_validation":  doc.get("recent3_validation") or {},
         "attempts":            attempts,
         "post_attempts":       post_attempts,
         "won_at_attempt":      doc.get("won_at_attempt"),
