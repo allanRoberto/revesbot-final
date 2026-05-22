@@ -744,8 +744,13 @@
         ${(() => {
           const rv = s.recent3_validation || {};
           if (!rv.trio || !(rv.top10 && rv.top10.length)) return "";
-          const confirmed = new Set(rv.bet_in_top10 || []);
-          const cnt = rv.bet_in_top10_count || 0;
+          // O 0 nao conta como confirmador. Usa `confirmers` se existir (docs novos),
+          // senao deriva de bet_in_top10 removendo o 0 (docs antigos).
+          const confList = rv.confirmers != null
+            ? rv.confirmers
+            : (rv.bet_in_top10 || []).filter(n => n !== 0);
+          const confirmed = new Set(confList);
+          const cnt = confList.length;
           // top10 pode ser [int] (formato antigo) ou [{number,count}] (novo)
           const top10cells = rv.top10.map((t, i) => {
             const n = (t && typeof t === "object") ? t.number : t;
@@ -762,9 +767,9 @@
               ${top10cells}
             </div>
             <div class="attempts-row">
-              <span class="alabel" style="margin-right:4px">confirmaram da aposta (${cnt}):</span>
-              ${(rv.bet_in_top10 && rv.bet_in_top10.length) ? rv.bet_in_top10.map(n => badge(n, "hit")).join("") : '<span class="alabel">nenhum</span>'}
-              <span class="inversion-pill ${rv.passed ? 'paid' : ''}" style="margin-left:8px">${rv.passed ? 'passou (≥2)' : 'reprovou (<2)'}</span>
+              <span class="alabel" style="margin-right:4px">confirmaram da aposta (${cnt}, 0 não conta):</span>
+              ${confList.length ? confList.map(n => badge(n, "hit")).join("") : '<span class="alabel">nenhum</span>'}
+              <span class="inversion-pill ${cnt >= 2 ? 'paid' : ''}" style="margin-left:8px">${cnt >= 2 ? 'passou (≥2)' : 'reprovou (<2)'}</span>
             </div>
           </div>`;
         })()}

@@ -150,13 +150,17 @@ def recent3_ranking_check(a: int, b: int, c: int, bet: List[int]) -> Dict[str, A
     top10_numbers = [t["number"] for t in top10]
     bet_set = set(bet)
     in_top10 = sorted(n for n in top10_numbers if n in bet_set)
+    # O 0 nao conta como confirmacao no ranking dos 3 ultimos.
+    confirmers = [n for n in in_top10 if n != 0]
     return {
         "trio": [int(a), int(b), int(c)],
         "top10": top10,
         "match_count": triplets_coll.count_documents(match),
         "bet_in_top10": in_top10,
         "bet_in_top10_count": len(in_top10),
-        "passed": len(in_top10) >= 2,
+        "confirmers": confirmers,
+        "confirmers_count": len(confirmers),
+        "passed": len(confirmers) >= 2,
     }
 
 
