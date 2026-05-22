@@ -26,6 +26,7 @@ async def search(
     roulette_id: Optional[str] = Query(None),
     shuffled: bool = Query(False),
     horizon: int = Query(1, ge=1, le=7),
+    occurrences_limit: int = Query(200, ge=0, le=1000),
 ) -> Dict[str, Any]:
     def _parse_modes(raw: str) -> List[str]:
         items = [p.strip().lower() for p in (raw or "exato").split(",") if p.strip()]
@@ -40,7 +41,11 @@ async def search(
 
     try:
         return await sequence_search(
-            fields, roulette_id=roulette_id, shuffled=shuffled, horizon=horizon
+            fields,
+            roulette_id=roulette_id,
+            shuffled=shuffled,
+            horizon=horizon,
+            occurrences_limit=occurrences_limit,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

@@ -173,6 +173,28 @@
     }
     .missing-section .label { font-weight: 600; color: var(--danger); margin-right: 6px; }
 
+    .occ-title { margin: 0 0 12px 0; font-size: 17px; color: var(--accent-strong); }
+    .occ-by-roulette {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+    }
+    .occ-by-roulette .rchip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; background: var(--surface-soft);
+      border: 1px solid var(--border); border-radius: 14px; font-size: 12px;
+    }
+    .occ-by-roulette .rchip .rcount {
+      font-weight: 700; color: var(--accent-strong);
+    }
+    .occ-note { font-size: 12px; color: var(--muted); margin-bottom: 10px; font-style: italic; }
+    .occ-table td, .occ-table th { font-size: 13px; }
+    .occ-table td.idx { color: var(--muted); width: 44px; }
+    .occ-table td.rid { font-size: 12px; color: var(--text); }
+    .occ-table td.when { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .occ-table .seq-badges, .occ-table .ahead-badges {
+      display: inline-flex; flex-wrap: wrap; gap: 3px;
+    }
+    .occ-table .ahead-badges { opacity: 0.95; }
+
     .status { margin-top: 12px; font-size: 13px; color: var(--muted); }
     .status.error { color: var(--danger); }
     .empty { text-align: center; padding: 28px; color: var(--muted); }
@@ -250,6 +272,24 @@
         <tbody id="ranking-body"></tbody>
       </table>
       <div class="missing-section" id="missing-section" style="display:none;"></div>
+    </div>
+
+    <div class="card" id="occurrences-card" style="display:none;">
+      <h2 class="occ-title">Ocorrências encontradas</h2>
+      <div class="occ-by-roulette" id="occ-by-roulette"></div>
+      <div class="occ-note" id="occ-note"></div>
+      <table class="ranking occ-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Roleta</th>
+            <th>Quando</th>
+            <th>Sequência casada</th>
+            <th>Números à frente</th>
+          </tr>
+        </thead>
+        <tbody id="occurrences-body"></tbody>
+      </table>
     </div>
 
     <div class="card empty" id="empty-card">Aguardando preenchimento.</div>
@@ -484,6 +524,7 @@
     const statusEl = document.getElementById("status");
     const resultsCard = document.getElementById("results-card");
     const emptyCard = document.getElementById("empty-card");
+    const occurrencesCard = document.getElementById("occurrences-card");
     let inflight = null;
     let debounceTimer = null;
 
@@ -499,6 +540,7 @@
       if (filled.length < 2) {
         setStatus("Preencha pelo menos 2 campos para começar.");
         resultsCard.style.display = "none";
+        occurrencesCard.style.display = "none";
         emptyCard.style.display = "block";
         return;
       }
@@ -583,6 +625,7 @@
       clampHorizon();
       setStatus("Preencha pelo menos 2 campos para começar.");
       resultsCard.style.display = "none";
+      occurrencesCard.style.display = "none";
       emptyCard.style.display = "block";
     });
 
@@ -646,6 +689,67 @@
       } else {
         missingEl.style.display = "none";
       }
+
+      renderOccurrences(data);
+    }
+
+    function fmtWhen(ts) {
+      if (!ts) return "—";
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return String(ts);
+      const pad = n => String(n).padStart(2, "0");
+      return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function renderOccurrences(data) {
+      const occ = data.occurrences || [];
+      const byRoulette = data.by_roulette || [];
+
+      if (!byRoulette.length && !occ.length) {
+        occurrencesCard.style.display = "none";
+        return;
+      }
+      occurrencesCard.style.display = "block";
+
+      // Resumo por roleta (cobre 100% das ocorrências).
+      const brEl = document.getElementById("occ-by-roulette");
+      brEl.innerHTML = byRoulette
+        .map(r => `<span class="rchip">${r.roulette_id || "—"}<span class="rcount">${r.count}</span></span>`)
+        .join("");
+
+      // Nota de cobertura da listagem detalhada.
+      const noteEl = document.getElementById("occ-note");
+      const total = data.total_occurrences || 0;
+      const shown = data.occurrences_shown != null ? data.occurrences_shown : occ.length;
+      if (total > shown) {
+        noteEl.textContent = `Mostrando as ${shown} ocorrências mais recentes de ${total} no total. `
+          + `O resumo por roleta acima cobre as ${total}.`;
+      } else {
+        noteEl.textContent = `Mostrando todas as ${shown} ocorrências.`;
+      }
+
+      // Tabela detalhada.
+      const body = document.getElementById("occurrences-body");
+      body.innerHTML = "";
+      if (!occ.length) {
+        body.innerHTML = `<tr><td colspan="5" class="empty">Listagem detalhada desativada (occurrences_limit=0).</td></tr>`;
+        return;
+      }
+      occ.forEach((o, i) => {
+        const seq = (o.sequence || [])
+          .map(n => n == null ? '<span class="chip">—</span>' : badge(n, true)).join(" ");
+        const ahead = (o.ahead || [])
+          .map(n => n == null ? '<span class="chip">—</span>' : badge(n, true)).join(" ");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="idx">#${i+1}</td>
+          <td class="rid">${o.roulette_id || "—"}</td>
+          <td class="when">${fmtWhen(o.timestamp)}</td>
+          <td><span class="seq-badges">${seq}</span></td>
+          <td><span class="ahead-badges">${ahead}</span></td>
+        `;
+        body.appendChild(tr);
+      });
     }
   </script>
 </body>
