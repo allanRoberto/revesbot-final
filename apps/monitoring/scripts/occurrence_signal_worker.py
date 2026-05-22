@@ -35,6 +35,8 @@ MAX_ATTEMPTS   = int(os.getenv("OCCURRENCE_SIGNAL_MAX_ATTEMPTS", "4"))
 MAX_POST_TRACK = int(os.getenv("OCCURRENCE_SIGNAL_MAX_POST",    "20"))
 POLL_SECONDS   = float(os.getenv("OCCURRENCE_SIGNAL_POLL_SECONDS", "2"))
 PRAGMATIC_PREFIX = os.getenv("OCCURRENCE_SIGNAL_PRAGMATIC_PREFIX", "pragmatic-")
+# Gate: so cria o sinal se a validacao recent3 passar (>=2 da bet no top10).
+RECENT3_GATE = os.getenv("OCCURRENCE_SIGNAL_RECENT3_GATE", "true").strip().lower() in ("1", "true", "yes")
 
 WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
 WHEEL_IDX = {n: i for i, n in enumerate(WHEEL)}
@@ -197,6 +199,10 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
     # Validacao adicional: ranking dos 3 ultimos numeros da roleta [L-2, L-1, X]
     recent3 = [spins[L - 2]["value"], spins[L - 1]["value"], spins[L]["value"]]
     recent3_validation = recent3_ranking_check(recent3[0], recent3[1], recent3[2], bet)
+
+    # GATE: se a validacao recent3 estiver ativa e nao passar, o sinal nao e gerado.
+    if RECENT3_GATE and not recent3_validation["passed"]:
+        return None
 
     pre_start = max(0, L - PRE_WINDOW)
     pre_window = [spins[i]["value"] for i in range(pre_start, L)]
@@ -391,8 +397,8 @@ def main() -> None:
         return
 
     log.info(
-        "Worker iniciado. Roletas (%d) max_attempts=%d top_n=%d zero_window=%d pre_window=%d max_post=%d poll=%ss",
-        len(targets), MAX_ATTEMPTS, TOP_N, ZERO_WINDOW, PRE_WINDOW, MAX_POST_TRACK, POLL_SECONDS,
+        "Worker iniciado. Roletas (%d) max_attempts=%d top_n=%d zero_window=%d pre_window=%d max_post=%d poll=%ss recent3_gate=%s",
+        len(targets), MAX_ATTEMPTS, TOP_N, ZERO_WINDOW, PRE_WINDOW, MAX_POST_TRACK, POLL_SECONDS, RECENT3_GATE,
     )
     log.info("Roletas monitoradas: %s", ", ".join(targets))
 
