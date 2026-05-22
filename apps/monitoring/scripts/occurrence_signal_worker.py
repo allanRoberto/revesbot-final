@@ -105,6 +105,34 @@ def get_recent_spins(rid: str, n: int) -> List[Dict[str, Any]]:
     return [{"value": int(d["value"]), "timestamp": d["timestamp"]} for d in docs]
 
 
+def recent3_ranking_check(a: int, b: int, c: int, bet: List[int]) -> Dict[str, Any]:
+    """Validação adicional: monta um ranking a partir do trio dos 3 ultimos numeros
+    da roleta (a,b,c = [L-2, L-1, X]) buscando em history_triplets (todas as roletas).
+    Conta quantos numeros da aposta caem no top 10 desse ranking.
+    passed=True se >=2 numeros da bet estiverem no top10."""
+    match = {"a": a, "b": b, "c": c}
+    rows = list(triplets_coll.aggregate([
+        {"$match": match},
+        {"$project": {"nums": ["$next1", "$next2", "$next3"]}},
+        {"$unwind": "$nums"},
+        {"$match": {"nums": {"$ne": None, "$gte": 0, "$lte": 36}}},
+        {"$group": {"_id": "$nums", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1, "_id": 1}},
+        {"$limit": 10},
+    ]))
+    top10 = [int(r["_id"]) for r in rows]
+    bet_set = set(bet)
+    in_top10 = sorted(n for n in top10 if n in bet_set)
+    return {
+        "trio": [int(a), int(b), int(c)],
+        "top10": top10,
+        "match_count": triplets_coll.count_documents(match),
+        "bet_in_top10": in_top10,
+        "bet_in_top10_count": len(in_top10),
+        "passed": len(in_top10) >= 2,
+    }
+
+
 def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
     """Avalia o padrao no estado atual e retorna info de sinal ativo, ou None."""
     if len(spins) < 10:
@@ -166,6 +194,10 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
     middle_prev_value = spins[occ_middle_idx - 1]["value"] if occ_middle_idx - 1 >= 0 else None
     recent_prev_value = spins[occ_recent_idx - 1]["value"] if occ_recent_idx - 1 >= 0 else None
 
+    # Validacao adicional: ranking dos 3 ultimos numeros da roleta [L-2, L-1, X]
+    recent3 = [spins[L - 2]["value"], spins[L - 1]["value"], spins[L]["value"]]
+    recent3_validation = recent3_ranking_check(recent3[0], recent3[1], recent3[2], bet)
+
     pre_start = max(0, L - PRE_WINDOW)
     pre_window = [spins[i]["value"] for i in range(pre_start, L)]
     pre_window_ts = [spins[i]["timestamp"] for i in range(pre_start, L)]
@@ -184,6 +216,7 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
         "check_recent_window": recent_window,
         "middle_prev_value": middle_prev_value,
         "recent_prev_value": recent_prev_value,
+        "recent3_validation": recent3_validation,
         "zero_window": zero_window,
         "pre_window": pre_window,
         "pre_window_ts": pre_window_ts,
@@ -229,6 +262,7 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
         "recent_next_link":    recent_next_link,
         "middle_prev_link":    middle_prev_link,
         "recent_prev_link":    recent_prev_link,
+        "recent3_validation":  info.get("recent3_validation"),
         "triplet_match_count": info["triplet_match_count"],
         "status":              "monitoring",
         "attempts":            [],
