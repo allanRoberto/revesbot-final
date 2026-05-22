@@ -37,6 +37,9 @@ POLL_SECONDS   = float(os.getenv("OCCURRENCE_SIGNAL_POLL_SECONDS", "2"))
 PRAGMATIC_PREFIX = os.getenv("OCCURRENCE_SIGNAL_PRAGMATIC_PREFIX", "pragmatic-")
 # Gate: so cria o sinal se a validacao recent3 passar (>=2 da bet no top10).
 RECENT3_GATE = os.getenv("OCCURRENCE_SIGNAL_RECENT3_GATE", "true").strip().lower() in ("1", "true", "yes")
+# Gate 2: so cria se houver vizinho/espelho da aposta nas 3 casas a frente de AMBAS
+# as ocorrencias (occ_middle E occ_recent).
+VE_BOTH_GATE = os.getenv("OCCURRENCE_SIGNAL_VE_BOTH_GATE", "true").strip().lower() in ("1", "true", "yes")
 
 WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
 WHEEL_IDX = {n: i for i, n in enumerate(WHEEL)}
@@ -67,6 +70,24 @@ def link_to_bet(value: Optional[int], bet_set: set) -> Dict[str, Any]:
         if nb in bet_set and nb != v:
             types.add("espelho"); hits.append([v, nb, "espelho"])
     return {"value": v, "has_link": len(types) > 0, "types": sorted(types), "hits": hits}
+
+
+def link_to_bet_window(values: List[int], bet_set: set) -> Dict[str, Any]:
+    """Agrega link_to_bet sobre uma janela de spins (as 3 casas a frente de uma
+    ocorrencia). has_link=True se QUALQUER spin da janela tiver ligacao com a bet."""
+    types: set = set()
+    hits: List[List[Any]] = []
+    for v in (values or []):
+        single = link_to_bet(v, bet_set)
+        if single["has_link"]:
+            types.update(single["types"])
+            hits.extend(single["hits"])
+    return {
+        "values": [int(v) for v in (values or [])],
+        "has_link": len(types) > 0,
+        "types": sorted(types),
+        "hits": hits,
+    }
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
@@ -193,10 +214,6 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
 
     bet = sorted(set(top4 + [0]))
 
-    # Numero imediatamente ANTES de occ_middle e occ_recent (para link analysis)
-    middle_prev_value = spins[occ_middle_idx - 1]["value"] if occ_middle_idx - 1 >= 0 else None
-    recent_prev_value = spins[occ_recent_idx - 1]["value"] if occ_recent_idx - 1 >= 0 else None
-
     # Validacao adicional: ranking dos 3 ultimos numeros da roleta [L-2, L-1, X]
     recent3 = [spins[L - 2]["value"], spins[L - 1]["value"], spins[L]["value"]]
     recent3_validation = recent3_ranking_check(recent3[0], recent3[1], recent3[2], bet)
@@ -204,6 +221,17 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
     # GATE: se a validacao recent3 estiver ativa e nao passar, o sinal nao e gerado.
     if RECENT3_GATE and not recent3_validation["passed"]:
         return None
+
+    # GATE 2: vizinho/espelho da aposta nas 3 casas a frente de AMBAS as ocorrencias.
+    if VE_BOTH_GATE:
+        _bet_set = set(bet)
+        _ve = {"vizinho", "espelho"}
+        _mid = link_to_bet_window(middle_window, _bet_set)
+        _rec = link_to_bet_window(recent_window, _bet_set)
+        _mid_ve = any(t in _ve for t in _mid["types"])
+        _rec_ve = any(t in _ve for t in _rec["types"])
+        if not (_mid_ve and _rec_ve):
+            return None
 
     pre_start = max(0, L - PRE_WINDOW)
     pre_window = [spins[i]["value"] for i in range(pre_start, L)]
@@ -221,8 +249,6 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
         "bet": bet,
         "check_middle_window": middle_window,
         "check_recent_window": recent_window,
-        "middle_prev_value": middle_prev_value,
-        "recent_prev_value": recent_prev_value,
         "recent3_validation": recent3_validation,
         "zero_window": zero_window,
         "pre_window": pre_window,
@@ -238,12 +264,9 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
     bet_set = set(bet)
     pre_window = info.get("pre_window", []) or []
     inversion_paid_before = any(v in bet for v in pre_window)
-    mid_win = info.get("check_middle_window") or []
-    rec_win = info.get("check_recent_window") or []
-    middle_next_link = link_to_bet(mid_win[0] if mid_win else None, bet_set)
-    recent_next_link = link_to_bet(rec_win[0] if rec_win else None, bet_set)
-    middle_prev_link = link_to_bet(info.get("middle_prev_value"), bet_set)
-    recent_prev_link = link_to_bet(info.get("recent_prev_value"), bet_set)
+    # Link das 3 casas A FRENTE de occ_middle e occ_recent (sem olhar atras)
+    middle_fwd3_link = link_to_bet_window(info.get("check_middle_window") or [], bet_set)
+    recent_fwd3_link = link_to_bet_window(info.get("check_recent_window") or [], bet_set)
     doc = {
         "roulette_id":         rid,
         "config": {
@@ -265,10 +288,8 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
         "pre_window":          pre_window,
         "pre_window_ts":       info.get("pre_window_ts", []),
         "inversion_paid_before": inversion_paid_before,
-        "middle_next_link":    middle_next_link,
-        "recent_next_link":    recent_next_link,
-        "middle_prev_link":    middle_prev_link,
-        "recent_prev_link":    recent_prev_link,
+        "middle_fwd3_link":    middle_fwd3_link,
+        "recent_fwd3_link":    recent_fwd3_link,
         "recent3_validation":  info.get("recent3_validation"),
         "triplet_match_count": info["triplet_match_count"],
         "status":              "monitoring",
@@ -398,8 +419,8 @@ def main() -> None:
         return
 
     log.info(
-        "Worker iniciado. Roletas (%d) max_attempts=%d top_n=%d zero_window=%d pre_window=%d max_post=%d poll=%ss recent3_gate=%s",
-        len(targets), MAX_ATTEMPTS, TOP_N, ZERO_WINDOW, PRE_WINDOW, MAX_POST_TRACK, POLL_SECONDS, RECENT3_GATE,
+        "Worker iniciado. Roletas (%d) max_attempts=%d top_n=%d zero_window=%d pre_window=%d max_post=%d poll=%ss recent3_gate=%s ve_both_gate=%s",
+        len(targets), MAX_ATTEMPTS, TOP_N, ZERO_WINDOW, PRE_WINDOW, MAX_POST_TRACK, POLL_SECONDS, RECENT3_GATE, VE_BOTH_GATE,
     )
     log.info("Roletas monitoradas: %s", ", ".join(targets))
 
