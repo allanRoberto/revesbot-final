@@ -472,16 +472,26 @@
       };
     }
 
-    function renderChart(signals, chips) {
+    // Constroi a serie ({ts,status,X,pnl}) a partir dos sinais visiveis aplicando chips client-side.
+    // Usado APENAS como fallback quando o servidor nao envia 'series'.
+    function buildSeriesFromSignals(signals, chips) {
+      return [...(signals || [])]
+        .filter(s => s.status === "won" || s.status === "lost" || (s.attempts && s.attempts.length > 0))
+        .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
+        .map(s => {
+          const sim = simulateSignal(s, chips);
+          return { ts: s.created_at, status: s.status, X: s.X, pnl: sim.pnl };
+        });
+    }
+
+    // series: [{ts, status, X, pnl}, ...] ja ordenada cronologicamente.
+    function renderChart(series) {
       const card = document.getElementById("chart-card");
       const container = document.getElementById("chart-container");
       const meta = document.getElementById("chart-meta");
       const summaryEl = document.getElementById("chart-summary");
 
-      const sorted = [...(signals || [])]
-        .filter(s => s.status === "won" || s.status === "lost" || (s.attempts && s.attempts.length > 0))
-        .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
-
+      const sorted = (series || []).slice();
       if (!sorted.length) {
         card.style.display = "none";
         return;
@@ -494,12 +504,12 @@
       let peak = initialBank, trough = initialBank;
       let bustedAt = null; // primeiro indice (1-based) onde a banca cai <= 0
       sorted.forEach((s, i) => {
-        const sim = simulateSignal(s, chips);
-        cum += sim.pnl;
+        const pnl = Number(s.pnl) || 0;
+        cum += pnl;
         if (cum > peak) peak = cum;
         if (cum < trough) trough = cum;
         if (bustedAt === null && cum <= 0) bustedAt = i + 1;
-        points.push({ x: i + 1, cum, label: s.status, pnl: sim.pnl, X: s.X, created_at: s.created_at });
+        points.push({ x: i + 1, cum, label: s.status, pnl, X: s.X, created_at: s.ts });
       });
       const finalBank = cum;
       const totalPnl = finalBank - initialBank;
@@ -572,7 +582,7 @@
         ${xAxis}
       </svg>`;
 
-      meta.textContent = `${points.length - 1} sinais plotados · ordenados por data`;
+      meta.textContent = `${points.length - 1} sinais resolvidos plotados · ordenados por data (universo filtrado completo)`;
 
       const finalCls = totalPnl >= 0 ? "pos" : "neg";
       const peakCls = peak >= initialBank ? "pos" : "neg";
@@ -958,7 +968,12 @@
 
       // Stats da resposta do servidor (uniao completa, ja com filtros server-side aplicados)
       renderStats(lastData);
-      renderChart(visible, chips);
+      // Grafico SEMPRE puxa a serie completa do servidor (todos os sinais filtrados, nao apenas a pagina).
+      // Fallback: se servidor nao mandou series, computa client-side a partir da pagina visivel.
+      const series = Array.isArray(lastData.series) && lastData.series.length
+        ? lastData.series
+        : buildSeriesFromSignals(visible, chips);
+      renderChart(series);
 
       if (!visible.length) {
         signalsBox.innerHTML = `<div class="card empty">Nenhum sinal nesta página após filtros locais.</div>`;

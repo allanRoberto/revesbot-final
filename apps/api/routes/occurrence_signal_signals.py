@@ -213,6 +213,43 @@ async def list_signals(
                 "monitoring":  {"$sum": {"$cond": [{"$eq": ["$_status", "monitoring"]}, 1, 0]}},
             }},
         ],
+        # Serie cronologica de P&L por sinal (todos os sinais filtrados, nao so a pagina).
+        # Usada para desenhar o grafico de banca no front-end.
+        "series": [
+            # Apenas sinais resolvidos contam na curva (sem 'monitoring' parcial).
+            {"$match": {"status": {"$in": ["won", "lost"]}}},
+            {"$sort": {"created_at": 1}},
+            {"$project": {
+                "_id":    0,
+                "ts":     "$created_at",
+                "status": "$status",
+                "X":      "$X",
+                "_n_bet":  {"$size": {"$ifNull": ["$bet", []]}},
+                "_wat":    "$won_at_attempt",
+            }},
+            {"$project": {
+                "ts": 1, "status": 1, "X": 1,
+                "_n_bet": 1,
+                "_played": {"$cond": [
+                    {"$eq": ["$status", "won"]}, "$_wat", int(max_attempts),
+                ]},
+                "_payout_chip": {"$cond": [
+                    {"$eq": ["$status", "won"]},
+                    _payout_chip_switch("$_wat"),
+                    0.0,
+                ]},
+            }},
+            {"$project": {
+                "ts": 1, "status": 1, "X": 1,
+                "stake":  {"$multiply": ["$_n_bet", _stake_switch("$_played")]},
+                "payout": {"$multiply": [36.0, "$_payout_chip"]},
+            }},
+            {"$project": {
+                "ts": 1, "status": 1, "X": 1,
+                "stake": 1, "payout": 1,
+                "pnl": {"$subtract": ["$payout", "$stake"]},
+            }},
+        ],
     }})
 
     stats_docs = await signals_coll.aggregate(stats_pipeline, allowDiskUse=True).to_list(length=1)
@@ -259,6 +296,20 @@ async def list_signals(
         "losses":     int(sim.get("losses") or 0),
         "monitoring": int(sim.get("monitoring") or 0),
     }
+
+    # Serie por sinal (resolvidos), ordem cronologica, para o grafico do front
+    series_rows = facet.get("series") or []
+    series = [
+        {
+            "ts":     _fmt_ts(r.get("ts")),
+            "status": r.get("status"),
+            "X":      r.get("X"),
+            "stake":  round(float(r.get("stake")  or 0.0), 2),
+            "payout": round(float(r.get("payout") or 0.0), 2),
+            "pnl":    round(float(r.get("pnl")    or 0.0), 2),
+        }
+        for r in series_rows
+    ]
 
     by_source = {row["_id"]: int(row.get("n", 0)) for row in (facet.get("by_source") or []) if row.get("_id")}
     by_confclass: Dict[int, int] = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
@@ -322,6 +373,7 @@ async def list_signals(
         "by_source":    by_source,
         "by_confclass": by_confclass,
         "simulation":   simulation,
+        "series":       series,
         "signals": [_serialize(d) for d in docs],
     }
 
