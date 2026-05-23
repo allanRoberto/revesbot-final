@@ -285,6 +285,18 @@
           <input type="checkbox" id="exclude-mirror-trio">
           Desconsiderar sinais com espelho de X no trio
         </label>
+        <div class="wide-field" style="margin-left:8px">
+          <label>Confirmadores recent3 <span class="small" style="color:var(--muted);font-weight:400">(marque as classes que quer ver)</span></label>
+          <div style="display:flex;gap:10px;align-items:center;padding:4px 0">
+            <label class="auto-refresh" style="margin:0"><input type="checkbox" class="conf-filter" data-conf="4" checked> 4/4</label>
+            <label class="auto-refresh" style="margin:0"><input type="checkbox" class="conf-filter" data-conf="3" checked> 3/4</label>
+            <label class="auto-refresh" style="margin:0"><input type="checkbox" class="conf-filter" data-conf="2" checked> 2/4</label>
+            <label class="auto-refresh" style="margin:0"><input type="checkbox" class="conf-filter" data-conf="1" checked> 1/4</label>
+            <label class="auto-refresh" style="margin:0"><input type="checkbox" class="conf-filter" data-conf="0" checked> 0/4</label>
+            <a id="conf-only-premium" style="color:var(--accent);cursor:pointer;text-decoration:underline;font-size:12px;margin-left:4px">só 4/4</a>
+            <a id="conf-all" style="color:var(--muted);cursor:pointer;text-decoration:underline;font-size:12px">todos</a>
+          </div>
+        </div>
       </div>
       <div class="status-msg" id="status-msg">Carregando…</div>
     </div>
@@ -879,6 +891,20 @@
       if (excludeNb)  filtered = filtered.filter(s => !detectNeighborBefore(s));
       const excludeMir = document.getElementById("exclude-mirror-trio").checked;
       if (excludeMir) filtered = filtered.filter(s => !detectMirrorInTrio(s));
+
+      // Filtro de classes de confirmadores (4/4, 3/4, 2/4, 1/4, 0/4)
+      const allowedConfs = new Set(
+        [...document.querySelectorAll(".conf-filter:checked")].map(cb => parseInt(cb.dataset.conf, 10))
+      );
+      filtered = filtered.filter(s => {
+        const rv = s.recent3_validation || {};
+        let cnt = rv.confirmers_count;
+        if (cnt == null) {
+          const bi = rv.bet_in_top10 || [];
+          cnt = bi.filter(n => n !== 0).length;
+        }
+        return allowedConfs.has(cnt);
+      });
       const data = computeClientStats(filtered);
       data.signals = filtered;
       renderStats(data);
@@ -932,6 +958,23 @@
     document.getElementById("exclude-inversion").addEventListener("change", rerenderFromCache);
     document.getElementById("exclude-neighbor").addEventListener("change", rerenderFromCache);
     document.getElementById("exclude-mirror-trio").addEventListener("change", rerenderFromCache);
+
+    // Filtro de confirmadores recent3
+    document.querySelectorAll(".conf-filter").forEach(cb => {
+      cb.addEventListener("change", () => { currentPage = 1; rerenderFromCache(); });
+    });
+    document.getElementById("conf-only-premium").addEventListener("click", () => {
+      document.querySelectorAll(".conf-filter").forEach(cb => {
+        cb.checked = parseInt(cb.dataset.conf, 10) === 4;
+      });
+      currentPage = 1;
+      rerenderFromCache();
+    });
+    document.getElementById("conf-all").addEventListener("click", () => {
+      document.querySelectorAll(".conf-filter").forEach(cb => { cb.checked = true; });
+      currentPage = 1;
+      rerenderFromCache();
+    });
 
     let refreshTimer = null;
     function scheduleAutoRefresh() {
