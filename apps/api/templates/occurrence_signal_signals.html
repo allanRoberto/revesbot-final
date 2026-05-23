@@ -667,9 +667,23 @@
 
     function renderStats(d) {
       const chips = getChips();
-      const sim = aggregatePnL(d.signals || [], chips);
-      const pnlCls = sim.resolvedPnl >= 0 ? "pnl-pos" : "pnl-neg";
       const chipsLabel = chips.map(c => c.toFixed(2)).join(" / ");
+      // Simulacao financeira: prioriza o que veio do servidor (full union),
+      // cai pro client-side se nao tiver (compat).
+      let stake, payout, profit, roi;
+      if (d.simulation) {
+        stake  = d.simulation.stake  || 0;
+        payout = d.simulation.payout || 0;
+        profit = d.simulation.profit || 0;
+        roi    = d.simulation.roi_pct || 0;
+      } else {
+        const sim = aggregatePnL(d.signals || [], chips);
+        stake  = sim.resolvedCost;
+        payout = sim.resolvedPayout;
+        profit = sim.resolvedPnl;
+        roi    = sim.roi;
+      }
+      const pnlCls = profit >= 0 ? "pnl-pos" : "pnl-neg";
       const cells = [
         { label: "Total", value: d.total, cls: "" },
         { label: "Monitorando", value: d.monitoring, cls: "info" },
@@ -680,8 +694,8 @@
         { label: "Inversão paga (pré-gatilho)", value: d.inversion.paid, sub: `de ${d.total} sinais (${d.inversion.pay_rate}%)`, cls: "warn" },
         { label: "Vizinhos pré-gatilho", value: (d.neighbor && d.neighbor.detected) || 0, sub: `de ${d.total} (${(d.neighbor && d.neighbor.rate) || 0}%)`, cls: "warn" },
         { label: "Espelho de X no trio", value: (d.mirror_trio && d.mirror_trio.detected) || 0, sub: `de ${d.total} (${(d.mirror_trio && d.mirror_trio.rate) || 0}%)`, cls: "warn" },
-        { label: `Lucro (fichas ${chipsLabel})`, value: fmtBRL(sim.resolvedPnl), sub: `stake R$ ${sim.resolvedCost.toFixed(2)} · retorno R$ ${sim.resolvedPayout.toFixed(2)} (resolvidos)`, cls: pnlCls },
-        { label: "ROI", value: `${sim.roi.toFixed(2)}%`, sub: `lucro / stake nos resolvidos`, cls: pnlCls },
+        { label: `Lucro (fichas ${chipsLabel})`, value: fmtBRL(profit), sub: `stake R$ ${stake.toFixed(2)} · retorno R$ ${payout.toFixed(2)}`, cls: pnlCls },
+        { label: "ROI", value: `${roi.toFixed(2)}%`, sub: `lucro / stake`, cls: pnlCls },
       ];
       statsGrid.innerHTML = cells.map(c => `
         <div class="stat ${c.cls}">
@@ -980,6 +994,12 @@
         if (activeConfs.length > 0 && activeConfs.length < 5) {
           params.set("confirmers", activeConfs.join(","));
         }
+        // Fichas para a simulacao server-side
+        const chips = getChips();
+        params.set("chip_t1", String(chips[0]));
+        params.set("chip_t2", String(chips[1]));
+        params.set("chip_t3", String(chips[2]));
+        params.set("chip_t4", String(chips[3]));
 
         setStatus(`Carregando página ${page}…`);
         const res = await fetch(`/api/occurrence-signal-signals?${params}`);
@@ -1005,13 +1025,20 @@
     document.getElementById("filter-limit").addEventListener("change", reloadPage1);
     document.getElementById("include-snapshot").addEventListener("change", reloadPage1);
 
-    // Mudou alguma ficha ou banca -> recalcula sem refazer fetch (so afeta visivel)
-    chipInputs.forEach(el => {
-      el.addEventListener("input", rerenderFromCache);
-      el.addEventListener("change", rerenderFromCache);
-    });
+    // Banca inicial -> so recalcula o grafico, nao precisa de fetch
     initialBankInput.addEventListener("input", rerenderFromCache);
     initialBankInput.addEventListener("change", rerenderFromCache);
+    // Fichas -> precisam refazer fetch (server-side recalcula a simulacao financeira sobre TODOS os sinais)
+    // Usa debounce para nao disparar muitas requests enquanto digita.
+    let chipsDebounce = null;
+    function chipsChanged() {
+      clearTimeout(chipsDebounce);
+      chipsDebounce = setTimeout(() => load(currentPage), 350);
+    }
+    chipInputs.forEach(el => {
+      el.addEventListener("input", chipsChanged);
+      el.addEventListener("change", chipsChanged);
+    });
 
     // Filtros locais (so afetam pagina atual carregada)
     document.getElementById("exclude-inversion").addEventListener("change", rerenderFromCache);

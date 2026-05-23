@@ -96,6 +96,11 @@ async def list_signals(
     include_snapshot: bool     = Query(True, description="Inclui a colecao de snapshot na busca"),
     snapshot:        str       = Query(SNAPSHOT_DEFAULT, description="Nome da colecao de snapshot"),
     confirmers: Optional[str]  = Query(None, description="Classes de confirmadores recent3 separadas por virgula, ex: '3,4'"),
+    chip_t1: float             = Query(1.0, ge=0.0, description="Ficha na T1 para simulacao financeira"),
+    chip_t2: float             = Query(1.0, ge=0.0),
+    chip_t3: float             = Query(1.0, ge=0.0),
+    chip_t4: float             = Query(1.0, ge=0.0),
+    max_attempts:  int         = Query(4, ge=1, le=10, description="Max tentativas para calcular stake de LOST"),
 ) -> Dict[str, Any]:
     # Marcadores de origem para o frontend (evita perder informacao apos o union)
     src_live = [{"$addFields": {"__source": "live"}}]
@@ -132,6 +137,21 @@ async def list_signals(
         stats_pipeline.append({"$match": base_match})
     if confirmers_match:
         stats_pipeline.append({"$match": confirmers_match})
+    chips = [float(chip_t1), float(chip_t2), float(chip_t3), float(chip_t4)]
+    # Stake cumulativa por tentativa (chips[0]+...+chips[k-1]) ate max_attempts=4
+    cum = [0.0]
+    for cv in chips:
+        cum.append(cum[-1] + cv)
+    # cum[k] = soma das fichas para k tentativas jogadas (k=0..4)
+
+    def _stake_switch(field: str) -> Dict[str, Any]:
+        branches = [{"case": {"$eq": [field, k]}, "then": cum[k]} for k in range(0, len(cum))]
+        return {"$switch": {"branches": branches, "default": cum[-1]}}
+
+    def _payout_chip_switch(field: str) -> Dict[str, Any]:
+        branches = [{"case": {"$eq": [field, k+1]}, "then": chips[k]} for k in range(len(chips))]
+        return {"$switch": {"branches": branches, "default": 0.0}}
+
     stats_pipeline.append({"$facet": {
         "total":            [{"$count": "n"}],
         "won":              [{"$match": {"status": "won"}}, {"$count": "n"}],
@@ -153,6 +173,44 @@ async def list_signals(
             {"$group": {
                 "_id": {"$ifNull": ["$recent3_validation.confirmers_count", 0]},
                 "n": {"$sum": 1},
+            }},
+        ],
+        "simulation": [
+            {"$project": {
+                "_n_bet":  {"$size": {"$ifNull": ["$bet", []]}},
+                "_status": "$status",
+                "_wat":    "$won_at_attempt",
+                "_atts":   {"$size": {"$ifNull": ["$attempts", []]}},
+            }},
+            {"$project": {
+                "_status": 1, "_n_bet": 1,
+                # Tentativas jogadas: won -> won_at_attempt; lost -> max_attempts;
+                # monitoring -> attempts.length (parcial).
+                "_played": {"$cond": [
+                    {"$eq": ["$_status", "won"]},  "$_wat",
+                    {"$cond": [
+                        {"$eq": ["$_status", "lost"]}, int(max_attempts),
+                        "$_atts",
+                    ]},
+                ]},
+                "_payout_chip": {"$cond": [
+                    {"$eq": ["$_status", "won"]},
+                    _payout_chip_switch("$_wat"),
+                    0.0,
+                ]},
+            }},
+            {"$project": {
+                "_status": 1,
+                "stake":  {"$multiply": ["$_n_bet", _stake_switch("$_played")]},
+                "payout": {"$multiply": [36.0, "$_payout_chip"]},
+            }},
+            {"$group": {
+                "_id": None,
+                "stake":       {"$sum": "$stake"},
+                "payout":      {"$sum": "$payout"},
+                "wins":        {"$sum": {"$cond": [{"$eq": ["$_status", "won"]}, 1, 0]}},
+                "losses":      {"$sum": {"$cond": [{"$eq": ["$_status", "lost"]}, 1, 0]}},
+                "monitoring":  {"$sum": {"$cond": [{"$eq": ["$_status", "monitoring"]}, 1, 0]}},
             }},
         ],
     }})
@@ -183,6 +241,24 @@ async def list_signals(
             distribution_attempts[k] += n
         total_attempts_sum += int(row.get("total_att", 0))
     avg_attempts_to_win = round(total_attempts_sum / won_count, 2) if won_count else 0.0
+
+    # Simulacao financeira (full union, com filtros server-side aplicados)
+    sim_rows = facet.get("simulation") or []
+    sim = sim_rows[0] if sim_rows else {}
+    sim_stake  = round(float(sim.get("stake")  or 0.0), 2)
+    sim_payout = round(float(sim.get("payout") or 0.0), 2)
+    sim_profit = round(sim_payout - sim_stake, 2)
+    sim_roi    = round(sim_profit / sim_stake * 100, 2) if sim_stake > 0 else 0.0
+    simulation = {
+        "chips": chips,
+        "stake":      sim_stake,
+        "payout":     sim_payout,
+        "profit":     sim_profit,
+        "roi_pct":    sim_roi,
+        "wins":       int(sim.get("wins") or 0),
+        "losses":     int(sim.get("losses") or 0),
+        "monitoring": int(sim.get("monitoring") or 0),
+    }
 
     by_source = {row["_id"]: int(row.get("n", 0)) for row in (facet.get("by_source") or []) if row.get("_id")}
     by_confclass: Dict[int, int] = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
@@ -243,8 +319,9 @@ async def list_signals(
             "pending":  0,
             "pay_rate": inversion_pay_rate,
         },
-        "by_source":   by_source,
+        "by_source":    by_source,
         "by_confclass": by_confclass,
+        "simulation":   simulation,
         "signals": [_serialize(d) for d in docs],
     }
 
