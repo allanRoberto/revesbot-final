@@ -279,8 +279,8 @@
           </div>
         </div>
         <div class="wide-field">
-          <label for="filter-limit">Limite (últimos N)</label>
-          <input type="number" id="filter-limit" min="1" max="3000" value="3000">
+          <label for="filter-limit">Sinais por página</label>
+          <input type="number" id="filter-limit" min="10" max="500" value="50" style="width:100px">
         </div>
         <div class="wide-field">
           <label for="initial-bank">Banca inicial (R$)</label>
@@ -299,6 +299,10 @@
         <label class="auto-refresh">
           <input type="checkbox" id="auto-refresh" checked>
           Auto-atualizar a cada 10s
+        </label>
+        <label class="auto-refresh">
+          <input type="checkbox" id="include-snapshot" checked>
+          Incluir histórico (snapshot 20k)
         </label>
         <label class="auto-refresh">
           <input type="checkbox" id="exclude-inversion">
@@ -630,8 +634,8 @@
           if (cb.checked) selectedRoulettes.add(cb.value);
           else selectedRoulettes.delete(cb.value);
           updateRouletteCounter();
-          currentPage = 1;
-          rerenderFromCache();
+          // Roleta server-side se exatamente 1; senao client-side. Em todo caso recarrega.
+          if (typeof load === "function") load(1);
         });
       });
       updateRouletteCounter();
@@ -640,21 +644,21 @@
     document.getElementById("rp-all").addEventListener("click", () => {
       allRoulettes.forEach(r => selectedRoulettes.add(r.slug));
       renderRouletteList();
-      currentPage = 1;
-      rerenderFromCache();
+      if (typeof load === "function") load(1);
     });
     document.getElementById("rp-none").addEventListener("click", () => {
       selectedRoulettes.clear();
       renderRouletteList();
-      currentPage = 1;
-      rerenderFromCache();
+      if (typeof load === "function") load(1);
     });
 
     loadRoulettes();
 
     // Pagina atual (1-based)
     let currentPage = 1;
-    const PAGE_SIZE = 20;
+    let PAGE_SIZE = 50;
+    let serverTotal = 0;       // total filtrado vindo do servidor
+    let isLoading = false;
 
     function setStatus(msg, err) {
       statusMsg.textContent = msg || "";
@@ -885,9 +889,11 @@
         el.style.display = totalItems > PAGE_SIZE ? "flex" : "none";
         el.innerHTML = html;
       });
+      // Pagina server-side: cada clique dispara nova requisicao
       function go(p) {
-        currentPage = Math.max(1, Math.min(totalPages, p));
-        rerenderFromCache();
+        const target = Math.max(1, Math.min(totalPages, p));
+        if (target === currentPage) return;
+        load(target);
       }
       ["pagination-top","pagination-bottom"].forEach(id => {
         const el = document.getElementById(id);
@@ -902,135 +908,145 @@
       });
     }
 
+    function getConfCount(s) {
+      const rv = s.recent3_validation || {};
+      let cnt = rv.confirmers_count;
+      if (cnt == null) {
+        const bi = rv.bet_in_top10 || [];
+        cnt = bi.filter(n => n !== 0).length;
+      }
+      return Math.min(4, Math.max(0, cnt));
+    }
+
     function rerenderFromCache() {
       if (!lastData) return;
       const chips = getChips();
       const excludeInv = document.getElementById("exclude-inversion").checked;
       const excludeNb  = document.getElementById("exclude-neighbor").checked;
-      const baseSignals = lastData.signals || [];
-      let filtered = baseSignals;
-      // Filtro de roletas (multi-select): so passa se a roleta esta selecionada.
-      // Se a lista ainda nao carregou (selectedRoulettes vazio mas tem sinais com slug),
-      // assume "todas" para nao zerar a tela.
-      if (allRoulettes.length > 0) {
-        filtered = filtered.filter(s => selectedRoulettes.has(s.roulette_id));
-      }
-      if (excludeInv) filtered = filtered.filter(s => !s.inversion_paid_before);
-      if (excludeNb)  filtered = filtered.filter(s => !detectNeighborBefore(s));
       const excludeMir = document.getElementById("exclude-mirror-trio").checked;
-      if (excludeMir) filtered = filtered.filter(s => !detectMirrorInTrio(s));
+      const baseSignals = lastData.signals || [];
+      let visible = baseSignals;
+      // Filtros client-side aplicam SO na pagina atual (limit de signals retornados pelo servidor)
+      // Multi-roleta client-side: so quando >=2 sao selecionadas; se 1 so, ja vem do servidor.
+      if (allRoulettes.length > 0 && selectedRoulettes.size !== 1) {
+        visible = visible.filter(s => selectedRoulettes.has(s.roulette_id));
+      }
+      if (excludeInv) visible = visible.filter(s => !s.inversion_paid_before);
+      if (excludeNb)  visible = visible.filter(s => !detectNeighborBefore(s));
+      if (excludeMir) visible = visible.filter(s => !detectMirrorInTrio(s));
 
-      // Atualiza contagens nos pills (antes de aplicar o filtro): mostra quantos
-      // de cada classe existem no subset já filtrado por roleta/inv/nb/mir.
-      const confCounts = {0:0,1:0,2:0,3:0,4:0};
-      function getConfCount(s) {
-        const rv = s.recent3_validation || {};
-        let cnt = rv.confirmers_count;
-        if (cnt == null) {
-          const bi = rv.bet_in_top10 || [];
-          cnt = bi.filter(n => n !== 0).length;
-        }
-        return Math.min(4, Math.max(0, cnt));
-      }
-      for (const s of filtered) {
-        const cc = getConfCount(s);
-        if (confCounts[cc] != null) confCounts[cc]++;
-      }
+      // Atualiza pills com contagens vindas do SERVIDOR (full union)
+      const bc = lastData.by_confclass || {};
       [0,1,2,3,4].forEach(k => {
         const el = document.getElementById("conf-cnt-" + k);
-        if (el) el.textContent = confCounts[k];
+        if (el) el.textContent = bc[k] != null ? bc[k] : (bc[String(k)] != null ? bc[String(k)] : 0);
       });
 
-      // Filtro de classes de confirmadores (pills com data-active=1)
-      const allowedConfs = new Set(
-        [...document.querySelectorAll(".conf-pill[data-active='1']")].map(b => parseInt(b.dataset.conf, 10))
-      );
-      filtered = filtered.filter(s => allowedConfs.has(getConfCount(s)));
-      const data = computeClientStats(filtered);
-      data.signals = filtered;
-      renderStats(data);
-      renderChart(filtered, chips);
+      // Stats da resposta do servidor (uniao completa, ja com filtros server-side aplicados)
+      renderStats(lastData);
+      renderChart(visible, chips);
 
-      const totalItems = filtered.length;
-      if (!totalItems) {
-        signalsBox.innerHTML = `<div class="card empty">Nenhum sinal restante após os filtros.</div>`;
-        renderPagination(0);
-        return;
+      if (!visible.length) {
+        signalsBox.innerHTML = `<div class="card empty">Nenhum sinal nesta página após filtros locais.</div>`;
+      } else {
+        signalsBox.innerHTML = visible.map(renderSignal).join("");
       }
-      const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-      if (currentPage > totalPages) currentPage = totalPages;
-      if (currentPage < 1) currentPage = 1;
-      const start = (currentPage - 1) * PAGE_SIZE;
-      const pageItems = filtered.slice(start, start + PAGE_SIZE);
-      signalsBox.innerHTML = pageItems.map(renderSignal).join("");
-      renderPagination(totalItems);
+      renderPagination(serverTotal);
     }
 
-    async function load() {
-      const status = document.getElementById("filter-status").value;
-      const limit = document.getElementById("filter-limit").value || 3000;
-      const params = new URLSearchParams({ limit });
-      if (status && status !== "all") params.set("status", status);
-
-      setStatus("Carregando…");
+    async function load(page) {
+      if (isLoading) return;
+      isLoading = true;
       try {
+        const status = document.getElementById("filter-status").value;
+        const limitInput = parseInt(document.getElementById("filter-limit").value, 10) || 50;
+        PAGE_SIZE = Math.max(10, Math.min(500, limitInput));
+        const includeSnap = document.getElementById("include-snapshot").checked;
+        const activeConfs = [...document.querySelectorAll(".conf-pill[data-active='1']")].map(b => b.dataset.conf);
+        // Roleta server-side so se exatamente 1 selecionada
+        let serverRid = "";
+        if (allRoulettes.length > 0 && selectedRoulettes.size === 1) {
+          serverRid = [...selectedRoulettes][0];
+        }
+        const skip = (page - 1) * PAGE_SIZE;
+
+        const params = new URLSearchParams({
+          limit: String(PAGE_SIZE),
+          skip:  String(skip),
+          include_snapshot: includeSnap ? "true" : "false",
+        });
+        if (status && status !== "all") params.set("status", status);
+        if (serverRid) params.set("roulette_id", serverRid);
+        if (activeConfs.length > 0 && activeConfs.length < 5) {
+          params.set("confirmers", activeConfs.join(","));
+        }
+
+        setStatus(`Carregando página ${page}…`);
         const res = await fetch(`/api/occurrence-signal-signals?${params}`);
         const data = await res.json();
         if (!res.ok) { setStatus("Erro: " + (data.detail || res.statusText), true); return; }
         lastData = data;
-        currentPage = 1;
+        currentPage = page;
+        serverTotal = (data.pagination && data.pagination.filtered_total) || data.total || 0;
         rerenderFromCache();
-        setStatus(`Atualizado · ${data.signals.length} sinais carregados · total na coleção: ${data.total}`);
+        const srcInfo = data.by_source ? ` · live ${data.by_source.live || 0} + snapshot ${data.by_source.snapshot || 0}` : "";
+        setStatus(`Página ${currentPage} · ${data.signals.length} de ${serverTotal} sinais filtrados${srcInfo}`);
       } catch (e) {
         setStatus("Falha: " + e.message, true);
+      } finally {
+        isLoading = false;
       }
     }
 
-    reloadBtn.addEventListener("click", load);
-    document.getElementById("filter-status").addEventListener("change", load);
-    document.getElementById("filter-limit").addEventListener("change", load);
-    // Mudou alguma ficha ou banca -> recalcula sem refazer fetch
+    // Filtros server-side: disparam novo fetch (volta pra pagina 1)
+    const reloadPage1 = () => load(1);
+    reloadBtn.addEventListener("click", reloadPage1);
+    document.getElementById("filter-status").addEventListener("change", reloadPage1);
+    document.getElementById("filter-limit").addEventListener("change", reloadPage1);
+    document.getElementById("include-snapshot").addEventListener("change", reloadPage1);
+
+    // Mudou alguma ficha ou banca -> recalcula sem refazer fetch (so afeta visivel)
     chipInputs.forEach(el => {
       el.addEventListener("input", rerenderFromCache);
       el.addEventListener("change", rerenderFromCache);
     });
     initialBankInput.addEventListener("input", rerenderFromCache);
     initialBankInput.addEventListener("change", rerenderFromCache);
+
+    // Filtros locais (so afetam pagina atual carregada)
     document.getElementById("exclude-inversion").addEventListener("change", rerenderFromCache);
     document.getElementById("exclude-neighbor").addEventListener("change", rerenderFromCache);
     document.getElementById("exclude-mirror-trio").addEventListener("change", rerenderFromCache);
 
-    // Filtro de confirmadores recent3 (pills)
+    // Filtro de confirmadores recent3 (pills) -> SERVER-side, recarrega
     document.querySelectorAll(".conf-pill").forEach(btn => {
       btn.addEventListener("click", () => {
         btn.dataset.active = btn.dataset.active === "1" ? "0" : "1";
-        currentPage = 1;
-        rerenderFromCache();
+        reloadPage1();
       });
     });
     document.getElementById("conf-only-premium").addEventListener("click", () => {
       document.querySelectorAll(".conf-pill").forEach(btn => {
         btn.dataset.active = (parseInt(btn.dataset.conf, 10) === 4) ? "1" : "0";
       });
-      currentPage = 1;
-      rerenderFromCache();
+      reloadPage1();
     });
     document.getElementById("conf-all").addEventListener("click", () => {
       document.querySelectorAll(".conf-pill").forEach(btn => { btn.dataset.active = "1"; });
-      currentPage = 1;
-      rerenderFromCache();
+      reloadPage1();
     });
 
     let refreshTimer = null;
     function scheduleAutoRefresh() {
       if (refreshTimer) clearInterval(refreshTimer);
       if (autoRefresh.checked) {
-        refreshTimer = setInterval(load, 10000);
+        // Recarrega a pagina atual a cada 10s
+        refreshTimer = setInterval(() => load(currentPage), 10000);
       }
     }
     autoRefresh.addEventListener("change", scheduleAutoRefresh);
 
-    load();
+    load(1);
     scheduleAutoRefresh();
   </script>
 </body>
