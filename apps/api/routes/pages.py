@@ -278,3 +278,9 @@ async def occurrence_signal_signals_page():
 async def terminal_7_signal_signals_page():
     with open(os.path.join(templates_dir, "terminal_7_signal_signals.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/sinais-confluencia-terminal", response_class=HTMLResponse)
+async def triplet_terminal_signals_page():
+    with open(os.path.join(templates_dir, "triplet_terminal_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()

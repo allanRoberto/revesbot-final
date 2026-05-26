@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — Confluência de Terminal (Triplet)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --warn: #b8860b;
+      --info: #2563eb;
+      --red: #c0392b;
+      --green: #2e8b57;
+      --gold: #b5860b;
+      --purple: #6b21a8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1240px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px 0; font-size: 14px; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .stat { background: var(--surface-soft); padding: 12px 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 24px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub { font-size: 11px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); }
+    .stat.warn   .value { color: var(--warn); }
+    .stat.info   .value { color: var(--info); }
+
+    /* Strength breakdown table */
+    .strength-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .strength-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .strength-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .strength-table tr:last-child td { border-bottom: none; }
+
+    /* Strength badges */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+    .badge-muito_forte { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
+    .badge-forte       { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-mediano     { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+    .badge-fraco       { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+
+    /* Status badges */
+    .badge-won        { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-lost       { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-monitoring { background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; }
+
+    /* Filters */
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+    .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .filters select, .filters input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
+    .btn { padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: var(--accent-strong); }
+
+    /* Signal card */
+    .signal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    .signal-card.won  { border-left: 4px solid var(--green); }
+    .signal-card.lost { border-left: 4px solid var(--red); }
+    .signal-card.monitoring { border-left: 4px solid var(--info); }
+    .signal-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .signal-roulette { font-size: 13px; font-weight: 700; color: var(--accent-strong); }
+    .signal-ts { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+    .signal-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 12px; }
+    .signal-field { display: flex; flex-direction: column; gap: 2px; }
+    .signal-field .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .signal-field .val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* Number chips */
+    .nums { display: flex; flex-wrap: wrap; gap: 4px; }
+    .num-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 5px; font-size: 11px; font-weight: 700; background: var(--surface-soft); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .num-chip.hit { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .num-chip.inversion { background: #fef9c3; border-color: #fde047; color: #854d0e; }
+
+    /* Connection detail row */
+    .conn-detail { display: flex; gap: 6px; flex-wrap: wrap; }
+    .conn-item { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid var(--border); }
+    .conn-direct   { background: #fef3c7; border-color: #fbbf24; color: #92400e; }
+    .conn-sum      { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .conn-neighbor { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
+    .conn-none     { background: #f9fafb; border-color: #e5e7eb; color: #9ca3af; }
+
+    /* Attempts row */
+    .attempts-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+    .attempt-chip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 5px; font-size: 11px; border: 1px solid var(--border); background: var(--surface-soft); }
+    .attempt-chip.hit  { background: #dcfce7; border-color: #86efac; color: #166534; font-weight: 700; }
+    .attempt-chip.miss { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+    /* Post-attempts */
+    .post-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 6px; margin-bottom: 2px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--muted); }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tab:hover:not(.active) { background: var(--surface-soft); }
+
+    /* Inv badge */
+    .inv-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 20px; font-size: 11px; background: #fef9c3; border: 1px solid #fde047; color: #854d0e; font-weight: 600; }
+
+    /* Pagination */
+    .pagination { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; }
+    .pagination button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+    .pagination button:disabled { opacity: 0.4; cursor: default; }
+    .pagination .page-info { color: var(--muted); }
+
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .empty   { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Confluência de Terminal — Triplet</h1>
+  <p class="subtitle">Padrão baseado em ranking dos últimos 3 números, análise de terminal predominante e força do vínculo</p>
+
+  <!-- Filters -->
+  <div class="card">
+    <div class="filters">
+      <label>Mesa
+        <select id="sel-roulette">
+          <option value="">Todas</option>
+          <option value="pragmatic-auto-roulette">Auto Roulette</option>
+          <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+        </select>
+      </label>
+      <label>Status
+        <select id="sel-status">
+          <option value="all">Todos</option>
+          <option value="won">Ganhou</option>
+          <option value="lost">Perdeu</option>
+          <option value="monitoring">Monitorando</option>
+        </select>
+      </label>
+      <label>Força do Vínculo
+        <select id="sel-strength">
+          <option value="all">Todas</option>
+          <option value="muito_forte">Muito Forte</option>
+          <option value="forte">Forte</option>
+          <option value="mediano">Mediano</option>
+          <option value="fraco">Fraco</option>
+        </select>
+      </label>
+      <label>Limite
+        <select id="sel-limit">
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </label>
+      <button class="btn" onclick="fetchData(true)">Atualizar</button>
+    </div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="card" id="stats-card">
+    <div class="loading">Carregando...</div>
+  </div>
+
+  <!-- Strength breakdown -->
+  <div class="card" id="strength-card" style="display:none">
+    <h3 style="margin:0 0 12px 0;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Breakdown por Força</h3>
+    <table class="strength-table" id="strength-table">
+      <thead>
+        <tr>
+          <th>Força</th>
+          <th>Total</th>
+          <th>Ganhou</th>
+          <th>Perdeu</th>
+          <th>Monitor</th>
+          <th>Assertividade</th>
+        </tr>
+      </thead>
+      <tbody id="strength-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Signal list -->
+  <div id="signals-container">
+    <div class="loading">Carregando sinais...</div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination" style="display:none">
+    <button id="btn-prev" onclick="prevPage()">← Anterior</button>
+    <span class="page-info" id="page-info"></span>
+    <button id="btn-next" onclick="nextPage()">Próxima →</button>
+  </div>
+</div>
+
+<script>
+let currentSkip = 0;
+let currentLimit = 50;
+let currentTotal = 0;
+let lastData = null;
+
+function fmtTs(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function strengthLabel(s) {
+  return { muito_forte: 'Muito Forte', forte: 'Forte', mediano: 'Mediano', fraco: 'Fraco' }[s] || s;
+}
+
+function connLabel(c) {
+  return { direct: 'Terminal', sum: 'Soma', neighbor: 'Vizinho', none: '—' }[c] || c;
+}
+
+function renderStats(data) {
+  const { total, won, lost, monitoring, resolved, assertiveness_pct, avg_attempts_to_win, win_distribution, inversion } = data;
+  const invRate = inversion?.pay_rate ?? 0;
+  const invPaid = inversion?.paid ?? 0;
+  document.getElementById('stats-card').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">Total</span><span class="value">${total}</span></div>
+      <div class="stat"><span class="label">Ganhou</span><span class="value" style="color:var(--green)">${won}</span></div>
+      <div class="stat danger"><span class="label">Perdeu</span><span class="value">${lost}</span></div>
+      <div class="stat info"><span class="label">Monitorando</span><span class="value">${monitoring}</span></div>
+      <div class="stat ${assertiveness_pct >= 60 ? '' : 'warn'}">
+        <span class="label">Assertividade</span>
+        <span class="value">${assertiveness_pct}%</span>
+        <span class="sub">${resolved} resolvidos</span>
+      </div>
+      <div class="stat">
+        <span class="label">Média tentativas</span>
+        <span class="value">${avg_attempts_to_win || '—'}</span>
+        <span class="sub">1:${win_distribution[1]||0} 2:${win_distribution[2]||0} 3:${win_distribution[3]||0} 4:${win_distribution[4]||0}</span>
+      </div>
+      <div class="stat">
+        <span class="label">Inversão paga antes</span>
+        <span class="value">${invPaid}</span>
+        <span class="sub">${invRate}% dos sinais</span>
+      </div>
+    </div>`;
+}
+
+function renderStrengthBreakdown(breakdown) {
+  if (!breakdown) return;
+  const card = document.getElementById('strength-card');
+  card.style.display = '';
+  const tbody = document.getElementById('strength-tbody');
+  const rows = ['muito_forte', 'forte', 'mediano', 'fraco'].map(s => {
+    const d = breakdown[s] || {};
+    const tot = d.total || 0;
+    if (tot === 0) return '';
+    const pct = d.assertiveness ?? 0;
+    return `<tr>
+      <td><span class="badge badge-${s}">${strengthLabel(s)}</span></td>
+      <td>${tot}</td>
+      <td style="color:var(--green);font-weight:600">${d.won||0}</td>
+      <td style="color:var(--red)">${d.lost||0}</td>
+      <td style="color:var(--info)">${d.monitoring||0}</td>
+      <td style="font-weight:700;color:${pct>=60?'var(--green)':'var(--warn)'}">${pct}%</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rows || '<tr><td colspan="6" style="color:var(--muted);text-align:center">Sem dados</td></tr>';
+}
+
+function renderSignals(signals) {
+  if (!signals.length) {
+    document.getElementById('signals-container').innerHTML = '<div class="empty">Nenhum sinal encontrado.</div>';
+    return;
+  }
+  const html = signals.map(sig => {
+    const ts = fmtTs(sig.X_timestamp || sig.created_at);
+    const rid = sig.roulette_id.replace('pragmatic-', '').replace(/-/g, ' ');
+
+    // Triplet chips
+    const tripletHtml = (sig.triplet || []).map(n => `<span class="num-chip">${n}</span>`).join('');
+    // Top3 chips
+    const top3Html = (sig.top3 || []).map(n => `<span class="num-chip">${n}</span>`).join('');
+    // Bet chips (highlight inversion hits)
+    const preSet = new Set(sig.pre_window || []);
+    const betHtml = (sig.bet || []).map(n => {
+      const cls = preSet.has(n) ? 'num-chip inversion' : 'num-chip';
+      return `<span class="${cls}">${n}</span>`;
+    }).join('');
+    // Pre window
+    const preHtml = (sig.pre_window || []).map(n => {
+      const inBet = (sig.bet || []).includes(n);
+      return `<span class="num-chip${inBet ? ' inversion' : ''}">${n}</span>`;
+    }).join('') || '—';
+
+    // Connection details
+    const connHtml = (sig.confluence_details || []).map(d => {
+      const icon = { direct: '◆', sum: '∑', neighbor: '~', none: '∅' }[d.connection] || '';
+      return `<span class="conn-item conn-${d.connection}">${icon} ${d.number} (${connLabel(d.connection)}, +${d.score})</span>`;
+    }).join('');
+
+    // Attempts
+    const attHtml = (sig.attempts || []).map(a => {
+      const cls = a.hit ? 'attempt-chip hit' : 'attempt-chip miss';
+      return `<span class="${cls}">#${a.attempt} → ${a.value} ${a.hit ? '✓' : '✗'}</span>`;
+    }).join('') || '<span style="color:var(--muted);font-size:11px">Aguardando</span>';
+
+    // Post attempts
+    let postHtml = '';
+    if (sig.status === 'lost' && sig.post_attempts && sig.post_attempts.length > 0) {
+      const postChips = sig.post_attempts.map(p =>
+        `<span class="attempt-chip ${p.hit ? 'hit' : ''}">${p.spin}:${p.value}${p.hit ? ' ✓' : ''}</span>`
+      ).join('');
+      const hitPost = sig.post_attempts.find(p => p.hit);
+      postHtml = `<div class="post-label">Pós-derrota (${hitPost ? 'pago no spin ' + hitPost.spin : 'não pago em ' + sig.post_attempts.length + ' giros'})</div>
+        <div class="attempts-row">${postChips}</div>`;
+    }
+
+    // Inversion flag
+    const invHtml = sig.inversion_paid_before
+      ? '<span class="inv-badge">⚡ Inversão paga antes</span>'
+      : '';
+
+    const wonAt = sig.won_at_attempt ? ` — Ganhou na ${sig.won_at_attempt}ª tentativa` : '';
+
+    return `<div class="signal-card ${sig.status}">
+      <div class="signal-header">
+        <span class="signal-roulette">${rid.toUpperCase()}</span>
+        <span class="badge badge-${sig.strength}">${strengthLabel(sig.strength)}</span>
+        <span class="badge badge-${sig.status}">${{won:'Ganhou',lost:'Perdeu',monitoring:'Monitor'}[sig.status]||sig.status}${wonAt}</span>
+        ${invHtml}
+        <span class="signal-ts">${ts}</span>
+      </div>
+      <div class="signal-body">
+        <div class="signal-field">
+          <span class="lbl">Triplet (gatilho)</span>
+          <div class="nums">${tripletHtml}</div>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Top 3 Ranking</span>
+          <div class="nums">${top3Html}</div>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Terminal / Score</span>
+          <div class="val">Terminal <strong>${sig.terminal ?? '—'}</strong> — Score ${sig.confluence_score ?? 0}</div>
+          <div style="font-size:11px;color:var(--muted)">dir:${sig.direct_count} soma:${sig.sum_count} viz:${sig.neighbor_count}</div>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Pré-janela (${(sig.pre_window||[]).length} giros)</span>
+          <div class="nums">${preHtml}</div>
+        </div>
+        <div class="signal-field" style="grid-column:1/-1">
+          <span class="lbl">Vínculo (detalhes)</span>
+          <div class="conn-detail">${connHtml || '—'}</div>
+        </div>
+        <div class="signal-field" style="grid-column:1/-1">
+          <span class="lbl">Aposta (${(sig.bet||[]).length} números)</span>
+          <div class="nums">${betHtml}</div>
+        </div>
+      </div>
+      <div class="attempts-row" style="margin-top:10px">${attHtml}</div>
+      ${postHtml}
+    </div>`;
+  }).join('');
+  document.getElementById('signals-container').innerHTML = html;
+}
+
+function renderPagination() {
+  const pg = document.getElementById('pagination');
+  pg.style.display = 'flex';
+  const from = currentSkip + 1;
+  const to = Math.min(currentSkip + currentLimit, currentTotal);
+  document.getElementById('page-info').textContent = `${from}–${to} de ${currentTotal}`;
+  document.getElementById('btn-prev').disabled = currentSkip === 0;
+  document.getElementById('btn-next').disabled = currentSkip + currentLimit >= currentTotal;
+}
+
+async function fetchData(resetPage) {
+  if (resetPage) currentSkip = 0;
+  currentLimit = parseInt(document.getElementById('sel-limit').value) || 50;
+  const roulette = document.getElementById('sel-roulette').value;
+  const status   = document.getElementById('sel-status').value;
+  const strength = document.getElementById('sel-strength').value;
+
+  document.getElementById('signals-container').innerHTML = '<div class="loading">Carregando...</div>';
+
+  let url = `/api/triplet-terminal-signals?limit=${currentLimit}&skip=${currentSkip}`;
+  if (roulette) url += `&roulette_id=${encodeURIComponent(roulette)}`;
+  if (status && status !== 'all') url += `&status=${encodeURIComponent(status)}`;
+  if (strength && strength !== 'all') url += `&strength=${encodeURIComponent(strength)}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    lastData = data;
+    currentTotal = data.total;
+    renderStats(data);
+    renderStrengthBreakdown(data.strength_breakdown);
+    renderSignals(data.signals || []);
+    renderPagination();
+  } catch(e) {
+    document.getElementById('signals-container').innerHTML = `<div class="empty">Erro ao carregar: ${e.message}</div>`;
+  }
+}
+
+function prevPage() {
+  if (currentSkip >= currentLimit) {
+    currentSkip -= currentLimit;
+    fetchData(false);
+  }
+}
+function nextPage() {
+  if (currentSkip + currentLimit < currentTotal) {
+    currentSkip += currentLimit;
+    fetchData(false);
+  }
+}
+
+fetchData(true);
+setInterval(() => fetchData(false), 15000);
+</script>
+</body>
+</html>
