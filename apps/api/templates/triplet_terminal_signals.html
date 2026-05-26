@@ -153,6 +153,13 @@
           <option value="fraco">Fraco</option>
         </select>
       </label>
+      <label>Posições
+        <select id="sel-positions">
+          <option value="all">Todas</option>
+          <option value="1">1 à frente</option>
+          <option value="3">3 à frente</option>
+        </select>
+      </label>
       <label>Limite
         <select id="sel-limit">
           <option value="50">50</option>
@@ -167,6 +174,25 @@
   <!-- Summary stats -->
   <div class="card" id="stats-card">
     <div class="loading">Carregando...</div>
+  </div>
+
+  <!-- Positions comparison (main goal) -->
+  <div class="card" id="positions-card" style="display:none">
+    <h3 style="margin:0 0 12px 0;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Comparativo: 1 posição vs 3 posições à frente</h3>
+    <table class="strength-table" id="positions-table">
+      <thead>
+        <tr>
+          <th>Posições</th>
+          <th>Total</th>
+          <th>Ganhou</th>
+          <th>Perdeu</th>
+          <th>Monitor</th>
+          <th>Assertividade</th>
+          <th>Média tentativas</th>
+        </tr>
+      </thead>
+      <tbody id="positions-tbody"></tbody>
+    </table>
   </div>
 
   <!-- Strength breakdown -->
@@ -246,6 +272,36 @@ function renderStats(data) {
         <span class="sub">${invRate}% dos sinais</span>
       </div>
     </div>`;
+}
+
+function renderPositionsBreakdown(breakdown) {
+  if (!breakdown) return;
+  const card = document.getElementById('positions-card');
+  const p1 = breakdown['1'] || {};
+  const p3 = breakdown['3'] || {};
+  if ((p1.total || 0) + (p3.total || 0) === 0) return;
+  card.style.display = '';
+
+  const winner1 = (p1.assertiveness ?? 0) > (p3.assertiveness ?? 0);
+  const winner3 = (p3.assertiveness ?? 0) > (p1.assertiveness ?? 0);
+
+  const row = (pos, d, isWinner) => {
+    const pct = d.assertiveness ?? 0;
+    const label = pos === '1' ? '1 posição à frente' : '3 posições à frente';
+    const winnerBadge = isWinner ? ' <span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">MELHOR</span>' : '';
+    return `<tr style="${isWinner ? 'background:#f0fdf4' : ''}">
+      <td style="font-weight:600">${label}${winnerBadge}</td>
+      <td>${d.total||0}</td>
+      <td style="color:var(--green);font-weight:600">${d.won||0}</td>
+      <td style="color:var(--red)">${d.lost||0}</td>
+      <td style="color:var(--info)">${d.monitoring||0}</td>
+      <td style="font-weight:700;font-size:18px;color:${pct>=60?'var(--green)':'var(--warn)'}">${pct}%</td>
+      <td style="font-variant-numeric:tabular-nums">${d.avg_attempts||0}</td>
+    </tr>`;
+  };
+
+  document.getElementById('positions-tbody').innerHTML =
+    row('1', p1, winner1) + row('3', p3, winner3);
 }
 
 function renderStrengthBreakdown(breakdown) {
@@ -330,6 +386,7 @@ function renderSignals(signals) {
         <span class="signal-roulette">${rid.toUpperCase()}</span>
         <span class="badge badge-${sig.strength}">${strengthLabel(sig.strength)}</span>
         <span class="badge badge-${sig.status}">${{won:'Ganhou',lost:'Perdeu',monitoring:'Monitor'}[sig.status]||sig.status}${wonAt}</span>
+        <span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#f3f4f6;border:1px solid #d1d5db;color:#374151">${sig.positions ?? 3}pos</span>
         ${invHtml}
         <span class="signal-ts">${ts}</span>
       </div>
@@ -380,9 +437,10 @@ function renderPagination() {
 async function fetchData(resetPage) {
   if (resetPage) currentSkip = 0;
   currentLimit = parseInt(document.getElementById('sel-limit').value) || 50;
-  const roulette = document.getElementById('sel-roulette').value;
-  const status   = document.getElementById('sel-status').value;
-  const strength = document.getElementById('sel-strength').value;
+  const roulette  = document.getElementById('sel-roulette').value;
+  const status    = document.getElementById('sel-status').value;
+  const strength  = document.getElementById('sel-strength').value;
+  const positions = document.getElementById('sel-positions').value;
 
   document.getElementById('signals-container').innerHTML = '<div class="loading">Carregando...</div>';
 
@@ -390,6 +448,7 @@ async function fetchData(resetPage) {
   if (roulette) url += `&roulette_id=${encodeURIComponent(roulette)}`;
   if (status && status !== 'all') url += `&status=${encodeURIComponent(status)}`;
   if (strength && strength !== 'all') url += `&strength=${encodeURIComponent(strength)}`;
+  if (positions && positions !== 'all') url += `&positions=${encodeURIComponent(positions)}`;
 
   try {
     const res = await fetch(url);
@@ -397,6 +456,7 @@ async function fetchData(resetPage) {
     lastData = data;
     currentTotal = data.total;
     renderStats(data);
+    renderPositionsBreakdown(data.positions_breakdown);
     renderStrengthBreakdown(data.strength_breakdown);
     renderSignals(data.signals || []);
     renderPagination();

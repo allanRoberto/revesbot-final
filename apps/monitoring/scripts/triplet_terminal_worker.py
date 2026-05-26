@@ -31,6 +31,7 @@ MAX_POST_TRACK  = int(os.getenv("TRIPLET_TERMINAL_MAX_POST",     "20"))
 MIN_OCCURRENCES = int(os.getenv("TRIPLET_TERMINAL_MIN_OCCUR",    "3"))
 MIN_SCORE       = int(os.getenv("TRIPLET_TERMINAL_MIN_SCORE",    "3"))
 NEIGHBOR_SPAN   = int(os.getenv("TRIPLET_TERMINAL_NEIGHBOR_SPAN", "1"))
+POSITIONS       = int(os.getenv("TRIPLET_TERMINAL_POSITIONS",    "3"))  # 1 or 3 positions ahead
 POLL_SECONDS    = float(os.getenv("TRIPLET_TERMINAL_POLL_SECONDS", "2"))
 
 WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
@@ -129,8 +130,11 @@ def compute_terminal_confluence(top3: List[int]) -> Dict[str, Any]:
     return best
 
 
+if POSITIONS not in (1, 3):
+    raise ValueError("TRIPLET_TERMINAL_POSITIONS must be 1 or 3")
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
-log = logging.getLogger("triplet-terminal-worker")
+log = logging.getLogger(f"triplet-terminal-worker-p{POSITIONS}")
 
 _mongo = MongoClient(MONGO_URL)
 _db = _mongo["roleta_db"]
@@ -155,6 +159,7 @@ def ensure_indexes() -> None:
     signals_coll.create_index([("created_at", DESCENDING)])
     signals_coll.create_index([("status", ASCENDING), ("needs_post_track", ASCENDING)])
     signals_coll.create_index([("strength", ASCENDING)])
+    signals_coll.create_index([("positions", ASCENDING)])
 
 
 def get_recent_spins(rid: str, n: int) -> List[Dict[str, Any]]:
@@ -169,15 +174,17 @@ def get_recent_spins(rid: str, n: int) -> List[Dict[str, Any]]:
 
 
 def query_triplet_ranking(a: int, b: int, c: int) -> Tuple[int, List[int]]:
-    """Query history_triplets for triplet (a,b,c) and return (total_occurrences, top3_numbers)."""
+    """Query history_triplets for triplet (a,b,c) and return (total_occurrences, top3_numbers).
+    Uses POSITIONS env var to decide how many next positions to include (1 or 3)."""
     match = {"a": a, "b": b, "c": c}
     total = triplets_coll.count_documents(match)
     if total < MIN_OCCURRENCES:
         return total, []
 
+    fields = ["$next1"] if POSITIONS == 1 else ["$next1", "$next2", "$next3"]
     rows = list(triplets_coll.aggregate([
         {"$match": match},
-        {"$project": {"nums": ["$next1", "$next2", "$next3"]}},
+        {"$project": {"nums": fields}},
         {"$unwind": "$nums"},
         {"$match": {"nums": {"$ne": None, "$gte": 0, "$lte": 36}}},
         {"$group": {"_id": "$nums", "count": {"$sum": 1}}},
@@ -255,6 +262,7 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
         "pre_window_ts": info.get("pre_window_ts", []),
         "inversion_paid_before": inversion_paid_before,
         "X_timestamp":  info["trigger_ts"],
+        "positions":    POSITIONS,
         "attempts":     [],
         "won_at_attempt": None,
         "post_attempts": [],
@@ -268,6 +276,7 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
             "min_occur":    MIN_OCCURRENCES,
             "min_score":    MIN_SCORE,
             "neighbor_span": NEIGHBOR_SPAN,
+            "positions":    POSITIONS,
         },
     }
     result = signals_coll.insert_one(doc)
@@ -343,7 +352,7 @@ def process_roulette(rid: str, st: Dict[str, Any]) -> None:
 
     # 3. Post-loss tracking (monitor how many spins needed to win)
     lost_tracking = signals_coll.find_one(
-        {"roulette_id": rid, "status": "lost", "needs_post_track": True},
+        {"roulette_id": rid, "status": "lost", "needs_post_track": True, "positions": POSITIONS},
         sort=[("resolved_at", DESCENDING)],
     )
     if lost_tracking:
@@ -376,15 +385,15 @@ def main() -> None:
         return
 
     log.info(
-        "Worker iniciado. Roletas=%d max_attempts=%d min_occur=%d min_score=%d neighbor_span=%d poll=%ss",
-        len(targets), MAX_ATTEMPTS, MIN_OCCURRENCES, MIN_SCORE, NEIGHBOR_SPAN, POLL_SECONDS,
+        "Worker iniciado. positions=%d Roletas=%d max_attempts=%d min_occur=%d min_score=%d neighbor_span=%d poll=%ss",
+        POSITIONS, len(targets), MAX_ATTEMPTS, MIN_OCCURRENCES, MIN_SCORE, NEIGHBOR_SPAN, POLL_SECONDS,
     )
     log.info("Roletas monitoradas: %s", ", ".join(targets))
 
     state: Dict[str, Dict[str, Any]] = {}
     for rid in targets:
         active = signals_coll.find_one(
-            {"roulette_id": rid, "status": "monitoring"},
+            {"roulette_id": rid, "status": "monitoring", "positions": POSITIONS},
             sort=[("created_at", DESCENDING)],
         )
         last_ts: Optional[Any] = None

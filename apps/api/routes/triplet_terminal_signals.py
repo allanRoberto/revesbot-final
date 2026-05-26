@@ -56,6 +56,7 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
         "direct_count":        doc.get("direct_count", 0),
         "sum_count":           doc.get("sum_count", 0),
         "neighbor_count":      doc.get("neighbor_count", 0),
+        "positions":           doc.get("positions", 3),
         "bet":                 doc.get("bet", []),
         "total_occ":           doc.get("total_occ", 0),
         "pre_window":          doc.get("pre_window") or [],
@@ -77,6 +78,7 @@ async def list_signals(
     roulette_id: Optional[str] = Query(None),
     status:      Optional[str] = Query(None),
     strength:    Optional[str] = Query(None),
+    positions:   Optional[int] = Query(None),
     limit:       int           = Query(50, ge=1, le=500),
     skip:        int           = Query(0, ge=0),
 ) -> Dict[str, Any]:
@@ -87,6 +89,8 @@ async def list_signals(
         filt["status"] = status
     if strength and strength != "all":
         filt["strength"] = strength
+    if positions in (1, 3):
+        filt["positions"] = positions
 
     base_filt = {k: v for k, v in filt.items() if k not in ("status", "strength")}
 
@@ -132,8 +136,28 @@ async def list_signals(
     assertiveness_pct = round(won / resolved * 100, 2) if resolved > 0 else 0.0
     inversion_pay_rate = round(inversion_paid / total * 100, 2) if total > 0 else 0.0
 
+    # Breakdown by positions (1 vs 3)
+    positions_counts: Dict[str, Any] = {}
+    for pos in (1, 3):
+        p_filt = {**base_filt, "positions": pos}
+        p_won  = await signals_coll.count_documents({**p_filt, "status": "won"})
+        p_lost = await signals_coll.count_documents({**p_filt, "status": "lost"})
+        p_mon  = await signals_coll.count_documents({**p_filt, "status": "monitoring"})
+        p_res  = p_won + p_lost
+        # avg attempts for this positions slice
+        p_won_docs = await signals_coll.find({**p_filt, "status": "won"}, {"won_at_attempt": 1}).to_list(length=None)
+        p_avg = round(sum(int(d.get("won_at_attempt") or 0) for d in p_won_docs) / len(p_won_docs), 2) if p_won_docs else 0.0
+        positions_counts[str(pos)] = {
+            "total":         p_won + p_lost + p_mon,
+            "won":           p_won,
+            "lost":          p_lost,
+            "monitoring":    p_mon,
+            "assertiveness": round(p_won / p_res * 100, 2) if p_res > 0 else 0.0,
+            "avg_attempts":  p_avg,
+        }
+
     return {
-        "filters":           {"roulette_id": roulette_id, "status": status, "strength": strength},
+        "filters":           {"roulette_id": roulette_id, "status": status, "strength": strength, "positions": positions},
         "total":             total,
         "won":               won,
         "lost":              lost,
@@ -142,7 +166,8 @@ async def list_signals(
         "assertiveness_pct": assertiveness_pct,
         "avg_attempts_to_win": avg_attempts_to_win,
         "win_distribution":  distribution_attempts,
-        "strength_breakdown": strength_counts,
+        "strength_breakdown":   strength_counts,
+        "positions_breakdown":  positions_counts,
         "inversion": {
             "paid":     inversion_paid,
             "pay_rate": inversion_pay_rate,
