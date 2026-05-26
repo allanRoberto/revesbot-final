@@ -360,8 +360,14 @@ function renderSignals(signals) {
     // Attempts
     const attHtml = (sig.attempts || []).map(a => {
       const cls = a.hit ? 'attempt-chip hit' : 'attempt-chip miss';
-      return `<span class="${cls}">#${a.attempt} → ${a.value} ${a.hit ? '✓' : '✗'}</span>`;
+      const mult = (a.multiplier && a.multiplier > 1) ? ` <span style="font-size:10px;opacity:0.8">×${a.multiplier}</span>` : '';
+      return `<span class="${cls}">#${a.attempt}${mult} → ${a.value} ${a.hit ? '✓' : '✗'}</span>`;
     }).join('') || '<span style="color:var(--muted);font-size:11px">Aguardando</span>';
+
+    // P&L badge
+    const pnlHtml = sig.pnl != null
+      ? `<span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${sig.pnl >= 0 ? '#dcfce7' : '#fee2e2'};border:1px solid ${sig.pnl >= 0 ? '#86efac' : '#fca5a5'};color:${sig.pnl >= 0 ? '#166534' : '#991b1b'}">${sig.pnl >= 0 ? '+' : ''}${sig.pnl} fichas</span>`
+      : '';
 
     // Post attempts
     let postHtml = '';
@@ -387,6 +393,7 @@ function renderSignals(signals) {
         <span class="badge badge-${sig.strength}">${strengthLabel(sig.strength)}</span>
         <span class="badge badge-${sig.status}">${{won:'Ganhou',lost:'Perdeu',monitoring:'Monitor'}[sig.status]||sig.status}${wonAt}</span>
         <span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#f3f4f6;border:1px solid #d1d5db;color:#374151">${sig.positions ?? 3}pos</span>
+        ${pnlHtml}
         ${invHtml}
         <span class="signal-ts">${ts}</span>
       </div>

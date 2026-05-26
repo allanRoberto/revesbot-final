@@ -34,6 +34,9 @@ NEIGHBOR_SPAN   = int(os.getenv("TRIPLET_TERMINAL_NEIGHBOR_SPAN", "1"))
 POSITIONS       = int(os.getenv("TRIPLET_TERMINAL_POSITIONS",    "3"))  # 1 or 3 positions ahead
 POLL_SECONDS    = float(os.getenv("TRIPLET_TERMINAL_POLL_SECONDS", "2"))
 
+# Bet multiplier per attempt: attempts 1-2 flat, attempt 3 doubles, attempt 4 quadruples
+ATTEMPT_MULTIPLIERS = [1, 1, 2, 4]
+
 WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
 WHEEL_IDX = {n: i for i, n in enumerate(WHEEL)}
 
@@ -265,6 +268,7 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
         "positions":    POSITIONS,
         "attempts":     [],
         "won_at_attempt": None,
+        "pnl":          None,
         "post_attempts": [],
         "needs_post_track": False,
         "created_at":   now,
@@ -311,35 +315,48 @@ def process_roulette(rid: str, st: Dict[str, Any]) -> None:
     # 1. Process active signal attempt
     if active is not None:
         attempt_num = len(active.get("attempts", [])) + 1
+        multiplier = ATTEMPT_MULTIPLIERS[attempt_num - 1] if attempt_num <= len(ATTEMPT_MULTIPLIERS) else ATTEMPT_MULTIPLIERS[-1]
         hit = latest_val in active["bet"]
-        entry = {"attempt": attempt_num, "value": latest_val, "hit": hit, "timestamp": latest_ts}
+        entry = {"attempt": attempt_num, "value": latest_val, "hit": hit, "timestamp": latest_ts, "multiplier": multiplier}
         if hit:
+            bet_size = len(active.get("bet", []))
+            all_attempts = active.get("attempts", []) + [entry]
+            total_cost = sum(
+                bet_size * (ATTEMPT_MULTIPLIERS[a["attempt"] - 1] if a["attempt"] <= len(ATTEMPT_MULTIPLIERS) else ATTEMPT_MULTIPLIERS[-1])
+                for a in all_attempts
+            )
+            pnl = 36 * multiplier - total_cost
             signals_coll.update_one(
                 {"_id": active["_id"]},
                 {"$set": {
                     "status":         "won",
                     "won_at_attempt": attempt_num,
                     "resolved_at":    datetime.now(tz=timezone.utc),
+                    "pnl":            pnl,
                 }, "$push": {"attempts": entry}},
             )
-            log.info("[%s] WON attempt=%d value=%d strength=%s", rid, attempt_num, latest_val, active.get("strength"))
+            log.info("[%s] WON attempt=%d value=%d strength=%s pnl=%+d", rid, attempt_num, latest_val, active.get("strength"), pnl)
             active = None
         elif attempt_num >= MAX_ATTEMPTS:
+            bet_size = len(active.get("bet", []))
+            total_cost = bet_size * sum(ATTEMPT_MULTIPLIERS[:MAX_ATTEMPTS])
+            pnl = -total_cost
             signals_coll.update_one(
                 {"_id": active["_id"]},
                 {"$set": {
                     "status":           "lost",
                     "resolved_at":      datetime.now(tz=timezone.utc),
                     "needs_post_track": True,
+                    "pnl":              pnl,
                 }, "$push": {"attempts": entry}},
             )
-            log.info("[%s] LOST apos %d tentativas strength=%s", rid, MAX_ATTEMPTS, active.get("strength"))
+            log.info("[%s] LOST apos %d tentativas strength=%s pnl=%+d", rid, MAX_ATTEMPTS, active.get("strength"), pnl)
             active = None
         else:
             signals_coll.update_one({"_id": active["_id"]}, {"$push": {"attempts": entry}})
             active.setdefault("attempts", []).append(entry)
-            log.info("[%s] attempt %d/%d: %d (%s)", rid, attempt_num, MAX_ATTEMPTS, latest_val,
-                     "HIT" if hit else "miss")
+            log.info("[%s] attempt %d/%d: %d (%s) mult=×%d", rid, attempt_num, MAX_ATTEMPTS, latest_val,
+                     "HIT" if hit else "miss", multiplier)
 
     # 2. Generate new signal if none active
     if active is None:

@@ -26,10 +26,11 @@ def _fmt_ts(ts: Any) -> Optional[str]:
 def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
     attempts = [
         {
-            "attempt":   a.get("attempt"),
-            "value":     a.get("value"),
-            "hit":       a.get("hit"),
-            "timestamp": _fmt_ts(a.get("timestamp")),
+            "attempt":    a.get("attempt"),
+            "value":      a.get("value"),
+            "hit":        a.get("hit"),
+            "multiplier": a.get("multiplier", 1),
+            "timestamp":  _fmt_ts(a.get("timestamp")),
         }
         for a in (doc.get("attempts") or [])
     ]
@@ -66,6 +67,7 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
         "attempts":            attempts,
         "post_attempts":       post_attempts,
         "won_at_attempt":      doc.get("won_at_attempt"),
+        "pnl":                 doc.get("pnl"),
         "needs_post_track":    bool(doc.get("needs_post_track")),
         "created_at":          _fmt_ts(doc.get("created_at")),
         "resolved_at":         _fmt_ts(doc.get("resolved_at")),
