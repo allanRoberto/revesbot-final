@@ -180,25 +180,6 @@
     <div class="loading">Carregando...</div>
   </div>
 
-  <!-- Positions comparison (main goal) -->
-  <div class="card" id="positions-card" style="display:none">
-    <h3 style="margin:0 0 12px 0;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Comparativo: 1 posição vs 3 posições à frente</h3>
-    <table class="strength-table" id="positions-table">
-      <thead>
-        <tr>
-          <th>Posições</th>
-          <th>Total</th>
-          <th>Ganhou</th>
-          <th>Perdeu</th>
-          <th>Monitor</th>
-          <th>Assertividade</th>
-          <th>Média tentativas</th>
-        </tr>
-      </thead>
-      <tbody id="positions-tbody"></tbody>
-    </table>
-  </div>
-
   <!-- Strength breakdown -->
   <div class="card" id="strength-card" style="display:none">
     <h3 style="margin:0 0 12px 0;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Breakdown por Força</h3>
@@ -276,36 +257,6 @@ function renderStats(data) {
         <span class="sub">${invRate}% dos sinais</span>
       </div>
     </div>`;
-}
-
-function renderPositionsBreakdown(breakdown) {
-  if (!breakdown) return;
-  const card = document.getElementById('positions-card');
-  const p1 = breakdown['1'] || {};
-  const p3 = breakdown['3'] || {};
-  if ((p1.total || 0) + (p3.total || 0) === 0) return;
-  card.style.display = '';
-
-  const winner1 = (p1.assertiveness ?? 0) > (p3.assertiveness ?? 0);
-  const winner3 = (p3.assertiveness ?? 0) > (p1.assertiveness ?? 0);
-
-  const row = (pos, d, isWinner) => {
-    const pct = d.assertiveness ?? 0;
-    const label = pos === '1' ? '1 posição à frente' : '3 posições à frente';
-    const winnerBadge = isWinner ? ' <span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">MELHOR</span>' : '';
-    return `<tr style="${isWinner ? 'background:#f0fdf4' : ''}">
-      <td style="font-weight:600">${label}${winnerBadge}</td>
-      <td>${d.total||0}</td>
-      <td style="color:var(--green);font-weight:600">${d.won||0}</td>
-      <td style="color:var(--red)">${d.lost||0}</td>
-      <td style="color:var(--info)">${d.monitoring||0}</td>
-      <td style="font-weight:700;font-size:18px;color:${pct>=60?'var(--green)':'var(--warn)'}">${pct}%</td>
-      <td style="font-variant-numeric:tabular-nums">${d.avg_attempts||0}</td>
-    </tr>`;
-  };
-
-  document.getElementById('positions-tbody').innerHTML =
-    row('1', p1, winner1) + row('3', p3, winner3);
 }
 
 function renderStrengthBreakdown(breakdown) {
@@ -476,7 +427,6 @@ async function fetchData(resetPage) {
     lastData = data;
     currentTotal = data.total;
     renderStats(data);
-    renderPositionsBreakdown(data.positions_breakdown);
     renderStrengthBreakdown(data.strength_breakdown);
     renderSignals(data.signals || []);
     renderPagination();
