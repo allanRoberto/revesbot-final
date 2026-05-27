@@ -34,6 +34,9 @@ NEIGHBOR_SPAN   = int(os.getenv("TRIPLET_TERMINAL_NEIGHBOR_SPAN", "1"))
 POSITIONS       = int(os.getenv("TRIPLET_TERMINAL_POSITIONS",    "3"))  # 1 or 3 positions ahead
 POLL_SECONDS    = float(os.getenv("TRIPLET_TERMINAL_POLL_SECONDS", "2"))
 
+_blocked_raw = os.getenv("TRIPLET_TERMINAL_BLOCKED_TERMINALS", "").strip()
+BLOCKED_TERMINALS: set = {int(x) for x in _blocked_raw.split(",") if x.strip()} if _blocked_raw else set()
+
 # Bet multiplier per attempt: attempts 1-2 flat, attempt 3 doubles, attempt 4 quadruples
 ATTEMPT_MULTIPLIERS = [1, 1, 2, 4]
 
@@ -220,6 +223,10 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
         return None
 
     t = confluence["terminal"]
+
+    if BLOCKED_TERMINALS and t in BLOCKED_TERMINALS:
+        return None
+
     bet = build_bet(t, span=NEIGHBOR_SPAN)
 
     pre_start = max(0, len(spins) - 1 - PRE_WINDOW)
