@@ -119,6 +119,9 @@
 
     .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
     .empty   { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .refreshing { opacity: 0.6; pointer-events: none; transition: opacity 0.2s; }
+    #refresh-indicator { display: none; font-size: 11px; color: var(--muted); margin-left: 8px; }
+    #refresh-indicator.active { display: inline; }
   </style>
 </head>
 <body>
@@ -168,6 +171,7 @@
         </select>
       </label>
       <button class="btn" onclick="fetchData(true)">Atualizar</button>
+      <span id="refresh-indicator">↻ atualizando...</span>
     </div>
   </div>
 
@@ -449,7 +453,16 @@ async function fetchData(resetPage) {
   const strength  = document.getElementById('sel-strength').value;
   const positions = document.getElementById('sel-positions').value;
 
-  document.getElementById('signals-container').innerHTML = '<div class="loading">Carregando...</div>';
+  const isFirstLoad = !lastData;
+  const indicator = document.getElementById('refresh-indicator');
+  const container = document.getElementById('signals-container');
+
+  if (isFirstLoad) {
+    container.innerHTML = '<div class="loading">Carregando...</div>';
+  } else {
+    container.classList.add('refreshing');
+    indicator.classList.add('active');
+  }
 
   let url = `/api/triplet-terminal-signals?limit=${currentLimit}&skip=${currentSkip}`;
   if (roulette) url += `&roulette_id=${encodeURIComponent(roulette)}`;
@@ -468,7 +481,12 @@ async function fetchData(resetPage) {
     renderSignals(data.signals || []);
     renderPagination();
   } catch(e) {
-    document.getElementById('signals-container').innerHTML = `<div class="empty">Erro ao carregar: ${e.message}</div>`;
+    if (isFirstLoad) {
+      container.innerHTML = `<div class="empty">Erro ao carregar: ${e.message}</div>`;
+    }
+  } finally {
+    container.classList.remove('refreshing');
+    indicator.classList.remove('active');
   }
 }
 
