@@ -316,7 +316,7 @@ module.exports = {
       env: {
         DEPLOY_STAGE: stage,
         PYTHONUNBUFFERED: "1",
-        TRIPLET_TERMINAL_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette",
+        TRIPLET_TERMINAL_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette,pragmatic-mega-roulette",
         TRIPLET_TERMINAL_POSITIONS: "3",
         TRIPLET_TERMINAL_SPINS: "500",
         TRIPLET_TERMINAL_PRE_WINDOW: "3",

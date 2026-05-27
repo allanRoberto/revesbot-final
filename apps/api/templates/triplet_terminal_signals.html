@@ -137,6 +137,7 @@
           <option value="">Todas</option>
           <option value="pragmatic-auto-roulette">Auto Roulette</option>
           <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+          <option value="pragmatic-mega-roulette">Mega Roulette</option>
         </select>
       </label>
       <label>Status
@@ -472,7 +473,7 @@ function connectWS() {
     indicator && (indicator.title = 'WebSocket conectado');
   };
 
-  const WATCHED_ROULETTES = new Set(['pragmatic-auto-roulette', 'pragmatic-brazilian-roulette']);
+  const WATCHED_ROULETTES = new Set(['pragmatic-auto-roulette', 'pragmatic-brazilian-roulette', 'pragmatic-mega-roulette']);
 
   _ws.onmessage = (evt) => {
     try {
