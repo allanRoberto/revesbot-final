@@ -472,7 +472,14 @@ function connectWS() {
     indicator && (indicator.title = 'WebSocket conectado');
   };
 
-  _ws.onmessage = () => {
+  const WATCHED_ROULETTES = new Set(['pragmatic-auto-roulette', 'pragmatic-brazilian-roulette']);
+
+  _ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (!WATCHED_ROULETTES.has(msg.slug)) return;
+    } catch { return; }
+
     if (_wsFetching) {
       _wsPendingFetch = true;
       return;
