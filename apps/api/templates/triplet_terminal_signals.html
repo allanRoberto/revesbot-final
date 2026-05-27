@@ -504,7 +504,50 @@ function nextPage() {
 }
 
 fetchData(true);
-setInterval(() => fetchData(false), 15000);
+
+// WebSocket: atualiza quando sai um número, sem polling
+let _ws = null;
+let _wsReconnectTimer = null;
+let _wsFetching = false;
+let _wsPendingFetch = false;
+
+function connectWS() {
+  if (_ws && (_ws.readyState === WebSocket.CONNECTING || _ws.readyState === WebSocket.OPEN)) return;
+  clearTimeout(_wsReconnectTimer);
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _ws = new WebSocket(`${proto}://api.revesbot.com.br/ws`);
+
+  _ws.onopen = () => {
+    indicator && (indicator.title = 'WebSocket conectado');
+  };
+
+  _ws.onmessage = () => {
+    if (_wsFetching) {
+      _wsPendingFetch = true;
+      return;
+    }
+    _wsFetching = true;
+    fetchData(false).finally(() => {
+      _wsFetching = false;
+      if (_wsPendingFetch) {
+        _wsPendingFetch = false;
+        _wsFetching = true;
+        fetchData(false).finally(() => { _wsFetching = false; });
+      }
+    });
+  };
+
+  _ws.onclose = () => {
+    _wsReconnectTimer = setTimeout(connectWS, 5000);
+  };
+
+  _ws.onerror = () => {
+    _ws.close();
+  };
+}
+
+connectWS();
 </script>
 </body>
 </html>
