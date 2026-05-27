@@ -34,6 +34,12 @@ NEIGHBOR_SPAN   = int(os.getenv("TRIPLET_TERMINAL_NEIGHBOR_SPAN", "1"))
 POSITIONS       = int(os.getenv("TRIPLET_TERMINAL_POSITIONS",    "3"))  # 1 or 3 positions ahead
 POLL_SECONDS    = float(os.getenv("TRIPLET_TERMINAL_POLL_SECONDS", "2"))
 
+_blocked_raw = os.getenv("TRIPLET_TERMINAL_BLOCKED_TERMINALS", "").strip()
+_scores_raw  = os.getenv("TRIPLET_TERMINAL_ALLOWED_SCORES",    "").strip()
+BLOCKED_TERMINALS: set = {int(x) for x in _blocked_raw.split(",") if x.strip()} if _blocked_raw else set()
+ALLOWED_SCORES:    set = {int(x) for x in _scores_raw.split(",")  if x.strip()} if _scores_raw  else set()
+REQUIRE_INVERSION: bool = os.getenv("TRIPLET_TERMINAL_REQUIRE_INVERSION", "false").lower() == "true"
+
 # Bet multiplier per attempt: attempts 1-2 flat, attempt 3 doubles, attempt 4 quadruples
 ATTEMPT_MULTIPLIERS = [1, 1, 2, 4]
 
@@ -220,11 +226,21 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
         return None
 
     t = confluence["terminal"]
+
+    if BLOCKED_TERMINALS and t in BLOCKED_TERMINALS:
+        return None
+
+    if ALLOWED_SCORES and confluence["score"] not in ALLOWED_SCORES:
+        return None
+
     bet = build_bet(t, span=NEIGHBOR_SPAN)
 
     pre_start = max(0, len(spins) - 1 - PRE_WINDOW)
     pre_window = [spins[i]["value"] for i in range(pre_start, len(spins) - 1)]
     pre_window_ts = [spins[i]["timestamp"] for i in range(pre_start, len(spins) - 1)]
+
+    if REQUIRE_INVERSION and not any(v in bet for v in pre_window):
+        return None
 
     return {
         "a": a,
@@ -402,8 +418,12 @@ def main() -> None:
         return
 
     log.info(
-        "Worker iniciado. positions=%d Roletas=%d max_attempts=%d min_occur=%d min_score=%d neighbor_span=%d poll=%ss",
+        "Worker iniciado. positions=%d Roletas=%d max_attempts=%d min_occur=%d min_score=%d "
+        "neighbor_span=%d poll=%ss blocked_terminals=%s allowed_scores=%s require_inversion=%s",
         POSITIONS, len(targets), MAX_ATTEMPTS, MIN_OCCURRENCES, MIN_SCORE, NEIGHBOR_SPAN, POLL_SECONDS,
+        sorted(BLOCKED_TERMINALS) or "none",
+        sorted(ALLOWED_SCORES) or "all",
+        REQUIRE_INVERSION,
     )
     log.info("Roletas monitoradas: %s", ", ".join(targets))
 
