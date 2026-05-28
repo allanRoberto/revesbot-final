@@ -93,7 +93,6 @@ class Pragmatic :
         def on_message(ws, message) :
 
             data = json.loads(message)
-            print(data)
             table_id = data.get("tableId")
 
             if table_id not in self.desiredArgs or "last20Results" not in data:
