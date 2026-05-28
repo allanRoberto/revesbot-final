@@ -1,9 +1,9 @@
-import asyncio, json, logging, os, datetime, requests, time, websocket
+import asyncio, json, logging, os, datetime, requests, time, websocket, threading
 import pytz
 
 from websockets.exceptions import ConnectionClosedError
 
-from datetime import UTC 
+from datetime import UTC
 
 from helpers.utils.redis_client import r
 
@@ -26,6 +26,30 @@ if MONGO_URL_FALLBACK_USED:
 client = MongoClient(MONGO_URL)
 db = client["roleta_db"]
 collection = db["history"]
+
+TRIM_LIMIT = 200000
+TRIM_INTERVAL = 300  # segundos
+
+def _trim_worker():
+    while True:
+        time.sleep(TRIM_INTERVAL)
+        try:
+            for slug in list(db.history.distinct("roulette_id")):
+                count = collection.count_documents({"roulette_id": slug})
+                if count > TRIM_LIMIT:
+                    excess = count - TRIM_LIMIT
+                    ids = [d["_id"] for d in collection.find(
+                        {"roulette_id": slug},
+                        {"_id": 1},
+                        sort=[("timestamp", 1)],
+                        limit=excess
+                    )]
+                    collection.delete_many({"_id": {"$in": ids}})
+                    logger.info(f"[trim] {slug}: removidos {excess} docs antigos")
+        except Exception as e:
+            logger.warning(f"[trim] erro: {e}")
+
+threading.Thread(target=_trim_worker, daemon=True).start()
 
 
 class Pragmatic : 
@@ -130,20 +154,6 @@ class Pragmatic :
                 "formatted": br_time.strftime("%d/%m/%Y %H:%M:%S"),
             }}))
 
-            # trim para 500
-            count = collection.count_documents({"roulette_id": slug})
-            if count > 200000:
-                exced = count - 200000
-                antigos = collection.find(
-                    {"roulette_id": slug},
-                    sort=[("timestamp", 1)],
-                    limit=exced
-                )
-                ids = [d["_id"] for d in antigos]
-
-                collection.delete_many({"_id": {"$in": ids}})
-          
-                
             print(f"[{slug}] ✅ Resultado salvo: {result} (gameId: {game_id})")
         
         def on_error(ws, error):
