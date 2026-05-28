@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -8,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import redis as redis_lib
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.collection import Collection
 
@@ -20,6 +22,8 @@ MONGO_URL = os.getenv(
     "MONGO_URL",
     "mongodb://revesbot:DlBnGmlimRZpIblr@127.0.0.1:27017/roleta_db?authSource=admin",
 )
+REDIS_URL = os.getenv("REDIS_CONNECT", "redis://localhost:6379")
+SIGNAL_STREAM = "streams:signals:new"
 ROULETTE_IDS_RAW = (
     os.getenv("TRIPLET_TERMINAL_ROULETTE_IDS")
     or "pragmatic-auto-roulette,pragmatic-brazilian-roulette"
@@ -147,6 +151,8 @@ _db = _mongo["roleta_db"]
 history_coll: Collection  = _db["history"]
 triplets_coll: Collection = _db["history_triplets"]
 signals_coll: Collection  = _db["triplet_terminal_signals"]
+
+_redis = redis_lib.from_url(REDIS_URL, decode_responses=True)
 
 
 def resolve_target_roulettes() -> List[str]:
@@ -298,6 +304,21 @@ def create_signal(rid: str, info: Dict[str, Any]) -> Dict[str, Any]:
         info["terminal"], confluence["strength"], confluence["score"],
         len(bet), inversion_paid_before,
     )
+    try:
+        _redis.xadd(SIGNAL_STREAM, {
+            "signal_id": str(result.inserted_id),
+            "data": json.dumps({
+                "id": str(result.inserted_id),
+                "roulette_id": rid,
+                "terminal": info["terminal"],
+                "strength": confluence["strength"],
+                "score": confluence["score"],
+                "triplet": [info["a"], info["b"], info["c"]],
+                "type": "new_signal",
+            }),
+        }, maxlen=200)
+    except Exception as exc:
+        log.warning("[%s] falha ao publicar sinal no Redis stream: %s", rid, exc)
     return doc
 
 

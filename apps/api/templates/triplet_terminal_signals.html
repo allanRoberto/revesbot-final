@@ -506,6 +506,41 @@ function connectWS() {
 }
 
 connectWS();
+
+// WebSocket de sinais: atualiza imediatamente quando um novo sinal é gerado
+let _wsSig = null;
+let _wsSigReconnectTimer = null;
+
+function connectWSSig() {
+  if (_wsSig && (_wsSig.readyState === WebSocket.CONNECTING || _wsSig.readyState === WebSocket.OPEN)) return;
+  clearTimeout(_wsSigReconnectTimer);
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _wsSig = new WebSocket(`${proto}://api.revesbot.com.br/ws/signals`);
+
+  _wsSig.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type !== 'new_signal') return;
+    } catch { return; }
+
+    if (_wsFetching) { _wsPendingFetch = true; return; }
+    _wsFetching = true;
+    fetchData(false).finally(() => {
+      _wsFetching = false;
+      if (_wsPendingFetch) {
+        _wsPendingFetch = false;
+        _wsFetching = true;
+        fetchData(false).finally(() => { _wsFetching = false; });
+      }
+    });
+  };
+
+  _wsSig.onclose = () => { _wsSigReconnectTimer = setTimeout(connectWSSig, 5000); };
+  _wsSig.onerror = () => { _wsSig.close(); };
+}
+
+connectWSSig();
 </script>
 </body>
 </html>
