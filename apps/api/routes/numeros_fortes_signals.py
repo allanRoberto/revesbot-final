@@ -26,6 +26,29 @@ def _fmt_ts(ts: Any) -> Optional[str]:
     return str(ts)
 
 
+def _serialize_post(pr: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Serializa o bloco de acompanhamento pós-resultado (10 rodadas)."""
+    if not pr:
+        return None
+    rounds = [
+        {
+            "round":     r.get("round"),
+            "value":     r.get("value"),
+            "hit":       r.get("hit"),
+            "timestamp": _fmt_ts(r.get("timestamp")),
+        }
+        for r in (pr.get("rounds") or [])
+    ]
+    return {
+        "active":     bool(pr.get("active")),
+        "target":     pr.get("target", 0),
+        "rounds":     rounds,
+        "hits":       pr.get("hits", 0),
+        "completed":  bool(pr.get("completed")),
+        "started_at": _fmt_ts(pr.get("started_at")),
+    }
+
+
 def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
     attempts = [
         {
@@ -56,6 +79,8 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
         "attempts":          attempts,
         "won_at_attempt":    doc.get("won_at_attempt"),
         "pnl":               doc.get("pnl"),
+        "inversion":         doc.get("inversion"),
+        "post_resolution":   _serialize_post(doc.get("post_resolution")),
         "created_at":        _fmt_ts(doc.get("created_at")),
         "resolved_at":       _fmt_ts(doc.get("resolved_at")),
         "config":            doc.get("config", {}),
@@ -121,6 +146,43 @@ async def list_signals(
     ).to_list(length=None)
     pnl_total = round(sum(float(d.get("pnl") or 0) for d in pnl_docs), 2)
 
+    # Inversão: nº da aposta que apareceu ANTES do gatilho
+    inv_total = await signals_coll.count_documents({**base_filt, "inversion": {"$exists": True}})
+    inv_paid  = await signals_coll.count_documents({**base_filt, "inversion.paid": True})
+    inversion_stats = {
+        "total":     inv_total,
+        "paid":      inv_paid,
+        "paid_rate": round(inv_paid / inv_total * 100, 2) if inv_total > 0 else 0.0,
+    }
+
+    # Pós-resultado: a aposta "paga de novo" nas N rodadas após o sinal resolver
+    post_docs = await signals_coll.find(
+        {**base_filt, "post_resolution.started_at": {"$ne": None}},
+        {"post_resolution": 1},
+    ).to_list(length=None)
+    post_tracked = len(post_docs)
+    post_completed = 0
+    post_paid_again = 0
+    total_post_hits = 0
+    post_target = 0
+    for d in post_docs:
+        pr = d.get("post_resolution") or {}
+        hits = int(pr.get("hits") or 0)
+        total_post_hits += hits
+        if hits > 0:
+            post_paid_again += 1
+        if pr.get("completed"):
+            post_completed += 1
+        post_target = max(post_target, int(pr.get("target") or 0))
+    post_resolution_stats = {
+        "tracked":         post_tracked,
+        "completed":       post_completed,
+        "paid_again":      post_paid_again,
+        "paid_again_rate": round(post_paid_again / post_tracked * 100, 2) if post_tracked > 0 else 0.0,
+        "avg_hits":        round(total_post_hits / post_tracked, 2) if post_tracked > 0 else 0.0,
+        "target":          post_target or 10,
+    }
+
     resolved = won + lost
     assertiveness_pct = round(won / resolved * 100, 2) if resolved > 0 else 0.0
 
@@ -135,6 +197,8 @@ async def list_signals(
         "avg_attempts_to_win": avg_attempts_to_win,
         "win_distribution":    distribution_attempts,
         "pnl_total":           pnl_total,
+        "inversion_stats":     inversion_stats,
+        "post_resolution_stats": post_resolution_stats,
         "strength_breakdown":  strength_counts,
         "signals":             [_serialize(d) for d in docs],
     }

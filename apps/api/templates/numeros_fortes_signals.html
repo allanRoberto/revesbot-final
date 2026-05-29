@@ -92,6 +92,16 @@
     .attempt-chip.hit  { background: #dcfce7; border-color: #86efac; color: #166534; font-weight: 700; }
     .attempt-chip.miss { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
 
+    .inv-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .inv-badge.paid   { background: #fae8ff; color: #86198f; border: 1px solid #e9a8f5; }
+    .inv-badge.nopaid { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+
+    .post-section { margin-top: 8px; }
+    .post-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+    .post-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 5px; border-radius: 5px; font-size: 11px; font-weight: 700; background: var(--surface-soft); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .post-chip.hit     { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .post-chip.pending { background: var(--surface); border-style: dashed; color: var(--muted); font-weight: 400; }
+
     .pagination { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; }
     .pagination button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
     .pagination button:disabled { opacity: 0.4; cursor: default; }
@@ -236,6 +246,8 @@ function renderLive(live) {
 function renderStats(data) {
   const { total, won, lost, monitoring, resolved, assertiveness_pct, avg_attempts_to_win, win_distribution, pnl_total } = data;
   const pnl = pnl_total ?? 0;
+  const inv  = data.inversion_stats || { paid_rate: 0, paid: 0, total: 0 };
+  const post = data.post_resolution_stats || { paid_again_rate: 0, paid_again: 0, tracked: 0, avg_hits: 0, target: 10 };
   document.getElementById('stats-card').innerHTML = `
     <div class="stats-grid">
       <div class="stat"><span class="label">Total</span><span class="value">${total}</span></div>
@@ -256,6 +268,16 @@ function renderStats(data) {
         <span class="label">PnL total</span>
         <span class="value" style="color:${pnl >= 0 ? 'var(--green)' : 'var(--danger)'}">${pnl >= 0 ? '+' : ''}${pnl}</span>
         <span class="sub">fichas (teórico)</span>
+      </div>
+      <div class="stat">
+        <span class="label">Pagou na inversão</span>
+        <span class="value" style="color:#86198f">${inv.paid_rate}%</span>
+        <span class="sub">${inv.paid}/${inv.total} sinais</span>
+      </div>
+      <div class="stat">
+        <span class="label">Pagou de novo (pós ${post.target})</span>
+        <span class="value">${post.paid_again_rate}%</span>
+        <span class="sub">${post.paid_again}/${post.tracked} · média ${post.avg_hits} hits</span>
       </div>
     </div>`;
 }
@@ -291,6 +313,29 @@ function renderSignals(signals) {
     const hitVals = new Set((sig.attempts || []).filter(a => a.hit).map(a => a.value));
     const gset = new Set(sig.gatilhos_snapshot || []);
 
+    const inv = sig.inversion;
+    const invHtml = inv
+      ? `<span class="inv-badge ${inv.paid ? 'paid' : 'nopaid'}" title="${inv.paid ? 'nº da aposta nos ' + inv.window_size + ' antes do gatilho: ' + (inv.hits||[]).join(', ') : 'nenhum nº da aposta nos ' + inv.window_size + ' números antes do gatilho'}">↩ inversão ${inv.paid ? 'paga · ' + (inv.hits||[]).join(',') : '—'}</span>`
+      : '';
+
+    const pr = sig.post_resolution;
+    let postHtml = '';
+    if (pr && pr.target) {
+      const rounds = pr.rounds || [];
+      const chips = [];
+      for (let i = 0; i < pr.target; i++) {
+        const r = rounds[i];
+        chips.push(r
+          ? `<span class="post-chip${r.hit ? ' hit' : ''}" title="rodada ${r.round}">${r.value}${r.hit ? ' ✓' : ''}</span>`
+          : `<span class="post-chip pending" title="rodada ${i + 1}">·</span>`);
+      }
+      const monitoringTxt = (pr.active && !pr.completed) ? ' · monitorando' : '';
+      postHtml = `<div class="post-section">
+        <span class="lbl" style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.4px">Pós-resultado — paga de novo? ${pr.hits} hit${pr.hits === 1 ? '' : 's'} em ${rounds.length}/${pr.target}${monitoringTxt}</span>
+        <div class="post-row">${chips.join('')}</div>
+      </div>`;
+    }
+
     const betHtml = (sig.numeros_fortes || sig.bet || []).map(n => {
       let cls = 'num-chip';
       if (hitVals.has(n)) cls += ' hit';
@@ -319,6 +364,7 @@ function renderSignals(signals) {
         <span class="gatilho-badge" title="número que disparou">▶ ${sig.gatilho ?? '—'}</span>
         <span class="badge badge-${sig.strength}">${strengthLabel(sig.strength)}</span>
         <span class="badge badge-${sig.status}">${{won:'Ganhou',lost:'Perdeu',monitoring:'Monitor'}[sig.status]||sig.status}${wonAt}</span>
+        ${invHtml}
         ${pnlHtml}
         <span class="signal-ts">${ts}</span>
       </div>
@@ -341,6 +387,7 @@ function renderSignals(signals) {
         </div>
       </div>
       <div class="attempts-row">${attHtml}</div>
+      ${postHtml}
     </div>`;
   }).join('');
   document.getElementById('signals-container').innerHTML = html;

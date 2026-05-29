@@ -51,6 +51,10 @@ RECENT_WINDOW  = int(os.getenv("NUMEROS_FORTES_RECENT_WINDOW", "50"))
 MAX_ATTEMPTS   = int(os.getenv("NUMEROS_FORTES_MAX_ATTEMPTS", "4"))
 POLL_SECONDS   = float(os.getenv("NUMEROS_FORTES_POLL_SECONDS", "2"))
 MIN_HISTORY    = int(os.getenv("NUMEROS_FORTES_MIN_HISTORY", "20"))
+# Após cada sinal resolvido (won/lost), acompanha mais N rodadas p/ ver se a aposta paga de novo
+POST_ROUNDS      = int(os.getenv("NUMEROS_FORTES_POST_ROUNDS", "10"))
+# Inversão: nº da aposta que apareceu ANTES do gatilho — quantos números anteriores observar
+INVERSION_WINDOW = int(os.getenv("NUMEROS_FORTES_INVERSION_WINDOW", "5"))
 
 # Multiplicador de aposta por tentativa: G1-G2 flat, G3 dobra, G4 quadruplica
 ATTEMPT_MULTIPLIERS = [1, 1, 2, 4]
@@ -183,6 +187,18 @@ def strength_from_fanout(fanout: int) -> str:
     return "fraco"
 
 
+def post_resolution_init(now: datetime) -> Dict[str, Any]:
+    """Bloco de acompanhamento pós-resultado (ativo) gravado quando o sinal resolve."""
+    return {
+        "active":     True,
+        "target":     POST_ROUNDS,
+        "rounds":     [],
+        "hits":       0,
+        "completed":  False,
+        "started_at": now,
+    }
+
+
 # ── Infra ───────────────────────────────────────────────────────────────────
 
 def resolve_target_roulettes() -> List[str]:
@@ -236,6 +252,21 @@ def create_signal(rid: str, gatilho: int, analysis: Dict[str, Any], values: List
     fortes = analysis["numeros_fortes"]
     meta = analysis["gatilho_meta"].get(gatilho, {"weight": 0.0, "fanout": 0})
     strength = strength_from_fanout(meta["fanout"])
+
+    # Inversão: um nº da aposta apareceu ANTES do gatilho. values[0] é o gatilho
+    # que acabou de sair; observamos os INVERSION_WINDOW números imediatamente
+    # anteriores (values[1:1+W]). Se algum estiver na aposta → pagou na inversão.
+    fortes_set = set(fortes)
+    inv_window = values[1:1 + INVERSION_WINDOW]
+    inv_hits = [v for v in inv_window if v in fortes_set]
+    inversion = {
+        "window":      inv_window,
+        "window_size": INVERSION_WINDOW,
+        "hits":        inv_hits,
+        "hit_count":   len(inv_hits),
+        "paid":        len(inv_hits) > 0,
+    }
+
     doc = {
         "roulette_id":       rid,
         "status":            "monitoring",
@@ -254,6 +285,15 @@ def create_signal(rid: str, gatilho: int, analysis: Dict[str, Any], values: List
         "attempts":          [],
         "won_at_attempt":    None,
         "pnl":               None,
+        "inversion":         inversion,
+        "post_resolution": {
+            "active":     False,
+            "target":     POST_ROUNDS,
+            "rounds":     [],
+            "hits":       0,
+            "completed":  False,
+            "started_at": None,
+        },
         "created_at":        now,
         "resolved_at":       None,
         "config": {
@@ -288,6 +328,35 @@ def create_signal(rid: str, gatilho: int, analysis: Dict[str, Any], values: List
     return doc
 
 
+def process_post_signals(rid: str, st: Dict[str, Any], latest_val: int, latest_ts: Any) -> None:
+    """Acompanha POST_ROUNDS rodadas após cada sinal resolvido (won/lost) para ver
+    se a aposta 'paga de novo'. Cada giro = 1 rodada; hit = nº caiu na aposta."""
+    post_signals = st.get("post_signals")
+    if not post_signals:
+        return
+    still: List[Dict[str, Any]] = []
+    for ps in post_signals:
+        target = ps.get("post_target", POST_ROUNDS)
+        round_num = ps.get("post_round", 0) + 1
+        hit = latest_val in ps.get("bet", [])
+        round_entry = {"round": round_num, "value": latest_val, "hit": hit, "timestamp": latest_ts}
+        update: Dict[str, Any] = {"$push": {"post_resolution.rounds": round_entry}}
+        if hit:
+            update["$inc"] = {"post_resolution.hits": 1}
+        completed = round_num >= target
+        if completed:
+            update["$set"] = {"post_resolution.active": False, "post_resolution.completed": True}
+        signals_coll.update_one({"_id": ps["_id"]}, update)
+        ps["post_round"] = round_num
+        log.info("[%s] POST %d/%d value=%d (%s) signal=%s",
+                 rid, round_num, target, latest_val, "HIT" if hit else "miss", ps["_id"])
+        if completed:
+            log.info("[%s] POST-RESULTADO completo signal=%s (%d rodadas)", rid, ps["_id"], round_num)
+        else:
+            still.append(ps)
+    st["post_signals"] = still
+
+
 def process_roulette(rid: str, st: Dict[str, Any]) -> None:
     values, latest_ts = get_recent_values(rid, SPINS_TO_FETCH)
     if not values:
@@ -296,6 +365,11 @@ def process_roulette(rid: str, st: Dict[str, Any]) -> None:
         return
     st["last_ts"] = latest_ts
     latest_val = values[0]
+
+    # 0. Pós-resultado: acompanha N rodadas após cada sinal já resolvido.
+    #    Roda ANTES da resolução do sinal ativo, então o giro que resolve um
+    #    sinal não é contado como rodada pós-resultado dele próprio.
+    process_post_signals(rid, st, latest_val, latest_ts)
 
     active = st.get("active")
 
@@ -313,24 +387,38 @@ def process_roulette(rid: str, st: Dict[str, Any]) -> None:
                 for a in all_attempts
             )
             pnl = 36 * multiplier - total_cost
+            now_ts = datetime.now(tz=timezone.utc)
+            set_fields: Dict[str, Any] = {"status": "won", "won_at_attempt": attempt_num,
+                                          "resolved_at": now_ts, "pnl": pnl}
+            if POST_ROUNDS > 0:
+                set_fields["post_resolution"] = post_resolution_init(now_ts)
             signals_coll.update_one(
                 {"_id": active["_id"]},
-                {"$set": {"status": "won", "won_at_attempt": attempt_num,
-                          "resolved_at": datetime.now(tz=timezone.utc), "pnl": pnl},
-                 "$push": {"attempts": entry}},
+                {"$set": set_fields, "$push": {"attempts": entry}},
             )
             log.info("[%s] WON attempt=%d value=%d pnl=%+d", rid, attempt_num, latest_val, pnl)
+            if POST_ROUNDS > 0:
+                active["post_round"] = 0
+                active["post_target"] = POST_ROUNDS
+                st.setdefault("post_signals", []).append(active)
             active = None
         elif attempt_num >= MAX_ATTEMPTS:
             bet_size = len(active.get("bet", []))
             total_cost = bet_size * sum(ATTEMPT_MULTIPLIERS[:MAX_ATTEMPTS])
             pnl = -total_cost
+            now_ts = datetime.now(tz=timezone.utc)
+            set_fields = {"status": "lost", "resolved_at": now_ts, "pnl": pnl}
+            if POST_ROUNDS > 0:
+                set_fields["post_resolution"] = post_resolution_init(now_ts)
             signals_coll.update_one(
                 {"_id": active["_id"]},
-                {"$set": {"status": "lost", "resolved_at": datetime.now(tz=timezone.utc), "pnl": pnl},
-                 "$push": {"attempts": entry}},
+                {"$set": set_fields, "$push": {"attempts": entry}},
             )
             log.info("[%s] LOST após %d tentativas pnl=%+d", rid, MAX_ATTEMPTS, pnl)
+            if POST_ROUNDS > 0:
+                active["post_round"] = 0
+                active["post_target"] = POST_ROUNDS
+                st.setdefault("post_signals", []).append(active)
             active = None
         else:
             signals_coll.update_one({"_id": active["_id"]}, {"$push": {"attempts": entry}})
@@ -374,15 +462,35 @@ def main() -> None:
             {"roulette_id": rid, "status": "monitoring"},
             sort=[("created_at", DESCENDING)],
         )
+        # sinais já resolvidos que ainda acompanham rodadas pós-resultado
+        post_docs = list(signals_coll.find(
+            {"roulette_id": rid, "post_resolution.active": True},
+        ).sort("resolved_at", ASCENDING))
+        post_signals: List[Dict[str, Any]] = []
+        post_ts: List[Any] = []
+        for pd in post_docs:
+            pr = pd.get("post_resolution", {})
+            rounds = pr.get("rounds", [])
+            pd["post_round"] = len(rounds)
+            pd["post_target"] = pr.get("target", POST_ROUNDS)
+            post_signals.append(pd)
+            post_ts.extend(r["timestamp"] for r in rounds if r.get("timestamp") is not None)
+
         last_ts: Optional[Any] = None
         if active and active.get("attempts"):
             last_ts = max(a["timestamp"] for a in active["attempts"])
         elif active:
             last_ts = active.get("X_timestamp")
-        state[rid] = {"active": active, "last_ts": last_ts}
+        if post_ts:
+            post_max = max(post_ts)
+            last_ts = post_max if last_ts is None else max(last_ts, post_max)
+
+        state[rid] = {"active": active, "last_ts": last_ts, "post_signals": post_signals}
         if active:
             log.info("[%s] sinal ativo retomado id=%s attempts=%d",
                      rid, active["_id"], len(active.get("attempts", [])))
+        if post_signals:
+            log.info("[%s] %d sinal(is) em pós-resultado retomado(s)", rid, len(post_signals))
 
     while True:
         for rid in targets:
