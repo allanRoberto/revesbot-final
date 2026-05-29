@@ -120,7 +120,7 @@ module.exports = {
       env: {
         DEPLOY_STAGE: stage,
         PYTHONUNBUFFERED: "1",
-        NUMEROS_FORTES_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette,pragmatic-mega-roulette",
+        NUMEROS_FORTES_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette",
         NUMEROS_FORTES_SPINS: "500",
         NUMEROS_FORTES_COUNT: "13",
         NUMEROS_FORTES_GATILHOS_MAX: "8",
@@ -142,7 +142,7 @@ module.exports = {
       env: {
         DEPLOY_STAGE: stage,
         PYTHONUNBUFFERED: "1",
-        NUMEROS_FORTES_INVERSAO_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette,pragmatic-mega-roulette",
+        NUMEROS_FORTES_INVERSAO_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette",
         NUMEROS_FORTES_INVERSAO_SPINS: "500",
         NUMEROS_FORTES_INVERSAO_COUNT: "13",
         NUMEROS_FORTES_INVERSAO_GATILHOS_MAX: "8",
