@@ -286,6 +286,12 @@ async def triplet_terminal_signals_page():
         return f.read()
 
 
+@router.get("/sinais-confluencia-terminal-4", response_class=HTMLResponse)
+async def quadruplet_terminal_signals_page():
+    with open(os.path.join(templates_dir, "quadruplet_terminal_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/numeros-fortes-signals", response_class=HTMLResponse)
 async def numeros_fortes_signals_page():
     with open(os.path.join(templates_dir, "numeros_fortes_signals.html"), "r", encoding="utf-8") as f:
