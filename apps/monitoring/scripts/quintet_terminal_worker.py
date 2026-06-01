@@ -94,11 +94,13 @@ def compute_connection(n: int, t: int) -> Tuple[str, int]:
     return ("none", 0)
 
 
-def compute_terminal_confluence(top3: List[int]) -> Dict[str, Any]:
-    """Find the best terminal and its confluence strength across the top-3 ranking numbers."""
+def compute_terminal_confluence(top3: List[int], blocked: set = None) -> Dict[str, Any]:
+    """Find the best non-blocked terminal and its confluence strength across the top-3 ranking numbers."""
     best: Dict[str, Any] = {"terminal": -1, "score": 0, "strength": "fraco", "details": []}
 
     for t in range(10):
+        if blocked and t in blocked:
+            continue
         details: List[Dict] = []
         total_score = 0
         direct_count = 0
@@ -220,14 +222,11 @@ def try_generate_signal(spins: List[Dict]) -> Optional[Dict[str, Any]]:
     if not top3:
         return None
 
-    confluence = compute_terminal_confluence(top3)
-    if confluence["score"] < MIN_SCORE:
+    confluence = compute_terminal_confluence(top3, blocked=BLOCKED_TERMINALS)
+    if confluence["score"] < MIN_SCORE or confluence["terminal"] == -1:
         return None
 
     t = confluence["terminal"]
-
-    if BLOCKED_TERMINALS and t in BLOCKED_TERMINALS:
-        return None
 
     bet = build_bet(t, span=NEIGHBOR_SPAN)
 
