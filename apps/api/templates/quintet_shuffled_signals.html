@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — Quintet Embaralhado (5N Top18)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --warn: #b8860b;
+      --info: #2563eb;
+      --red: #c0392b;
+      --green: #2e8b57;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1240px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px 0; font-size: 14px; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .stat { background: var(--surface-soft); padding: 12px 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 24px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub { font-size: 11px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); }
+    .stat.warn   .value { color: var(--warn); }
+    .stat.info   .value { color: var(--info); }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+    .badge-won        { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-lost       { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-monitoring { background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; }
+    .shuf-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 20px; font-size: 11px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; font-weight: 600; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+    .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .filters select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
+    .btn { padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: var(--accent-strong); }
+
+    .signal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    .signal-card.won  { border-left: 4px solid var(--green); }
+    .signal-card.lost { border-left: 4px solid var(--red); }
+    .signal-card.monitoring { border-left: 4px solid var(--info); }
+    .signal-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .signal-roulette { font-size: 13px; font-weight: 700; color: var(--accent-strong); }
+    .signal-ts { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+    .signal-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 12px; }
+    .signal-field { display: flex; flex-direction: column; gap: 2px; }
+    .signal-field .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    .nums { display: flex; flex-wrap: wrap; gap: 4px; }
+    .num-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 5px; font-size: 11px; font-weight: 700; background: var(--surface-soft); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .num-chip.hit      { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .num-chip.inversion{ background: #fef9c3; border-color: #fde047; color: #854d0e; }
+    .num-chip.quintet  { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+
+    /* Ranking bar */
+    .ranking-row { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-bottom: 3px; }
+    .ranking-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .ranking-bar { height: 100%; background: var(--accent); border-radius: 3px; }
+    .ranking-num { min-width: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ranking-pct { min-width: 38px; text-align: right; color: var(--muted); }
+    .in-bet { color: var(--accent-strong); font-weight: 700; }
+
+    .attempts-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+    .attempt-chip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 5px; font-size: 11px; border: 1px solid var(--border); background: var(--surface-soft); }
+    .attempt-chip.hit  { background: #dcfce7; border-color: #86efac; color: #166534; font-weight: 700; }
+    .attempt-chip.miss { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+    .post-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 6px; margin-bottom: 2px; }
+    .inv-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 20px; font-size: 11px; background: #fef9c3; border: 1px solid #fde047; color: #854d0e; font-weight: 600; }
+
+    .pagination { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; }
+    .pagination button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+    .pagination button:disabled { opacity: 0.4; cursor: default; }
+    .pagination .page-info { color: var(--muted); }
+
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .empty   { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .refreshing { opacity: 0.6; pointer-events: none; transition: opacity 0.2s; }
+    #refresh-indicator { display: none; font-size: 11px; color: var(--muted); margin-left: 8px; }
+    #refresh-indicator.active { display: inline; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Quintet Embaralhado <span class="shuf-badge">5N · Embaralhado · Top 18</span></h1>
+  <p class="subtitle">
+    Busca padrões com os últimos <strong>5 números em qualquer ordem</strong> — sem análise de terminal.
+    A aposta são os <strong>18 números mais frequentes</strong> no ranking histórico desse conjunto.
+  </p>
+
+  <div class="card">
+    <div class="filters">
+      <label>Mesa
+        <select id="sel-roulette">
+          <option value="">Todas</option>
+          <option value="pragmatic-auto-roulette">Auto Roulette</option>
+          <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+        </select>
+      </label>
+      <label>Status
+        <select id="sel-status">
+          <option value="all">Todos</option>
+          <option value="won">Ganhou</option>
+          <option value="lost">Perdeu</option>
+          <option value="monitoring">Monitorando</option>
+        </select>
+      </label>
+      <label>Limite
+        <select id="sel-limit">
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </label>
+      <button class="btn" onclick="fetchData(true)">Atualizar</button>
+      <span id="refresh-indicator">↻ atualizando...</span>
+    </div>
+  </div>
+
+  <div class="card" id="stats-card">
+    <div class="loading">Carregando...</div>
+  </div>
+
+  <div id="signals-container">
+    <div class="loading">Carregando sinais...</div>
+  </div>
+
+  <div class="pagination" id="pagination" style="display:none">
+    <button id="btn-prev" onclick="prevPage()">← Anterior</button>
+    <span class="page-info" id="page-info"></span>
+    <button id="btn-next" onclick="nextPage()">Próxima →</button>
+  </div>
+</div>
+
+<script>
+let currentSkip = 0;
+let currentLimit = 50;
+let currentTotal = 0;
+let lastData = null;
+
+function fmtTs(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function renderStats(data) {
+  const { total, won, lost, monitoring, resolved, assertiveness_pct, avg_attempts_to_win, win_distribution, inversion } = data;
+  const invRate = inversion?.pay_rate ?? 0;
+  const invPaid = inversion?.paid ?? 0;
+  document.getElementById('stats-card').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">Total</span><span class="value">${total}</span></div>
+      <div class="stat"><span class="label">Ganhou</span><span class="value" style="color:var(--green)">${won}</span></div>
+      <div class="stat danger"><span class="label">Perdeu</span><span class="value">${lost}</span></div>
+      <div class="stat info"><span class="label">Monitorando</span><span class="value">${monitoring}</span></div>
+      <div class="stat ${assertiveness_pct >= 60 ? '' : 'warn'}">
+        <span class="label">Assertividade</span>
+        <span class="value">${assertiveness_pct}%</span>
+        <span class="sub">${resolved} resolvidos</span>
+      </div>
+      <div class="stat">
+        <span class="label">Média tentativas</span>
+        <span class="value">${avg_attempts_to_win || '—'}</span>
+        <span class="sub">1:${win_distribution[1]||0} 2:${win_distribution[2]||0} 3:${win_distribution[3]||0} 4:${win_distribution[4]||0}</span>
+      </div>
+      <div class="stat">
+        <span class="label">Inversão paga antes</span>
+        <span class="value">${invPaid}</span>
+        <span class="sub">${invRate}% dos sinais</span>
+      </div>
+    </div>`;
+}
+
+function renderSignals(signals) {
+  if (!signals.length) {
+    document.getElementById('signals-container').innerHTML = '<div class="empty">Nenhum sinal encontrado.</div>';
+    return;
+  }
+  const html = signals.map(sig => {
+    const ts = fmtTs(sig.X_timestamp || sig.created_at);
+    const rid = sig.roulette_id.replace('pragmatic-', '').replace(/-/g, ' ');
+
+    // Quintet set chips (sorted — order irrelevant)
+    const quinHtml = (sig.quintet || []).map(n =>
+      `<span class="num-chip quintet">${n}</span>`
+    ).join('') + ' <span style="font-size:10px;color:var(--muted);align-self:center">conjunto</span>';
+
+    // Bet chips
+    const preSet = new Set(sig.pre_window || []);
+    const betSet = new Set(sig.bet || []);
+    const betHtml = (sig.bet || []).map(n => {
+      const cls = preSet.has(n) ? 'num-chip inversion' : 'num-chip';
+      return `<span class="${cls}">${n}</span>`;
+    }).join('');
+
+    // Pre window
+    const preHtml = (sig.pre_window || []).map(n => {
+      const inBet = betSet.has(n);
+      return `<span class="num-chip${inBet ? ' inversion' : ''}">${n}</span>`;
+    }).join('') || '—';
+
+    // Ranking bars (top 10)
+    const rankTop = (sig.ranking || []).slice(0, 10);
+    const maxPct = rankTop.length ? rankTop[0].percentage : 1;
+    const rankHtml = rankTop.map(r => {
+      const inBet = betSet.has(r.number);
+      return `<div class="ranking-row">
+        <span class="ranking-num ${inBet ? 'in-bet' : ''}">${r.number}</span>
+        <div class="ranking-bar-wrap"><div class="ranking-bar" style="width:${Math.round(r.percentage / maxPct * 100)}%"></div></div>
+        <span class="ranking-pct">${r.percentage}%</span>
+      </div>`;
+    }).join('');
+
+    // Attempts
+    const attHtml = (sig.attempts || []).map(a => {
+      const cls = a.hit ? 'attempt-chip hit' : 'attempt-chip miss';
+      const mult = (a.multiplier && a.multiplier > 1) ? ` <span style="font-size:10px;opacity:0.8">×${a.multiplier}</span>` : '';
+      return `<span class="${cls}">#${a.attempt}${mult} → ${a.value} ${a.hit ? '✓' : '✗'}</span>`;
+    }).join('') || '<span style="color:var(--muted);font-size:11px">Aguardando</span>';
+
+    const pnlHtml = sig.pnl != null
+      ? `<span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${sig.pnl >= 0 ? '#dcfce7' : '#fee2e2'};border:1px solid ${sig.pnl >= 0 ? '#86efac' : '#fca5a5'};color:${sig.pnl >= 0 ? '#166534' : '#991b1b'}">${sig.pnl >= 0 ? '+' : ''}${sig.pnl} fichas</span>`
+      : '';
+
+    let postHtml = '';
+    if (sig.status === 'lost' && sig.post_attempts && sig.post_attempts.length > 0) {
+      const postChips = sig.post_attempts.map(p =>
+        `<span class="attempt-chip ${p.hit ? 'hit' : ''}">${p.spin}:${p.value}${p.hit ? ' ✓' : ''}</span>`
+      ).join('');
+      const hitPost = sig.post_attempts.find(p => p.hit);
+      postHtml = `<div class="post-label">Pós-derrota (${hitPost ? 'pago no spin ' + hitPost.spin : 'não pago em ' + sig.post_attempts.length + ' giros'})</div>
+        <div class="attempts-row">${postChips}</div>`;
+    }
+
+    const invHtml = sig.inversion_paid_before ? '<span class="inv-badge">⚡ Inversão paga antes</span>' : '';
+    const wonAt = sig.won_at_attempt ? ` — Ganhou na ${sig.won_at_attempt}ª tentativa` : '';
+
+    return `<div class="signal-card ${sig.status}">
+      <div class="signal-header">
+        <span class="signal-roulette">${rid.toUpperCase()}</span>
+        <span class="badge badge-${sig.status}">${{won:'Ganhou',lost:'Perdeu',monitoring:'Monitor'}[sig.status]||sig.status}${wonAt}</span>
+        <span style="padding:2px 8px;border-radius:20px;font-size:11px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-weight:600">
+          ${sig.total_occ} ocorrências
+        </span>
+        <span class="shuf-badge">embaralhado</span>
+        ${pnlHtml}
+        ${invHtml}
+        <span class="signal-ts">${ts}</span>
+      </div>
+      <div class="signal-body">
+        <div class="signal-field">
+          <span class="lbl">Quintet — conjunto 5 números</span>
+          <div class="nums">${quinHtml}</div>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Pré-janela (${(sig.pre_window||[]).length} giros)</span>
+          <div class="nums">${preHtml}</div>
+        </div>
+        <div class="signal-field" style="grid-column:1/-1">
+          <span class="lbl">Aposta — Top ${sig.top_bet || 18} do ranking (${(sig.bet||[]).length} números)</span>
+          <div class="nums">${betHtml}</div>
+        </div>
+        <div class="signal-field" style="grid-column:1/-1">
+          <span class="lbl">Ranking (top 10) — números em verde estão na aposta</span>
+          <div>${rankHtml || '—'}</div>
+        </div>
+      </div>
+      <div class="attempts-row" style="margin-top:10px">${attHtml}</div>
+      ${postHtml}
+    </div>`;
+  }).join('');
+  document.getElementById('signals-container').innerHTML = html;
+}
+
+function renderPagination() {
+  const pg = document.getElementById('pagination');
+  pg.style.display = 'flex';
+  const from = currentSkip + 1;
+  const to = Math.min(currentSkip + currentLimit, currentTotal);
+  document.getElementById('page-info').textContent = `${from}–${to} de ${currentTotal}`;
+  document.getElementById('btn-prev').disabled = currentSkip === 0;
+  document.getElementById('btn-next').disabled = currentSkip + currentLimit >= currentTotal;
+}
+
+async function fetchData(resetPage) {
+  if (resetPage) currentSkip = 0;
+  currentLimit = parseInt(document.getElementById('sel-limit').value) || 50;
+  const roulette = document.getElementById('sel-roulette').value;
+  const status   = document.getElementById('sel-status').value;
+
+  const isFirstLoad = !lastData;
+  const indicator = document.getElementById('refresh-indicator');
+  const container = document.getElementById('signals-container');
+
+  if (isFirstLoad) {
+    container.innerHTML = '<div class="loading">Carregando...</div>';
+  } else {
+    container.classList.add('refreshing');
+    indicator.classList.add('active');
+  }
+
+  let url = `/api/quintet-shuffled-signals?limit=${currentLimit}&skip=${currentSkip}`;
+  if (roulette) url += `&roulette_id=${encodeURIComponent(roulette)}`;
+  if (status && status !== 'all') url += `&status=${encodeURIComponent(status)}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    lastData = data;
+    currentTotal = data.total;
+    renderStats(data);
+    renderSignals(data.signals || []);
+    renderPagination();
+  } catch(e) {
+    if (isFirstLoad) container.innerHTML = `<div class="empty">Erro ao carregar: ${e.message}</div>`;
+  } finally {
+    container.classList.remove('refreshing');
+    indicator.classList.remove('active');
+  }
+}
+
+function prevPage() {
+  if (currentSkip >= currentLimit) { currentSkip -= currentLimit; fetchData(false); }
+}
+function nextPage() {
+  if (currentSkip + currentLimit < currentTotal) { currentSkip += currentLimit; fetchData(false); }
+}
+
+fetchData(true);
+
+let _ws = null, _wsReconnectTimer = null, _wsFetching = false, _wsPendingFetch = false;
+
+function connectWS() {
+  if (_ws && (_ws.readyState === WebSocket.CONNECTING || _ws.readyState === WebSocket.OPEN)) return;
+  clearTimeout(_wsReconnectTimer);
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _ws = new WebSocket(`${proto}://api.revesbot.com.br/ws`);
+  const WATCHED = new Set(['pragmatic-auto-roulette', 'pragmatic-brazilian-roulette']);
+  _ws.onmessage = (evt) => {
+    try { const msg = JSON.parse(evt.data); if (!WATCHED.has(msg.slug)) return; } catch { return; }
+    if (_wsFetching) { _wsPendingFetch = true; return; }
+    _wsFetching = true;
+    fetchData(false).finally(() => {
+      _wsFetching = false;
+      if (_wsPendingFetch) { _wsPendingFetch = false; _wsFetching = true; fetchData(false).finally(() => { _wsFetching = false; }); }
+    });
+  };
+  _ws.onclose = () => { _wsReconnectTimer = setTimeout(connectWS, 5000); };
+  _ws.onerror = () => { _ws.close(); };
+}
+connectWS();
+
+let _wsSig = null, _wsSigReconnectTimer = null;
+function connectWSSig() {
+  if (_wsSig && (_wsSig.readyState === WebSocket.CONNECTING || _wsSig.readyState === WebSocket.OPEN)) return;
+  clearTimeout(_wsSigReconnectTimer);
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _wsSig = new WebSocket(`${proto}://api.revesbot.com.br/ws/signals`);
+  _wsSig.onmessage = (evt) => {
+    try { const msg = JSON.parse(evt.data); if (msg.type !== 'new_signal') return; } catch { return; }
+    if (_wsFetching) { _wsPendingFetch = true; return; }
+    _wsFetching = true;
+    fetchData(false).finally(() => {
+      _wsFetching = false;
+      if (_wsPendingFetch) { _wsPendingFetch = false; _wsFetching = true; fetchData(false).finally(() => { _wsFetching = false; }); }
+    });
+  };
+  _wsSig.onclose = () => { _wsSigReconnectTimer = setTimeout(connectWSSig, 5000); };
+  _wsSig.onerror = () => { _wsSig.close(); };
+}
+connectWSSig();
+</script>
+</body>
+</html>
