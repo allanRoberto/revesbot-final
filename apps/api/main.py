@@ -107,6 +107,7 @@ from api.routes.terminal_7_signal_signals import router as terminal_7_signal_sig
 from api.routes.trio_ranking_signals import router as trio_ranking_signals_router
 from api.routes.triplet_terminal_signals import router as triplet_terminal_signals_router
 from api.routes.quadruplet_terminal_signals import router as quadruplet_terminal_signals_router
+from api.routes.quintet_terminal_signals import router as quintet_terminal_signals_router
 from api.routes.numeros_fortes_signals import router as numeros_fortes_signals_router
 from api.routes.numeros_fortes_inversao_signals import router as numeros_fortes_inversao_signals_router
 
@@ -232,6 +233,7 @@ app.include_router(terminal_7_signal_signals_router)
 app.include_router(trio_ranking_signals_router)
 app.include_router(triplet_terminal_signals_router)
 app.include_router(quadruplet_terminal_signals_router)
+app.include_router(quintet_terminal_signals_router)
 app.include_router(numeros_fortes_signals_router)
 app.include_router(numeros_fortes_inversao_signals_router)
 
