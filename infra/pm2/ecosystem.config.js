@@ -120,7 +120,7 @@ module.exports = {
       env: {
         DEPLOY_STAGE: stage,
         PYTHONUNBUFFERED: "1",
-        QUAD_TERMINAL_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette,pragmatic-mega-roulette",
+        QUAD_TERMINAL_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette",
         QUAD_TERMINAL_POSITIONS: "3",
         QUAD_TERMINAL_SPINS: "500",
         QUAD_TERMINAL_PRE_WINDOW: "4",
