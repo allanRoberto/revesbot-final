@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sinais — Double Malice T8/T9</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -60,6 +61,7 @@
     .filters select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
     .btn { padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
     .btn:hover { background: var(--accent-strong); }
+    .btn:disabled { opacity: 0.5; cursor: default; }
 
     /* Signal card */
     .signal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
@@ -111,6 +113,36 @@
     .refreshing { opacity: 0.6; pointer-events: none; transition: opacity 0.2s; }
     #refresh-indicator { display: none; font-size: 11px; color: var(--muted); margin-left: 8px; }
     #refresh-indicator.active { display: inline; }
+
+    /* ── SIMULADOR ────────────────────────────────────── */
+    .sim-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .sim-header h3 { margin: 0; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .sim-config { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .sim-config label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .sim-config input, .sim-config select {
+      padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; background: var(--surface); color: var(--text); width: 110px;
+    }
+    .sim-config input:focus, .sim-config select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .sim-config .wide-input { width: 140px; }
+    .sim-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+    .sim-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .sim-stat { background: var(--surface-soft); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+    .sim-stat .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .sim-stat .val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .sim-stat .sub { font-size: 11px; color: var(--muted); }
+    .sim-stat.pos .val { color: var(--green); }
+    .sim-stat.neg .val { color: var(--red); }
+    .sim-stat.neu .val { color: var(--info); }
+
+    .sim-bet-preview { font-size: 11px; color: var(--muted); margin-top: 4px; background: var(--surface-soft); padding: 6px 10px; border-radius: 6px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .sim-bet-preview span { white-space: nowrap; }
+
+    #sim-chart-wrap { position: relative; height: 300px; margin-top: 8px; }
+    #sim-loading { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; display: none; }
+    #sim-empty   { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; display: none; }
+    #sim-results { display: none; }
   </style>
 </head>
 <body>
@@ -122,6 +154,7 @@
     Pós-derrota: <strong>10 rodadas monitoradas</strong>.
   </p>
 
+  <!-- Filtros -->
   <div class="card">
     <div class="filters">
       <label>Mesa
@@ -129,6 +162,30 @@
           <option value="">Todas</option>
           <option value="pragmatic-auto-roulette">Auto Roulette</option>
           <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+          <option value="pragmatic-mega-roulette">Mega Roulette</option>
+          <option value="pragmatic-auto-mega-roulette">Auto Mega Roulette</option>
+          <option value="pragmatic-mega-roulette-brazilian">Mega Roulette Brazilian</option>
+          <option value="pragmatic-speed-roulette-1">Speed Roulette 1</option>
+          <option value="pragmatic-speed-roulette-2">Speed Roulette 2</option>
+          <option value="pragmatic-speed-auto-roulette">Speed Auto Roulette</option>
+          <option value="pragmatic-immersive-roulette-deluxe">Immersive Deluxe</option>
+          <option value="pragmatic-korean-roulette">Korean Roulette</option>
+          <option value="pragmatic-lucky-6-roulette">Lucky Roulette</option>
+          <option value="pragmatic-roulette-macao">Macao Roulette</option>
+          <option value="pragmatic-roulette-1">Roulette 1</option>
+          <option value="pragmatic-roulette-2">Roulette 2</option>
+          <option value="pragmatic-roulete-3">Roulette 3</option>
+          <option value="pragmatic-vip-auto-roulette">VIP Auto Roulette</option>
+          <option value="pragmatic-vip-roulette">VIP Roulette</option>
+          <option value="pragmatic-turkish-mega-roulette">Turkish Mega Roulette</option>
+          <option value="pragmatic-italian-mega-roulette">Italian Mega Roulette</option>
+          <option value="pragmatic-turkish-roulette">Turkish Roulette</option>
+          <option value="pragmatic-romanian-roulette">Romanian Roulette</option>
+          <option value="pragmatic-roulette-italian">Roulette Italian</option>
+          <option value="pragmatic-german-roulette">German Roulette</option>
+          <option value="pragmatic-russian-roulette">Russian Roulette</option>
+          <option value="pragmatic-roulette-italia-tricolore">Italia Tricolore</option>
+          <option value="pragmatic-vietnamese-roulette">Vietnamese Roulette</option>
         </select>
       </label>
       <label>Status
@@ -174,6 +231,78 @@
     </table>
   </div>
 
+  <!-- ── SIMULADOR DE BANCA ─────────────────────────── -->
+  <div class="card">
+    <div class="sim-header">
+      <h3>Simulador de Banca</h3>
+    </div>
+
+    <div class="sim-config">
+      <label>Banca Inicial (R$)
+        <input type="number" id="sim-bankroll" class="wide-input" value="200" min="1" step="1">
+      </label>
+      <label>Mesa (simulação)
+        <select id="sim-roulette" class="wide-input" style="width:160px">
+          <option value="">Todas as mesas</option>
+          <option value="pragmatic-auto-roulette">Auto Roulette</option>
+          <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+          <option value="pragmatic-mega-roulette">Mega Roulette</option>
+          <option value="pragmatic-auto-mega-roulette">Auto Mega Roulette</option>
+          <option value="pragmatic-mega-roulette-brazilian">Mega Roulette Brazilian</option>
+          <option value="pragmatic-speed-roulette-1">Speed Roulette 1</option>
+          <option value="pragmatic-speed-roulette-2">Speed Roulette 2</option>
+          <option value="pragmatic-speed-auto-roulette">Speed Auto Roulette</option>
+          <option value="pragmatic-immersive-roulette-deluxe">Immersive Deluxe</option>
+          <option value="pragmatic-korean-roulette">Korean Roulette</option>
+          <option value="pragmatic-lucky-6-roulette">Lucky Roulette</option>
+          <option value="pragmatic-roulette-macao">Macao Roulette</option>
+          <option value="pragmatic-roulette-1">Roulette 1</option>
+          <option value="pragmatic-roulette-2">Roulette 2</option>
+          <option value="pragmatic-roulete-3">Roulette 3</option>
+          <option value="pragmatic-vip-auto-roulette">VIP Auto Roulette</option>
+          <option value="pragmatic-vip-roulette">VIP Roulette</option>
+          <option value="pragmatic-turkish-mega-roulette">Turkish Mega Roulette</option>
+          <option value="pragmatic-italian-mega-roulette">Italian Mega Roulette</option>
+          <option value="pragmatic-turkish-roulette">Turkish Roulette</option>
+          <option value="pragmatic-romanian-roulette">Romanian Roulette</option>
+          <option value="pragmatic-roulette-italian">Roulette Italian</option>
+          <option value="pragmatic-german-roulette">German Roulette</option>
+          <option value="pragmatic-russian-roulette">Russian Roulette</option>
+          <option value="pragmatic-roulette-italia-tricolore">Italia Tricolore</option>
+          <option value="pragmatic-vietnamese-roulette">Vietnamese Roulette</option>
+        </select>
+      </label>
+      <label>Ficha T1
+        <input type="number" id="sim-c1" value="1" min="0.01" step="0.01">
+      </label>
+      <label>Ficha T2
+        <input type="number" id="sim-c2" value="1.5" min="0.01" step="0.01">
+      </label>
+      <label>Ficha T3
+        <input type="number" id="sim-c3" value="2" min="0.01" step="0.01">
+      </label>
+      <label title="Digite 0 para usar apenas 3 tentativas">Ficha T4 <span style="font-weight:400;font-size:10px">(0 = só 3 tentativas)</span>
+        <input type="number" id="sim-c4" value="3" min="0" step="0.01">
+      </label>
+      <button class="btn" id="sim-btn" onclick="runSimulation()">▶ Simular</button>
+    </div>
+
+    <div class="sim-bet-preview" id="sim-bet-preview" style="margin-top:10px">
+      <span id="sim-preview-text">Configure as fichas e clique em Simular.</span>
+    </div>
+
+    <div id="sim-loading">⏳ Buscando sinais...</div>
+    <div id="sim-empty"></div>
+
+    <div id="sim-results">
+      <hr class="sim-divider">
+      <div class="sim-stats-grid" id="sim-stats-grid"></div>
+      <div id="sim-chart-wrap">
+        <canvas id="sim-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
   <div id="signals-container">
     <div class="loading">Carregando sinais...</div>
   </div>
@@ -190,13 +319,269 @@ let currentSkip = 0;
 let currentLimit = 50;
 let currentTotal = 0;
 let lastData = null;
+let simChartInstance = null;
 
+// ── Helpers ──────────────────────────────────────────
 function fmtTs(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
 }
+function fmtR(v) {
+  return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
+// ── Update bet preview ────────────────────────────────
+function updateBetPreview() {
+  const c1 = parseFloat(document.getElementById('sim-c1').value) || 0;
+  const c2 = parseFloat(document.getElementById('sim-c2').value) || 0;
+  const c3 = parseFloat(document.getElementById('sim-c3').value) || 0;
+  const c4 = parseFloat(document.getElementById('sim-c4').value) || 0;
+  const maxA = c4 > 0 ? 4 : 3;
+  const chips = [c1, c2, c3, ...(c4 > 0 ? [c4] : [])];
+  const totalLoss = chips.reduce((s, c) => s + c, 0) * 7;
+  const parts = chips.map((c, i) => `T${i+1}: ${fmtR(c*7)}`).join(' · ');
+  const text = `${parts} &nbsp;|&nbsp; <strong>Custo máx./sinal: ${fmtR(totalLoss)}</strong> &nbsp;|&nbsp; ${maxA} tentativas`;
+  document.getElementById('sim-preview-text').innerHTML = text;
+}
+['sim-c1','sim-c2','sim-c3','sim-c4'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateBetPreview);
+});
+updateBetPreview();
+
+// ── Simulation ────────────────────────────────────────
+async function runSimulation() {
+  const bankroll = parseFloat(document.getElementById('sim-bankroll').value) || 200;
+  const roulette = document.getElementById('sim-roulette').value;
+  const c1 = parseFloat(document.getElementById('sim-c1').value) || 0;
+  const c2 = parseFloat(document.getElementById('sim-c2').value) || 0;
+  const c3 = parseFloat(document.getElementById('sim-c3').value) || 0;
+  const c4 = parseFloat(document.getElementById('sim-c4').value) || 0;
+  const maxAttempts = c4 > 0 ? 4 : 3;
+  const chips = [c1, c2, c3, ...(c4 > 0 ? [c4] : [])];
+
+  if (c1 <= 0) { alert('Ficha T1 deve ser maior que zero.'); return; }
+
+  const btn = document.getElementById('sim-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Buscando...';
+  document.getElementById('sim-loading').style.display = 'block';
+  document.getElementById('sim-results').style.display = 'none';
+  document.getElementById('sim-empty').style.display = 'none';
+
+  try {
+    // Fetch all resolved signals paginated
+    let allSignals = [];
+    const pageSize = 500;
+    let skip = 0;
+    let total = 1;
+
+    while (skip < total) {
+      let url = `/api/t8t9-signals?limit=${pageSize}&skip=${skip}`;
+      if (roulette) url += `&roulette_id=${encodeURIComponent(roulette)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      total = data.total;
+      allSignals.push(...(data.signals || []));
+      skip += pageSize;
+      if (skip >= 2000) break; // safety cap
+    }
+
+    // Keep only resolved, sort oldest→newest
+    const resolved = allSignals
+      .filter(s => s.status === 'won' || s.status === 'lost')
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+    if (resolved.length === 0) {
+      document.getElementById('sim-empty').style.display = 'block';
+      document.getElementById('sim-empty').textContent = 'Nenhum sinal resolvido encontrado para a seleção.';
+      return;
+    }
+
+    // Run simulation
+    const BET_COUNT = 7;
+    let current = bankroll;
+    const bankrollHistory = [bankroll];
+    const pnlList = [];
+    const pointColors = [];
+    const labels = ['Início'];
+    let wins = 0, losses = 0, totalPnl = 0;
+    let peak = bankroll, maxDrawdown = 0;
+    let peakBankroll = bankroll, worstBankroll = bankroll;
+
+    for (const sig of resolved) {
+      const payout = sig.payout || 36;
+      const wonAt = sig.won_at_attempt || 0;
+      let pnl;
+
+      if (sig.status === 'won' && wonAt >= 1 && wonAt <= maxAttempts) {
+        const revenue = payout * chips[wonAt - 1];
+        const cost = chips.slice(0, wonAt).reduce((s, c) => s + c, 0) * BET_COUNT;
+        pnl = revenue - cost;
+        wins++;
+        pointColors.push('rgba(46, 139, 87, 0.9)');
+      } else {
+        // lost, or won at attempt > maxAttempts (we stopped earlier)
+        pnl = -chips.reduce((s, c) => s + c, 0) * BET_COUNT;
+        losses++;
+        pointColors.push('rgba(192, 57, 43, 0.9)');
+      }
+
+      current += pnl;
+      totalPnl += pnl;
+      bankrollHistory.push(current);
+      pnlList.push(pnl);
+
+      if (current > peak) peak = current;
+      const dd = peak - current;
+      if (dd > maxDrawdown) maxDrawdown = dd;
+      if (current > peakBankroll) peakBankroll = current;
+      if (current < worstBankroll) worstBankroll = current;
+
+      const rId = sig.roulette_id.replace('pragmatic-', '').replace(/-/g, ' ');
+      labels.push(`#${bankrollHistory.length - 1} ${rId}`);
+    }
+
+    const simResolved = wins + losses;
+    const assertPct = simResolved > 0 ? (wins / simResolved * 100).toFixed(1) : 0;
+    const roi = ((totalPnl / bankroll) * 100).toFixed(1);
+
+    renderSimStats(bankroll, current, totalPnl, wins, losses, assertPct, maxDrawdown, peakBankroll, worstBankroll, roi, simResolved);
+    renderSimChart(bankrollHistory, pointColors, labels, bankroll, pnlList, resolved, chips, maxAttempts);
+
+    document.getElementById('sim-results').style.display = 'block';
+  } catch(e) {
+    document.getElementById('sim-empty').style.display = 'block';
+    document.getElementById('sim-empty').textContent = 'Erro na simulação: ' + e.message;
+  } finally {
+    document.getElementById('sim-loading').style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = '▶ Simular';
+  }
+}
+
+function renderSimStats(bankroll, final, totalPnl, wins, losses, assertPct, maxDrawdown, peakBankroll, worstBankroll, roi, simResolved) {
+  const isPos = totalPnl >= 0;
+  document.getElementById('sim-stats-grid').innerHTML = `
+    <div class="sim-stat ${isPos ? 'pos' : 'neg'}">
+      <span class="lbl">P&L Total</span>
+      <span class="val">${isPos ? '+' : ''}${fmtR(totalPnl)}</span>
+      <span class="sub">ROI: ${roi}%</span>
+    </div>
+    <div class="sim-stat ${final >= bankroll ? 'pos' : 'neg'}">
+      <span class="lbl">Banca Final</span>
+      <span class="val">${fmtR(final)}</span>
+      <span class="sub">Inicial: ${fmtR(bankroll)}</span>
+    </div>
+    <div class="sim-stat ${parseFloat(assertPct) >= 60 ? 'pos' : 'neu'}">
+      <span class="lbl">Assertividade Sim.</span>
+      <span class="val">${assertPct}%</span>
+      <span class="sub">${wins}G · ${losses}P de ${simResolved}</span>
+    </div>
+    <div class="sim-stat neg">
+      <span class="lbl">Max. Drawdown</span>
+      <span class="val">${fmtR(maxDrawdown)}</span>
+      <span class="sub">${bankroll > 0 ? ((maxDrawdown/bankroll)*100).toFixed(1) : 0}% da banca</span>
+    </div>
+    <div class="sim-stat pos">
+      <span class="lbl">Banca Máx.</span>
+      <span class="val">${fmtR(peakBankroll)}</span>
+    </div>
+    <div class="sim-stat ${worstBankroll < 0 ? 'neg' : 'neu'}">
+      <span class="lbl">Banca Mín.</span>
+      <span class="val">${fmtR(worstBankroll)}</span>
+    </div>`;
+}
+
+function renderSimChart(bankrollHistory, pointColors, labels, bankroll, pnlList, resolved, chips, maxAttempts) {
+  if (simChartInstance) { simChartInstance.destroy(); simChartInstance = null; }
+
+  const ctx = document.getElementById('sim-chart').getContext('2d');
+  const BET_COUNT = 7;
+
+  simChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Banca',
+          data: bankrollHistory,
+          borderColor: 'rgb(23, 122, 91)',
+          backgroundColor: 'rgba(23, 122, 91, 0.08)',
+          fill: true,
+          tension: 0.15,
+          pointBackgroundColor: ['rgba(100,100,100,0.5)', ...pointColors],
+          pointRadius: bankrollHistory.length > 150 ? 2 : 4,
+          pointHoverRadius: 6,
+          borderWidth: 2,
+        },
+        {
+          label: 'Banca Inicial',
+          data: Array(bankrollHistory.length).fill(bankroll),
+          borderColor: 'rgba(99,112,107,0.4)',
+          borderDash: [5, 4],
+          borderWidth: 1,
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => ctx[0].dataIndex === 0 ? 'Início' : `Sinal #${ctx[0].dataIndex}`,
+            label: ctx => {
+              if (ctx.dataset.label === 'Banca Inicial') return null;
+              const idx = ctx.dataIndex;
+              if (idx === 0) return `Banca inicial: ${fmtR(bankroll)}`;
+              const pnl = pnlList[idx - 1];
+              const sig = resolved[idx - 1];
+              const rId = sig.roulette_id.replace('pragmatic-','').replace(/-/g,' ');
+              const wonAt = sig.won_at_attempt;
+              const statusTxt = sig.status === 'won' && wonAt <= maxAttempts
+                ? `✅ Ganhou T${wonAt}`
+                : `❌ Perdeu`;
+              return [
+                `Banca: ${fmtR(ctx.raw)}`,
+                `${statusTxt} · ${pnl >= 0 ? '+' : ''}${fmtR(pnl)}`,
+                rId.toUpperCase()
+              ];
+            },
+            filter: item => item.dataset.label !== 'Banca Inicial' || item.dataIndex === 0,
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: true,
+          ticks: {
+            maxTicksLimit: 12,
+            maxRotation: 0,
+            font: { size: 10 },
+            callback: (val, idx) => idx === 0 ? 'Início' : `#${idx}`
+          },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: false,
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: {
+            font: { size: 11 },
+            callback: v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0})
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Main data fetch ───────────────────────────────────
 function renderStats(data) {
   const { total, won, lost, monitoring, resolved, assertiveness_pct, avg_attempts_to_win, win_distribution, inversion } = data;
   const invRate = inversion?.pay_rate ?? 0;
@@ -258,49 +643,40 @@ function renderSignals(signals) {
     const strongLabel = sig.has_strong_cluster ? 'Forte' : 'Fraco';
     const strongKey   = sig.has_strong_cluster ? 'forte' : 'fraco';
 
-    // Trigger chip
     const triggerHtml = `<span class="num-chip trigger">T${sig.trigger_terminal} · ${sig.trigger_val}</span>`;
 
-    // Last 10 history (last_10 está em raw[1..10] = antes do gatilho, mais recente primeiro)
     const last10Html = (sig.last_10 || []).map(n => {
       const isT89 = n % 10 === 8 || n % 10 === 9;
       return `<span class="num-chip ${isT89 ? 't89' : ''}">${n}</span>`;
     }).join('') || '—';
 
-    // Bet chips with inversion highlight
     const preSet = new Set(sig.pre_window || []);
     const betHtml = (sig.bet || []).map(n => {
       const cls = preSet.has(n) ? 'num-chip inversion' : 'num-chip t89';
       return `<span class="${cls}">${n}</span>`;
     }).join('');
 
-    // Multipliers info
     const mults = sig.multipliers || [1, 1.5, 2, 3];
     const multStr = mults.map((m,i) => `A${i+1}:×${m}`).join(' ');
 
-    // Pre window
     const preHtml = (sig.pre_window || []).map(n => {
       const inBet = (sig.bet||[]).includes(n);
       return `<span class="num-chip${inBet ? ' inversion' : ''}">${n}</span>`;
     }).join('') || '—';
 
-    // Attempts
     const attHtml = (sig.attempts || []).map(a => {
       const cls = a.hit ? 'attempt-chip hit' : 'attempt-chip miss';
       const mult = a.multiplier && a.multiplier !== 1 ? ` <span style="font-size:10px;opacity:0.8">×${a.multiplier}</span>` : '';
       return `<span class="${cls}">#${a.attempt}${mult} → ${a.value} ${a.hit ? '✓' : '✗'}</span>`;
     }).join('') || '<span style="color:var(--muted);font-size:11px">Aguardando</span>';
 
-    // P&L
     const pnlHtml = sig.pnl != null
       ? `<span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${sig.pnl >= 0 ? '#dcfce7' : '#fee2e2'};border:1px solid ${sig.pnl >= 0 ? '#86efac' : '#fca5a5'};color:${sig.pnl >= 0 ? '#166534' : '#991b1b'}">${sig.pnl >= 0 ? '+' : ''}${sig.pnl} fichas</span>`
       : '';
 
-    // Post attempts (10 rodadas)
     let postHtml = '';
     if (sig.status === 'lost' && sig.post_attempts && sig.post_attempts.length > 0) {
       const postChips = sig.post_attempts.map(p => {
-        const inBet = (sig.bet||[]).includes(p.value);
         return `<span class="attempt-chip ${p.hit ? 'hit' : ''}">${p.spin}:${p.value}${p.hit ? ' ✓' : ''}</span>`;
       }).join('');
       const hitPost = sig.post_attempts.find(p => p.hit);
@@ -404,15 +780,14 @@ function nextPage() {
 
 fetchData(true);
 
+// ── WebSocket ──────────────────────────────────────────
 let _ws = null, _wsReconnectTimer = null, _wsFetching = false, _wsPendingFetch = false;
 function connectWS() {
   if (_ws && (_ws.readyState === WebSocket.CONNECTING || _ws.readyState === WebSocket.OPEN)) return;
   clearTimeout(_wsReconnectTimer);
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  _ws = new WebSocket(`${proto}://api.revesbot.com.br/ws`);
-  const WATCHED = new Set(['pragmatic-auto-roulette', 'pragmatic-brazilian-roulette']);
-  _ws.onmessage = (evt) => {
-    try { const msg = JSON.parse(evt.data); if (!WATCHED.has(msg.slug)) return; } catch { return; }
+  _ws = new WebSocket(`${proto}://${location.host}/ws`);
+  _ws.onmessage = () => {
     if (_wsFetching) { _wsPendingFetch = true; return; }
     _wsFetching = true;
     fetchData(false).finally(() => {
@@ -430,7 +805,7 @@ function connectWSSig() {
   if (_wsSig && (_wsSig.readyState === WebSocket.CONNECTING || _wsSig.readyState === WebSocket.OPEN)) return;
   clearTimeout(_wsSigReconnectTimer);
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  _wsSig = new WebSocket(`${proto}://api.revesbot.com.br/ws/signals`);
+  _wsSig = new WebSocket(`${proto}://${location.host}/ws/signals`);
   _wsSig.onmessage = (evt) => {
     try { const msg = JSON.parse(evt.data); if (msg.type !== 'new_signal') return; } catch { return; }
     if (_wsFetching) { _wsPendingFetch = true; return; }
