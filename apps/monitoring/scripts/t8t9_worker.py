@@ -48,9 +48,11 @@ MIN_PROFIT       = float(os.getenv("T8T9_MIN_PROFIT",  "1.0"))
 
 # Payout por slug (mega = 30, demais = 36)
 PAYOUT_MAP = {
-    "pragmatic-mega-roulette":          30,
-    "pragmatic-mega-roulette-brazilian": 30,
-    "pragmatic-auto-mega-roulette":     30,
+    "pragmatic-mega-roulette":            30,
+    "pragmatic-mega-roulette-brazilian":  30,
+    "pragmatic-auto-mega-roulette":       30,
+    "pragmatic-turkish-mega-roulette":    30,
+    "pragmatic-italian-mega-roulette":    30,
 }
 
 # Aposta fixa: terminais 8 e 9 + zero

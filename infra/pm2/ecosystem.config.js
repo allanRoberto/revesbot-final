@@ -195,7 +195,7 @@ module.exports = {
       env: {
         DEPLOY_STAGE: stage,
         PYTHONUNBUFFERED: "1",
-        T8T9_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette",
+        T8T9_ROULETTE_IDS: "pragmatic-mega-roulette,pragmatic-brazilian-roulette,pragmatic-auto-roulette,pragmatic-auto-mega-roulette,pragmatic-speed-roulette-1,pragmatic-mega-roulette-brazilian,pragmatic-speed-auto-roulette,pragmatic-immersive-roulette-deluxe,pragmatic-korean-roulette,pragmatic-lucky-6-roulette,pragmatic-roulette-macao,pragmatic-roulette-1,pragmatic-roulette-2,pragmatic-roulete-3,pragmatic-vip-auto-roulette,pragmatic-vip-roulette,pragmatic-turkish-mega-roulette,pragmatic-italian-mega-roulette,pragmatic-turkish-roulette,pragmatic-speed-roulette-2,pragmatic-romanian-roulette,pragmatic-roulette-italian,pragmatic-german-roulette,pragmatic-russian-roulette,pragmatic-roulette-italia-tricolore,pragmatic-vietnamese-roulette",
         T8T9_SPINS: "500",
         T8T9_PRE_WINDOW: "10",
         T8T9_MAX_ATTEMPTS: "4",
