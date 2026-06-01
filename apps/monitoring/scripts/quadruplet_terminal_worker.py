@@ -183,16 +183,16 @@ def get_recent_spins(rid: str, n: int) -> List[Dict[str, Any]]:
 
 
 def query_quadruplet_ranking(prev1: int, a: int, b: int, c: int) -> Tuple[int, List[int]]:
-    """Query history_triplets for quadruplet (prev_1, a, b, c) and return (total_occurrences, top3_numbers).
-    Uses prev_1 + a + b + c as 4-number key, returning the top-3 most frequent next numbers."""
-    match = {"prev_1": prev1, "a": a, "b": b, "c": c}
+    """Query history_triplets for quadruplet [prev1, a, b, c].
+    Usa o schema existente: a=prev1, b=a, c=b, next1=c — prediz sobre next2 e next3."""
+    match = {"a": prev1, "b": a, "c": b, "next1": c}
     total = triplets_coll.count_documents(match)
     if total < MIN_OCCURRENCES:
         return total, []
 
     rows = list(triplets_coll.aggregate([
         {"$match": match},
-        {"$project": {"nums": ["$next1", "$next2", "$next3"]}},
+        {"$project": {"nums": ["$next2", "$next3"]}},
         {"$unwind": "$nums"},
         {"$match": {"nums": {"$ne": None, "$gte": 0, "$lte": 36}}},
         {"$group": {"_id": "$nums", "count": {"$sum": 1}}},

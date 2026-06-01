@@ -183,19 +183,17 @@ def get_recent_spins(rid: str, n: int) -> List[Dict[str, Any]]:
 
 
 def query_quintet_ranking(prev2: int, prev1: int, a: int, b: int, c: int) -> Tuple[int, List[int]]:
-    """Query history_triplets for quintet (prev_2, prev_1, a, b, c) and return (total_occurrences, top3_numbers).
-    Uses 5-number key, returning the top-3 most frequent next numbers."""
-    match = {"prev_2": prev2, "prev_1": prev1, "a": a, "b": b, "c": c}
+    """Query history_triplets para quintet [prev2, prev1, a, b, c].
+    Usa o schema existente: a=prev2, b=prev1, c=a, next1=b, next2=c — prediz sobre next3."""
+    match = {"a": prev2, "b": prev1, "c": a, "next1": b, "next2": c}
     total = triplets_coll.count_documents(match)
     if total < MIN_OCCURRENCES:
         return total, []
 
     rows = list(triplets_coll.aggregate([
         {"$match": match},
-        {"$project": {"nums": ["$next1", "$next2", "$next3"]}},
-        {"$unwind": "$nums"},
-        {"$match": {"nums": {"$ne": None, "$gte": 0, "$lte": 36}}},
-        {"$group": {"_id": "$nums", "count": {"$sum": 1}}},
+        {"$group": {"_id": "$next3", "count": {"$sum": 1}}},
+        {"$match": {"_id": {"$ne": None, "$gte": 0, "$lte": 36}}},
         {"$sort": {"count": -1, "_id": 1}},
     ]))
     top3 = [int(r["_id"]) for r in rows[:3]]
