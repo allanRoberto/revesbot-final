@@ -298,7 +298,7 @@ module.exports = {
         PYTHONUNBUFFERED: "1",
         ENSEMBLE_ROULETTE_IDS: "pragmatic-auto-roulette,pragmatic-brazilian-roulette",
         ENSEMBLE_SPINS: "500",
-        ENSEMBLE_TOP_N: "6",
+        ENSEMBLE_TOP_N: "14",
         ENSEMBLE_MAX_ATTEMPTS: "4",
         ENSEMBLE_MIN_SOURCES: "3",
         ENSEMBLE_POLL_SECONDS: "2",
