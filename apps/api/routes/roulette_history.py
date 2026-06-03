@@ -185,18 +185,22 @@ async def get_history(slug: str, request: Request, limit: int = 2000):
         max_limit = 50000
         limit = min(limit, max_limit)
 
+        accept = request.headers.get("accept", "")
+
+        # Para renderização HTML usa no máximo 150 registros para não travar o browser
+        html_limit = min(limit, 150) if "text/html" in accept else limit
+
         cursor = (
             history_coll
             .find({"roulette_id": slug})
             .sort("timestamp", -1)
-            .limit(limit)
+            .limit(html_limit)
         )
 
-        docs = await cursor.to_list(length=limit)
+        docs = await cursor.to_list(length=html_limit)
         numbers = [doc["value"] for doc in docs]
         history_entries = [_serialize_history_item(dict(doc)) for doc in docs]
 
-        accept = request.headers.get("accept", "")
         if "text/html" in accept:
             roulette = next((r for r in roulettes if r.get("slug") == slug), {"name": slug})
             from fastapi.templating import Jinja2Templates
