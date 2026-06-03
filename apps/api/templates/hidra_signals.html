@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — HIDRA (4 subs seguras)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --warn: #b8860b;
+      --info: #2563eb;
+      --red: #c0392b;
+      --green: #2e8b57;
+      --gold: #b5860b;
+      --purple: #6b21a8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1240px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px 0; font-size: 14px; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .stat { background: var(--surface-soft); padding: 12px 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 24px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub { font-size: 11px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); }
+    .stat.warn   .value { color: var(--warn); }
+    .stat.info   .value { color: var(--info); }
+
+    /* Breakdown table */
+    .strength-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .strength-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .strength-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .strength-table tr:last-child td { border-bottom: none; }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+    .badge-cor       { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-parimpar  { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+    .badge-colunas   { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+    .badge-duzias    { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+
+    /* Status badges */
+    .badge-won        { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-lost       { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-monitoring { background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; }
+
+    /* Filters */
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+    .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .filters select, .filters input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
+    .btn { padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: var(--accent-strong); }
+
+    /* Signal card */
+    .signal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    .signal-card.won  { border-left: 4px solid var(--green); }
+    .signal-card.lost { border-left: 4px solid var(--red); }
+    .signal-card.monitoring { border-left: 4px solid var(--info); }
+    .signal-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .signal-roulette { font-size: 13px; font-weight: 700; color: var(--accent-strong); }
+    .signal-ts { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+    .signal-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 12px; }
+    .signal-field { display: flex; flex-direction: column; gap: 2px; }
+    .signal-field .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .signal-field .val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* Side chips */
+    .nums { display: flex; flex-wrap: wrap; gap: 4px; }
+    .side-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 26px; padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 700; background: var(--surface-soft); border: 1px solid var(--border); }
+    .side-chip.dominant { outline: 2px solid var(--warn); }
+    .side-chip.bet { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .side-vermelho { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+    .side-preto    { background: #e5e7eb; border-color: #9ca3af; color: #111827; }
+
+    /* Attempts row */
+    .attempts-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+    .attempt-chip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 5px; font-size: 11px; border: 1px solid var(--border); background: var(--surface-soft); }
+    .attempt-chip.hit  { background: #dcfce7; border-color: #86efac; color: #166534; font-weight: 700; }
+    .attempt-chip.miss { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+    /* Pagination */
+    .pagination { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; }
+    .pagination button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+    .pagination button:disabled { opacity: 0.4; cursor: default; }
+    .pagination .page-info { color: var(--muted); }
+
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .empty   { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .refreshing { opacity: 0.6; pointer-events: none; transition: opacity 0.2s; }
+    #refresh-indicator { display: none; font-size: 11px; color: var(--muted); margin-left: 8px; }
+    #refresh-indicator.active { display: inline; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>HIDRA — 4 subs seguras</h1>
+  <p class="subtitle">Estratégia contrária: quando um lado domina a janela, aposta no lado oposto (reversão) com gale. WIN = +R$2 fixo · LOSS = soma das apostas do ciclo × cobertura.</p>
+
+  <!-- Filters -->
+  <div class="card">
+    <div class="filters">
+      <label>Mesa
+        <select id="sel-roulette">
+          <option value="">Todas</option>
+          <option value="pragmatic-auto-roulette">Auto Roulette</option>
+          <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+        </select>
+      </label>
+      <label>Estratégia
+        <select id="sel-strategy">
+          <option value="all">Todas</option>
+          <option value="cor">Cor</option>
+          <option value="parimpar">Par/Ímpar</option>
+          <option value="colunas">Colunas</option>
+          <option value="duzias">Dúzias</option>
+        </select>
+      </label>
+      <label>Status
+        <select id="sel-status">
+          <option value="all">Todos</option>
+          <option value="won">Ganhou</option>
+          <option value="lost">Perdeu</option>
+          <option value="monitoring">Monitorando</option>
+        </select>
+      </label>
+      <label>Limite
+        <select id="sel-limit">
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </label>
+      <button class="btn" onclick="fetchData(true)">Atualizar</button>
+      <span id="refresh-indicator">↻ atualizando...</span>
+    </div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="card" id="stats-card">
+    <div class="loading">Carregando...</div>
+  </div>
+
+  <!-- Strategy breakdown -->
+  <div class="card" id="strategy-card" style="display:none">
+    <h3 style="margin:0 0 12px 0;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Breakdown por Estratégia</h3>
+    <table class="strength-table" id="strategy-table">
+      <thead>
+        <tr>
+          <th>Estratégia</th>
+          <th>Total</th>
+          <th>Ganhou</th>
+          <th>Perdeu</th>
+          <th>Monitor</th>
+          <th>Assertividade</th>
+          <th>NET (R$)</th>
+        </tr>
+      </thead>
+      <tbody id="strategy-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Signal list -->
+  <div id="signals-container">
+    <div class="loading">Carregando sinais...</div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination" style="display:none">
+    <button id="btn-prev" onclick="prevPage()">← Anterior</button>
+    <span class="page-info" id="page-info"></span>
+    <button id="btn-next" onclick="nextPage()">Próxima →</button>
+  </div>
+</div>
+
+<script>
+let currentSkip = 0;
+let currentLimit = 50;
+let currentTotal = 0;
+let lastData = null;
+
+const STRAT_ORDER = ['cor', 'parimpar', 'colunas', 'duzias'];
+const STRAT_LABEL = { cor: 'Cor', parimpar: 'Par/Ímpar', colunas: 'Colunas', duzias: 'Dúzias' };
+
+function fmtTs(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// Mapeia um "lado" para rótulo curto e classe de cor
+function sideMeta(side) {
+  const M = {
+    vermelho: { short: 'V',  label: 'Vermelho', cls: 'side-vermelho' },
+    preto:    { short: 'P',  label: 'Preto',    cls: 'side-preto' },
+    par:      { short: 'Par',  label: 'Par',    cls: '' },
+    impar:    { short: 'Ímpar', label: 'Ímpar', cls: '' },
+    col1:     { short: 'C1', label: 'Coluna 1', cls: '' },
+    col2:     { short: 'C2', label: 'Coluna 2', cls: '' },
+    col3:     { short: 'C3', label: 'Coluna 3', cls: '' },
+    dz1:      { short: 'D1', label: 'Dúzia 1',  cls: '' },
+    dz2:      { short: 'D2', label: 'Dúzia 2',  cls: '' },
+    dz3:      { short: 'D3', label: 'Dúzia 3',  cls: '' },
+  };
+  return M[side] || { short: side, label: side, cls: '' };
+}
+
+function sideChip(side, extra) {
+  const m = sideMeta(side);
+  return `<span class="side-chip ${m.cls} ${extra || ''}" title="${m.label}">${m.short}</span>`;
+}
+
+function renderStats(data) {
+  const { total, won, lost, monitoring, resolved, assertiveness_pct, net, avg_attempts_to_win, win_distribution } = data;
+  const dist = win_distribution || {};
+  const distStr = Object.keys(dist).sort((a,b)=>a-b).map(k => `g${k}:${dist[k]}`).join(' ') || '—';
+  const netColor = (net >= 0) ? 'var(--green)' : 'var(--danger)';
+  document.getElementById('stats-card').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">Total</span><span class="value">${total}</span></div>
+      <div class="stat"><span class="label">Ganhou</span><span class="value" style="color:var(--green)">${won}</span></div>
+      <div class="stat danger"><span class="label">Perdeu</span><span class="value">${lost}</span></div>
+      <div class="stat info"><span class="label">Monitorando</span><span class="value">${monitoring}</span></div>
+      <div class="stat ${assertiveness_pct >= 60 ? '' : 'warn'}">
+        <span class="label">Assertividade</span>
+        <span class="value">${assertiveness_pct}%</span>
+        <span class="sub">${resolved} resolvidos</span>
+      </div>
+      <div class="stat">
+        <span class="label">NET</span>
+        <span class="value" style="color:${netColor}">R$ ${net}</span>
+        <span class="sub">+R$2/win · −risco/loss</span>
+      </div>
+      <div class="stat">
+        <span class="label">Média gales</span>
+        <span class="value">${avg_attempts_to_win || '—'}</span>
+        <span class="sub">${distStr}</span>
+      </div>
+    </div>`;
+}
+
+function renderStrategyBreakdown(breakdown) {
+  if (!breakdown) return;
+  const card = document.getElementById('strategy-card');
+  card.style.display = '';
+  const tbody = document.getElementById('strategy-tbody');
+  const rows = STRAT_ORDER.map(s => {
+    const d = breakdown[s] || {};
+    const tot = d.total || 0;
+    if (tot === 0) return '';
+    const pct = d.assertiveness ?? 0;
+    const net = d.net ?? 0;
+    return `<tr>
+      <td><span class="badge badge-${s}">${STRAT_LABEL[s]}</span></td>
+      <td>${tot}</td>
+      <td style="color:var(--green);font-weight:600">${d.won||0}</td>
+      <td style="color:var(--red)">${d.lost||0}</td>
+      <td style="color:var(--info)">${d.monitoring||0}</td>
+      <td style="font-weight:700;color:${pct>=60?'var(--green)':'var(--warn)'}">${pct}%</td>
+      <td style="font-weight:700;color:${net>=0?'var(--green)':'var(--danger)'}">${net}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rows || '<tr><td colspan="7" style="color:var(--muted);text-align:center">Sem dados</td></tr>';
+}
+
+function renderSignals(signals) {
+  if (!signals.length) {
+    document.getElementById('signals-container').innerHTML = '<div class="empty">Nenhum sinal encontrado.</div>';
+    return;
+  }
+  const html = signals.map(sig => {
+    const ts = fmtTs(sig.X_timestamp || sig.created_at);
+    const rid = sig.roulette_id.replace('pragmatic-', '').replace(/-/g, ' ');
+    const betSet = new Set(sig.bet_sides || []);
+
+    // Janela (evidência): dominante destacado
+    const winHtml = (sig.window_snapshot || []).map(s => {
+      const extra = (s === sig.dominant_side) ? 'dominant' : '';
+      return sideChip(s, extra);
+    }).join('') || '—';
+
+    // Aposta (lados contrários ao dominante)
+    const betHtml = (sig.bet_sides || []).map(s => sideChip(s, 'bet')).join('') || '—';
+
+    // Gale ladder
+    const betsStr = (sig.bets || []).join(' → ');
+
+    // Tentativas (gales)
+    const attHtml = (sig.attempts || []).map(a => {
+      const cls = a.hit ? 'attempt-chip hit' : 'attempt-chip miss';
+      const m = sideMeta(a.side);
+      return `<span class="${cls}" title="aposta R$${a.bet_amount}">g${a.attempt} → ${a.value} (${m.short}) ${a.hit ? '✓' : '✗'}</span>`;
+    }).join('') || '<span style="color:var(--muted);font-size:11px">Aguardando próximo giro</span>';
+
+    // P&L badge
+    const pnlHtml = sig.pnl != null
+      ? `<span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${sig.pnl >= 0 ? '#dcfce7' : '#fee2e2'};border:1px solid ${sig.pnl >= 0 ? '#86efac' : '#fca5a5'};color:${sig.pnl >= 0 ? '#166534' : '#991b1b'}">${sig.pnl >= 0 ? '+' : ''}R$${sig.pnl}</span>`
+      : '';
+
+    const wonAt = sig.won_at_attempt ? ` — ganhou no gale ${sig.won_at_attempt}` : '';
+    const domMeta = sideMeta(sig.dominant_side);
+
+    return `<div class="signal-card ${sig.status}">
+      <div class="signal-header">
+        <span class="signal-roulette">${rid.toUpperCase()}</span>
+        <span class="badge badge-${sig.strategy}">${sig.strategy_name || STRAT_LABEL[sig.strategy] || sig.strategy}</span>
+        <span class="badge badge-${sig.status}">${{won:'Ganhou',lost:'Perdeu',monitoring:'Monitor'}[sig.status]||sig.status}${wonAt}</span>
+        ${pnlHtml}
+        <span class="signal-ts">${ts}</span>
+      </div>
+      <div class="signal-body">
+        <div class="signal-field" style="grid-column:1/-1">
+          <span class="lbl">Janela (${sig.window_size} giros) — dominante destacado</span>
+          <div class="nums">${winHtml}</div>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Dominante</span>
+          <div class="val">${domMeta.label} <strong>${sig.dominant_count}/${sig.window_size}</strong> (≥${sig.threshold})</div>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Aposta contra (cobertura ×${sig.coverage})</span>
+          <div class="nums">${betHtml}</div>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Gale / Risco</span>
+          <div class="val">até ${sig.max_attempts} gales — risco R$${sig.risk}</div>
+          <div style="font-size:11px;color:var(--muted)">R$ ${betsStr}</div>
+        </div>
+      </div>
+      <div class="attempts-row" style="margin-top:10px">${attHtml}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('signals-container').innerHTML = html;
+}
+
+function renderPagination() {
+  const pg = document.getElementById('pagination');
+  pg.style.display = 'flex';
+  const from = currentSkip + 1;
+  const to = Math.min(currentSkip + currentLimit, currentTotal);
+  document.getElementById('page-info').textContent = `${from}–${to} de ${currentTotal}`;
+  document.getElementById('btn-prev').disabled = currentSkip === 0;
+  document.getElementById('btn-next').disabled = currentSkip + currentLimit >= currentTotal;
+}
+
+async function fetchData(resetPage) {
+  if (resetPage) currentSkip = 0;
+  currentLimit = parseInt(document.getElementById('sel-limit').value) || 50;
+  const roulette = document.getElementById('sel-roulette').value;
+  const strategy = document.getElementById('sel-strategy').value;
+  const status   = document.getElementById('sel-status').value;
+
+  const isFirstLoad = !lastData;
+  const indicator = document.getElementById('refresh-indicator');
+  const container = document.getElementById('signals-container');
+
+  if (isFirstLoad) {
+    container.innerHTML = '<div class="loading">Carregando...</div>';
+  } else {
+    container.classList.add('refreshing');
+    indicator.classList.add('active');
+  }
+
+  let url = `/api/hidra-signals?limit=${currentLimit}&skip=${currentSkip}`;
+  if (roulette) url += `&roulette_id=${encodeURIComponent(roulette)}`;
+  if (strategy && strategy !== 'all') url += `&strategy=${encodeURIComponent(strategy)}`;
+  if (status && status !== 'all') url += `&status=${encodeURIComponent(status)}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    lastData = data;
+    currentTotal = data.total;
+    renderStats(data);
+    renderStrategyBreakdown(data.strategy_breakdown);
+    renderSignals(data.signals || []);
+    renderPagination();
+  } catch(e) {
+    if (isFirstLoad) {
+      container.innerHTML = `<div class="empty">Erro ao carregar: ${e.message}</div>`;
+    }
+  } finally {
+    container.classList.remove('refreshing');
+    indicator.classList.remove('active');
+  }
+}
+
+function prevPage() {
+  if (currentSkip >= currentLimit) {
+    currentSkip -= currentLimit;
+    fetchData(false);
+  }
+}
+function nextPage() {
+  if (currentSkip + currentLimit < currentTotal) {
+    currentSkip += currentLimit;
+    fetchData(false);
+  }
+}
+
+fetchData(true);
+
+// WebSocket: atualiza quando sai um número, sem polling
+let _ws = null;
+let _wsReconnectTimer = null;
+let _wsFetching = false;
+let _wsPendingFetch = false;
+
+function connectWS() {
+  if (_ws && (_ws.readyState === WebSocket.CONNECTING || _ws.readyState === WebSocket.OPEN)) return;
+  clearTimeout(_wsReconnectTimer);
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _ws = new WebSocket(`${proto}://api.revesbot.com.br/ws`);
+
+  const WATCHED_ROULETTES = new Set(['pragmatic-auto-roulette', 'pragmatic-brazilian-roulette']);
+
+  _ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (!WATCHED_ROULETTES.has(msg.slug)) return;
+    } catch { return; }
+
+    if (_wsFetching) {
+      _wsPendingFetch = true;
+      return;
+    }
+    _wsFetching = true;
+    fetchData(false).finally(() => {
+      _wsFetching = false;
+      if (_wsPendingFetch) {
+        _wsPendingFetch = false;
+        _wsFetching = true;
+        fetchData(false).finally(() => { _wsFetching = false; });
+      }
+    });
+  };
+
+  _ws.onclose = () => {
+    _wsReconnectTimer = setTimeout(connectWS, 5000);
+  };
+
+  _ws.onerror = () => {
+    _ws.close();
+  };
+}
+
+connectWS();
+
+// WebSocket de sinais: atualiza imediatamente quando um novo sinal é gerado
+let _wsSig = null;
+let _wsSigReconnectTimer = null;
+
+function connectWSSig() {
+  if (_wsSig && (_wsSig.readyState === WebSocket.CONNECTING || _wsSig.readyState === WebSocket.OPEN)) return;
+  clearTimeout(_wsSigReconnectTimer);
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _wsSig = new WebSocket(`${proto}://api.revesbot.com.br/ws/signals`);
+
+  _wsSig.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type !== 'new_signal') return;
+    } catch { return; }
+
+    if (_wsFetching) { _wsPendingFetch = true; return; }
+    _wsFetching = true;
+    fetchData(false).finally(() => {
+      _wsFetching = false;
+      if (_wsPendingFetch) {
+        _wsPendingFetch = false;
+        _wsFetching = true;
+        fetchData(false).finally(() => { _wsFetching = false; });
+      }
+    });
+  };
+
+  _wsSig.onclose = () => { _wsSigReconnectTimer = setTimeout(connectWSSig, 5000); };
+  _wsSig.onerror = () => { _wsSig.close(); };
+}
+
+connectWSSig();
+</script>
+</body>
+</html>

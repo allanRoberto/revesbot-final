@@ -112,6 +112,7 @@ from api.routes.quintet_shuffled_signals import router as quintet_shuffled_signa
 from api.routes.t8t9_signals import router as t8t9_signals_router
 from api.routes.numeros_fortes_signals import router as numeros_fortes_signals_router
 from api.routes.numeros_fortes_inversao_signals import router as numeros_fortes_inversao_signals_router
+from api.routes.hidra_signals import router as hidra_signals_router
 
 
 
@@ -240,6 +241,7 @@ app.include_router(quintet_shuffled_signals_router)
 app.include_router(t8t9_signals_router)
 app.include_router(numeros_fortes_signals_router)
 app.include_router(numeros_fortes_inversao_signals_router)
+app.include_router(hidra_signals_router)
 
 
 
