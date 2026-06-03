@@ -56,6 +56,28 @@ POST_ROUNDS      = int(os.getenv("NUMEROS_FORTES_POST_ROUNDS", "10"))
 # Inversão: nº da aposta que apareceu ANTES do gatilho — quantos números anteriores observar
 INVERSION_WINDOW = int(os.getenv("NUMEROS_FORTES_INVERSION_WINDOW", "5"))
 
+# ── Gate de qualidade: filtros de entrada + porteiro de regime ───────────────
+# Desligado por padrão (env ausente == comportamento original). Liga-se via env.
+#   GATE_MODE = "flag"  -> sempre cria o sinal, só anota o bloco `quality`
+#   GATE_MODE = "block" -> NÃO cria o sinal quando reprova nos filtros
+GATE_ENABLED   = os.getenv("NUMEROS_FORTES_GATE_ENABLED", "0") == "1"
+GATE_MODE      = (os.getenv("NUMEROS_FORTES_GATE_MODE", "flag") or "flag").strip().lower()
+# Terminais do gatilho a bloquear (ex.: "2" -> bloqueia 2,12,22,32). Vazio = nenhum.
+BLOCK_TERMINALS = {
+    int(t) for t in (os.getenv("NUMEROS_FORTES_BLOCK_TERMINALS", "") or "").split(",")
+    if t.strip().lstrip("-").isdigit()
+}
+# Mínimo de fortes nos INVERSION_WINDOW números antes do gatilho (0 = sem exigência)
+MIN_INVERSION_HITS = int(os.getenv("NUMEROS_FORTES_MIN_INVERSION_HITS", "0"))
+
+# Porteiro de regime: win rate móvel por roleta sobre os últimos K sinais resolvidos.
+REGIME_ENABLED    = os.getenv("NUMEROS_FORTES_REGIME_ENABLED", "0") == "1"
+REGIME_WINDOW     = int(os.getenv("NUMEROS_FORTES_REGIME_WINDOW", "15"))
+REGIME_MIN_SAMPLE = int(os.getenv("NUMEROS_FORTES_REGIME_MIN_SAMPLE", "8"))
+REGIME_COLD_WR    = float(os.getenv("NUMEROS_FORTES_REGIME_COLD_WR", "0.80"))
+# Se 1 (e GATE_MODE=block), suprime sinais novos em regime "frio"; senão só marca.
+REGIME_SUPPRESS   = os.getenv("NUMEROS_FORTES_REGIME_SUPPRESS", "0") == "1"
+
 # Multiplicador de aposta por tentativa: G1-G2 flat, G3 dobra, G4 quadruplica
 ATTEMPT_MULTIPLIERS = [1, 1, 2, 4]
 
@@ -199,6 +221,80 @@ def post_resolution_init(now: datetime) -> Dict[str, Any]:
     }
 
 
+# ── Gate de qualidade: filtros de entrada + porteiro de regime ───────────────
+
+def compute_regime(rid: str) -> Dict[str, Any]:
+    """Win rate móvel dos últimos REGIME_WINDOW sinais resolvidos da roleta.
+
+    Só anota/decide quando há amostra >= REGIME_MIN_SAMPLE; abaixo disso o regime
+    fica "aquecendo" (nunca bloqueia). Recalculado quando um sinal resolve, então
+    não consulta o Mongo a cada poll.
+    """
+    recent = list(
+        signals_coll.find(
+            {"roulette_id": rid, "status": {"$in": ["won", "lost"]}},
+            {"status": 1},
+        ).sort("resolved_at", DESCENDING).limit(REGIME_WINDOW)
+    )
+    n = len(recent)
+    wins = sum(1 for d in recent if d.get("status") == "won")
+    wr = (wins / n) if n else None
+    if n < REGIME_MIN_SAMPLE:
+        label = "aquecendo"
+    elif wr is not None and wr < REGIME_COLD_WR:
+        label = "frio"
+    else:
+        label = "ok"
+    return {
+        "window":     n,
+        "wins":       wins,
+        "win_rate":   round(wr, 4) if wr is not None else None,
+        "threshold":  REGIME_COLD_WR,
+        "label":      label,
+    }
+
+
+def build_gate(rid: str, gatilho: int, analysis: Dict[str, Any], values: List[int],
+               regime: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Avalia os filtros de entrada determinísticos + o regime (cache) e decide
+    se o sinal deve ser bloqueado. Sem look-ahead: só usa o que existe no momento
+    da abertura (gatilho, fortes, janela de inversão, histórico já resolvido)."""
+    reasons: List[str] = []
+    term = gatilho % 10
+
+    if BLOCK_TERMINALS and term in BLOCK_TERMINALS:
+        reasons.append(f"terminal_{term}_bloqueado")
+
+    fortes_set = set(analysis["numeros_fortes"])
+    inv_window = values[1:1 + INVERSION_WINDOW]
+    inv_hits = sum(1 for v in inv_window if v in fortes_set)
+    if MIN_INVERSION_HITS > 0 and inv_hits < MIN_INVERSION_HITS:
+        reasons.append(f"inversao_{inv_hits}_lt_{MIN_INVERSION_HITS}")
+
+    passed_filters = not reasons
+    regime_cold = bool(REGIME_ENABLED and regime and regime.get("label") == "frio")
+    if regime_cold:
+        reasons.append("regime_frio")
+
+    # Em modo block: filtros sempre bloqueiam; regime só bloqueia se REGIME_SUPPRESS.
+    blocked = False
+    if GATE_MODE == "block":
+        if not passed_filters:
+            blocked = True
+        elif regime_cold and REGIME_SUPPRESS:
+            blocked = True
+
+    return {
+        "mode":            GATE_MODE,
+        "passed_filters":  passed_filters,
+        "terminal":        term,
+        "inversion_hits":  inv_hits,
+        "regime":          regime if REGIME_ENABLED else None,
+        "reasons":         reasons,
+        "blocked":         blocked,
+    }
+
+
 # ── Infra ───────────────────────────────────────────────────────────────────
 
 def resolve_target_roulettes() -> List[str]:
@@ -216,6 +312,10 @@ def ensure_indexes() -> None:
     signals_coll.create_index([("roulette_id", ASCENDING), ("status", ASCENDING)])
     signals_coll.create_index([("created_at", DESCENDING)])
     signals_coll.create_index([("strength", ASCENDING)])
+    # regime: últimos K resolvidos por roleta ordenados por resolved_at
+    signals_coll.create_index(
+        [("roulette_id", ASCENDING), ("status", ASCENDING), ("resolved_at", DESCENDING)]
+    )
 
 
 def get_recent_values(rid: str, n: int) -> Tuple[List[int], Optional[Any]]:
@@ -231,23 +331,28 @@ def get_recent_values(rid: str, n: int) -> Tuple[List[int], Optional[Any]]:
     return values, docs[0]["timestamp"]
 
 
-def update_live(rid: str, analysis: Dict[str, Any], values: List[int], has_active: bool) -> None:
-    live_coll.update_one(
-        {"_id": rid},
-        {"$set": {
-            "roulette_id": rid,
-            "numeros_fortes": analysis["numeros_fortes"],
-            "gatilhos": analysis["gatilhos"],
-            "score_top": analysis["score_top"],
-            "last_numbers": values[:15],
-            "has_active_signal": has_active,
-            "updated_at": datetime.now(tz=timezone.utc),
-        }},
-        upsert=True,
-    )
+def update_live(rid: str, analysis: Dict[str, Any], values: List[int], has_active: bool,
+                st: Optional[Dict[str, Any]] = None) -> None:
+    fields: Dict[str, Any] = {
+        "roulette_id": rid,
+        "numeros_fortes": analysis["numeros_fortes"],
+        "gatilhos": analysis["gatilhos"],
+        "score_top": analysis["score_top"],
+        "last_numbers": values[:15],
+        "has_active_signal": has_active,
+        "updated_at": datetime.now(tz=timezone.utc),
+    }
+    if GATE_ENABLED and st is not None:
+        fields["gate_mode"] = GATE_MODE
+        if REGIME_ENABLED:
+            fields["regime"] = st.get("regime")
+        fields["suppressed_total"] = st.get("suppressed", 0)
+        fields["last_suppressed"] = st.get("last_suppressed", [])
+    live_coll.update_one({"_id": rid}, {"$set": fields}, upsert=True)
 
 
-def create_signal(rid: str, gatilho: int, analysis: Dict[str, Any], values: List[int], trigger_ts: Any) -> Dict[str, Any]:
+def create_signal(rid: str, gatilho: int, analysis: Dict[str, Any], values: List[int], trigger_ts: Any,
+                  gate: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     now = datetime.now(tz=timezone.utc)
     fortes = analysis["numeros_fortes"]
     meta = analysis["gatilho_meta"].get(gatilho, {"weight": 0.0, "fanout": 0})
@@ -286,6 +391,7 @@ def create_signal(rid: str, gatilho: int, analysis: Dict[str, Any], values: List
         "won_at_attempt":    None,
         "pnl":               None,
         "inversion":         inversion,
+        "quality":           gate,
         "post_resolution": {
             "active":     False,
             "target":     POST_ROUNDS,
@@ -372,6 +478,7 @@ def process_roulette(rid: str, st: Dict[str, Any]) -> None:
     process_post_signals(rid, st, latest_val, latest_ts)
 
     active = st.get("active")
+    had_active = active is not None
 
     # 1. Tentativa do sinal ativo
     if active is not None:
@@ -426,6 +533,10 @@ def process_roulette(rid: str, st: Dict[str, Any]) -> None:
             log.info("[%s] attempt %d/%d: %d (%s) mult=×%d", rid, attempt_num, MAX_ATTEMPTS, latest_val,
                      "HIT" if hit else "miss", multiplier)
 
+    # Regime: recalcula a win rate móvel só quando um sinal acabou de resolver.
+    if REGIME_ENABLED and had_active and active is None:
+        st["regime"] = compute_regime(rid)
+
     # 2. Recalcula a análise a cada número
     if len(values) >= MIN_HISTORY:
         analysis = compute_analysis(values)
@@ -434,12 +545,21 @@ def process_roulette(rid: str, st: Dict[str, Any]) -> None:
 
     # 3. Novo sinal se nenhum ativo E o número que saiu é um gatilho
     if active is None and analysis["gatilhos"] and latest_val in analysis["gatilhos"]:
-        active = create_signal(rid, latest_val, analysis, values, latest_ts)
+        gate = build_gate(rid, latest_val, analysis, values, st.get("regime")) if GATE_ENABLED else None
+        if gate is not None and gate["blocked"]:
+            st["suppressed"] = st.get("suppressed", 0) + 1
+            ls = st.setdefault("last_suppressed", [])
+            ls.insert(0, {"gatilho": latest_val, "reasons": gate["reasons"], "timestamp": latest_ts})
+            del ls[10:]
+            log.info("[%s] SINAL BLOQUEADO gatilho=%d motivos=%s",
+                     rid, latest_val, ",".join(gate["reasons"]))
+        else:
+            active = create_signal(rid, latest_val, analysis, values, latest_ts, gate=gate)
 
     st["active"] = active
 
     # 4. Snapshot ao vivo (cálculo ajustado a cada número)
-    update_live(rid, analysis, values, active is not None)
+    update_live(rid, analysis, values, active is not None, st)
 
 
 def main() -> None:
@@ -455,6 +575,16 @@ def main() -> None:
         len(targets), SPINS_TO_FETCH, FORTES_COUNT, GATILHOS_MAX, MAX_ATTEMPTS, POLL_SECONDS,
     )
     log.info("Roletas monitoradas: %s", ", ".join(targets))
+    if GATE_ENABLED:
+        log.info(
+            "GATE %s | block_terminals=%s min_inversion_hits=%d | regime=%s "
+            "(window=%d min_sample=%d cold_wr=%.2f suppress=%s)",
+            GATE_MODE, sorted(BLOCK_TERMINALS) or "-", MIN_INVERSION_HITS,
+            "on" if REGIME_ENABLED else "off",
+            REGIME_WINDOW, REGIME_MIN_SAMPLE, REGIME_COLD_WR, REGIME_SUPPRESS,
+        )
+    else:
+        log.info("GATE desligado (comportamento original)")
 
     state: Dict[str, Dict[str, Any]] = {}
     for rid in targets:
@@ -485,7 +615,11 @@ def main() -> None:
             post_max = max(post_ts)
             last_ts = post_max if last_ts is None else max(last_ts, post_max)
 
-        state[rid] = {"active": active, "last_ts": last_ts, "post_signals": post_signals}
+        state[rid] = {
+            "active": active, "last_ts": last_ts, "post_signals": post_signals,
+            "regime": compute_regime(rid) if REGIME_ENABLED else None,
+            "suppressed": 0, "last_suppressed": [],
+        }
         if active:
             log.info("[%s] sinal ativo retomado id=%s attempts=%d",
                      rid, active["_id"], len(active.get("attempts", [])))

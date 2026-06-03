@@ -332,3 +332,9 @@ async def hidra_signals_page():
 async def ensemble_signals_page():
     with open(os.path.join(templates_dir, "ensemble_signals.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/sinais-puxados", response_class=HTMLResponse)
+async def puxados_signals_page():
+    with open(os.path.join(templates_dir, "puxados_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()

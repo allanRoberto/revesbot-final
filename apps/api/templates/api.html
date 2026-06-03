@@ -7,13 +7,13 @@
   /* Variáveis de cor */
   :root {
     --bg-light: #ffffff;
-    --bg-dark: #3b3a3a;
+    --bg-dark: #0d1117;
     --text-light: #000000;
-    --text-dark: #e0e0e0;
+    --text-dark: #f9fafb;
     --card-light: #f8f9fa;
-    --card-dark: #1e1e1e;
+    --card-dark: #111827;
     --border-light: #ccc;
-    --border-dark: #444;
+    --border-dark: #1f2937;
     --color-black: #2c3e50;
     --color-red: #e74c3c;
     --color-zero: #2ecc71;
@@ -139,10 +139,15 @@
       padding: 4px;
     }
 
-    /* Hide desktop header and filter bar */
+    /* Hide desktop sidebar and pagination on mobile */
     #selected-list-container,
     .pagination {
       display: none !important;
+    }
+
+    /* Collapse to single column when sidebar is hidden */
+    .history-layout {
+      grid-template-columns: 1fr !important;
     }
 
     .card-body {
@@ -160,15 +165,15 @@
       bottom: 16px;
       width: 56px;
       height: 56px;
-      background-color: #0d6efd;
+      background-color: #eab308;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
+      color: #0d1117;
       font-size: 24px;
       z-index: 1001;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
       cursor: pointer;
     }
 
@@ -209,6 +214,31 @@
     #filter-drawer select {
       width: 100%;
       margin-bottom: 8px;
+    }
+
+    /* Compact header on mobile */
+    .api-header-bar {
+      padding: 8px 12px;
+    }
+
+    .roulette-title {
+      font-size: 14px;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Hide non-essential header buttons on mobile (accessible via FAB drawer) */
+    #grid-config-btn,
+    #filter-toggle,
+    #toggleCountMode,
+    #toggleHeatmapMode {
+      display: none;
+    }
+
+    .api-header-right {
+      gap: 6px;
     }
   }
 
@@ -557,21 +587,26 @@
   /* Layout responsivo: grid + lista de selecionados */
   .history-layout {
     display: grid;
-    grid-template-columns: 1fr 450px;
-    gap: 24px;
+    grid-template-columns: 260px 1fr;
+    gap: 12px;
     align-items: start;
+  }
+
+  /* Sidebar vai para a esquerda, histórico fica à direita */
+  #history-container {
+    order: 2;
+    min-width: 0;
+  }
+
+  #selected-list-container {
+    order: 1;
   }
 
   @media (max-width: 992px) {
     .history-layout {
-      grid-template-columns: 1fr;
+      grid-template-columns: 220px 1fr;
+      gap: 8px;
     }
-  }
-
-  #history-container {
-    min-width: 0;
-    position: sticky;
-    top: 72px;
   }
 
   #history {
@@ -2176,6 +2211,207 @@
     }
     </style>
 
+<style>
+  /* Bootstrap dark mode overrides */
+  body.dark-mode {
+    --bs-body-bg: #0d1117;
+    --bs-body-color: #f9fafb;
+    --bs-border-color: #1f2937;
+    --bs-card-bg: #111827;
+    --bs-secondary-bg: #1f2937;
+    --bs-tertiary-bg: #111827;
+    background-color: #0d1117 !important;
+  }
+  body.dark-mode .card,
+  body.dark-mode .card-header,
+  body.dark-mode .card-footer {
+    background-color: #111827 !important;
+    border-color: #1f2937 !important;
+    color: #f9fafb !important;
+  }
+  body.dark-mode .card-header {
+    background-color: #161d2c !important;
+  }
+  body.dark-mode .form-control,
+  body.dark-mode .form-select,
+  body.dark-mode input[type="text"],
+  body.dark-mode input[type="number"],
+  body.dark-mode input[type="date"],
+  body.dark-mode select,
+  body.dark-mode textarea {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+  body.dark-mode .form-control:focus,
+  body.dark-mode .form-select:focus {
+    background-color: #1f2937 !important;
+    border-color: #eab308 !important;
+    color: #f9fafb !important;
+    box-shadow: 0 0 0 0.2rem rgba(234, 179, 8, 0.15) !important;
+  }
+  body.dark-mode option {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+  body.dark-mode .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: #f9fafb;
+    --bs-table-striped-bg: rgba(255,255,255,0.04);
+    --bs-table-hover-bg: rgba(255,255,255,0.06);
+    --bs-table-border-color: #1f2937;
+    color: #f9fafb;
+  }
+  body.dark-mode .table thead th,
+  body.dark-mode .table th {
+    background-color: #161d2c;
+    color: #e5e7eb;
+    border-color: #1f2937;
+  }
+  body.dark-mode .table td,
+  body.dark-mode .table tr {
+    border-color: #1f2937;
+  }
+  body.dark-mode .table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: rgba(255,255,255,0.03);
+  }
+  body.dark-mode .dropdown-menu {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+  body.dark-mode .dropdown-item {
+    color: #f9fafb;
+  }
+  body.dark-mode .dropdown-item:hover {
+    background-color: #374151;
+    color: #f9fafb;
+  }
+  body.dark-mode .modal-content {
+    background-color: #111827;
+    border-color: #1f2937;
+    color: #f9fafb;
+  }
+  body.dark-mode .modal-header,
+  body.dark-mode .modal-footer {
+    border-color: #1f2937;
+  }
+  body.dark-mode .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+  }
+  body.dark-mode .list-group-item {
+    background-color: #111827;
+    border-color: #1f2937;
+    color: #f9fafb;
+  }
+  body.dark-mode .nav-tabs {
+    border-color: #1f2937;
+  }
+  body.dark-mode .nav-tabs .nav-link {
+    color: #9ca3af;
+  }
+  body.dark-mode .nav-tabs .nav-link.active {
+    background-color: #111827;
+    border-color: #1f2937 #1f2937 #111827;
+    color: #eab308;
+  }
+  body.dark-mode .nav-tabs .nav-link:hover {
+    border-color: #374151;
+    color: #f9fafb;
+  }
+  body.dark-mode .btn-group .btn-outline-secondary {
+    color: #9ca3af;
+    border-color: #374151;
+  }
+  body.dark-mode .btn-group .btn-outline-secondary:hover,
+  body.dark-mode .btn-group .btn-outline-secondary.active {
+    background-color: #374151;
+    color: #f9fafb;
+  }
+  body.dark-mode .badge.bg-secondary {
+    background-color: #374151 !important;
+    color: #f9fafb;
+  }
+  body.dark-mode .badge.bg-light {
+    background-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+  body.dark-mode .text-muted {
+    color: #6b7280 !important;
+  }
+  body.dark-mode hr {
+    border-color: #1f2937;
+    opacity: 1;
+  }
+  body.dark-mode .popover {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+  body.dark-mode .popover-header {
+    background-color: #161d2c;
+    border-color: #374151;
+    color: #f9fafb;
+  }
+  body.dark-mode .popover-body {
+    color: #e5e7eb;
+  }
+  body.dark-mode label,
+  body.dark-mode .form-label {
+    color: #d1d5db;
+  }
+  body.dark-mode .input-group-text {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #9ca3af;
+  }
+  body.dark-mode .progress {
+    background-color: #1f2937;
+  }
+  body.dark-mode .roulette-title {
+    color: #eab308;
+  }
+  body.dark-mode .sidebar-title {
+    color: #9ca3af;
+  }
+  body.dark-mode .tiny-label {
+    color: #6b7280;
+  }
+  body.dark-mode .filter-drawer {
+    background-color: #111827;
+    border-color: #1f2937;
+  }
+  body.dark-mode #filter-drawer {
+    background-color: #111827;
+    color: #f9fafb;
+  }
+  body.dark-mode #filter-drawer span,
+  body.dark-mode #filter-drawer h5,
+  body.dark-mode #filter-drawer label {
+    color: #f9fafb;
+  }
+  body.dark-mode #filter-drawer .form-select,
+  body.dark-mode #filter-drawer .form-control {
+    background-color: #1f2937;
+    color: #f9fafb;
+    border-color: #374151;
+  }
+  body.dark-mode #filter-drawer .btn-outline-secondary {
+    color: #9ca3af;
+    border-color: #374151;
+  }
+  body.dark-mode #filter-drawer .btn-outline-secondary.btn-active,
+  body.dark-mode #filter-drawer .btn-outline-secondary:hover {
+    background-color: #eab308;
+    color: #0d1117;
+    border-color: #eab308;
+  }
+  body.dark-mode .footer,
+  body.dark-mode footer {
+    background-color: #0d1117 !important;
+    color: #6b7280 !important;
+    border-color: #1f2937 !important;
+  }
+</style>
+
 <!-- Modal de configuração de alerta -->
 <div id="alert-modal" class="modal">
   <div class="modal-content">
@@ -2278,8 +2514,8 @@
         </select>
         <label for="grid-per-row-select">Por linha</label>
         <select id="grid-per-row-select" class="form-select form-select-sm">
-          <option value="6" selected>6</option>
-          <option value="10">10</option>
+          <option value="6">6</option>
+          <option value="10" selected>10</option>
           <option value="20">20</option>
           <option value="30">30</option>
         </select>
@@ -2505,8 +2741,8 @@
     </div>
     <div class="drawer-group">
       <span>Por linha:</span><br />
-      <button class="btn btn-sm btn-outline-secondary btn-per-row-mobile btn-active" data-per="6">6</button>
-      <button class="btn btn-sm btn-outline-secondary btn-per-row-mobile" data-per="10">10</button>
+      <button class="btn btn-sm btn-outline-secondary btn-per-row-mobile" data-per="6">6</button>
+      <button class="btn btn-sm btn-outline-secondary btn-per-row-mobile btn-active" data-per="10">10</button>
       <button class="btn btn-sm btn-outline-secondary btn-per-row-mobile" data-per="20">20</button>
       <button class="btn btn-sm btn-outline-secondary btn-per-row-mobile" data-per="30">30</button>
     </div>
@@ -2858,7 +3094,7 @@
     let txtColorRed = "#ffffff";
     let txtColorZero = "#ffffff";
     let maxHistory = 2000;
-    let perRow = 30;
+    let perRow = 10;
     let tooltipEnabled = true;
     let confidenceFlagThreshold = 50;
     let hotCount = 18;
@@ -3516,7 +3752,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     let showRepeat = false;
     let showTerminalRepeat = false;
     let showCavalos = false;
-    let darkMode = false;
+    let darkMode = true;
     let showSkipped = false;
     let racetrack = null;
     let currentSelectionColor = "#FFD700";
@@ -7617,6 +7853,7 @@ countContainers.forEach(({ selector, itemClass }) => {
     // Eventos
     // === Inicializa os popovers do Bootstrap ===
     document.addEventListener('DOMContentLoaded', function () {
+      applyTheme();
       if (window.lucide) {
         window.lucide.createIcons();
       }

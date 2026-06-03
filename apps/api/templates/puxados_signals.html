@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — Puxados (número seguinte)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9; --surface: #ffffff; --surface-soft: #eef3f1;
+      --border: #d7ddd9; --text: #18211f; --muted: #63706b;
+      --accent: #177a5b; --accent-strong: #0f5f46;
+      --danger: #9b2f2f; --warn: #b8860b; --info: #2563eb;
+      --red: #c0392b; --green: #2e8b57; --gold: #b5860b; --purple: #6b21a8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1240px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px 0; font-size: 14px; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .stat { background: var(--surface-soft); padding: 12px 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 24px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub { font-size: 11px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); }
+    .stat.warn   .value { color: var(--warn); }
+    .stat.info   .value { color: var(--info); }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+    .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .filters select, .filters input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
+    .btn { padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: var(--accent-strong); }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+    .badge-won        { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-lost       { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-monitoring { background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; }
+    .badge-mesmo      { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
+    .badge-vizinho    { background: #ede9fe; color: #6b21a8; border: 1px solid #c4b5fd; }
+    .badge-outro      { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+    .badge-primeiro   { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+
+    .signal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    .signal-card.won       { border-left: 4px solid var(--green); }
+    .signal-card.lost      { border-left: 4px solid var(--red); }
+    .signal-card.monitoring { border-left: 4px solid var(--info); }
+    .signal-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .signal-roulette { font-size: 13px; font-weight: 700; color: var(--accent-strong); }
+    .signal-ts { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+    .signal-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 12px; }
+    .signal-field { display: flex; flex-direction: column; gap: 2px; }
+    .signal-field .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .signal-field .val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    .nums { display: flex; flex-wrap: wrap; gap: 4px; }
+    .num-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 5px; font-size: 11px; font-weight: 700; background: var(--surface-soft); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .num-chip.hit      { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .num-chip.inversion { background: #fef9c3; border-color: #fde047; color: #854d0e; }
+    .num-chip.top1     { background: #ede9fe; border-color: #c4b5fd; color: #6b21a8; outline: 2px solid #c4b5fd; }
+
+    .freq-chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: 4px; font-size: 10px; background: var(--surface-soft); border: 1px solid var(--border); }
+    .freq-chip .freq-n { font-weight: 700; }
+    .freq-chip .freq-c { color: var(--muted); }
+
+    .attempts-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+    .attempt-chip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 5px; font-size: 11px; border: 1px solid var(--border); background: var(--surface-soft); }
+    .attempt-chip.hit  { background: #dcfce7; border-color: #86efac; color: #166534; font-weight: 700; }
+    .attempt-chip.miss { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+    .inv-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 20px; font-size: 11px; background: #fef9c3; border: 1px solid #fde047; color: #854d0e; font-weight: 600; }
+    .seq-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+    .trigger-circle { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; font-weight: 800; background: var(--accent); color: #fff; border: 2px solid var(--accent-strong); }
+
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--muted); }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tab:hover:not(.active) { background: var(--surface-soft); }
+
+    .pagination { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; }
+    .pagination button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+    .pagination button:disabled { opacity: 0.4; cursor: default; }
+    .pagination .page-info { color: var(--muted); }
+
+    .seq-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .seq-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .seq-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .seq-table tr:last-child td { border-bottom: none; }
+
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .empty   { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    #refresh-indicator { display: none; font-size: 11px; color: var(--muted); margin-left: 8px; }
+    #refresh-indicator.active { display: inline; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Puxados — Número Seguinte</h1>
+  <p class="subtitle">Cada número que sai vira gatilho → apostamos nos números que historicamente vieram logo após ele (últimos 500 giros)</p>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <span class="tab active" onclick="setTab('sinais', this)">Sinais</span>
+    <span class="tab" onclick="setTab('sequencias', this)">Sequências por Gatilho</span>
+  </div>
+
+  <!-- ═══ ABA SINAIS ═══ -->
+  <div id="tab-sinais">
+    <div class="card">
+      <div class="filters">
+        <label>Mesa
+          <select id="sel-roulette">
+            <option value="">Todas</option>
+            <option value="pragmatic-auto-roulette">Auto Roulette</option>
+            <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+            <option value="pragmatic-mega-roulette">Mega Roulette</option>
+          </select>
+        </label>
+        <label>Status
+          <select id="sel-status">
+            <option value="all">Todos</option>
+            <option value="won">Ganhou</option>
+            <option value="lost">Perdeu</option>
+            <option value="monitoring">Monitorando</option>
+          </select>
+        </label>
+        <label>Sequência
+          <select id="sel-seq">
+            <option value="all">Todas</option>
+            <option value="mesmo">Mesmo top-1</option>
+            <option value="vizinho">Vizinho físico</option>
+            <option value="outro">Outro</option>
+            <option value="primeiro">Primeiro sinal</option>
+          </select>
+        </label>
+        <label>Gatilho
+          <input id="inp-trigger" type="number" min="0" max="36" placeholder="0-36" style="width:70px">
+        </label>
+        <label>Limite
+          <select id="sel-limit">
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </label>
+        <button class="btn" onclick="fetchSignals(true)">Atualizar</button>
+        <span id="refresh-indicator">↻ atualizando...</span>
+      </div>
+    </div>
+
+    <!-- Resumo -->
+    <div class="card" id="stats-card"><div class="loading">Carregando...</div></div>
+
+    <!-- Sequências resumo -->
+    <div class="card" id="seq-summary-card" style="display:none">
+      <h3 style="margin:0 0 10px 0;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Distribuição de Sequências</h3>
+      <div id="seq-summary-body"></div>
+    </div>
+
+    <!-- Lista de sinais -->
+    <div id="signals-container"><div class="loading">Carregando sinais...</div></div>
+
+    <div class="pagination" id="pagination" style="display:none">
+      <button id="btn-prev" onclick="prevPage()">← Anterior</button>
+      <span class="page-info" id="page-info"></span>
+      <button id="btn-next" onclick="nextPage()">Próxima →</button>
+    </div>
+  </div>
+
+  <!-- ═══ ABA SEQUÊNCIAS ═══ -->
+  <div id="tab-sequencias" style="display:none">
+    <div class="card">
+      <div class="filters">
+        <label>Mesa
+          <select id="seq-roulette">
+            <option value="">Todas</option>
+            <option value="pragmatic-auto-roulette">Auto Roulette</option>
+            <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+          </select>
+        </label>
+        <label>Gatilho
+          <input id="seq-trigger-inp" type="number" min="0" max="36" placeholder="0-36" style="width:70px">
+        </label>
+        <button class="btn" onclick="fetchSequences()">Buscar</button>
+      </div>
+    </div>
+    <div id="seq-container"><div class="loading">Carregando...</div></div>
+  </div>
+</div>
+
+<script>
+let currentSkip = 0;
+let currentLimit = 50;
+let currentTotal = 0;
+let activeTab = 'sinais';
+let autoRefreshTimer = null;
+
+function setTab(tab, el) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-sinais').style.display     = tab === 'sinais'     ? '' : 'none';
+  document.getElementById('tab-sequencias').style.display = tab === 'sequencias' ? '' : 'none';
+  if (tab === 'sequencias') fetchSequences();
+}
+
+function fmtTs(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function seqLabel(t) {
+  return { mesmo: 'Mesmo top-1', vizinho: 'Vizinho físico', outro: 'Outro', primeiro: 'Primeiro', sem_top1: 'Sem top-1' }[t] || t;
+}
+function seqColor(t) {
+  return { mesmo: '#92400e', vizinho: '#6b21a8', outro: '#6b7280', primeiro: '#166534', sem_top1: '#9ca3af' }[t] || '#6b7280';
+}
+function seqBg(t) {
+  return { mesmo: '#fef3c7', vizinho: '#ede9fe', outro: '#f3f4f6', primeiro: '#f0fdf4', sem_top1: '#f9fafb' }[t] || '#f3f4f6';
+}
+
+function renderStats(data) {
+  const { total, won, lost, monitoring, resolved, assertiveness_pct, avg_attempts_to_win, win_distribution, inversion, avg_bet_size, pnl_total } = data;
+  const inv = inversion || {};
+  document.getElementById('stats-card').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">Total</span><span class="value">${total}</span></div>
+      <div class="stat"><span class="label">Ganhou</span><span class="value" style="color:var(--green)">${won}</span></div>
+      <div class="stat danger"><span class="label">Perdeu</span><span class="value">${lost}</span></div>
+      <div class="stat info"><span class="label">Monitorando</span><span class="value">${monitoring}</span></div>
+      <div class="stat ${assertiveness_pct >= 60 ? '' : 'warn'}">
+        <span class="label">Assertividade</span>
+        <span class="value">${assertiveness_pct}%</span>
+        <span class="sub">${resolved} resolvidos</span>
+      </div>
+      <div class="stat">
+        <span class="label">Média tentativas</span>
+        <span class="value">${avg_attempts_to_win ?? '—'}</span>
+        <span class="sub">G1:${win_distribution['1']||0} G2:${win_distribution['2']||0} G3:${win_distribution['3']||0} G4:${win_distribution['4']||0}</span>
+      </div>
+      <div class="stat">
+        <span class="label">Inversão paga antes</span>
+        <span class="value">${inv.paid ?? 0}</span>
+        <span class="sub">${inv.pay_rate ?? 0}% dos sinais</span>
+      </div>
+      <div class="stat">
+        <span class="label">Tamanho médio aposta</span>
+        <span class="value">${avg_bet_size ?? '—'}</span>
+        <span class="sub">números por sinal</span>
+      </div>
+      <div class="stat ${pnl_total >= 0 ? '' : 'danger'}">
+        <span class="label">P&L total</span>
+        <span class="value">${pnl_total >= 0 ? '+' : ''}${pnl_total}</span>
+        <span class="sub">fichas</span>
+      </div>
+    </div>`;
+}
+
+function renderSeqSummary(seqs) {
+  if (!seqs || !Object.keys(seqs).length) return;
+  const card = document.getElementById('seq-summary-card');
+  card.style.display = '';
+  const total = Object.values(seqs).reduce((a, b) => a + b, 0);
+  const html = Object.entries(seqs).sort((a, b) => b[1] - a[1]).map(([type, count]) => {
+    const pct = total ? ((count / total) * 100).toFixed(1) : 0;
+    return `<span class="badge" style="background:${seqBg(type)};color:${seqColor(type)};border:1px solid ${seqColor(type)}40;margin-right:6px;margin-bottom:4px">
+      ${seqLabel(type)}: ${count} (${pct}%)
+    </span>`;
+  }).join('');
+  document.getElementById('seq-summary-body').innerHTML = html;
+}
+
+function renderSignals(signals) {
+  if (!signals.length) {
+    document.getElementById('signals-container').innerHTML = '<div class="empty">Nenhum sinal encontrado.</div>';
+    return;
+  }
+  const html = signals.map(sig => {
+    const rid = sig.roulette_id.replace('pragmatic-', '').replace(/-/g, ' ');
+    const ts  = fmtTs(sig.trigger_ts || sig.created_at);
+    const seq = sig.sequence_info || {};
+    const inv = sig.inversion     || {};
+
+    // Gatilho
+    const triggerHtml = `<span class="trigger-circle">${sig.trigger ?? '?'}</span>`;
+
+    // Aposta com frequência
+    const freq = sig.frequency || {};
+    const betHtml = (sig.bet || []).map(n => {
+      const isTop1 = n === sig.top1;
+      const isInv  = (inv.hits || []).includes(n);
+      let cls = 'num-chip';
+      if (isTop1) cls += ' top1';
+      else if (isInv) cls += ' inversion';
+      const cnt = freq[String(n)] || freq[n] || 0;
+      return `<span class="${cls}" title="${cnt}x seguiu o ${sig.trigger}">${n}${cnt > 1 ? '<sup style="font-size:8px">'+cnt+'</sup>' : ''}</span>`;
+    }).join('');
+
+    // Janela de inversão
+    const betSet = new Set(sig.bet || []);
+    const invHtml = (inv.window || []).map(n => {
+      const cls = betSet.has(n) ? 'num-chip inversion' : 'num-chip';
+      return `<span class="${cls}">${n}</span>`;
+    }).join('') || '—';
+
+    // Tentativas
+    const attHtml = (sig.attempts || []).map(a => {
+      const cls  = a.hit ? 'attempt-chip hit' : 'attempt-chip miss';
+      const mult = (a.multiplier && a.multiplier > 1) ? ` <span style="font-size:10px;opacity:0.8">×${a.multiplier}</span>` : '';
+      return `<span class="${cls}">#${a.attempt}${mult} → ${a.value} ${a.hit ? '✓' : '✗'}</span>`;
+    }).join('') || '<span style="color:var(--muted);font-size:11px">Aguardando G1</span>';
+
+    // PnL
+    const pnlHtml = sig.pnl != null
+      ? `<span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${sig.pnl >= 0 ? '#dcfce7' : '#fee2e2'};border:1px solid ${sig.pnl >= 0 ? '#86efac' : '#fca5a5'};color:${sig.pnl >= 0 ? '#166534' : '#991b1b'}">${sig.pnl >= 0 ? '+' : ''}${sig.pnl} fichas</span>`
+      : '';
+
+    // Inversão badge
+    const invBadge = inv.paid ? '<span class="inv-badge">⚡ Inversão paga antes</span>' : '';
+
+    // Sequência badge
+    const seqType  = seq.type || 'outro';
+    const seqBadge = `<span class="seq-badge" style="background:${seqBg(seqType)};color:${seqColor(seqType)};border:1px solid ${seqColor(seqType)}40">
+      ${seqType === 'vizinho' ? '〰' : seqType === 'mesmo' ? '=' : '↝'} ${seqLabel(seqType)}
+      ${seq.prev_top1 != null ? `(${seq.prev_top1}→${seq.curr_top1})` : ''}
+    </span>`;
+
+    const wonAt = sig.won_at_attempt ? ` — Ganhou na G${sig.won_at_attempt}` : '';
+
+    return `<div class="signal-card ${sig.status}">
+      <div class="signal-header">
+        <span class="signal-roulette">${rid.toUpperCase()}</span>
+        <span class="badge badge-${sig.status}">${sig.status === 'won' ? 'Ganhou' : sig.status === 'lost' ? 'Perdeu' : 'Monitorando'}${wonAt}</span>
+        ${invBadge}
+        ${seqBadge}
+        ${pnlHtml}
+        <span class="signal-ts">${ts}</span>
+      </div>
+      <div class="signal-body">
+        <div class="signal-field">
+          <span class="lbl">Gatilho</span>
+          <span class="val">${triggerHtml}</span>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Ocorrências históricas</span>
+          <span class="val" style="font-size:18px">${sig.occurrences}</span>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Top-1 (mais freq.)</span>
+          <span class="val">
+            ${sig.top1 != null ? `<span class="num-chip top1">${sig.top1}</span>` : '—'}
+          </span>
+        </div>
+        <div class="signal-field" style="grid-column: span 2">
+          <span class="lbl">Aposta (${sig.bet_size} números) — roxo = top-1, amarelo = inversão</span>
+          <div class="nums">${betHtml}</div>
+        </div>
+        <div class="signal-field">
+          <span class="lbl">Inversão (últimos ${inv.window_size || 4} giros antes)</span>
+          <div class="nums">${invHtml}</div>
+        </div>
+      </div>
+      <div class="attempts-row">${attHtml}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('signals-container').innerHTML = html;
+}
+
+async function fetchSignals(resetPage = false) {
+  if (resetPage) { currentSkip = 0; }
+  currentLimit = parseInt(document.getElementById('sel-limit').value) || 50;
+
+  const params = new URLSearchParams({ skip: currentSkip, limit: currentLimit });
+  const rid = document.getElementById('sel-roulette').value;
+  const st  = document.getElementById('sel-status').value;
+  const sq  = document.getElementById('sel-seq').value;
+  const tr  = document.getElementById('inp-trigger').value;
+  if (rid) params.set('roulette_id', rid);
+  if (st && st !== 'all') params.set('status', st);
+  if (sq && sq !== 'all') params.set('seq_type', sq);
+  if (tr !== '') params.set('trigger', tr);
+
+  document.getElementById('refresh-indicator').classList.add('active');
+  try {
+    const resp = await fetch(`/api/puxados/signals?${params}`);
+    const data = await resp.json();
+    currentTotal = data.total;
+    renderStats(data);
+    renderSeqSummary(data.sequences);
+    renderSignals(data.signals);
+
+    const pages = Math.ceil(currentTotal / currentLimit);
+    const curPage = Math.floor(currentSkip / currentLimit) + 1;
+    const pg = document.getElementById('pagination');
+    if (currentTotal > currentLimit) {
+      pg.style.display = '';
+      document.getElementById('page-info').textContent = `Página ${curPage} de ${pages} (${currentTotal} total)`;
+      document.getElementById('btn-prev').disabled = currentSkip === 0;
+      document.getElementById('btn-next').disabled = currentSkip + currentLimit >= currentTotal;
+    } else {
+      pg.style.display = 'none';
+    }
+  } catch (e) {
+    document.getElementById('signals-container').innerHTML = `<div class="empty">Erro ao carregar: ${e.message}</div>`;
+  } finally {
+    document.getElementById('refresh-indicator').classList.remove('active');
+  }
+}
+
+async function fetchSequences() {
+  const rid = document.getElementById('seq-roulette').value;
+  const tr  = document.getElementById('seq-trigger-inp').value;
+  const params = new URLSearchParams();
+  if (rid) params.set('roulette_id', rid);
+  if (tr !== '') params.set('trigger', tr);
+
+  document.getElementById('seq-container').innerHTML = '<div class="loading">Carregando...</div>';
+  try {
+    const resp = await fetch(`/api/puxados/sequences?${params}`);
+    const data = await resp.json();
+    if (!data.sequences.length) {
+      document.getElementById('seq-container').innerHTML = '<div class="empty">Sem sequências registradas ainda.</div>';
+      return;
+    }
+    const html = `<div class="card">
+      <table class="seq-table">
+        <thead><tr>
+          <th>Mesa</th><th>Gatilho</th><th>Sinais</th>
+          <th>Histórico top-1 (mais antigo → recente)</th>
+          <th>Atualizado</th>
+        </tr></thead>
+        <tbody>
+        ${data.sequences.map(s => {
+          const hist = (s.history || []).map(h => {
+            const n = h.top1;
+            return n != null ? `<span class="num-chip">${n}</span>` : `<span style="color:var(--muted)">—</span>`;
+          }).join('<span style="color:var(--muted);font-size:10px;margin:0 2px">→</span>');
+          const rid2 = (s.roulette_id || '').replace('pragmatic-', '').replace(/-/g, ' ');
+          return `<tr>
+            <td><strong>${rid2.toUpperCase()}</strong></td>
+            <td><span class="trigger-circle" style="width:28px;height:28px;font-size:13px">${s.trigger}</span></td>
+            <td>${s.history_len}</td>
+            <td><div class="nums">${hist}</div></td>
+            <td style="color:var(--muted)">${fmtTs(s.updated_at)}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+    document.getElementById('seq-container').innerHTML = html;
+  } catch (e) {
+    document.getElementById('seq-container').innerHTML = `<div class="empty">Erro: ${e.message}</div>`;
+  }
+}
+
+function prevPage() { currentSkip = Math.max(0, currentSkip - currentLimit); fetchSignals(); }
+function nextPage() { currentSkip += currentLimit; fetchSignals(); }
+
+fetchSignals();
+autoRefreshTimer = setInterval(() => fetchSignals(), 10000);
+</script>
+</body>
+</html>

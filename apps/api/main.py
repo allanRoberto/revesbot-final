@@ -114,6 +114,7 @@ from api.routes.numeros_fortes_signals import router as numeros_fortes_signals_r
 from api.routes.numeros_fortes_inversao_signals import router as numeros_fortes_inversao_signals_router
 from api.routes.hidra_signals import router as hidra_signals_router
 from api.routes.ensemble_signals import router as ensemble_signals_router
+from api.routes.puxados_signals import router as puxados_signals_router
 
 
 
@@ -244,6 +245,7 @@ app.include_router(numeros_fortes_signals_router)
 app.include_router(numeros_fortes_inversao_signals_router)
 app.include_router(hidra_signals_router)
 app.include_router(ensemble_signals_router)
+app.include_router(puxados_signals_router)
 
 
 
