@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — Ensemble (consenso)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9; --surface: #ffffff; --surface-soft: #eef3f1; --border: #d7ddd9;
+      --text: #18211f; --muted: #63706b; --accent: #5b21b6; --accent-strong: #4c1d95;
+      --danger: #9b2f2f; --warn: #b8860b; --info: #2563eb; --red: #c0392b; --green: #2e8b57;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1240px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px 0; font-size: 14px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .stat { background: var(--surface-soft); padding: 12px 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 24px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub { font-size: 11px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); } .stat.info .value { color: var(--info); }
+
+    .strength-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .strength-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .strength-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .strength-table tr:last-child td { border-bottom: none; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .badge-won { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-lost { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-monitoring { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+    .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .filters select, .filters input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
+    .btn { padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: var(--accent-strong); }
+
+    .signal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    .signal-card.won { border-left: 4px solid var(--green); }
+    .signal-card.lost { border-left: 4px solid var(--red); }
+    .signal-card.monitoring { border-left: 4px solid var(--accent); }
+    .signal-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .signal-roulette { font-size: 13px; font-weight: 700; color: var(--accent-strong); }
+    .signal-ts { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .signal-field .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    .nums { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .num-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 6px; font-size: 13px; font-weight: 700; background: var(--surface-soft); border: 1px solid var(--border); }
+    .num-chip.hit { background: #dcfce7; border-color: #86efac; color: #166534; }
+
+    .rank-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .rank-item { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px; font-size: 11px; border: 1px solid var(--border); background: var(--surface-soft); }
+    .rank-item .n { font-weight: 800; font-size: 13px; min-width: 22px; text-align: center; }
+    .rank-item .sc { color: var(--accent-strong); font-variant-numeric: tabular-nums; font-weight: 600; }
+    .rank-item .bk { color: var(--muted); font-size: 10px; }
+
+    .src-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .src-tag { padding: 2px 7px; border-radius: 12px; font-size: 10px; font-weight: 700; background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+
+    .attempts-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+    .attempt-chip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 5px; font-size: 11px; border: 1px solid var(--border); background: var(--surface-soft); }
+    .attempt-chip.hit { background: #dcfce7; border-color: #86efac; color: #166534; font-weight: 700; }
+    .attempt-chip.miss { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+    .pagination { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; }
+    .pagination button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+    .pagination button:disabled { opacity: 0.4; cursor: default; }
+    .pagination .page-info { color: var(--muted); }
+    .loading, .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .refreshing { opacity: 0.6; pointer-events: none; transition: opacity 0.2s; }
+    #refresh-indicator { display: none; font-size: 11px; color: var(--muted); margin-left: 8px; }
+    #refresh-indicator.active { display: inline; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Ensemble — consenso de todos os sinais</h1>
+  <p class="subtitle">Junta a aposta de cada sistema que está monitorando, pondera por (1÷tamanho da aposta)×assertividade, e aposta nos TOP-6 do ranking de consenso. Gale até 4.</p>
+
+  <div class="card">
+    <div class="filters">
+      <label>Mesa
+        <select id="sel-roulette">
+          <option value="">Todas</option>
+          <option value="pragmatic-auto-roulette">Auto Roulette</option>
+          <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+        </select>
+      </label>
+      <label>Status
+        <select id="sel-status">
+          <option value="all">Todos</option>
+          <option value="won">Ganhou</option>
+          <option value="lost">Perdeu</option>
+          <option value="monitoring">Monitorando</option>
+        </select>
+      </label>
+      <label>Mín. fontes
+        <select id="sel-minsrc">
+          <option value="">Qualquer</option>
+          <option value="3">≥3</option>
+          <option value="5">≥5</option>
+          <option value="7">≥7</option>
+        </select>
+      </label>
+      <label>Limite
+        <select id="sel-limit">
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </label>
+      <button class="btn" onclick="fetchData(true)">Atualizar</button>
+      <span id="refresh-indicator">↻ atualizando...</span>
+    </div>
+  </div>
+
+  <div class="card" id="stats-card"><div class="loading">Carregando...</div></div>
+
+  <div class="card" id="sources-card" style="display:none">
+    <h3 style="margin:0 0 12px 0;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Breakdown por nº de fontes (força do consenso)</h3>
+    <table class="strength-table">
+      <thead><tr><th>Fontes</th><th>Total</th><th>Ganhou</th><th>Perdeu</th><th>Monitor</th><th>Assertividade</th><th>NET</th></tr></thead>
+      <tbody id="sources-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="signals-container"><div class="loading">Carregando sinais...</div></div>
+
+  <div class="pagination" id="pagination" style="display:none">
+    <button id="btn-prev" onclick="prevPage()">← Anterior</button>
+    <span class="page-info" id="page-info"></span>
+    <button id="btn-next" onclick="nextPage()">Próxima →</button>
+  </div>
+</div>
+
+<script>
+let currentSkip = 0, currentLimit = 50, currentTotal = 0, lastData = null;
+
+function fmtTs(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function renderStats(d) {
+  const dist = d.win_distribution || {};
+  const distStr = `1:${dist[1]||0} 2:${dist[2]||0} 3:${dist[3]||0} 4:${dist[4]||0}`;
+  const netColor = (d.net >= 0) ? 'var(--green)' : 'var(--danger)';
+  document.getElementById('stats-card').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">Total</span><span class="value">${d.total}</span></div>
+      <div class="stat"><span class="label">Ganhou</span><span class="value" style="color:var(--green)">${d.won}</span></div>
+      <div class="stat danger"><span class="label">Perdeu</span><span class="value">${d.lost}</span></div>
+      <div class="stat info"><span class="label">Monitorando</span><span class="value">${d.monitoring}</span></div>
+      <div class="stat ${d.assertiveness_pct >= 60 ? '' : 'danger'}">
+        <span class="label">Assertividade</span><span class="value">${d.assertiveness_pct}%</span><span class="sub">${d.resolved} resolvidos</span>
+      </div>
+      <div class="stat"><span class="label">NET</span><span class="value" style="color:${netColor}">${d.net}</span><span class="sub">fichas</span></div>
+      <div class="stat"><span class="label">Média tentativas</span><span class="value">${d.avg_attempts_to_win || '—'}</span><span class="sub">${distStr}</span></div>
+    </div>`;
+}
+
+function renderSources(rows) {
+  if (!rows || !rows.length) return;
+  document.getElementById('sources-card').style.display = '';
+  document.getElementById('sources-tbody').innerHTML = rows.map(r => {
+    const pct = r.assertiveness ?? 0;
+    return `<tr>
+      <td><strong>${r.range}</strong> fontes</td>
+      <td>${r.total}</td>
+      <td style="color:var(--green);font-weight:600">${r.won}</td>
+      <td style="color:var(--red)">${r.lost}</td>
+      <td style="color:var(--info)">${r.monitoring}</td>
+      <td style="font-weight:700;color:${pct>=60?'var(--green)':'var(--warn)'}">${pct}%</td>
+      <td style="font-weight:700;color:${r.net>=0?'var(--green)':'var(--danger)'}">${r.net}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSignals(signals) {
+  if (!signals.length) { document.getElementById('signals-container').innerHTML = '<div class="empty">Nenhum sinal encontrado.</div>'; return; }
+  document.getElementById('signals-container').innerHTML = signals.map(sig => {
+    const ts = fmtTs(sig.X_timestamp || sig.created_at);
+    const rid = sig.roulette_id.replace('pragmatic-', '').replace(/-/g, ' ');
+    const hitVals = new Set((sig.attempts || []).filter(a => a.hit).map(a => a.value));
+    const betHtml = (sig.bet || []).map(n => `<span class="num-chip${hitVals.has(n) ? ' hit' : ''}">${n}</span>`).join('');
+    const rankHtml = (sig.ranking || []).map(r =>
+      `<span class="rank-item"><span class="n">${r.number}</span><span class="sc">${r.score}</span><span class="bk">${(r.backers||[]).join(',')}</span></span>`
+    ).join('');
+    const srcHtml = Object.entries(sig.sources || {}).sort((a,b)=>b[1]-a[1]).map(([t,c]) =>
+      `<span class="src-tag">${t}${c>1?'×'+c:''}</span>`).join('');
+    const attHtml = (sig.attempts || []).map(a => {
+      const cls = a.hit ? 'attempt-chip hit' : 'attempt-chip miss';
+      const m = (a.multiplier && a.multiplier > 1) ? ` ×${a.multiplier}` : '';
+      return `<span class="${cls}">#${a.attempt}${m} → ${a.value} ${a.hit ? '✓' : '✗'}</span>`;
+    }).join('') || '<span style="color:var(--muted);font-size:11px">Aguardando próximo giro</span>';
+    const pnlHtml = sig.pnl != null
+      ? `<span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:${sig.pnl >= 0 ? '#dcfce7' : '#fee2e2'};border:1px solid ${sig.pnl >= 0 ? '#86efac' : '#fca5a5'};color:${sig.pnl >= 0 ? '#166534' : '#991b1b'}">${sig.pnl >= 0 ? '+' : ''}${sig.pnl}</span>` : '';
+    const wonAt = sig.won_at_attempt ? ` — gale ${sig.won_at_attempt}` : '';
+    return `<div class="signal-card ${sig.status}">
+      <div class="signal-header">
+        <span class="signal-roulette">${rid.toUpperCase()}</span>
+        <span class="badge badge-${sig.status}">${{won:'Ganhou',lost:'Perdeu',monitoring:'Monitor'}[sig.status]||sig.status}${wonAt}</span>
+        <span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#f3f4f6;border:1px solid #d1d5db;color:#374151">${sig.n_sources} fontes</span>
+        ${pnlHtml}
+        <span class="signal-ts">${ts}</span>
+      </div>
+      <div class="signal-field">
+        <span class="lbl">Aposta — TOP ${sig.bet_size} do consenso</span>
+        <div class="nums">${betHtml}</div>
+      </div>
+      <div class="signal-field" style="margin-top:8px">
+        <span class="lbl">Ranking de consenso (nº · score · sistemas)</span>
+        <div class="rank-row">${rankHtml}</div>
+      </div>
+      <div class="signal-field" style="margin-top:8px">
+        <span class="lbl">Fontes (${sig.n_sources})</span>
+        <div class="src-tags">${srcHtml}</div>
+      </div>
+      <div class="attempts-row">${attHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPagination() {
+  document.getElementById('pagination').style.display = 'flex';
+  const from = currentSkip + 1, to = Math.min(currentSkip + currentLimit, currentTotal);
+  document.getElementById('page-info').textContent = `${from}–${to} de ${currentTotal}`;
+  document.getElementById('btn-prev').disabled = currentSkip === 0;
+  document.getElementById('btn-next').disabled = currentSkip + currentLimit >= currentTotal;
+}
+
+async function fetchData(resetPage) {
+  if (resetPage) currentSkip = 0;
+  currentLimit = parseInt(document.getElementById('sel-limit').value) || 50;
+  const roulette = document.getElementById('sel-roulette').value;
+  const status = document.getElementById('sel-status').value;
+  const minsrc = document.getElementById('sel-minsrc').value;
+  const isFirst = !lastData;
+  const indicator = document.getElementById('refresh-indicator');
+  const container = document.getElementById('signals-container');
+  if (isFirst) container.innerHTML = '<div class="loading">Carregando...</div>';
+  else { container.classList.add('refreshing'); indicator.classList.add('active'); }
+
+  let url = `/api/ensemble-signals?limit=${currentLimit}&skip=${currentSkip}`;
+  if (roulette) url += `&roulette_id=${encodeURIComponent(roulette)}`;
+  if (status && status !== 'all') url += `&status=${encodeURIComponent(status)}`;
+  if (minsrc) url += `&min_sources=${encodeURIComponent(minsrc)}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    lastData = data; currentTotal = data.total;
+    renderStats(data); renderSources(data.sources_breakdown); renderSignals(data.signals || []); renderPagination();
+  } catch (e) {
+    if (isFirst) container.innerHTML = `<div class="empty">Erro ao carregar: ${e.message}</div>`;
+  } finally { container.classList.remove('refreshing'); indicator.classList.remove('active'); }
+}
+
+function prevPage() { if (currentSkip >= currentLimit) { currentSkip -= currentLimit; fetchData(false); } }
+function nextPage() { if (currentSkip + currentLimit < currentTotal) { currentSkip += currentLimit; fetchData(false); } }
+
+fetchData(true);
+
+let _ws = null, _wsTimer = null, _wsFetching = false, _wsPending = false;
+function connectWS() {
+  if (_ws && (_ws.readyState === WebSocket.CONNECTING || _ws.readyState === WebSocket.OPEN)) return;
+  clearTimeout(_wsTimer);
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _ws = new WebSocket(`${proto}://api.revesbot.com.br/ws`);
+  const WATCHED = new Set(['pragmatic-auto-roulette', 'pragmatic-brazilian-roulette']);
+  _ws.onmessage = (evt) => {
+    try { const m = JSON.parse(evt.data); if (!WATCHED.has(m.slug)) return; } catch { return; }
+    if (_wsFetching) { _wsPending = true; return; }
+    _wsFetching = true;
+    fetchData(false).finally(() => { _wsFetching = false; if (_wsPending) { _wsPending = false; _wsFetching = true; fetchData(false).finally(() => { _wsFetching = false; }); } });
+  };
+  _ws.onclose = () => { _wsTimer = setTimeout(connectWS, 5000); };
+  _ws.onerror = () => { _ws.close(); };
+}
+connectWS();
+</script>
+</body>
+</html>

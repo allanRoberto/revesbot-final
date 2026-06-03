@@ -113,6 +113,7 @@ from api.routes.t8t9_signals import router as t8t9_signals_router
 from api.routes.numeros_fortes_signals import router as numeros_fortes_signals_router
 from api.routes.numeros_fortes_inversao_signals import router as numeros_fortes_inversao_signals_router
 from api.routes.hidra_signals import router as hidra_signals_router
+from api.routes.ensemble_signals import router as ensemble_signals_router
 
 
 
@@ -242,6 +243,7 @@ app.include_router(t8t9_signals_router)
 app.include_router(numeros_fortes_signals_router)
 app.include_router(numeros_fortes_inversao_signals_router)
 app.include_router(hidra_signals_router)
+app.include_router(ensemble_signals_router)
 
 
 
