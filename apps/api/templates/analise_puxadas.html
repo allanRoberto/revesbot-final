@@ -18,6 +18,18 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
        display:flex; align-items:center; gap:14px; flex-wrap:wrap;
        position:sticky; top:0; z-index:100; }
 .logo { font-size:1.05rem; font-weight:700; color:var(--gold); white-space:nowrap; }
+
+/* Live indicator */
+.live-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+.live-dot.on  { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 1.8s infinite; }
+.live-dot.off { background:var(--red); }
+@keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+.live-lbl { font-size:.72rem; color:var(--muted); }
+.live-lbl.on { color:var(--green); }
+
+/* New-number flash */
+@keyframes flashNew { 0%{ box-shadow:0 0 0 4px rgba(63,185,80,.6); } 100%{ box-shadow:none; } }
+.cn.flash-new { animation:flashNew .7s ease-out; }
 .back-btn { background:var(--surf2); border:1px solid var(--bord); color:var(--muted);
             padding:5px 12px; border-radius:6px; font-size:0.78rem; cursor:pointer;
             text-decoration:none; display:flex; align-items:center; gap:5px; }
@@ -122,8 +134,12 @@ input[type=range] { flex:1; accent-color:var(--gold); height:4px; cursor:pointer
   <a href="/" class="back-btn">← Dashboard</a>
   <span class="logo">🎡 Analisador de Puxadas</span>
   <div class="cg">
+    <div class="live-dot" id="live-dot"></div>
+    <span class="live-lbl" id="live-lbl">conectando…</span>
+  </div>
+  <div class="cg">
     <span class="cl">Mesa</span>
-    <select id="sel-mesa" style="max-width:200px" onchange="carregarHistoria()">
+    <select id="sel-mesa" style="max-width:200px" onchange="onMesaChange()">
       <option>Carregando...</option>
     </select>
   </div>
@@ -221,8 +237,8 @@ let selectedNum = null;
 let histData    = [];
 let lastRanking = [];
 
-// ─── ATENÇÃO: estas URLs apontam para a rota /puxadas/api/... ───────────────
-const API_BASE = '/puxadas/api';
+const API_BASE    = '/puxadas/api';
+const DEFAULT_MESA = 'pragmatic-auto-roulette';
 
 const DEFAULT_OCC = [1.0, 0.7, 0.5, 0.3, 0.2, 0.15, 0.1, 0.1, 0.1, 0.1];
 const DEFAULT_POS = [1.0, 0.8, 0.6, 0.4, 0.3, 0.2];
@@ -231,6 +247,76 @@ const SUB_LBL = {
   vizinho:'🔵 Vizinho', espelho:'🟣 Espelho', sequencia:'🟡 Sequência',
   soma:'🟠 Soma', terminal:'⚪ Terminal', cavalo:'🟤 Cavalo', gemeo:'🔶 Gêmeo'
 };
+
+// ── WebSocket: atualiza automaticamente quando sai novo número ────────────────
+let _ws = null;
+let _wsReconnectTimer = null;
+let _fetching = false;
+let _pendingFetch = false;
+
+function setLive(state) {
+  const dot = document.getElementById('live-dot');
+  const lbl = document.getElementById('live-lbl');
+  if (!dot) return;
+  dot.className = 'live-dot ' + state;
+  lbl.className = 'live-lbl ' + state;
+  lbl.textContent = state === 'on' ? 'ao vivo' : state === 'off' ? 'desconectado' : 'conectando…';
+}
+
+function connectWS() {
+  if (_ws && (_ws.readyState === WebSocket.CONNECTING || _ws.readyState === WebSocket.OPEN)) return;
+  clearTimeout(_wsReconnectTimer);
+  setLive('');
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  _ws.onopen = () => { setLive('on'); };
+
+  _ws.onmessage = (evt) => {
+    let msg;
+    try { msg = JSON.parse(evt.data); } catch { return; }
+
+    // Filtra: só atualiza se for a mesa selecionada
+    const mesa = document.getElementById('sel-mesa')?.value;
+    if (!mesa || msg.slug !== mesa) return;
+
+    // Prepend novo número ao histórico (evita re-fetch completo)
+    const newNum = msg.result ?? msg.value;
+    if (newNum != null && newNum >= 0 && newNum <= 36) {
+      const ts = new Date().toISOString();
+      histData = [{v: newNum, t: ts}, ...histData].slice(0, 200);
+      renderHistoria(newNum);   // passa o número recém-chegado p/ flash
+    }
+
+    // Re-analisa automaticamente se já houver um número selecionado
+    if (selectedNum !== null) {
+      if (_fetching) { _pendingFetch = true; return; }
+      _fetching = true;
+      analisar().finally(() => {
+        _fetching = false;
+        if (_pendingFetch) {
+          _pendingFetch = false;
+          _fetching = true;
+          analisar().finally(() => { _fetching = false; });
+        }
+      });
+    }
+  };
+
+  _ws.onclose = () => {
+    setLive('off');
+    _wsReconnectTimer = setTimeout(connectWS, 5000);
+  };
+
+  _ws.onerror = () => { _ws.close(); };
+}
+
+function onMesaChange() {
+  carregarHistoria();
+  // Reconecta WS para garantir que a nova mesa seja observada
+  if (_ws) { _ws.close(); }
+}
 
 // ── Chips ─────────────────────────────────────────────────────────────────
 function chipColor(n){ return n===0?'green':RED.has(n)?'red':'black'; }
@@ -288,7 +374,10 @@ async function carregarMesas(){
     const mesas = await fetchJSON(`${API_BASE}/mesas`);
     const sel = document.getElementById('sel-mesa');
     sel.innerHTML = mesas.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
-    const def = mesas.find(m=>m.id.includes('brazilian')) || mesas[0];
+    // Padrão: pragmatic-auto-roulette
+    const def = mesas.find(m => m.id === DEFAULT_MESA) ||
+                mesas.find(m => m.id.includes('auto')) ||
+                mesas[0];
     if(def) sel.value = def.id;
     carregarHistoria();
   } catch(e) {
@@ -308,7 +397,7 @@ async function carregarHistoria(){
   }
 }
 
-function renderHistoria(){
+function renderHistoria(flashNum = null){
   const strip = document.getElementById('hist-strip');
   strip.innerHTML = '';
   document.getElementById('hist-info').textContent = `${histData.length} giros`;
@@ -322,7 +411,10 @@ function renderHistoria(){
     const chip = makeChip(d.v, {
       onClick: ()=>{ selecionarNumero(d.v); }
     });
-    if(d.v === selectedNum) chip.querySelector('.cn').classList.add('sel');
+    const cn = chip.querySelector('.cn');
+    if(d.v === selectedNum) cn.classList.add('sel');
+    // Flash verde no número recém-chegado (posição 0)
+    if(idx === 0 && flashNum !== null && d.v === flashNum) cn.classList.add('flash-new');
     strip.appendChild(chip);
   });
 }
@@ -355,7 +447,7 @@ async function analisar(){
     document.getElementById('occ-title').textContent = `Ocorrências do número ${num}`;
     document.getElementById('occ-info').textContent  = `${currentOccs.length} encontradas`;
 
-    renderHistoria();
+    renderHistoria();   // sem flash — análise manual
     renderOcorrencias();
     gerarPesos();
   } catch(e) {
@@ -579,6 +671,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Gera pesos de comportamento com valores padrão
   gerarPesos();
   carregarMesas();
+
+  // Conecta WebSocket para atualizações em tempo real
+  connectWS();
 });
 </script>
 </body>
