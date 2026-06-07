@@ -338,3 +338,10 @@ async def ensemble_signals_page():
 async def puxados_signals_page():
     with open(os.path.join(templates_dir, "puxados_signals.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/analise-puxadas", response_class=HTMLResponse)
+async def analise_puxadas_page():
+    """Ferramenta visual de análise manual de puxadas / ocorrências."""
+    with open(os.path.join(templates_dir, "analise_puxadas.html"), "r", encoding="utf-8") as f:
+        return f.read()

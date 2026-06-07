@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎡 Analisador de Puxadas</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0d1117; --surf:#161b22; --surf2:#21262d; --bord:#30363d;
+  --text:#e6edf3; --muted:#8b949e; --gold:#ffd700; --blue:#58a6ff;
+  --green:#3fb950; --red:#f85149; --purple:#a371f7;
+}
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+
+/* Header */
+.hdr { background:var(--surf); border-bottom:1px solid var(--bord); padding:10px 18px;
+       display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+       position:sticky; top:0; z-index:100; }
+.logo { font-size:1.05rem; font-weight:700; color:var(--gold); white-space:nowrap; }
+.back-btn { background:var(--surf2); border:1px solid var(--bord); color:var(--muted);
+            padding:5px 12px; border-radius:6px; font-size:0.78rem; cursor:pointer;
+            text-decoration:none; display:flex; align-items:center; gap:5px; }
+.back-btn:hover { color:var(--text); border-color:var(--gold); }
+.cg { display:flex; align-items:center; gap:7px; }
+.cl { color:var(--muted); font-size:0.78rem; white-space:nowrap; }
+select, input[type=number] { background:var(--bg); border:1px solid var(--bord); color:var(--text);
+  padding:5px 9px; border-radius:6px; font-size:0.82rem; outline:none; }
+select:focus, input:focus { border-color:var(--gold); }
+.btn { padding:6px 16px; border-radius:6px; border:none; cursor:pointer; font-weight:600;
+       font-size:0.82rem; transition:opacity .15s; }
+.btn:hover { opacity:.82; }
+.btn-gold { background:var(--gold); color:#000; }
+.btn-sm { padding:4px 10px; font-size:0.75rem; background:var(--surf2); color:var(--text);
+          border:1px solid var(--bord); border-radius:5px; cursor:pointer; }
+
+/* Layout */
+.layout { display:grid; grid-template-columns:1fr 310px; gap:14px; padding:14px 18px;
+          max-width:1400px; margin:0 auto; }
+@media(max-width:860px){ .layout{ grid-template-columns:1fr; } }
+.panel { display:flex; flex-direction:column; gap:12px; }
+
+/* Cards */
+.card { background:var(--surf); border:1px solid var(--bord); border-radius:10px; overflow:hidden; }
+.card-hd { padding:8px 13px; font-size:0.72rem; font-weight:700; text-transform:uppercase;
+           letter-spacing:.06em; color:var(--muted); border-bottom:1px solid var(--bord);
+           display:flex; align-items:center; justify-content:space-between; }
+.card-bd { padding:11px 13px; }
+
+/* Chips */
+.chip { display:inline-flex; flex-direction:column; align-items:center; gap:2px; flex-shrink:0; }
+.cn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center;
+      justify-content:center; font-weight:700; font-size:0.82rem;
+      border:2px solid transparent; transition:transform .12s, box-shadow .12s; user-select:none; }
+.cn.red   { background:#c0392b; color:#fff; }
+.cn.black { background:#1c2833; color:#fff; border-color:#4a5568; }
+.cn.green { background:#1e8449; color:#fff; }
+.cn.target { box-shadow:0 0 0 3px var(--gold),0 0 16px rgba(255,215,0,.4); transform:scale(1.12); }
+.cn.clk { cursor:pointer; } .cn.clk:hover { opacity:.78; transform:scale(1.07); }
+.cn.sel { box-shadow:0 0 0 2px var(--blue); }
+.cn.sm { width:26px; height:26px; font-size:.72rem; }
+
+/* Badges */
+.rels { display:flex; flex-wrap:wrap; gap:2px; justify-content:center; min-height:12px; }
+.rb { font-size:.52rem; font-weight:800; padding:1px 3px; border-radius:3px; line-height:1.3; }
+.rb-viz { background:#1d4ed8; color:#fff; } .rb-esp { background:#7c3aed; color:#fff; }
+.rb-seq { background:#b45309; color:#fff; } .rb-som { background:#0891b2; color:#fff; }
+.rb-ter { background:#374151; color:#d1d5db; } .rb-cav { background:#5b21b6; color:#fff; }
+.rb-gem { background:#d97706; color:#fff; }
+.plbl { font-size:.6rem; color:var(--muted); }
+
+/* History */
+.hstrip { display:flex; gap:5px; padding-bottom:4px; flex-wrap:wrap; }
+
+/* Occurrences */
+.occ-item { background:var(--bg); border:1px solid var(--surf2); border-radius:8px;
+            padding:9px 11px; margin-bottom:8px; }
+.occ-hd { font-size:.72rem; color:var(--muted); margin-bottom:7px; display:flex; align-items:center; gap:8px; }
+.occ-badge { background:var(--surf2); padding:2px 8px; border-radius:10px; font-weight:600; color:var(--gold); }
+.occ-strip { display:flex; align-items:flex-start; gap:5px; overflow-x:auto; flex-wrap:nowrap; }
+.odiv { width:2px; height:50px; background:var(--gold); border-radius:2px; align-self:center;
+        margin:0 3px; flex-shrink:0; opacity:.6; }
+
+/* Weights */
+.sub-hd { font-size:.72rem; font-weight:700; color:var(--blue); margin:10px 0 5px;
+          text-transform:uppercase; letter-spacing:.04em; }
+.wrow { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+.wlbl { min-width:105px; font-size:.8rem; color:var(--muted); }
+input.win { width:58px; text-align:center; padding:3px 6px; font-size:.8rem; }
+input[type=range] { flex:1; accent-color:var(--gold); height:4px; cursor:pointer; }
+
+/* Ranking */
+.rk-grid { display:flex; flex-wrap:wrap; gap:8px; }
+.rk-item { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.rk-pos { font-size:.62rem; color:var(--gold); font-weight:700; }
+.rk-score { font-size:.6rem; color:var(--muted); }
+.sbar { height:3px; background:var(--surf2); border-radius:2px; margin-top:2px; width:36px; overflow:hidden; }
+.sfill { height:100%; background:var(--gold); border-radius:2px; }
+
+/* Scores table */
+.all-scores { margin-top:12px; border-top:1px solid var(--bord); padding-top:10px; }
+.scores-lbl { font-size:.7rem; color:var(--muted); margin-bottom:6px; }
+.scores-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(68px,1fr)); gap:4px; }
+.sc-cell { display:flex; align-items:center; gap:4px; }
+
+.empty { color:var(--muted); font-size:.85rem; text-align:center; padding:20px; }
+
+/* Signal badges (sinais existentes) */
+.signal-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+.stag { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:10px;
+        font-size:10px; font-weight:700; }
+.stag-hidra   { background:#1a2e1f; color:#3fb950; border:1px solid #3fb950; }
+.stag-triplet { background:#1e1e3a; color:#a371f7; border:1px solid #a371f7; }
+.stag-numfort { background:#2e1f1a; color:#f0883e; border:1px solid #f0883e; }
+.stag-puxada  { background:#1a1f2e; color:#58a6ff; border:1px solid #58a6ff; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <a href="/" class="back-btn">← Dashboard</a>
+  <span class="logo">🎡 Analisador de Puxadas</span>
+  <div class="cg">
+    <span class="cl">Mesa</span>
+    <select id="sel-mesa" style="max-width:200px" onchange="carregarHistoria()">
+      <option>Carregando...</option>
+    </select>
+  </div>
+  <div class="cg">
+    <span class="cl">Número</span>
+    <input type="number" id="inp-num" min="0" max="36" placeholder="0–36" style="width:68px"
+           onkeydown="if(event.key==='Enter')analisar()">
+  </div>
+  <div class="cg">
+    <span class="cl">Ocorrências</span>
+    <input type="number" id="inp-occ" value="5" min="1" max="10" style="width:52px">
+  </div>
+  <div class="cg">
+    <span class="cl">Antes</span>
+    <input type="number" id="inp-ant" value="3" min="1" max="6" style="width:48px">
+    <span class="cl">Depois</span>
+    <input type="number" id="inp-dep" value="3" min="1" max="6" style="width:48px">
+  </div>
+  <button class="btn btn-gold" onclick="analisar()">&#9654; Analisar</button>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- PAINEL ESQUERDO -->
+  <div class="panel">
+    <div class="card">
+      <div class="card-hd">
+        <span>Histórico recente — clique para selecionar</span>
+        <span id="hist-info" style="font-size:.68rem"></span>
+      </div>
+      <div class="card-bd">
+        <div id="hist-strip" class="hstrip">
+          <span class="empty" style="padding:6px">Selecione uma mesa...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <span id="occ-title">Ocorrências</span>
+        <span id="occ-info" style="font-size:.68rem;color:var(--blue)"></span>
+      </div>
+      <div class="card-bd" id="occ-body">
+        <div class="empty">Selecione um número para ver as ocorrências</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINEL DIREITO -->
+  <div class="panel">
+
+    <!-- Pesos comportamento -->
+    <div class="card">
+      <div class="card-hd">Comportamento da Mesa</div>
+      <div class="card-bd">
+        <div class="sub-hd">Por ocorrência (recente → antiga)</div>
+        <div id="w-ocorr"></div>
+        <div class="sub-hd" style="margin-top:11px">Posição — Antes do número</div>
+        <div id="w-antes"></div>
+        <div class="sub-hd" style="margin-top:11px">Posição — Depois do número</div>
+        <div id="w-depois"></div>
+      </div>
+    </div>
+
+    <!-- Pesos substituição -->
+    <div class="card">
+      <div class="card-hd">Pesos por Substituição</div>
+      <div class="card-bd">
+        <div id="w-sub"></div>
+        <button class="btn btn-gold" style="width:100%;margin-top:11px" onclick="calcularRanking()">
+          &#9889; Calcular Ranking
+        </button>
+      </div>
+    </div>
+
+    <!-- Ranking -->
+    <div class="card">
+      <div class="card-hd">
+        <span>Ranking de Tendência</span>
+        <button class="btn-sm" onclick="copiarRanking()">Copiar</button>
+      </div>
+      <div class="card-bd" id="rk-body">
+        <div class="empty">Configure os pesos e calcule</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+let currentOccs = [];
+let selectedNum = null;
+let histData    = [];
+let lastRanking = [];
+
+// ─── ATENÇÃO: estas URLs apontam para a rota /puxadas/api/... ───────────────
+const API_BASE = '/puxadas/api';
+
+const DEFAULT_OCC = [1.0, 0.7, 0.5, 0.3, 0.2, 0.15, 0.1, 0.1, 0.1, 0.1];
+const DEFAULT_POS = [1.0, 0.8, 0.6, 0.4, 0.3, 0.2];
+const SUB_DEF = { vizinho:3, espelho:3, sequencia:3, soma:1, terminal:1, cavalo:0.5, gemeo:2 };
+const SUB_LBL = {
+  vizinho:'🔵 Vizinho', espelho:'🟣 Espelho', sequencia:'🟡 Sequência',
+  soma:'🟠 Soma', terminal:'⚪ Terminal', cavalo:'🟤 Cavalo', gemeo:'🔶 Gêmeo'
+};
+
+// ── Chips ─────────────────────────────────────────────────────────────────
+function chipColor(n){ return n===0?'green':RED.has(n)?'red':'black'; }
+
+function makeChip(n, {isTarget=false,rels=[],posLabel=null,onClick=null,showScore=null,small=false}={}) {
+  const div = document.createElement('div');
+  div.className = 'chip';
+
+  const el = document.createElement('div');
+  el.className = `cn ${chipColor(n)}${isTarget?' target':''}${onClick?' clk':''}${small?' sm':''}`;
+  el.textContent = n;
+  if(onClick){ el.onclick = onClick; }
+  div.appendChild(el);
+
+  if(posLabel !== null){
+    const lbl = document.createElement('div');
+    lbl.className = 'plbl';
+    lbl.textContent = posLabel;
+    div.appendChild(lbl);
+  }
+
+  if(rels.length > 0){
+    const rd = document.createElement('div');
+    rd.className = 'rels';
+    rels.forEach(r => {
+      const b = document.createElement('span');
+      b.className = `rb rb-${r.slice(0,3)}`;
+      b.textContent = r==='vizinho'?'viz':r==='espelho'?'esp':r==='sequencia'?'seq':
+                      r==='soma'?'som':r==='terminal'?'ter':r==='cavalo'?'cav':
+                      r==='gemeo'?'gem':r.slice(0,3);
+      rd.appendChild(b);
+    });
+    div.appendChild(rd);
+  } else if(posLabel !== null){
+    const rd = document.createElement('div'); rd.className='rels'; div.appendChild(rd);
+  }
+
+  if(showScore !== null){
+    const sb = document.createElement('div'); sb.className='sbar';
+    const sf = document.createElement('div'); sf.className='sfill';
+    sf.style.width = showScore+'%'; sb.appendChild(sf); div.appendChild(sb);
+  }
+  return div;
+}
+
+// ── API ───────────────────────────────────────────────────────────────────
+async function fetchJSON(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+  return r.json();
+}
+
+async function carregarMesas(){
+  try {
+    const mesas = await fetchJSON(`${API_BASE}/mesas`);
+    const sel = document.getElementById('sel-mesa');
+    sel.innerHTML = mesas.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+    const def = mesas.find(m=>m.id.includes('brazilian')) || mesas[0];
+    if(def) sel.value = def.id;
+    carregarHistoria();
+  } catch(e) {
+    console.error('Erro ao carregar mesas:', e);
+    document.getElementById('sel-mesa').innerHTML = '<option>Erro ao carregar</option>';
+  }
+}
+
+async function carregarHistoria(){
+  const mesa = document.getElementById('sel-mesa').value;
+  if(!mesa) return;
+  try {
+    histData = await fetchJSON(`${API_BASE}/historia?mesa=${encodeURIComponent(mesa)}&limit=200`);
+    renderHistoria();
+  } catch(e) {
+    console.error('Erro ao carregar histórico:', e);
+  }
+}
+
+function renderHistoria(){
+  const strip = document.getElementById('hist-strip');
+  strip.innerHTML = '';
+  document.getElementById('hist-info').textContent = `${histData.length} giros`;
+  const PER_ROW = 20;
+  histData.forEach((d, idx) => {
+    if(idx > 0 && idx % PER_ROW === 0){
+      const br = document.createElement('div');
+      br.style.cssText = 'width:100%;height:0;flex-basis:100%';
+      strip.appendChild(br);
+    }
+    const chip = makeChip(d.v, {
+      onClick: ()=>{ selecionarNumero(d.v); }
+    });
+    if(d.v === selectedNum) chip.querySelector('.cn').classList.add('sel');
+    strip.appendChild(chip);
+  });
+}
+
+function selecionarNumero(n){
+  selectedNum = n;
+  document.getElementById('inp-num').value = n;
+  renderHistoria();
+  analisar();
+}
+
+async function analisar(){
+  const mesa = document.getElementById('sel-mesa').value;
+  const num  = parseInt(document.getElementById('inp-num').value);
+  if(isNaN(num)||num<0||num>36){
+    document.getElementById('occ-body').innerHTML='<div class="empty">Digite um número entre 0 e 36</div>';
+    return;
+  }
+  selectedNum = num;
+  const nocc = document.getElementById('inp-occ').value;
+  const ant  = document.getElementById('inp-ant').value;
+  const dep  = document.getElementById('inp-dep').value;
+
+  document.getElementById('occ-body').innerHTML='<div class="empty" style="padding:12px">Carregando...</div>';
+
+  try {
+    const url = `${API_BASE}/ocorrencias?mesa=${encodeURIComponent(mesa)}&numero=${num}&ocorrencias=${nocc}&antes=${ant}&depois=${dep}`;
+    currentOccs = await fetchJSON(url);
+
+    document.getElementById('occ-title').textContent = `Ocorrências do número ${num}`;
+    document.getElementById('occ-info').textContent  = `${currentOccs.length} encontradas`;
+
+    renderHistoria();
+    renderOcorrencias();
+    gerarPesos();
+  } catch(e) {
+    document.getElementById('occ-body').innerHTML=`<div class="empty" style="color:var(--red)">❌ Erro: ${e.message}</div>`;
+    console.error('analisar error:', e);
+  }
+}
+
+// ── Render Ocorrências ────────────────────────────────────────────────────
+function renderOcorrencias(){
+  const body = document.getElementById('occ-body');
+  body.innerHTML = '';
+
+  if(currentOccs.length === 0){
+    body.innerHTML='<div class="empty">Nenhuma ocorrência encontrada</div>'; return;
+  }
+
+  currentOccs.forEach((occ, oi) => {
+    const item = document.createElement('div');
+    item.className = 'occ-item';
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'occ-hd';
+    const ts = new Date(occ.timestamp);
+    const tsStr = ts.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',
+      year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    hdr.innerHTML = `<span class="occ-badge">Oc ${oi+1}</span><span>${tsStr}</span>`;
+    item.appendChild(hdr);
+
+    // Timeline: antes | alvo | depois
+    const strip = document.createElement('div');
+    strip.className = 'occ-strip';
+
+    // ANTES (do mais distante ao mais próximo: -3,-2,-1)
+    const antSorted = [...occ.antes].sort((a,b)=>a.pos-b.pos);
+    antSorted.forEach(ctx => {
+      strip.appendChild(makeChip(ctx.v, {rels:ctx.rels, posLabel:ctx.pos}));
+    });
+
+    // Divisor
+    const d1=document.createElement('div'); d1.className='odiv'; strip.appendChild(d1);
+
+    // Alvo
+    strip.appendChild(makeChip(occ.target, {isTarget:true, posLabel:'★'}));
+
+    // Divisor
+    const d2=document.createElement('div'); d2.className='odiv'; strip.appendChild(d2);
+
+    // DEPOIS (do mais próximo ao mais distante: +1,+2,+3)
+    occ.depois.forEach(ctx => {
+      strip.appendChild(makeChip(ctx.v, {rels:ctx.rels, posLabel:'+'+ctx.pos}));
+    });
+
+    item.appendChild(strip);
+    body.appendChild(item);
+  });
+}
+
+// ── Pesos ─────────────────────────────────────────────────────────────────
+function wrow(id, label, val, max_v=10, step=0.5){
+  return `<div class="wrow">
+    <span class="wlbl">${label}</span>
+    <input class="win" type="number" id="${id}" value="${val}" min="0" max="${max_v}" step="${step}"
+           oninput="document.getElementById('${id}_r').value=this.value">
+    <input type="range" id="${id}_r" min="0" max="${max_v}" step="${step}" value="${val}"
+           oninput="document.getElementById('${id}').value=this.value">
+  </div>`;
+}
+
+function gerarPesos(){
+  const nocc = parseInt(document.getElementById('inp-occ').value)||5;
+  const ant  = parseInt(document.getElementById('inp-ant').value)||3;
+  const dep  = parseInt(document.getElementById('inp-dep').value)||3;
+
+  // Ocorrências
+  let html='';
+  for(let i=0;i<nocc;i++){
+    html += wrow(`wo_${i}`, `Oc${i+1}${i===0?' (recente)':''}`, DEFAULT_OCC[i]||0.1);
+  }
+  document.getElementById('w-ocorr').innerHTML = html;
+
+  // Antes
+  html='';
+  for(let b=1;b<=ant;b++){
+    html += wrow(`wb_${b}`, `Posição −${b}`, DEFAULT_POS[b-1]||0.2);
+  }
+  document.getElementById('w-antes').innerHTML = html;
+
+  // Depois
+  html='';
+  for(let a=1;a<=dep;a++){
+    html += wrow(`wa_${a}`, `Posição +${a}`, DEFAULT_POS[a-1]||0.2);
+  }
+  document.getElementById('w-depois').innerHTML = html;
+
+  // Substituições já foram geradas no DOMContentLoaded
+}
+
+// ── Ranking ───────────────────────────────────────────────────────────────
+async function calcularRanking(){
+  const rkBody = document.getElementById('rk-body');
+
+  if(currentOccs.length===0){
+    rkBody.innerHTML='<div class="empty" style="color:var(--red)">⚠️ Analise um número primeiro (clique em ▶ Analisar)</div>';
+    return;
+  }
+
+  rkBody.innerHTML='<div class="empty">⏳ Calculando...</div>';
+
+  try {
+    const nocc=parseInt(document.getElementById('inp-occ').value)||5;
+    const ant =parseInt(document.getElementById('inp-ant').value)||3;
+    const dep =parseInt(document.getElementById('inp-dep').value)||3;
+
+    const occ_weights=[];
+    for(let i=0;i<nocc;i++){
+      const el=document.getElementById(`wo_${i}`);
+      occ_weights.push(el ? parseFloat(el.value)||0 : 0);
+    }
+
+    const before_weights={};
+    for(let b=1;b<=ant;b++){
+      const el=document.getElementById(`wb_${b}`);
+      before_weights[`-${b}`]= el ? parseFloat(el.value)||0 : 0;
+    }
+
+    const after_weights={};
+    for(let a=1;a<=dep;a++){
+      const el=document.getElementById(`wa_${a}`);
+      after_weights[`${a}`]= el ? parseFloat(el.value)||0 : 0;
+    }
+
+    const sub_weights={};
+    for(const k of Object.keys(SUB_DEF)){
+      const el=document.getElementById(`ws_${k}`);
+      sub_weights[k]= el ? parseFloat(el.value)||0 : 0;
+    }
+
+    const res = await fetch(`${API_BASE}/ranking`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ocorrencias:currentOccs, occ_weights, before_weights, after_weights, sub_weights})
+    });
+
+    if(!res.ok){
+      const txt = await res.text();
+      rkBody.innerHTML=`<div class="empty" style="color:var(--red)">❌ Erro do servidor: ${res.status}<br><small>${txt.slice(0,200)}</small></div>`;
+      return;
+    }
+
+    const data = await res.json();
+    if(!data.ranking){
+      rkBody.innerHTML='<div class="empty" style="color:var(--red)">❌ Resposta inválida do servidor</div>';
+      return;
+    }
+    lastRanking = data.ranking;
+    renderRanking(data);
+
+  } catch(e) {
+    rkBody.innerHTML=`<div class="empty" style="color:var(--red)">❌ Erro: ${e.message}</div>`;
+    console.error('calcularRanking error:', e);
+  }
+}
+
+function renderRanking(data){
+  const body = document.getElementById('rk-body');
+  body.innerHTML='';
+
+  // Top-12 grid
+  const grid = document.createElement('div');
+  grid.className='rk-grid';
+  data.ranking.forEach((n,idx)=>{
+    const sd = data.all_scores.find(x=>x.n===n);
+    const item=document.createElement('div'); item.className='rk-item';
+    const pos=document.createElement('div'); pos.className='rk-pos';
+    pos.textContent=`#${idx+1}`; item.appendChild(pos);
+    item.appendChild(makeChip(n, {showScore: sd?sd.pct:0}));
+    const sc=document.createElement('div'); sc.className='rk-score';
+    sc.textContent=sd?sd.s.toFixed(1):''; item.appendChild(sc);
+    grid.appendChild(item);
+  });
+  body.appendChild(grid);
+
+  // Todos os scores
+  const allDiv=document.createElement('div'); allDiv.className='all-scores';
+  allDiv.innerHTML='<div class="scores-lbl">Todos os números</div>';
+  const sg=document.createElement('div'); sg.className='scores-grid';
+  data.all_scores.forEach(({n,s,pct})=>{
+    const cell=document.createElement('div'); cell.className='sc-cell';
+    const el=document.createElement('div');
+    el.className=`cn sm ${chipColor(n)}`; el.textContent=n; el.style.flexShrink='0';
+    const bar=document.createElement('div');
+    bar.style.cssText='flex:1;height:4px;background:var(--surf2);border-radius:2px;overflow:hidden';
+    const fill=document.createElement('div');
+    fill.style.cssText=`width:${pct}%;height:100%;background:var(--gold);border-radius:2px`;
+    bar.appendChild(fill); cell.appendChild(el); cell.appendChild(bar); sg.appendChild(cell);
+  });
+  allDiv.appendChild(sg); body.appendChild(allDiv);
+}
+
+function copiarRanking(){
+  if(!lastRanking.length){ alert('Calcule o ranking primeiro'); return; }
+  navigator.clipboard.writeText(lastRanking.join(', '))
+    .then(()=>{
+      const b = event.target;
+      b.textContent='✓ Copiado!';
+      setTimeout(()=>b.textContent='Copiar',1500);
+    });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Gera pesos de substituição imediatamente (independente do analisar)
+  let subHtml='';
+  for(const [k,lbl] of Object.entries(SUB_LBL)){
+    subHtml += wrow(`ws_${k}`, lbl, SUB_DEF[k]);
+  }
+  document.getElementById('w-sub').innerHTML = subHtml;
+
+  // Gera pesos de comportamento com valores padrão
+  gerarPesos();
+  carregarMesas();
+});
+</script>
+</body>
+</html>
