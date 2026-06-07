@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — Puxadas Inversão</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9; --surface: #ffffff; --surface-soft: #eef3f1;
+      --border: #d7ddd9; --text: #18211f; --muted: #63706b;
+      --accent: #177a5b; --accent-strong: #0f5f46;
+      --danger: #9b2f2f; --warn: #b8860b; --info: #2563eb;
+      --red: #c0392b; --green: #2e8b57; --gold: #b5860b; --purple: #6b21a8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1280px; margin: 0 auto; }
+    h1 { margin: 0 0 4px; font-size: 22px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Stats */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            padding: 16px; margin-bottom: 14px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+    .stat { background: var(--surface-soft); padding: 10px 12px; border-radius: 8px; }
+    .stat .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .stat .value { font-size: 22px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub   { font-size: 10px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); }
+    .stat.warn   .value { color: var(--warn); }
+    .stat.info   .value { color: var(--info); }
+    .stat.gold   .value { color: var(--gold); }
+
+    /* Filters */
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+    .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px;
+                     color: var(--muted); font-weight: 600; }
+    .filters select, .filters input { padding: 7px 10px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
+    .btn { padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent);
+           color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: var(--accent-strong); }
+
+    /* Signal card */
+    .signal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+                   padding: 14px 16px; margin-bottom: 10px; }
+    .signal-card.won        { border-left: 4px solid var(--green); }
+    .signal-card.lost       { border-left: 4px solid var(--red); }
+    .signal-card.monitoring { border-left: 4px solid var(--info); }
+    .signal-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .signal-roulette { font-size: 13px; font-weight: 700; color: var(--accent-strong); }
+    .signal-ts { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+    .signal-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+                   gap: 10px; font-size: 12px; }
+    .signal-field .lbl { color: var(--muted); font-size: 10px; text-transform: uppercase;
+                         letter-spacing: .4px; }
+    .signal-field .val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+             border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .badge-won        { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-lost       { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-monitoring { background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; }
+
+    /* Number chips */
+    .nums { display: flex; flex-wrap: wrap; gap: 3px; }
+    .num-chip { display: inline-flex; align-items: center; justify-content: center;
+                min-width: 24px; height: 24px; padding: 0 3px; border-radius: 4px;
+                font-size: 11px; font-weight: 700; background: var(--surface-soft);
+                border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .num-chip.hit     { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .num-chip.trigger { background: #fef9c3; border-color: #fde047; color: #854d0e; }
+    .num-chip.post-hit { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+
+    /* Attempts */
+    .attempts-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+    .att-chip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px;
+                border-radius: 5px; font-size: 11px; border: 1px solid var(--border);
+                background: var(--surface-soft); }
+    .att-chip.hit  { background: #dcfce7; border-color: #86efac; color: #166534; font-weight: 700; }
+    .att-chip.miss { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+    /* Post-tracking */
+    .post-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 6px; }
+    .post-chip { display: inline-flex; align-items: center; justify-content: center;
+                 min-width: 22px; height: 22px; border-radius: 4px; font-size: 10px;
+                 font-weight: 700; background: var(--surface-soft); border: 1px solid var(--border); }
+    .post-chip.hit { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+
+    /* Win distribution table */
+    .dist-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    .dist-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 5px 10px;
+                     border-bottom: 1px solid var(--border); }
+    .dist-table td { padding: 6px 10px; border-bottom: 1px solid var(--border);
+                     font-variant-numeric: tabular-nums; }
+    .dist-table tr:last-child td { border-bottom: none; }
+
+    .pnl-pos { color: var(--green); font-weight: 700; }
+    .pnl-neg { color: var(--red); font-weight: 700; }
+
+    #loading { text-align: center; color: var(--muted); padding: 30px; font-size: 14px; }
+    #no-signals { text-align: center; color: var(--muted); padding: 30px; font-size: 14px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🎡 Sinais — Puxadas Inversão</h1>
+  <p class="subtitle">
+    Trigger: número atual no top-12 anterior (inversão pagou) →
+    4 tentativas × 12 fichas nos novos top-12 → acompanhamento de 10 rodadas.
+    <a href="/">← Dashboard</a>
+  </p>
+
+  <!-- Stats -->
+  <div class="card" id="stats-card" style="display:none">
+    <div class="stats-grid" id="stats-grid"></div>
+  </div>
+
+  <!-- Distribuição de tentativas -->
+  <div class="card" id="dist-card" style="display:none">
+    <strong style="font-size:13px">Distribuição de Vitórias por Tentativa</strong>
+    <table class="dist-table" id="dist-table">
+      <thead><tr>
+        <th>Tentativa</th><th>Vitórias</th><th>P&amp;L unitário</th>
+      </tr></thead>
+      <tbody id="dist-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters">
+    <label>Roleta
+      <select id="f-roulette">
+        <option value="">Todas</option>
+        <option value="pragmatic-auto-roulette">Auto Roulette</option>
+        <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+      </select>
+    </label>
+    <label>Status
+      <select id="f-status">
+        <option value="all">Todos</option>
+        <option value="monitoring">Monitorando</option>
+        <option value="won">Ganhos</option>
+        <option value="lost">Perdidos</option>
+      </select>
+    </label>
+    <label>Limite
+      <select id="f-limit">
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+      </select>
+    </label>
+    <label style="justify-content:flex-end">
+      <button class="btn" onclick="loadData()">Filtrar</button>
+    </label>
+    <label style="justify-content:flex-end">
+      <button class="btn" style="background:#6b7280" id="auto-btn" onclick="toggleAuto()">
+        ▶ Auto-refresh
+      </button>
+    </label>
+  </div>
+
+  <div id="loading">Carregando…</div>
+  <div id="no-signals" style="display:none">Nenhum sinal encontrado.</div>
+  <div id="signals-list"></div>
+</div>
+
+<script>
+let autoTimer = null;
+const PNL_BY_ATT = { 1: 24, 2: 12, 3: 0, 4: -12, null: -48 };
+
+// ── Cores roulette ──────────────────────────────────────────────────────────
+const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+function chipColor(n){
+  if(n===0) return '#1e8449;color:#fff';
+  if(RED.has(n)) return '#c0392b;color:#fff';
+  return '#1c2833;color:#fff;border-color:#4a5568';
+}
+function numChip(n, cls=''){
+  return `<span class="num-chip ${cls}" style="background:${chipColor(n).split(';')[0]};color:#fff">${n}</span>`;
+}
+
+function fmtTs(ts){ if(!ts) return '—'; const d=new Date(ts);
+  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+
+function fmtPnl(pnl){
+  if(pnl == null) return '<span class="pnl-neg">—</span>';
+  const cls = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+  return `<span class="${cls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}</span>`;
+}
+
+function renderStats(data){
+  const g = document.getElementById('stats-grid');
+  const resolved = data.resolved || 0;
+  const winPct   = data.assertiveness_pct ?? 0;
+  const pnl      = data.pnl_total ?? 0;
+  const postHits = data.avg_post_hits;
+
+  g.innerHTML = `
+    <div class="stat"><div class="label">Total</div>
+      <div class="value">${data.total ?? 0}</div></div>
+    <div class="stat"><div class="label">Monitorando</div>
+      <div class="value info">${data.monitoring ?? 0}</div></div>
+    <div class="stat"><div class="label">Resolvidos</div>
+      <div class="value">${resolved}</div></div>
+    <div class="stat ${winPct >= 33.3 ? 'info' : 'warn'}">
+      <div class="label">Assertividade</div>
+      <div class="value">${winPct.toFixed(1)}%</div>
+      <div class="sub">acaso 32.4% | break-even 33.3%</div></div>
+    <div class="stat ${winPct >= 33.3 ? 'info' : 'danger'}">
+      <div class="label">Ganhos / Perdidos</div>
+      <div class="value">${data.won ?? 0} / ${data.lost ?? 0}</div></div>
+    <div class="stat ${pnl >= 0 ? 'info' : 'danger'}">
+      <div class="label">P&L Total</div>
+      <div class="value">${pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}</div>
+      <div class="sub">fichas</div></div>
+    <div class="stat gold"><div class="label">Média tentativas (win)</div>
+      <div class="value">${data.avg_attempts_to_win?.toFixed(2) ?? '—'}</div></div>
+    <div class="stat"><div class="label">Post avg hits/10</div>
+      <div class="value">${postHits != null ? postHits.toFixed(2) : '—'}</div>
+      <div class="sub">acaso ~3.24</div></div>
+  `;
+  document.getElementById('stats-card').style.display = '';
+
+  // Distribuição
+  const dist = data.win_distribution || {};
+  const unitPnl = { '1': '+24', '2': '+12', '3': '0', '4': '−12' };
+  let tbody = '';
+  for(const k of ['1','2','3','4']){
+    const v = dist[k] || 0;
+    tbody += `<tr><td>Tentativa ${k}</td><td>${v}</td>
+      <td class="${parseInt(unitPnl[k])>=0?'pnl-pos':'pnl-neg'}">${unitPnl[k]} fichas</td></tr>`;
+  }
+  document.getElementById('dist-body').innerHTML = tbody;
+  document.getElementById('dist-card').style.display = '';
+}
+
+function renderSignal(s){
+  const statusClass = s.status === 'won' ? 'won' : s.status === 'lost' ? 'lost' : 'monitoring';
+  const badgeCls    = `badge-${statusClass}`;
+  const statusLbl   = s.status === 'won' ? '✓ Ganhou' : s.status === 'lost' ? '✗ Perdeu' : '⏳ Monitor';
+
+  // Ranking chips
+  const rankingHtml = (s.ranking || []).map(n => numChip(n)).join('');
+
+  // Tentativas
+  const attHtml = (s.attempts || []).map(a =>
+    `<span class="att-chip ${a.hit ? 'hit' : 'miss'}">
+       T${a.attempt}: <b>${a.value}</b> ${a.hit ? '✓' : '✗'}
+     </span>`
+  ).join('');
+
+  // Post-tracking
+  let postHtml = '';
+  const pt = s.post_tracking || {};
+  if(pt.rounds && pt.rounds.length > 0){
+    const chips = pt.rounds.map(r =>
+      `<span class="post-chip ${r.hit ? 'hit' : ''}">${r.value}</span>`
+    ).join('');
+    postHtml = `
+      <div class="signal-field" style="grid-column:1/-1">
+        <div class="lbl">Pós-tracking (${pt.hits || 0} hits em ${pt.rounds.length} rodadas)</div>
+        <div class="post-row">${chips}</div>
+      </div>`;
+  }
+
+  const rouletteName = s.roulette_id.replace('pragmatic-','').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+
+  return `
+  <div class="signal-card ${statusClass}">
+    <div class="signal-header">
+      <span class="signal-roulette">${rouletteName}</span>
+      <span class="badge ${badgeCls}">${statusLbl}</span>
+      ${s.won_at_attempt ? `<span class="badge" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd">Att ${s.won_at_attempt}</span>` : ''}
+      ${s.pnl != null ? `<span style="font-size:12px;font-weight:700">${fmtPnl(s.pnl)} fichas</span>` : ''}
+      <span class="signal-ts">${fmtTs(s.created_at)}</span>
+    </div>
+    <div class="signal-body">
+      <div class="signal-field">
+        <div class="lbl">Trigger (inversão pagou)</div>
+        <div class="val">${numChip(s.trigger_value, 'trigger')}</div>
+      </div>
+      <div class="signal-field">
+        <div class="lbl">Top-12 apostado</div>
+        <div class="nums">${rankingHtml}</div>
+      </div>
+      <div class="signal-field" style="grid-column:1/-1">
+        <div class="lbl">Tentativas (${s.attempts?.length || 0}/${s.config?.max_attempts || 4})</div>
+        <div class="attempts-row">${attHtml || '<span style="color:var(--muted);font-size:11px">Aguardando…</span>'}</div>
+      </div>
+      ${postHtml}
+    </div>
+  </div>`;
+}
+
+async function loadData(){
+  document.getElementById('loading').style.display = '';
+  document.getElementById('signals-list').innerHTML = '';
+  document.getElementById('no-signals').style.display = 'none';
+
+  const rid    = document.getElementById('f-roulette').value;
+  const status = document.getElementById('f-status').value;
+  const limit  = document.getElementById('f-limit').value;
+
+  const params = new URLSearchParams({ limit });
+  if(rid)    params.set('roulette_id', rid);
+  if(status !== 'all') params.set('status', status);
+
+  try {
+    const resp = await fetch(`/api/puxadas-inversao/signals?${params}`);
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    document.getElementById('loading').style.display = 'none';
+    renderStats(data);
+
+    const list = document.getElementById('signals-list');
+    if(!data.signals || data.signals.length === 0){
+      document.getElementById('no-signals').style.display = '';
+    } else {
+      list.innerHTML = data.signals.map(renderSignal).join('');
+    }
+  } catch(e){
+    document.getElementById('loading').innerHTML = `<span style="color:red">Erro: ${e.message}</span>`;
+    console.error(e);
+  }
+}
+
+function toggleAuto(){
+  if(autoTimer){
+    clearInterval(autoTimer);
+    autoTimer = null;
+    document.getElementById('auto-btn').textContent = '▶ Auto-refresh';
+  } else {
+    autoTimer = setInterval(loadData, 10000);
+    document.getElementById('auto-btn').textContent = '⏹ Stop auto';
+    document.getElementById('auto-btn').style.background = '#dc2626';
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

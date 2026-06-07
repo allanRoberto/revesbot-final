@@ -345,3 +345,10 @@ async def analise_puxadas_page():
     """Ferramenta visual de análise manual de puxadas / ocorrências."""
     with open(os.path.join(templates_dir, "analise_puxadas.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/sinais-puxadas-inversao", response_class=HTMLResponse)
+async def puxadas_inversao_signals_page():
+    """Dashboard de assertividade — Puxadas Inversão."""
+    with open(os.path.join(templates_dir, "puxadas_inversao_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()
