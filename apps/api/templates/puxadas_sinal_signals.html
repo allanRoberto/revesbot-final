@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinais — Puxadas</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg:#f6f7f9; --surface:#fff; --surface-soft:#eef3f1;
+      --border:#d7ddd9; --text:#18211f; --muted:#63706b;
+      --accent:#177a5b; --accent-strong:#0f5f46;
+      --danger:#9b2f2f; --warn:#b8860b; --info:#2563eb;
+      --red:#c0392b; --green:#2e8b57; --gold:#b5860b; --purple:#6b21a8;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+           background:var(--bg); color:var(--text); padding:24px 16px; }
+    .container { max-width:1280px; margin:0 auto; }
+    h1 { margin:0 0 4px; font-size:22px; color:var(--accent-strong); }
+    .subtitle { color:var(--muted); margin:0 0 20px; font-size:13px; }
+    a { color:var(--accent); text-decoration:none; }
+
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px;
+            padding:16px; margin-bottom:14px; }
+
+    /* Stats */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+    .stat { background:var(--surface-soft); padding:10px 12px; border-radius:8px; }
+    .stat .label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+    .stat .value { font-size:22px; font-weight:700; color:var(--accent-strong); font-variant-numeric:tabular-nums; }
+    .stat .sub   { font-size:10px; color:var(--muted); }
+    .stat.danger .value { color:var(--danger); }
+    .stat.warn   .value { color:var(--warn); }
+    .stat.info   .value { color:var(--info); }
+    .stat.gold   .value { color:var(--gold); }
+
+    /* Inversão comparison */
+    .inv-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px; }
+    .inv-box { background:var(--surface-soft); border-radius:8px; padding:10px 12px; }
+    .inv-box .title { font-size:11px; font-weight:700; margin-bottom:6px; }
+    .inv-box.paid   .title { color:var(--gold); }
+    .inv-box.no-paid .title { color:var(--muted); }
+    .inv-stat { font-size:13px; font-variant-numeric:tabular-nums; }
+
+    /* Filters */
+    .filters { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:14px; }
+    .filters label { display:flex; flex-direction:column; gap:4px; font-size:12px;
+                     color:var(--muted); font-weight:600; }
+    .filters select { padding:7px 10px; border:1px solid var(--border); border-radius:6px;
+                      font-size:13px; background:var(--surface); color:var(--text); }
+    .btn { padding:7px 16px; border:none; border-radius:6px; background:var(--accent);
+           color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+    .btn:hover { background:var(--accent-strong); }
+
+    /* Signal card */
+    .signal-card { background:var(--surface); border:1px solid var(--border); border-radius:10px;
+                   padding:14px 16px; margin-bottom:10px; }
+    .signal-card.won        { border-left:4px solid var(--green); }
+    .signal-card.lost       { border-left:4px solid var(--red); }
+    .signal-card.monitoring { border-left:4px solid var(--info); }
+    .signal-header { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px; }
+    .signal-roulette { font-size:13px; font-weight:700; color:var(--accent-strong); }
+    .signal-ts { font-size:11px; color:var(--muted); margin-left:auto; }
+    .signal-body { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+                   gap:10px; font-size:12px; }
+    .signal-field .lbl { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.4px; }
+    .signal-field .val { font-weight:600; font-variant-numeric:tabular-nums; }
+
+    /* Badges */
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px;
+             border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .badge-won        { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+    .badge-lost       { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+    .badge-monitoring { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
+    .badge-inv-yes    { background:#fef9c3; color:#854d0e; border:1px solid #fde047; }
+    .badge-inv-no     { background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; }
+
+    /* Number chips */
+    .nums { display:flex; flex-wrap:wrap; gap:3px; }
+    .num-chip { display:inline-flex; align-items:center; justify-content:center;
+                min-width:24px; height:24px; padding:0 3px; border-radius:4px;
+                font-size:11px; font-weight:700; color:#fff;
+                font-variant-numeric:tabular-nums; }
+    .num-chip.inv-hit { outline:2px solid var(--gold); }
+
+    /* Attempts */
+    .att-row { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+    .att-chip { display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
+                border-radius:5px; font-size:11px; border:1px solid var(--border);
+                background:var(--surface-soft); }
+    .att-chip.hit  { background:#dcfce7; border-color:#86efac; color:#166534; font-weight:700; }
+    .att-chip.miss { background:#fee2e2; border-color:#fca5a5; color:#991b1b; }
+
+    /* Post */
+    .post-row { display:flex; gap:3px; flex-wrap:wrap; margin-top:5px; }
+    .post-chip { display:inline-flex; align-items:center; justify-content:center;
+                 min-width:22px; height:22px; border-radius:4px; font-size:10px;
+                 font-weight:700; color:#fff; }
+    .post-chip.hit { outline:2px solid #a371f7; }
+
+    /* Pre-window (inversão) */
+    .pre-row { display:flex; gap:3px; flex-wrap:wrap; margin-top:4px; }
+
+    /* Dist table */
+    .dist-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+    .dist-table th { text-align:left; color:var(--muted); font-weight:600; padding:5px 10px;
+                     border-bottom:1px solid var(--border); }
+    .dist-table td { padding:6px 10px; border-bottom:1px solid var(--border);
+                     font-variant-numeric:tabular-nums; }
+    .dist-table tr:last-child td { border-bottom:none; }
+
+    .pnl-pos { color:var(--green); font-weight:700; }
+    .pnl-neg { color:var(--red); font-weight:700; }
+    #loading { text-align:center; color:var(--muted); padding:30px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🎡 Sinais — Puxadas</h1>
+  <p class="subtitle">
+    Trigger: qualquer giro (quando idle) · 4 tentativas × 12 fichas no top-12 ·
+    Inversão = parâmetro (número da aposta apareceu antes do gatilho?)
+    <a href="/">← Dashboard</a>
+  </p>
+
+  <!-- Stats globais -->
+  <div class="card" id="stats-card" style="display:none">
+    <div class="stats-grid" id="stats-grid"></div>
+  </div>
+
+  <!-- Comparativo inversão -->
+  <div class="card" id="inv-card" style="display:none">
+    <strong style="font-size:13px">Assertividade: com inversão prévia vs sem inversão</strong>
+    <div class="inv-grid" id="inv-grid"></div>
+  </div>
+
+  <!-- Dist tentativas -->
+  <div class="card" id="dist-card" style="display:none">
+    <strong style="font-size:13px">Distribuição de Vitórias por Tentativa</strong>
+    <table class="dist-table">
+      <thead><tr><th>Tentativa</th><th>Vitórias</th><th>P&amp;L unitário</th></tr></thead>
+      <tbody id="dist-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters">
+    <label>Roleta
+      <select id="f-roulette">
+        <option value="">Todas</option>
+        <option value="pragmatic-auto-roulette">Auto Roulette</option>
+        <option value="pragmatic-brazilian-roulette">Brazilian Roulette</option>
+      </select>
+    </label>
+    <label>Status
+      <select id="f-status">
+        <option value="all">Todos</option>
+        <option value="monitoring">Monitorando</option>
+        <option value="won">Ganhos</option>
+        <option value="lost">Perdidos</option>
+      </select>
+    </label>
+    <label>Inversão prévia
+      <select id="f-inv">
+        <option value="">Todas</option>
+        <option value="true">Com inversão</option>
+        <option value="false">Sem inversão</option>
+      </select>
+    </label>
+    <label>Limite
+      <select id="f-limit">
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+      </select>
+    </label>
+    <label style="justify-content:flex-end">
+      <button class="btn" onclick="loadData()">Filtrar</button>
+    </label>
+    <label style="justify-content:flex-end">
+      <button class="btn" style="background:#6b7280" id="auto-btn" onclick="toggleAuto()">▶ Auto</button>
+    </label>
+  </div>
+
+  <div id="loading">Carregando…</div>
+  <div id="signals-list"></div>
+</div>
+
+<script>
+let autoTimer = null;
+const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+
+function chipBg(n){
+  if(n===0) return '#1e8449';
+  return RED.has(n) ? '#c0392b' : '#1c2833';
+}
+function numChip(n, extraClass=''){
+  return `<span class="num-chip ${extraClass}" style="background:${chipBg(n)}">${n}</span>`;
+}
+function fmtTs(ts){ if(!ts) return '—'; const d=new Date(ts);
+  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+function fmtPnl(p){ if(p==null) return '—';
+  return `<span class="${p>=0?'pnl-pos':'pnl-neg'}">${p>=0?'+':''}${p.toFixed(0)} fichas</span>`; }
+
+function renderStats(d){
+  const g=document.getElementById('stats-grid');
+  const pnl=d.pnl_total??0;
+  const wp=d.assertiveness_pct??0;
+  g.innerHTML=`
+    <div class="stat"><div class="label">Total</div><div class="value">${d.total??0}</div></div>
+    <div class="stat info"><div class="label">Monitorando</div><div class="value">${d.monitoring??0}</div></div>
+    <div class="stat"><div class="label">Resolvidos</div><div class="value">${d.resolved??0}</div></div>
+    <div class="stat ${wp>=33.3?'info':'warn'}">
+      <div class="label">Assertividade</div><div class="value">${wp.toFixed(1)}%</div>
+      <div class="sub">acaso 32.4% | break-even 33.3%</div></div>
+    <div class="stat">
+      <div class="label">Ganhos / Perdidos</div><div class="value">${d.won??0} / ${d.lost??0}</div></div>
+    <div class="stat ${pnl>=0?'info':'danger'}">
+      <div class="label">P&L Total</div><div class="value">${pnl>=0?'+':''}${pnl.toFixed(0)}</div>
+      <div class="sub">fichas</div></div>
+    <div class="stat gold">
+      <div class="label">Média tentativas (win)</div>
+      <div class="value">${d.avg_attempts_to_win?.toFixed(2)??'—'}</div></div>
+    <div class="stat">
+      <div class="label">Post avg hits/10</div>
+      <div class="value">${d.avg_post_hits!=null?d.avg_post_hits.toFixed(2):'—'}</div>
+      <div class="sub">acaso ~3.24</div></div>
+  `;
+  document.getElementById('stats-card').style.display='';
+
+  // Inversão comparativo
+  const inv=d.inversao||{};
+  document.getElementById('inv-grid').innerHTML=`
+    <div class="inv-box paid">
+      <div class="title">✓ Com inversão prévia (${inv.paid_total??0} sinais)</div>
+      <div class="inv-stat">Ganhos: ${inv.paid_won??0} | Perdidos: ${inv.paid_lost??0}</div>
+      <div class="inv-stat" style="font-size:15px;font-weight:700;margin-top:4px">
+        ${inv.paid_pct?.toFixed(1)??'—'}% assertividade</div>
+    </div>
+    <div class="inv-box no-paid">
+      <div class="title">✗ Sem inversão prévia (${inv.no_paid_total??0} sinais)</div>
+      <div class="inv-stat">Ganhos: ${inv.no_paid_won??0} | Perdidos: ${inv.no_paid_lost??0}</div>
+      <div class="inv-stat" style="font-size:15px;font-weight:700;margin-top:4px">
+        ${inv.no_paid_pct?.toFixed(1)??'—'}% assertividade</div>
+    </div>
+  `;
+  document.getElementById('inv-card').style.display='';
+
+  // Dist
+  const dist=d.win_distribution||{};
+  const unitPnl={'1':'+24','2':'+12','3':'0','4':'−12'};
+  document.getElementById('dist-body').innerHTML=
+    ['1','2','3','4'].map(k=>`<tr><td>Tentativa ${k}</td><td>${dist[k]??0}</td>
+      <td class="${parseInt(unitPnl[k])>=0?'pnl-pos':'pnl-neg'}">${unitPnl[k]} fichas</td></tr>`).join('');
+  document.getElementById('dist-card').style.display='';
+}
+
+function renderSignal(s){
+  const sc=s.status==='won'?'won':s.status==='lost'?'lost':'monitoring';
+  const sl=s.status==='won'?'✓ Ganhou':s.status==='lost'?'✗ Perdeu':'⏳ Monitor';
+  const inv=s.inversao||{};
+  const invSet=new Set(inv.hits||[]);
+
+  // Ranking chips — marca em dourado os que apareceram na janela de inversão
+  const rankHtml=(s.ranking||[]).map(n=>numChip(n,invSet.has(n)?'inv-hit':'')).join('');
+
+  // Janela de inversão (pré-gatilho)
+  const preHtml=(inv.window||[]).map(n=>numChip(n,invSet.has(n)?'inv-hit':'')).join('');
+
+  // Tentativas
+  const attHtml=(s.attempts||[]).map(a=>
+    `<span class="att-chip ${a.hit?'hit':'miss'}">T${a.attempt}: <b>${a.value}</b> ${a.hit?'✓':'✗'}</span>`
+  ).join('') || '<span style="color:var(--muted);font-size:11px">Aguardando…</span>';
+
+  // Post-tracking
+  const pt=s.post_tracking||{};
+  let postHtml='';
+  if(pt.rounds&&pt.rounds.length>0){
+    const chips=pt.rounds.map(r=>`<span class="post-chip ${r.hit?'hit':''}" style="background:${chipBg(r.value)}">${r.value}</span>`).join('');
+    postHtml=`<div class="signal-field" style="grid-column:1/-1">
+      <div class="lbl">Pós-tracking (${pt.hits||0} hits em ${pt.rounds.length} rodadas)</div>
+      <div class="post-row">${chips}</div></div>`;
+  }
+
+  const name=s.roulette_id.replace('pragmatic-','').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+
+  return `
+  <div class="signal-card ${sc}">
+    <div class="signal-header">
+      <span class="signal-roulette">${name}</span>
+      <span class="badge badge-${sc}">${sl}</span>
+      ${inv.paid?'<span class="badge badge-inv-yes">🔄 Inversão prévia</span>':'<span class="badge badge-inv-no">Sem inversão</span>'}
+      ${s.won_at_attempt?`<span class="badge" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd">Att ${s.won_at_attempt}</span>`:''}
+      ${s.pnl!=null?`<span style="font-size:12px;font-weight:700">${fmtPnl(s.pnl)}</span>`:''}
+      <span class="signal-ts">${fmtTs(s.created_at)}</span>
+    </div>
+    <div class="signal-body">
+      <div class="signal-field">
+        <div class="lbl">Trigger (gatilho)</div>
+        <div class="val">${numChip(s.trigger_value)}</div>
+      </div>
+      <div class="signal-field">
+        <div class="lbl">Top-12 apostado ${inv.paid?'<span style="color:var(--gold)">★</span>':''}</div>
+        <div class="nums">${rankHtml}</div>
+      </div>
+      <div class="signal-field">
+        <div class="lbl">Janela pré-gatilho (${inv.window_size||5} giros)</div>
+        <div class="pre-row">${preHtml||'—'}</div>
+      </div>
+      <div class="signal-field" style="grid-column:1/-1">
+        <div class="lbl">Tentativas (${s.attempts?.length||0}/${s.config?.max_attempts||4})</div>
+        <div class="att-row">${attHtml}</div>
+      </div>
+      ${postHtml}
+    </div>
+  </div>`;
+}
+
+async function loadData(){
+  document.getElementById('loading').style.display='';
+  document.getElementById('signals-list').innerHTML='';
+
+  const rid   =document.getElementById('f-roulette').value;
+  const status=document.getElementById('f-status').value;
+  const inv   =document.getElementById('f-inv').value;
+  const limit =document.getElementById('f-limit').value;
+
+  const p=new URLSearchParams({limit});
+  if(rid)           p.set('roulette_id',rid);
+  if(status!=='all') p.set('status',status);
+  if(inv)           p.set('inversao_paid',inv);
+
+  try{
+    const r=await fetch(`/api/puxadas-sinal/signals?${p}`);
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data=await r.json();
+    document.getElementById('loading').style.display='none';
+    renderStats(data);
+    document.getElementById('signals-list').innerHTML=
+      (data.signals||[]).map(renderSignal).join('') ||
+      '<div style="text-align:center;color:var(--muted);padding:30px">Nenhum sinal encontrado.</div>';
+  }catch(e){
+    document.getElementById('loading').innerHTML=`<span style="color:red">Erro: ${e.message}</span>`;
+  }
+}
+
+function toggleAuto(){
+  if(autoTimer){ clearInterval(autoTimer); autoTimer=null;
+    document.getElementById('auto-btn').textContent='▶ Auto';
+    document.getElementById('auto-btn').style.background='#6b7280';
+  } else {
+    autoTimer=setInterval(loadData,10000);
+    document.getElementById('auto-btn').textContent='⏹ Stop';
+    document.getElementById('auto-btn').style.background='#dc2626';
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

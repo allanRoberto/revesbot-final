@@ -117,6 +117,7 @@ from api.routes.ensemble_signals import router as ensemble_signals_router
 from api.routes.puxados_signals import router as puxados_signals_router
 from api.routes.analise_puxadas import router as analise_puxadas_router
 from api.routes.puxadas_inversao_signals import router as puxadas_inversao_signals_router
+from api.routes.puxadas_sinal_signals import router as puxadas_sinal_signals_router
 
 
 
@@ -250,6 +251,7 @@ app.include_router(ensemble_signals_router)
 app.include_router(puxados_signals_router)
 app.include_router(analise_puxadas_router)
 app.include_router(puxadas_inversao_signals_router)
+app.include_router(puxadas_sinal_signals_router)
 
 
 

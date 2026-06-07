@@ -349,6 +349,13 @@ async def analise_puxadas_page():
 
 @router.get("/sinais-puxadas-inversao", response_class=HTMLResponse)
 async def puxadas_inversao_signals_page():
-    """Dashboard de assertividade — Puxadas Inversão."""
+    """Dashboard de assertividade — Puxadas Inversão (trigger = inversão pagou)."""
     with open(os.path.join(templates_dir, "puxadas_inversao_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/sinais-puxadas", response_class=HTMLResponse)
+async def puxadas_sinal_signals_page():
+    """Dashboard de assertividade — Puxadas (inversão como parâmetro)."""
+    with open(os.path.join(templates_dir, "puxadas_sinal_signals.html"), "r", encoding="utf-8") as f:
         return f.read()
