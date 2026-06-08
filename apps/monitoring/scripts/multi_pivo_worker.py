@@ -16,7 +16,9 @@ Lógica:
   • P&L por tentativa de vitória:
         T1 = +24 | T2 = +12 | T3 = 0 | T4 = -12 | Derrota = -48 fichas.
   • Pós-resolução: POST_ROUNDS (10) giros de acompanhamento para medir
-    quantas vezes o top-12 aparece na prática.
+    quantas vezes o top-12 aparece na prática. Roda EM PARALELO: assim que um
+    sinal resolve (won/lost), o worker já fica livre para disparar o próximo no
+    giro seguinte — vários sinais podem estar em pós-tracking ao mesmo tempo.
 
 Coleção MongoDB: multi_pivo_signals
 """
@@ -183,10 +185,12 @@ class RouletteState:
         self.history: List[int] = list(initial_history[:SPINS_TO_FETCH])
 
         self.signal_id:  Optional[Any] = None
-        self.phase:      str           = "idle"
+        self.phase:      str           = "idle"   # idle | monitoring
         self.attempts:   int           = 0
-        self.post_count: int           = 0
         self.bet:        List[int]     = []
+        # Sinais já resolvidos em pós-tracking (rodam em paralelo, NÃO travam
+        # novos sinais): [{"id": ObjectId, "bet": [...], "count": int}]
+        self.post_list:  List[Dict[str, Any]] = []
 
         log.info("[%s] Inicializado: %d giros", roulette_id, len(self.history))
 
@@ -197,10 +201,11 @@ class RouletteState:
         if len(self.history) > SPINS_TO_FETCH:
             self.history.pop()
 
+        # Pós-tracking corre em paralelo e não bloqueia a emissão de novos sinais
+        self._advance_post_tracking(value, now)
+
         if self.phase == "monitoring":
             self._handle_monitoring(value, now)
-        elif self.phase == "post_tracking":
-            self._handle_post_tracking(value, now)
         else:
             self._fire_signal(value, now)
 
@@ -247,7 +252,6 @@ class RouletteState:
         self.signal_id  = result.inserted_id
         self.phase      = "monitoring"
         self.attempts   = 0
-        self.post_count = 0
         self.bet        = ranking
 
         log.info(
@@ -299,8 +303,10 @@ class RouletteState:
                 "[%s] Sinal %s | %s | won_at=%s | pnl=%.0f",
                 self.rid, self.signal_id, status, won_at, pnl,
             )
-            self.phase      = "post_tracking"
-            self.post_count = 0
+            # Pós-tracking em paralelo: registra e libera o worker para o
+            # próximo sinal já no giro seguinte.
+            self.post_list.append({"id": self.signal_id, "bet": list(self.bet), "count": 0})
+            self._reset()
         else:
             signals_coll.update_one(
                 {"_id": self.signal_id},
@@ -308,40 +314,44 @@ class RouletteState:
             )
             log.debug("[%s] Tentativa %d: %d (miss)", self.rid, self.attempts, value)
 
-    def _handle_post_tracking(self, value: int, now: datetime) -> None:
-        self.post_count += 1
-        hit = value in self.bet
+    def _advance_post_tracking(self, value: int, now: datetime) -> None:
+        """Avança o pós-tracking de TODOS os sinais resolvidos (em paralelo)."""
+        if not self.post_list:
+            return
+        still_active: List[Dict[str, Any]] = []
+        for pt in self.post_list:
+            pt["count"] += 1
+            hit = value in pt["bet"]
+            round_doc = {
+                "round":     pt["count"],
+                "value":     value,
+                "hit":       hit,
+                "timestamp": now,
+            }
+            update: Dict[str, Any] = {"$push": {"post_tracking.rounds": round_doc}}
+            if hit:
+                update["$inc"] = {"post_tracking.hits": 1}
 
-        round_doc = {
-            "round":     self.post_count,
-            "value":     value,
-            "hit":       hit,
-            "timestamp": now,
-        }
-        update: Dict[str, Any] = {"$push": {"post_tracking.rounds": round_doc}}
-        if hit:
-            update["$inc"] = {"post_tracking.hits": 1}
-
-        if self.post_count >= POST_ROUNDS:
-            update.setdefault("$set", {})
-            update["$set"].update({
-                "post_tracking.active":    False,
-                "post_tracking.completed": True,
-            })
-            signals_coll.update_one({"_id": self.signal_id}, update)
-            log.info(
-                "[%s] Post-tracking concluído: sinal %s | %d/%d giros com top-12.",
-                self.rid, self.signal_id, self.post_count, POST_ROUNDS,
-            )
-            self._reset()
-        else:
-            signals_coll.update_one({"_id": self.signal_id}, update)
+            if pt["count"] >= POST_ROUNDS:
+                update.setdefault("$set", {})
+                update["$set"].update({
+                    "post_tracking.active":    False,
+                    "post_tracking.completed": True,
+                })
+                signals_coll.update_one({"_id": pt["id"]}, update)
+                log.info(
+                    "[%s] Post-tracking concluído: sinal %s | %d/%d giros.",
+                    self.rid, pt["id"], pt["count"], POST_ROUNDS,
+                )
+            else:
+                signals_coll.update_one({"_id": pt["id"]}, update)
+                still_active.append(pt)
+        self.post_list = still_active
 
     def _reset(self) -> None:
         self.signal_id  = None
         self.phase      = "idle"
         self.attempts   = 0
-        self.post_count = 0
         self.bet        = []
 
 
