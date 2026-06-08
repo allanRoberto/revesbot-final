@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎯 Análise Multi-Pivô</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0d1117; --surf:#161b22; --surf2:#21262d; --bord:#30363d;
+  --text:#e6edf3; --muted:#8b949e; --gold:#ffd700; --blue:#58a6ff;
+  --green:#3fb950; --red:#f85149; --purple:#a371f7;
+}
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+
+/* Header */
+.hdr { background:var(--surf); border-bottom:1px solid var(--bord); padding:10px 18px;
+       display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+       position:sticky; top:0; z-index:100; }
+.logo { font-size:1.05rem; font-weight:700; color:var(--gold); white-space:nowrap; }
+.back-btn { background:var(--surf2); border:1px solid var(--bord); color:var(--muted);
+            padding:5px 12px; border-radius:6px; font-size:0.78rem; cursor:pointer;
+            text-decoration:none; display:flex; align-items:center; gap:5px; }
+.back-btn:hover { color:var(--text); border-color:var(--gold); }
+
+/* Live indicator */
+.live-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+.live-dot.on  { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 1.8s infinite; }
+.live-dot.off { background:var(--red); }
+@keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+.live-lbl { font-size:.72rem; color:var(--muted); }
+.live-lbl.on { color:var(--green); }
+
+@keyframes flashNew { 0%{ box-shadow:0 0 0 4px rgba(63,185,80,.6); } 100%{ box-shadow:none; } }
+.cn.flash-new { animation:flashNew .7s ease-out; }
+
+/* Botão "Atualizar análise" + contador de pendentes */
+.badge { display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px;
+         padding:0 4px; margin-left:7px; border-radius:9px; background:var(--red); color:#fff;
+         font-size:.64rem; font-weight:800; }
+@keyframes ringPulse { 0%,100%{ box-shadow:0 0 0 0 rgba(248,81,73,.55);} 50%{ box-shadow:0 0 0 5px rgba(248,81,73,0);} }
+.btn.has-pending { animation:ringPulse 1.5s infinite; }
+.plbl.lbl-new { color:var(--blue); font-weight:700; }
+
+/* Animação do número que saiu, onde ele aparece na análise */
+@keyframes hitPulse {
+  0%   { box-shadow:0 0 0 0 rgba(255,255,255,.95), 0 0 0 0 rgba(88,166,255,.75); transform:scale(1); }
+  35%  { box-shadow:0 0 0 6px rgba(255,255,255,0), 0 0 22px 6px rgba(88,166,255,.95); transform:scale(1.45); }
+  100% { box-shadow:0 0 0 0 rgba(255,255,255,0), 0 0 0 0 rgba(88,166,255,0); transform:scale(1); }
+}
+.cn.hit-anim { animation:hitPulse .8s ease-out 3; position:relative; z-index:5; }
+
+.cg { display:flex; align-items:center; gap:7px; }
+.cl { color:var(--muted); font-size:0.78rem; white-space:nowrap; }
+select, input[type=number] { background:var(--bg); border:1px solid var(--bord); color:var(--text);
+  padding:5px 9px; border-radius:6px; font-size:0.82rem; outline:none; }
+select:focus, input:focus { border-color:var(--gold); }
+.btn { padding:6px 16px; border-radius:6px; border:none; cursor:pointer; font-weight:600;
+       font-size:0.82rem; transition:opacity .15s; }
+.btn:hover { opacity:.82; }
+.btn-gold { background:var(--gold); color:#000; }
+.btn-sm { padding:4px 10px; font-size:0.75rem; background:var(--surf2); color:var(--text);
+          border:1px solid var(--bord); border-radius:5px; cursor:pointer; }
+
+/* Layout */
+.wrap { max-width:1500px; margin:0 auto; padding:14px 18px; display:flex; flex-direction:column; gap:14px; }
+
+/* Cards */
+.card { background:var(--surf); border:1px solid var(--bord); border-radius:10px; overflow:hidden; }
+.card-hd { padding:8px 13px; font-size:0.72rem; font-weight:700; text-transform:uppercase;
+           letter-spacing:.06em; color:var(--muted); border-bottom:1px solid var(--bord);
+           display:flex; align-items:center; justify-content:space-between; }
+.card-bd { padding:11px 13px; }
+
+/* Chips */
+.chip { display:inline-flex; flex-direction:column; align-items:center; gap:2px; flex-shrink:0; }
+.cn { width:34px; height:34px; border-radius:50%; display:flex; align-items:center;
+      justify-content:center; font-weight:700; font-size:0.8rem;
+      border:2px solid transparent; transition:transform .12s, box-shadow .12s; user-select:none; }
+.cn.red   { background:#c0392b; color:#fff; }
+.cn.black { background:#1c2833; color:#fff; border-color:#4a5568; }
+.cn.green { background:#1e8449; color:#fff; }
+.cn.pivot { box-shadow:0 0 0 3px var(--gold),0 0 16px rgba(255,215,0,.4); transform:scale(1.1); }
+.cn.sm { width:26px; height:26px; font-size:.72rem; }
+.plbl { font-size:.58rem; color:var(--muted); }
+.rb { font-size:.52rem; font-weight:800; padding:1px 3px; border-radius:3px; line-height:1.3; margin-top:1px; }
+.rb-viz { background:#1d4ed8; color:#fff; } .rb-esp { background:#7c3aed; color:#fff; }
+.rb-seq { background:#b45309; color:#fff; } .rb-bas { background:#1e8449; color:#fff; }
+.rb-fre { background:#0e7490; color:#fff; }
+
+/* Segmented toggle (modo da lista) */
+.seg { display:inline-flex; border:1px solid var(--bord); border-radius:7px; overflow:hidden; }
+.seg-btn { background:var(--bg); color:var(--muted); border:none; padding:5px 11px;
+           font-size:.78rem; cursor:pointer; }
+.seg-btn:hover { color:var(--text); }
+.seg-btn.active { background:var(--gold); color:#000; font-weight:700; }
+
+/* Número à frente que alimenta a lista (no rastro da ocorrência) */
+.cn.in-list { box-shadow:0 0 0 2px var(--blue); }
+
+/* History */
+.hstrip { display:flex; gap:5px; flex-wrap:wrap; }
+
+/* Pivot grid */
+.pivots-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:980px){ .pivots-grid{ grid-template-columns:1fr; } }
+
+.piv-hd { display:flex; align-items:center; gap:10px; }
+.piv-tag { background:var(--surf2); padding:3px 9px; border-radius:10px; font-weight:700; color:var(--gold); font-size:.72rem; }
+
+/* Occurrence trail */
+.occ-item { background:var(--bg); border:1px solid var(--surf2); border-radius:8px;
+            padding:7px 9px; margin-bottom:7px; }
+.occ-hd { font-size:.66rem; color:var(--muted); margin-bottom:5px; }
+.occ-strip { display:flex; align-items:center; gap:4px; overflow-x:auto; flex-wrap:nowrap; }
+.odiv { width:2px; height:34px; background:var(--gold); border-radius:2px; margin:0 3px; flex-shrink:0; opacity:.55; }
+.grp-back { background:rgba(63,185,80,.07); border-radius:6px; padding:2px; display:flex; gap:3px; }
+.grp-fwd  { background:rgba(88,166,255,.06); border-radius:6px; padding:2px; display:flex; gap:3px; }
+.fwd-lbl { font-size:.56rem; color:var(--blue); opacity:.8; }
+
+/* Lista final */
+.lf-title { font-size:.68rem; font-weight:700; color:var(--blue); text-transform:uppercase;
+            letter-spacing:.04em; margin:9px 0 5px; }
+.lf-grid { display:flex; flex-wrap:wrap; gap:5px; }
+.lf-cell { display:flex; flex-direction:column; align-items:center; }
+.lf-peso { font-size:.55rem; color:var(--muted); }
+
+/* Agregado */
+.agg-grid { display:flex; flex-wrap:wrap; gap:10px; }
+.agg-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 4px;
+            border-radius:8px; min-width:54px; }
+.agg-listas { font-size:.62rem; font-weight:700; color:var(--gold); }
+.agg-total { font-size:.58rem; color:var(--muted); }
+.agg-bar { height:4px; width:40px; background:var(--surf2); border-radius:2px; overflow:hidden; margin-top:2px; }
+.agg-fill { height:100%; background:var(--gold); border-radius:2px; }
+.hot-5 { background:rgba(255,215,0,.14); box-shadow:inset 0 0 0 1px rgba(255,215,0,.4); }
+.hot-4 { background:rgba(255,215,0,.08); }
+
+.empty { color:var(--muted); font-size:.85rem; text-align:center; padding:20px; }
+.legend { display:flex; gap:10px; flex-wrap:wrap; font-size:.66rem; color:var(--muted); align-items:center; }
+.legend .rb { margin:0; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <a href="/" class="back-btn">← Dashboard</a>
+  <span class="logo">🎯 Análise Multi-Pivô</span>
+  <div class="cg">
+    <div class="live-dot" id="live-dot"></div>
+    <span class="live-lbl" id="live-lbl">conectando…</span>
+  </div>
+  <div class="cg">
+    <span class="cl">Mesa</span>
+    <select id="sel-mesa" style="max-width:200px" onchange="onMesaChange()">
+      <option>Carregando...</option>
+    </select>
+  </div>
+  <div class="cg">
+    <span class="cl">Pivôs</span>
+    <input type="number" id="inp-pivos" value="5" min="1" max="10" style="width:52px">
+  </div>
+  <div class="cg">
+    <span class="cl">Ocorrências</span>
+    <input type="number" id="inp-occ" value="5" min="1" max="10" style="width:52px">
+  </div>
+  <div class="cg">
+    <span class="cl">Lista</span>
+    <div class="seg" id="seg-frente">
+      <button class="seg-btn active" data-frente="0" onclick="setFrente(0)">Só trás</button>
+      <button class="seg-btn" data-frente="2" onclick="setFrente(2)">Trás + 2 à frente</button>
+    </div>
+  </div>
+  <button class="btn btn-gold" onclick="analisar()">&#9654; Analisar</button>
+  <button class="btn" id="btn-refresh" onclick="analisar()"
+          style="background:var(--surf2);color:var(--text);border:1px solid var(--bord)">
+    🔄 Atualizar análise<span class="badge" id="pending-badge" style="display:none"></span>
+  </button>
+</div>
+
+<div class="wrap">
+
+  <!-- Histórico -->
+  <div class="card">
+    <div class="card-hd">
+      <span>Histórico recente — os pivôs são os últimos números (destacados)</span>
+      <span id="hist-info" style="font-size:.68rem"></span>
+    </div>
+    <div class="card-bd">
+      <div id="hist-strip" class="hstrip">
+        <span class="empty" style="padding:6px">Selecione uma mesa...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agregado -->
+  <div class="card">
+    <div class="card-hd">
+      <span>🔥 Agregado — números que mais se repetem entre as listas</span>
+      <span id="agg-info" style="font-size:.68rem;color:var(--blue)"></span>
+    </div>
+    <div class="card-bd">
+      <div id="agg-body"><div class="empty">Clique em ▶ Analisar</div></div>
+    </div>
+  </div>
+
+  <!-- Pivôs -->
+  <div class="card">
+    <div class="card-hd">
+      <span>Pivôs — contexto de cada um</span>
+      <div class="legend">
+        <span class="rb rb-bas">base</span><span class="rb rb-fre">fre</span>
+        <span class="rb rb-viz">viz</span><span class="rb rb-esp">esp</span>
+        <span class="rb rb-seq">seq</span>
+        <span id="legend-trail" style="margin-left:6px">· trilha: <b>[−2 −1] → PIVÔ → [+1..+4]</b> (frente = validação)</span>
+      </div>
+    </div>
+    <div class="card-bd">
+      <div id="pivots-body" class="pivots-grid">
+        <div class="empty">Clique em ▶ Analisar</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const API_BASE  = '/multi-pivo/api';
+const PUX_BASE  = '/puxadas/api';
+const DEFAULT_MESA = 'pragmatic-auto-roulette';
+
+let histData = [];
+let nPivos   = 5;
+let pendingCount  = 0;   // números chegados desde a última análise
+let analyzedPivos = 0;   // nº de pivôs da análise atualmente na tela
+let frenteMode    = 0;   // qtde de números à frente que entram na lista (0 ou 2)
+
+function chipColor(n){ return n===0?'green':RED.has(n)?'red':'black'; }
+
+function makeChip(n, {pivot=false, posLabel=null, posClass='', rel=null, small=false, flash=false}={}) {
+  const div = document.createElement('div');
+  div.className = 'chip';
+  const el = document.createElement('div');
+  el.className = `cn ${chipColor(n)}${pivot?' pivot':''}${small?' sm':''}${flash?' flash-new':''}`;
+  el.textContent = n;
+  el.dataset.num = n;
+  div.appendChild(el);
+  if(posLabel !== null){
+    const lbl = document.createElement('div'); lbl.className='plbl'+(posClass?(' '+posClass):'');
+    lbl.textContent = posLabel; div.appendChild(lbl);
+  }
+  if(rel){
+    const b = document.createElement('span');
+    b.className = `rb rb-${rel.slice(0,3)}`;
+    b.textContent = rel==='vizinho'?'viz':rel==='espelho'?'esp':
+                    rel==='sequencia'?'seq':rel==='base'?'base':
+                    rel==='frente'?'fre':rel.slice(0,3);
+    div.appendChild(b);
+  }
+  return div;
+}
+
+async function fetchJSON(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// ── Mesas / Histórico ──────────────────────────────────────────────────────
+async function carregarMesas(){
+  try {
+    const mesas = await fetchJSON(`${PUX_BASE}/mesas`);
+    const sel = document.getElementById('sel-mesa');
+    sel.innerHTML = mesas.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+    const def = mesas.find(m=>m.id===DEFAULT_MESA) || mesas.find(m=>m.id.includes('auto')) || mesas[0];
+    if(def) sel.value = def.id;
+    await carregarHistoria();
+  } catch(e){
+    console.error('Erro mesas:', e);
+    document.getElementById('sel-mesa').innerHTML = '<option>Erro</option>';
+  }
+}
+
+async function carregarHistoria(){
+  const mesa = document.getElementById('sel-mesa').value;
+  if(!mesa) return;
+  try {
+    histData = await fetchJSON(`${PUX_BASE}/historia?mesa=${encodeURIComponent(mesa)}&limit=120`);
+    renderHistoria();
+  } catch(e){ console.error('Erro histórico:', e); }
+}
+
+function renderHistoria(flashNum=null){
+  const strip = document.getElementById('hist-strip');
+  strip.innerHTML = '';
+  const info = pendingCount>0 ? `${histData.length} giros · ${pendingCount} novo(s) desde a análise`
+                              : `${histData.length} giros`;
+  document.getElementById('hist-info').textContent = info;
+  // Pivôs da análise CONGELADA: deslocam p/ a direita conforme chegam números novos
+  const np = analyzedPivos || parseInt(document.getElementById('inp-pivos').value) || 5;
+  const offset = pendingCount;
+  const PER_ROW = 24;
+  histData.forEach((d, idx) => {
+    if(idx>0 && idx%PER_ROW===0){
+      const br=document.createElement('div');
+      br.style.cssText='width:100%;height:0;flex-basis:100%'; strip.appendChild(br);
+    }
+    const pivIdx = idx - offset;
+    const isPivot = pivIdx>=0 && pivIdx<np;
+    const isNew = idx < offset;
+    const chip = makeChip(d.v, {
+      pivot: isPivot,
+      posLabel: isPivot ? `P${pivIdx+1}` : (isNew ? 'novo' : null),
+      posClass: isNew ? 'lbl-new' : '',
+      flash: idx===0 && flashNum!==null && d.v===flashNum
+    });
+    strip.appendChild(chip);
+  });
+}
+
+function onMesaChange(){
+  carregarHistoria();
+  if(_ws){ _ws.close(); }
+}
+
+function updateLegendTrail(){
+  const el = document.getElementById('legend-trail');
+  if(!el) return;
+  el.innerHTML = frenteMode>0
+    ? '· trilha: <b>[−2 −1] → PIVÔ → [+1 +2] →</b> (anel azul = entra na lista; +3 +4 = validação)'
+    : '· trilha: <b>[−2 −1] → PIVÔ → [+1..+4]</b> (frente = validação)';
+}
+
+function setFrente(n){
+  frenteMode = n;
+  document.querySelectorAll('#seg-frente .seg-btn').forEach(b=>{
+    b.classList.toggle('active', parseInt(b.dataset.frente)===n);
+  });
+  // Reflete na URL para permitir abas comparando os modos
+  const u = new URL(location.href); u.searchParams.set('frente', n);
+  history.replaceState(null, '', u);
+  updateLegendTrail();
+  analisar();
+}
+
+// ── Análise ────────────────────────────────────────────────────────────────
+async function analisar(){
+  const mesa = document.getElementById('sel-mesa').value;
+  if(!mesa) return;
+  const pivos = document.getElementById('inp-pivos').value;
+  const occ   = document.getElementById('inp-occ').value;
+
+  document.getElementById('pivots-body').innerHTML = '<div class="empty">Carregando...</div>';
+  document.getElementById('agg-body').innerHTML = '<div class="empty">Carregando...</div>';
+
+  try {
+    const url = `${API_BASE}/analise?mesa=${encodeURIComponent(mesa)}&pivos=${pivos}&ocorrencias=${occ}&incluir_frente=${frenteMode}`;
+    const data = await fetchJSON(url);
+    if(data.erro) throw new Error(data.erro);
+    analyzedPivos = (data.pivos || []).length;
+    nPivos = analyzedPivos || nPivos;
+    pendingCount = 0;
+    renderAgregado(data.agregado || []);
+    renderPivots(data.pivos || []);
+    updatePendingBadge();
+    renderHistoria();
+  } catch(e){
+    document.getElementById('pivots-body').innerHTML =
+      `<div class="empty" style="color:var(--red)">❌ ${e.message}</div>`;
+    document.getElementById('agg-body').innerHTML = '';
+    console.error('analisar:', e);
+  }
+}
+
+function renderAgregado(agg){
+  const body = document.getElementById('agg-body');
+  const info = document.getElementById('agg-info');
+  if(!agg.length){ body.innerHTML='<div class="empty">Sem dados</div>'; info.textContent=''; return; }
+  const maxL = agg[0].listas || 1;
+  info.textContent = `${agg.length} números · topo aparece em ${maxL} listas`;
+  body.innerHTML = '';
+  const grid = document.createElement('div'); grid.className='agg-grid';
+  agg.forEach(({n, listas, total}) => {
+    const it = document.createElement('div');
+    it.className = 'agg-item' + (listas>=nPivos?' hot-5':listas>=nPivos-1?' hot-4':'');
+    const l = document.createElement('div'); l.className='agg-listas';
+    l.textContent = `${listas}/${nPivos}`; it.appendChild(l);
+    it.appendChild(makeChip(n));
+    const t = document.createElement('div'); t.className='agg-total';
+    t.textContent = `${total}×`; it.appendChild(t);
+    const bar=document.createElement('div'); bar.className='agg-bar';
+    const f=document.createElement('div'); f.className='agg-fill';
+    f.style.width = (listas/maxL*100)+'%'; bar.appendChild(f); it.appendChild(bar);
+    grid.appendChild(it);
+  });
+  body.appendChild(grid);
+}
+
+function renderPivots(pivos){
+  const body = document.getElementById('pivots-body');
+  body.innerHTML = '';
+  if(!pivos.length){ body.innerHTML='<div class="empty">Nenhum pivô</div>'; return; }
+
+  pivos.forEach((p, pi) => {
+    const card = document.createElement('div'); card.className='card';
+
+    const hd = document.createElement('div'); hd.className='card-hd';
+    hd.innerHTML = `<div class="piv-hd"><span class="piv-tag">Pivô ${pi+1}</span></div>`;
+    const chipWrap = document.createElement('div');
+    chipWrap.appendChild(makeChip(p.pivo, {pivot:true}));
+    hd.querySelector('.piv-hd').appendChild(chipWrap);
+    card.appendChild(hd);
+
+    const bd = document.createElement('div'); bd.className='card-bd';
+
+    // Trilhas das ocorrências
+    if(!p.ocorrencias.length){
+      const e=document.createElement('div'); e.className='empty';
+      e.textContent='Sem ocorrências anteriores'; bd.appendChild(e);
+    }
+    p.ocorrencias.forEach((occ, oi) => {
+      const item = document.createElement('div'); item.className='occ-item';
+      const oh = document.createElement('div'); oh.className='occ-hd';
+      const ts = new Date(occ.timestamp);
+      oh.textContent = `Oc ${oi+1} · ` + ts.toLocaleString('pt-BR',
+        {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      item.appendChild(oh);
+
+      const strip = document.createElement('div'); strip.className='occ-strip';
+
+      // ANTES (mais distante → próximo: -2, -1)
+      const back = document.createElement('div'); back.className='grp-back';
+      [...occ.antes].sort((a,b)=>a.pos-b.pos).forEach(c=>{
+        back.appendChild(makeChip(c.v, {posLabel:c.pos}));
+      });
+      strip.appendChild(back);
+
+      const d1=document.createElement('div'); d1.className='odiv'; strip.appendChild(d1);
+      strip.appendChild(makeChip(p.pivo, {pivot:true, posLabel:'★'}));
+      const d2=document.createElement('div'); d2.className='odiv'; strip.appendChild(d2);
+
+      // DEPOIS: +1..+4. Os primeiros `incluir_frente` alimentam a lista (anel azul);
+      // o resto é só validação.
+      const nf = p.incluir_frente || 0;
+      const fwd = document.createElement('div'); fwd.className='grp-fwd';
+      occ.depois.forEach((c, ci)=>{
+        const chip = makeChip(c.v, {posLabel:'+'+c.pos});
+        if(ci < nf) chip.querySelector('.cn').classList.add('in-list');
+        fwd.appendChild(chip);
+      });
+      strip.appendChild(fwd);
+
+      item.appendChild(strip);
+      bd.appendChild(item);
+    });
+
+    // Lista final
+    const lt = document.createElement('div'); lt.className='lf-title';
+    lt.textContent = `Lista final (${p.lista_final.length} números)`;
+    bd.appendChild(lt);
+
+    const lg = document.createElement('div'); lg.className='lf-grid';
+    p.lista_final.forEach(entry => {
+      const cell = document.createElement('div'); cell.className='lf-cell';
+      // rel principal: base (trás) > frente > primeira relação
+      const rel = entry.rels.includes('base') ? 'base'
+                : entry.rels.includes('frente') ? 'frente'
+                : entry.rels[0];
+      cell.appendChild(makeChip(entry.v, {small:true, rel:rel}));
+      if(entry.peso>1){
+        const w=document.createElement('div'); w.className='lf-peso';
+        w.textContent = `×${entry.peso}`; cell.appendChild(w);
+      }
+      lg.appendChild(cell);
+    });
+    bd.appendChild(lg);
+
+    card.appendChild(bd);
+    body.appendChild(card);
+  });
+}
+
+// ── Número novo: contador + animação na análise ─────────────────────────────
+function updatePendingBadge(){
+  const badge = document.getElementById('pending-badge');
+  const btn   = document.getElementById('btn-refresh');
+  if(!badge || !btn) return;
+  if(pendingCount>0){
+    badge.textContent = pendingCount;
+    badge.style.display = 'inline-flex';
+    btn.classList.add('has-pending');
+  } else {
+    badge.style.display = 'none';
+    btn.classList.remove('has-pending');
+  }
+}
+
+function animateNumber(n){
+  // Pulsa o número onde quer que ele apareça na análise (agregado + pivôs)
+  const els = document.querySelectorAll(
+    `#agg-body .cn[data-num="${n}"], #pivots-body .cn[data-num="${n}"]`
+  );
+  els.forEach(el=>{
+    el.classList.remove('hit-anim');
+    void el.offsetWidth;       // reinicia a animação
+    el.classList.add('hit-anim');
+  });
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+let _ws=null, _wsTimer=null;
+
+function setLive(state){
+  const dot=document.getElementById('live-dot'), lbl=document.getElementById('live-lbl');
+  if(!dot) return;
+  dot.className='live-dot '+state; lbl.className='live-lbl '+state;
+  lbl.textContent = state==='on'?'ao vivo':state==='off'?'desconectado':'conectando…';
+}
+
+function connectWS(){
+  if(_ws && (_ws.readyState===WebSocket.CONNECTING || _ws.readyState===WebSocket.OPEN)) return;
+  clearTimeout(_wsTimer); setLive('');
+  const proto = location.protocol==='https:'?'wss':'ws';
+  _ws = new WebSocket(`${proto}://${location.host}/ws`);
+  _ws.onopen = ()=> setLive('on');
+  _ws.onmessage = (evt)=>{
+    let msg; try{ msg=JSON.parse(evt.data); }catch{ return; }
+    const mesa = document.getElementById('sel-mesa')?.value;
+    if(!mesa || msg.slug!==mesa) return;
+    const newNum = msg.result ?? msg.value;
+    if(newNum==null || newNum<0 || newNum>36) return;
+
+    // Atualiza SÓ o histórico — a análise fica congelada até clicar "Atualizar análise"
+    histData = [{v:newNum, t:new Date().toISOString()}, ...histData].slice(0,120);
+    pendingCount++;
+    renderHistoria(newNum);
+    updatePendingBadge();
+
+    // Anima o número onde ele aparecer na análise atual (mostra posição / se bateu)
+    animateNumber(newNum);
+  };
+  _ws.onclose = ()=>{ setLive('off'); _wsTimer=setTimeout(connectWS,5000); };
+  _ws.onerror = ()=>{ _ws.close(); };
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.getElementById('inp-pivos').addEventListener('change', renderHistoria);
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Modo da lista vem da URL (?frente=2) — permite abas comparando
+  if(parseInt(new URL(location.href).searchParams.get('frente'))===2) frenteMode = 2;
+  document.querySelectorAll('#seg-frente .seg-btn').forEach(b=>
+    b.classList.toggle('active', parseInt(b.dataset.frente)===frenteMode));
+  updateLegendTrail();
+
+  carregarMesas().then(()=>analisar());
+  connectWS();
+});
+</script>
+</body>
+</html>

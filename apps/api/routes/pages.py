@@ -359,3 +359,17 @@ async def puxadas_sinal_signals_page():
     """Dashboard de assertividade — Puxadas (inversão como parâmetro)."""
     with open(os.path.join(templates_dir, "puxadas_sinal_signals.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/multi-pivo", response_class=HTMLResponse)
+async def multi_pivo_page():
+    """Análise multi-pivô: contexto que cerca os 5 últimos números sorteados."""
+    with open(os.path.join(templates_dir, "multi_pivo.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/sinais-multi-pivo", response_class=HTMLResponse)
+async def multi_pivo_signals_page():
+    """Dashboard de assertividade — Sinais Multi-Pivô."""
+    with open(os.path.join(templates_dir, "multi_pivo_signals.html"), "r", encoding="utf-8") as f:
+        return f.read()
