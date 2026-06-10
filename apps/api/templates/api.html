@@ -2521,6 +2521,9 @@
         </select>
       </div>
     </div>
+    <button id="btn-copy-numbers" class="grid-tooltip-toggle" title="Copiar números para área de transferência">
+      <i data-lucide="copy"></i>
+    </button>
     <button id="btn-ws-toggle" class="grid-tooltip-toggle" title="Pausar atualização via WebSocket">
       <i data-lucide="pause"></i>
     </button>
@@ -2724,6 +2727,9 @@
       <button id="btn-select-terminals-mobile" class="btn btn-sm btn-secondary">Selecionar Terminais</button>
 
       <button id="btn-reset-mobile" class="btn btn-sm btn-danger">Resetar Seleção</button>
+    </div>
+    <div class="drawer-group">
+      <button id="btn-copy-numbers-mobile" class="btn btn-sm btn-outline-info" style="width:100%">📋 Copiar números</button>
     </div>
     <div class="drawer-group">
       <button id="btn-settings-mobile" class="btn btn-sm btn-outline-warning">⚙️ Configurações</button>
@@ -8195,6 +8201,19 @@ countContainers.forEach(({ selector, itemClass }) => {
       // Se abriu, mostra “✕”; se fechou, volta a “☰”
       fabToggle.textContent = isOpen ? "✕" : "☰";
     });
+    // Mobile copy button → delegates to desktop button
+    const btnCopyNumbersM = document.getElementById("btn-copy-numbers-mobile");
+    if (btnCopyNumbersM) {
+      btnCopyNumbersM.addEventListener("click", () => {
+        const btnCopyDeskTop = document.getElementById("btn-copy-numbers");
+        if (btnCopyDeskTop) btnCopyDeskTop.click();
+        // Visual feedback on mobile button
+        const original = btnCopyNumbersM.textContent;
+        btnCopyNumbersM.textContent = "✅ Copiado!";
+        setTimeout(() => { btnCopyNumbersM.textContent = original; }, 1500);
+      });
+    }
+
     // Cada botão mobile chama a mesma função do desktop:
     toggleBtnM.addEventListener("click", () => toggleBtn.click());
     btnWsToggleM.addEventListener("click", () => btnWsToggle.click());
@@ -8601,6 +8620,42 @@ countContainers.forEach(({ selector, itemClass }) => {
         finalSuggestionApiCache.clear();
         finalSuggestionApiPending.clear();
         renderHistory();
+      });
+    }
+
+    // ── Copy numbers to clipboard ──────────────────────────────────────────
+    const btnCopyNumbers = document.getElementById("btn-copy-numbers");
+    if (btnCopyNumbers) {
+      btnCopyNumbers.addEventListener("click", () => {
+        const cells = historyEl ? historyEl.querySelectorAll(".cell") : [];
+        const numbers = Array.from(cells).map(c => c.textContent.trim()).filter(Boolean);
+        if (!numbers.length) return;
+        const text = numbers.join(", ");
+        navigator.clipboard.writeText(text).then(() => {
+          // Visual feedback: swap icon to checkmark for 1.5 s
+          const icon = btnCopyNumbers.querySelector("i[data-lucide]");
+          if (icon) {
+            const original = icon.getAttribute("data-lucide");
+            icon.setAttribute("data-lucide", "check");
+            if (window.lucide) window.lucide.createIcons();
+            btnCopyNumbers.style.color = "#22c55e";
+            setTimeout(() => {
+              icon.setAttribute("data-lucide", original);
+              if (window.lucide) window.lucide.createIcons();
+              btnCopyNumbers.style.color = "";
+            }, 1500);
+          }
+        }).catch(() => {
+          // Fallback for browsers without Clipboard API
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        });
       });
     }
 
