@@ -8207,10 +8207,6 @@ countContainers.forEach(({ selector, itemClass }) => {
       btnCopyNumbersM.addEventListener("click", () => {
         const btnCopyDeskTop = document.getElementById("btn-copy-numbers");
         if (btnCopyDeskTop) btnCopyDeskTop.click();
-        // Visual feedback on mobile button
-        const original = btnCopyNumbersM.textContent;
-        btnCopyNumbersM.textContent = "✅ Copiado!";
-        setTimeout(() => { btnCopyNumbersM.textContent = original; }, 1500);
       });
     }
 
@@ -8624,38 +8620,45 @@ countContainers.forEach(({ selector, itemClass }) => {
     }
 
     // ── Copy numbers to clipboard ──────────────────────────────────────────
+    function showCopyToast() {
+      const toastEl = document.getElementById("copy-toast");
+      if (!toastEl) return;
+      // Bootstrap 5 Toast API
+      if (window.bootstrap && window.bootstrap.Toast) {
+        const t = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 1800 });
+        t.show();
+      } else {
+        // Fallback: animate manually
+        toastEl.style.display = "block";
+        toastEl.style.opacity = "1";
+        setTimeout(() => { toastEl.style.opacity = "0"; }, 1500);
+        setTimeout(() => { toastEl.style.display = "none"; }, 1900);
+      }
+    }
+
     const btnCopyNumbers = document.getElementById("btn-copy-numbers");
     if (btnCopyNumbers) {
       btnCopyNumbers.addEventListener("click", () => {
         const cells = historyEl ? historyEl.querySelectorAll(".cell") : [];
-        const numbers = Array.from(cells).map(c => c.textContent.trim()).filter(Boolean);
+        // Usa data-num para evitar emojis (🔥 etc.) que ficam no textContent
+        const numbers = Array.from(cells)
+          .map(c => c.dataset.num ?? c.textContent.replace(/\D/g, ""))
+          .filter(v => v !== "" && !Number.isNaN(Number(v)));
         if (!numbers.length) return;
         const text = numbers.join(", ");
-        navigator.clipboard.writeText(text).then(() => {
-          // Visual feedback: swap icon to checkmark for 1.5 s
-          const icon = btnCopyNumbers.querySelector("i[data-lucide]");
-          if (icon) {
-            const original = icon.getAttribute("data-lucide");
-            icon.setAttribute("data-lucide", "check");
-            if (window.lucide) window.lucide.createIcons();
-            btnCopyNumbers.style.color = "#22c55e";
-            setTimeout(() => {
-              icon.setAttribute("data-lucide", original);
-              if (window.lucide) window.lucide.createIcons();
-              btnCopyNumbers.style.color = "";
-            }, 1500);
-          }
-        }).catch(() => {
-          // Fallback for browsers without Clipboard API
-          const ta = document.createElement("textarea");
-          ta.value = text;
-          ta.style.position = "fixed";
-          ta.style.opacity = "0";
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          document.body.removeChild(ta);
-        });
+        const doCopy = () => {
+          navigator.clipboard.writeText(text).then(showCopyToast).catch(() => {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.cssText = "position:fixed;opacity:0;top:0;left:0";
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            showCopyToast();
+          });
+        };
+        doCopy();
       });
     }
 
@@ -8899,6 +8902,21 @@ countContainers.forEach(({ selector, itemClass }) => {
 
   loadWeightProfiles();
   </script>
-  
+
+  <!-- Toast: feedback de cópia -->
+  <div id="toast-container" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;">
+    <div id="copy-toast" class="toast align-items-center text-white border-0" role="alert" aria-live="assertive" aria-atomic="true"
+         style="background:#22c55e;min-width:220px;font-weight:600;font-size:14px;">
+      <div class="d-flex">
+        <div class="toast-body d-flex align-items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Números copiados!
+        </div>
+      </div>
+    </div>
+  </div>
 
   {% endblock %}
