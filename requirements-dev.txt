@@ -34,6 +34,7 @@ requests==2.32.3
 scikit_learn==1.7.1
 sqlalchemy
 stripe==12.1.0
+svix
 uvicorn[standard]==0.34.2
 websocket_client==1.8.0
 websockets==15.0.1

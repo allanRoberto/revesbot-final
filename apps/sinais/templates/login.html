@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Entrar — Revesbot Sinais{% endblock %}
+{% block content %}
+<div class="card centered">
+  <h1>Entre para gerar seus sinais</h1>
+  <p class="muted">12 números · 3 tentativas · seus 5 primeiros créditos são grátis.</p>
+  {% if not clerk_enabled %}
+  <p class="warn">Login ainda não configurado (defina <code>CLERK_PUBLISHABLE_KEY</code>).</p>
+  {% endif %}
+  <div id="sign-in"></div>
+</div>
+{% endblock %}
+{% block page_script %}
+<script>
+onClerkReady(function (clerk) {
+  if (clerk.user) { window.location.href = "/app"; return; }
+  clerk.mountSignIn(document.getElementById("sign-in"), {
+    afterSignInUrl: "/app",
+    afterSignUpUrl: "/app",
+  });
+});
+</script>
+{% endblock %}

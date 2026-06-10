@@ -14,6 +14,7 @@ const isDevelop = stage === "develop";
 const suffix = isDevelop ? "dev" : "prod";
 const apiPort = process.env.API_PORT || (isDevelop ? "8081" : "8080");
 const authApiPort = process.env.AUTH_API_PORT || (isDevelop ? "3091" : "3090");
+const sinaisPort = process.env.SINAIS_PORT || (isDevelop ? "8091" : "8090");
 const nodeEnv = isDevelop ? "development" : "production";
 
 module.exports = {
@@ -348,6 +349,37 @@ module.exports = {
         MULTI_PIVO_MAX_ATTEMPTS: "4",
         MULTI_PIVO_POST_ROUNDS: "10",
         MULTI_PIVO_BET_CHIPS: "12",
+      },
+    },
+    {
+      name: `sinais-${suffix}`,
+      cwd: repoRoot,
+      script: "apps/sinais/start.py",
+      interpreter: pythonBin,
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 3000,
+      kill_timeout: 5000,
+      time: true,
+      env: {
+        DEPLOY_STAGE: stage,
+        PORT: sinaisPort,
+        PYTHONUNBUFFERED: "1",
+      },
+    },
+    {
+      name: `sinais-settlement-${suffix}`,
+      cwd: repoRoot,
+      script: "apps/sinais/workers/settlement_worker.py",
+      interpreter: pythonBin,
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 3000,
+      kill_timeout: 5000,
+      time: true,
+      env: {
+        DEPLOY_STAGE: stage,
+        PYTHONUNBUFFERED: "1",
       },
     },
   ],

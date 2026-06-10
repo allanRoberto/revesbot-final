@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Histórico — Revesbot Sinais{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Histórico</h1>
+  <div id="hist-list" class="hist"><p class="muted">Carregando...</p></div>
+</section>
+{% endblock %}
+{% block page_script %}
+<script>
+onClerkReady(function (clerk) {
+  if (!clerk.user) { window.location.href = "/"; return; }
+  loadHist();
+});
+
+async function loadHist() {
+  const box = document.getElementById("hist-list");
+  let items;
+  try {
+    const r = await authedFetch("/api/entries?limit=100");
+    if (!r.ok) { box.innerHTML = '<p class="muted">Erro ao carregar.</p>'; return; }
+    items = await r.json();
+  } catch (e) { box.innerHTML = '<p class="muted">Erro de rede.</p>'; return; }
+
+  if (!items.length) { box.innerHTML = '<p class="muted">Nenhuma entrada ainda.</p>'; return; }
+  box.innerHTML = items.map(rowHtml).join("");
+}
+
+function rowHtml(d) {
+  const hit = d.result && d.result.hit_number != null
+    ? "acertou " + d.result.hit_number + " na tentativa " + d.result.hit_attempt
+    : "";
+  const delta = d.status === "pending"
+    ? "—"
+    : (d.credit_delta > 0 ? "+" + d.credit_delta : "" + d.credit_delta) + " crédito";
+  return '<div class="hist-row">'
+    + '<div class="hist-top"><b>' + d.roulette_name + "</b>"
+    + '<span class="status ' + d.status + '">' + statusLabel(d.status) + "</span></div>"
+    + '<div class="chips small">' + d.numbers.map(chip).join("") + "</div>"
+    + '<div class="muted small">' + (d.created_at || "") + (hit ? " · " + hit : "") + " · " + delta + "</div>"
+    + "</div>";
+}
+</script>
+{% endblock %}

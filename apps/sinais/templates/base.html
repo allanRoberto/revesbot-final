@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Revesbot Sinais{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/app">Revesbot <span>Sinais</span></a>
+    <div class="topbar-right">
+      <span id="credits-badge" class="badge hidden">—</span>
+      <a href="/historico" class="nav-link">Histórico</a>
+      <div id="user-button"></div>
+    </div>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if clerk_enabled %}
+  <script
+    async crossorigin="anonymous"
+    data-clerk-publishable-key="{{ clerk_publishable_key }}"
+    src="https://{{ clerk_frontend_api }}/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+    type="text/javascript"
+    onload="window.__onClerkLoaded && window.__onClerkLoaded()"></script>
+  {% else %}
+  <script>window.__clerkDisabled = true;</script>
+  {% endif %}
+
+  <script src="/static/app.js"></script>
+  {% block page_script %}{% endblock %}
+</body>
+</html>
