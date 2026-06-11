@@ -40,6 +40,7 @@ async def get_or_create_user(clerk_user_id: str, email: str | None = None) -> di
         "clerk_user_id": clerk_user_id,
         "email": email,
         "credits": settings.signup_credits,
+        "purchase_count": 0,
         "created_at": now,
         "updated_at": now,
     }
@@ -89,6 +90,40 @@ async def apply_credit_delta(
         "amount": delta,
         "balance_after": int(updated["credits"]),
         "stripe_event_id": stripe_event_id,
+        "created_at": now,
+    })
+    return int(updated["credits"])
+
+
+async def record_purchase(
+    clerk_user_id: str,
+    credits: int,
+    *,
+    stripe_event_id: str | None = None,
+    unit_price: float | None = None,
+) -> int:
+    """Credita um pacote comprado e incrementa o contador de compras (atômico).
+
+    O contador (`purchase_count`) é o que faz o preço subir na próxima compra.
+    Assume que o usuário já existe (o webhook chama get_or_create_user antes).
+    """
+    now = _now()
+    updated = await users_coll.find_one_and_update(
+        {"clerk_user_id": clerk_user_id},
+        {"$inc": {"credits": credits, "purchase_count": 1}, "$set": {"updated_at": now}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if updated is None:
+        raise ValueError(f"usuário não encontrado: {clerk_user_id}")
+
+    await ledger_coll.insert_one({
+        "user_id": clerk_user_id,
+        "entry_id": None,
+        "type": "purchase",
+        "amount": credits,
+        "balance_after": int(updated["credits"]),
+        "stripe_event_id": stripe_event_id,
+        "unit_price": unit_price,
         "created_at": now,
     })
     return int(updated["credits"])

@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     entry_numbers: int = 12     # tamanho da entrada
     settlement_poll_seconds: float = 2.0
 
+    # Pacotes de crédito (preço progressivo por usuário)
+    credit_pack_size: int = 10          # créditos por compra
+    credit_base_price: float = 1.00     # R$ por crédito na 1ª compra
+    credit_price_increment: float = 0.25  # R$ somados ao crédito a cada compra
+    currency: str = "brl"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

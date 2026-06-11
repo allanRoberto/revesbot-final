@@ -12,6 +12,13 @@
   <div id="gen-msg" class="msg"></div>
 </section>
 
+<section class="card">
+  <h2>Comprar créditos</h2>
+  <p class="muted small">Pacote de <span id="pack-credits">10</span> créditos. O preço por crédito sobe a cada compra.</p>
+  <button id="comprar" class="btn">Comprar — <span id="pack-price">…</span></button>
+  <div id="buy-msg" class="msg"></div>
+</section>
+
 <section id="entry-card" class="card hidden">
   <h2>Sua entrada</h2>
   <div class="entry-meta">
@@ -29,7 +36,55 @@ let pollTimer = null;
 onClerkReady(function (clerk) {
   if (!clerk.user) { window.location.href = "/"; return; }
   document.getElementById("gerar").addEventListener("click", gerar);
+  document.getElementById("comprar").addEventListener("click", comprar);
+  loadPack();
+  handlePaidReturn();
 });
+
+function brl(v) {
+  return "R$ " + Number(v).toFixed(2).replace(".", ",");
+}
+
+async function loadPack() {
+  try {
+    const r = await authedFetch("/api/packs");
+    if (!r.ok) return;
+    const p = await r.json();
+    document.getElementById("pack-credits").textContent = p.credits;
+    document.getElementById("pack-price").textContent =
+      p.credits + " créditos por " + brl(p.total) + " (" + brl(p.unit_price) + "/crédito)";
+  } catch (e) {}
+}
+
+async function comprar() {
+  const btn = document.getElementById("comprar");
+  const msg = document.getElementById("buy-msg");
+  btn.disabled = true;
+  msg.textContent = "Abrindo pagamento...";
+  try {
+    const r = await authedFetch("/api/checkout", { method: "POST", body: "{}" });
+    const d = await r.json();
+    if (!r.ok || !d.url) { msg.textContent = d.detail || "Erro ao iniciar pagamento"; btn.disabled = false; return; }
+    window.location.href = d.url;
+  } catch (e) {
+    msg.textContent = "Erro de rede";
+    btn.disabled = false;
+  }
+}
+
+function handlePaidReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("paid") === "1") {
+    document.getElementById("buy-msg").textContent =
+      "Pagamento recebido! Seus créditos aparecem em instantes.";
+    let tries = 0;
+    const t = setInterval(function () {
+      refreshCredits(); loadPack();
+      if (++tries >= 5) clearInterval(t);
+    }, 2000);
+    history.replaceState({}, "", "/app");
+  }
+}
 
 async function gerar() {
   const btn = document.getElementById("gerar");

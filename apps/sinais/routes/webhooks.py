@@ -7,7 +7,7 @@ from pymongo.errors import DuplicateKeyError
 
 from sinais.core.config import settings
 from sinais.core.db import payments_coll
-from sinais.services.credits import apply_credit_delta, get_or_create_user
+from sinais.services.credits import get_or_create_user, record_purchase
 
 router = APIRouter(prefix="/webhooks")
 log = logging.getLogger("webhooks")
@@ -79,13 +79,17 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(defaul
         metadata = session.get("metadata") or {}
         uid = session.get("client_reference_id") or metadata.get("clerk_user_id")
         try:
-            credits = int(metadata.get("credits", 0))
+            credits = int(metadata.get("credits", settings.credit_pack_size))
         except (TypeError, ValueError):
-            credits = 0
+            credits = settings.credit_pack_size
+        try:
+            unit_price = float(metadata["unit_price"]) if metadata.get("unit_price") else None
+        except (TypeError, ValueError):
+            unit_price = None
 
         if uid and credits > 0:
             await get_or_create_user(uid)
-            await apply_credit_delta(uid, credits, "purchase", stripe_event_id=event_id)
+            await record_purchase(uid, credits, stripe_event_id=event_id, unit_price=unit_price)
         else:
             log.warning("checkout.session.completed sem uid/credits: %s", event_id)
 
