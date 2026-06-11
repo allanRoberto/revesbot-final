@@ -3,10 +3,14 @@
 {% block content %}
 <section class="card">
   <h1>Gerar entrada</h1>
-  <p class="muted">{{ entry_numbers }} números · {{ attempts }} tentativas · últimos 300 da mesa</p>
+  <p class="muted">Setores contíguos na roda · {{ attempts }} tentativas · últimos 300 da mesa</p>
   <label for="mesa">Mesa</label>
   <select id="mesa">
     {% for r in roulettes %}<option value="{{ r.slug }}">{{ r.name }}</option>{% endfor %}
+  </select>
+  <label for="qtd">Quantidade de números</label>
+  <select id="qtd">
+    {% for s in entry_sizes %}<option value="{{ s }}"{% if s == entry_numbers %} selected{% endif %}>{{ s }} números</option>{% endfor %}
   </select>
   <button id="gerar" class="btn primary">Gerar entrada</button>
   <div id="gen-msg" class="msg"></div>
@@ -90,12 +94,13 @@ async function gerar() {
   const btn = document.getElementById("gerar");
   const msg = document.getElementById("gen-msg");
   const mesa = document.getElementById("mesa").value;
+  const size = parseInt(document.getElementById("qtd").value, 10);
   btn.disabled = true;
   msg.textContent = "Gerando...";
   try {
     const r = await authedFetch("/api/entries", {
       method: "POST",
-      body: JSON.stringify({ roulette_id: mesa }),
+      body: JSON.stringify({ roulette_id: mesa, size: size }),
     });
     const d = await r.json();
     if (!r.ok) { msg.textContent = d.detail || "Erro ao gerar"; btn.disabled = false; return; }

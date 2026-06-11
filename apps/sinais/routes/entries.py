@@ -1,5 +1,6 @@
 """Rotas de geração e consulta de entradas."""
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
@@ -35,6 +36,8 @@ def _serialize_entry(doc: dict[str, Any]) -> dict[str, Any]:
         "roulette_id": doc["roulette_id"],
         "roulette_name": display_name(doc["roulette_id"]),
         "numbers": doc["numbers"],
+        "size": doc.get("size", len(doc.get("numbers", []))),
+        "arcos": doc.get("arcos"),
         "attempts": doc.get("attempts"),
         "status": doc["status"],
         "result": _serialize_result(doc.get("result")),
@@ -48,6 +51,14 @@ async def create_entry(payload: dict = Body(default={}), user: dict = Depends(ge
     roulette_id = (payload or {}).get("roulette_id")
     if roulette_id not in settings.allowed_roulettes:
         raise HTTPException(400, "mesa inválida")
+
+    size = (payload or {}).get("size", settings.entry_numbers)
+    try:
+        size = int(size)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "quantidade inválida")
+    if size not in settings.allowed_entry_sizes:
+        raise HTTPException(400, "quantidade inválida")
 
     user_id = user["clerk_user_id"]
 
@@ -77,14 +88,17 @@ async def create_entry(payload: dict = Body(default={}), user: dict = Depends(ge
 
     numeros_desc = [int(d["value"]) for d in docs]
     anchor_ts = docs[0]["timestamp"]
-    gen = gerar_de_historico_desc(
-        numeros_desc, qtd=settings.entry_numbers, janela=settings.attempts
+    # A busca de setores é CPU-bound (~200ms); roda fora do event loop.
+    gen = await asyncio.to_thread(
+        gerar_de_historico_desc, numeros_desc, qtd=size, janela=settings.attempts
     )
 
     entry = {
         "user_id": user_id,
         "roulette_id": roulette_id,
         "numbers": gen["numbers"],
+        "size": size,
+        "arcos": gen.get("arcos"),
         "attempts": settings.attempts,
         "anchor_timestamp": anchor_ts,
         "status": "pending",

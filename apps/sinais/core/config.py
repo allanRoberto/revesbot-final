@@ -49,6 +49,10 @@ class Settings(BaseSettings):
         return [s.strip() for s in (self.sinais_roulette_ids or "").split(",") if s.strip()]
 
     @property
+    def allowed_entry_sizes(self) -> list[int]:
+        return [8, 12, 18, 26]
+
+    @property
     def authorized_parties(self) -> list[str]:
         raw = self.clerk_authorized_parties or ""
         return [s.strip() for s in raw.split(",") if s.strip()]

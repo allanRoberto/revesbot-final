@@ -55,6 +55,7 @@ async def app_page(request: Request):
     ]
     ctx["attempts"] = settings.attempts
     ctx["entry_numbers"] = settings.entry_numbers
+    ctx["entry_sizes"] = settings.allowed_entry_sizes
     return templates.TemplateResponse("app.html", ctx)
 
 
