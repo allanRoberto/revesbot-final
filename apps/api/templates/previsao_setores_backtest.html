@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backtest — Previsão por Setores</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #eef3f1;
+      --border: #d7ddd9;
+      --text: #18211f;
+      --muted: #63706b;
+      --accent: #177a5b;
+      --accent-strong: #0f5f46;
+      --danger: #9b2f2f;
+      --warn: #b8860b;
+      --info: #2563eb;
+      --red: #c0392b;
+      --green: #2e8b57;
+      --gold: #b5860b;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px 16px; }
+    .container { max-width: 1240px; margin: 0 auto; }
+    h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
+    .subtitle { color: var(--muted); margin: 0 0 20px 0; font-size: 14px; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .stat { background: var(--surface-soft); padding: 12px 14px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 24px; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+    .stat .sub { font-size: 11px; color: var(--muted); }
+    .stat.danger .value { color: var(--danger); }
+    .stat.warn   .value { color: var(--warn); }
+    .stat.info   .value { color: var(--info); }
+    .stat.positive .value { color: var(--green); }
+    .stat.negative .value { color: var(--red); }
+
+    /* Hit bar */
+    .hit-bar { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; margin-top: 4px; }
+    .hit-bar-fill { height: 100%; border-radius: 999px; background: var(--accent); }
+
+    /* Attempt dist */
+    .attempt-bars { display: flex; gap: 4px; align-items: flex-end; height: 36px; margin-top: 8px; }
+    .attempt-bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; justify-content: flex-end; }
+    .attempt-bar-fill { width: 100%; border-radius: 3px 3px 0 0; background: var(--gold); min-height: 2px; }
+    .attempt-bar-n { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* Filters */
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .filters select, .filters input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); color: var(--text); }
+    .btn { padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: var(--accent-strong); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Configs breakdown table */
+    .breakdown-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .breakdown-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .breakdown-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .breakdown-table tr:last-child td { border-bottom: none; }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+    .badge-win  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-loss { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--muted); }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tab:hover:not(.active) { background: var(--surface-soft); }
+
+    /* Entries table */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr.hit-row { background: rgba(46,139,87,0.04); }
+    tr.miss-row { background: rgba(192,57,43,0.04); }
+
+    /* Number chips */
+    .nums { display: flex; flex-wrap: wrap; gap: 3px; }
+    .num-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 3px; border-radius: 4px; font-size: 11px; font-weight: 700; background: var(--surface-soft); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .num-chip.hit { background: #dcfce7; border-color: #86efac; color: #166534; }
+
+    /* Status */
+    .status-bar { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 16px; }
+
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .empty   { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+    #results { display: none; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Backtest — Previsão por Setores</h1>
+  <p class="subtitle">Walk-forward histórico do algoritmo de setores contíguos na roda física (--setores). 4 configurações de cobertura com P&L real por entrada.</p>
+
+  <!-- Filters -->
+  <div class="card">
+    <div class="filters">
+      <label>Roleta
+        <select id="roulette-id"><option value="">Carregando...</option></select>
+      </label>
+      <label>Histórico máximo
+        <select id="limit">
+          <option value="1000">1.000</option>
+          <option value="2000" selected>2.000</option>
+          <option value="5000">5.000</option>
+          <option value="10000">10.000</option>
+        </select>
+      </label>
+      <label>Entradas avaliadas
+        <select id="entries-limit">
+          <option value="200">200</option>
+          <option value="500" selected>500</option>
+          <option value="1000">1.000</option>
+          <option value="2000">2.000</option>
+        </select>
+      </label>
+      <button class="btn" id="run-btn" onclick="runBacktest()">Rodar Backtest</button>
+    </div>
+    <div class="status-bar" id="status"></div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="card" id="stats-card" style="display:none">
+    <div class="stats-grid" id="stats-grid"></div>
+  </div>
+
+  <!-- Breakdown table -->
+  <div class="card" id="breakdown-card" style="display:none">
+    <h3 style="margin:0 0 12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Resultado por Configuração</h3>
+    <table class="breakdown-table" id="breakdown-table">
+      <thead>
+        <tr>
+          <th>Configuração</th>
+          <th>Entradas</th>
+          <th>Acertos</th>
+          <th>Erros</th>
+          <th>Taxa de acerto</th>
+          <th>P&L total</th>
+          <th>ROI</th>
+          <th>Acertos por tentativa</th>
+        </tr>
+      </thead>
+      <tbody id="breakdown-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Entries detail -->
+  <div id="results">
+    <div class="card">
+      <h3 style="margin:0 0 12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Entradas detalhadas</h3>
+      <div class="tabs" id="tabs"></div>
+      <div id="entries-wrap">
+        <div class="loading">Selecione uma configuração acima.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let lastData = null;
+let activeTab = 0;
+
+async function loadRoulettes() {
+  try {
+    const res = await fetch('/api/roulettes-list');
+    const data = await res.json();
+    const sel = document.getElementById('roulette-id');
+    const list = data.roulettes || data;
+    sel.innerHTML = list.map(r => `<option value="${r.id || r}">${r.name || r.id || r}</option>`).join('');
+  } catch {
+    document.getElementById('roulette-id').innerHTML = '<option value="">Erro ao carregar</option>';
+  }
+}
+
+async function runBacktest() {
+  const rouletteId = document.getElementById('roulette-id').value;
+  if (!rouletteId) { alert('Selecione uma roleta.'); return; }
+  const limit = document.getElementById('limit').value;
+  const entriesLimit = document.getElementById('entries-limit').value;
+
+  const btn = document.getElementById('run-btn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.textContent = 'Rodando backtest... isso pode levar alguns segundos.';
+  document.getElementById('stats-card').style.display = 'none';
+  document.getElementById('breakdown-card').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+
+  try {
+    const url = `/api/previsao-setores/backtest?roulette_id=${encodeURIComponent(rouletteId)}&limit=${limit}&entries_limit=${entriesLimit}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.available) {
+      status.textContent = `Erro: ${data.error || 'Não disponível.'} (histórico: ${data.history_size || 0})`;
+      return;
+    }
+
+    lastData = data;
+    status.textContent = `Concluído — ${data.anchors_evaluated} entradas avaliadas sobre ${data.history_size} registros.`;
+    renderSummary(data);
+    renderBreakdown(data);
+    renderTabs(data);
+    document.getElementById('stats-card').style.display = '';
+    document.getElementById('breakdown-card').style.display = '';
+    document.getElementById('results').style.display = '';
+  } catch (e) {
+    status.textContent = `Erro: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderSummary(data) {
+  const totals = data.configs.reduce((acc, c) => {
+    acc.signals += c.total_signals;
+    acc.hits += c.hits;
+    acc.misses += c.misses;
+    acc.profit += c.total_profit;
+    acc.invested += c.total_invested;
+    return acc;
+  }, { signals: 0, hits: 0, misses: 0, profit: 0, invested: 0 });
+  const hitRate = totals.signals ? ((totals.hits / totals.signals) * 100).toFixed(1) : 0;
+  const roi = totals.invested ? ((totals.profit / totals.invested) * 100).toFixed(1) : 0;
+  const profitClass = totals.profit >= 0 ? 'positive' : 'negative';
+  const roiClass = roi >= 0 ? 'positive' : 'negative';
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat"><span class="label">Total de Entradas</span><span class="value">${totals.signals}</span></div>
+    <div class="stat positive"><span class="label">Acertos</span><span class="value">${totals.hits}</span></div>
+    <div class="stat danger"><span class="label">Erros</span><span class="value">${totals.misses}</span></div>
+    <div class="stat"><span class="label">Taxa de Acerto Geral</span><span class="value">${hitRate}%</span><div class="hit-bar"><div class="hit-bar-fill" style="width:${hitRate}%"></div></div></div>
+    <div class="stat ${profitClass}"><span class="label">P&L Total</span><span class="value">${totals.profit >= 0 ? '+' : ''}${totals.profit.toFixed(0)} fch</span></div>
+    <div class="stat ${roiClass}"><span class="label">ROI Geral</span><span class="value">${roi >= 0 ? '+' : ''}${roi}%</span><span class="sub">sobre ${totals.invested.toFixed(0)} fch investidas</span></div>
+  `;
+}
+
+function renderBreakdown(data) {
+  const rows = data.configs.map(cfg => {
+    const profitClass = cfg.total_profit >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+    const roiClass = cfg.roi >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+    const maxHit = Math.max(...Object.values(cfg.hit_by_attempt), 1);
+    const bars = Object.entries(cfg.hit_by_attempt).map(([a, c]) => {
+      const pct = Math.round((c / maxHit) * 100);
+      return `<div class="attempt-bar-col" title="T${a}: ${c}">
+        <div class="attempt-bar-fill" style="height:${pct}%"></div>
+        <div class="attempt-bar-n">${a}</div>
+      </div>`;
+    }).join('');
+
+    return `<tr>
+      <td style="font-weight:600">${cfg.label}</td>
+      <td>${cfg.total_signals}</td>
+      <td style="color:var(--green);font-weight:600">${cfg.hits}</td>
+      <td style="color:var(--red)">${cfg.misses}</td>
+      <td style="font-weight:700">${cfg.hit_rate}%</td>
+      <td style="font-weight:700;${profitClass}">${cfg.total_profit >= 0 ? '+' : ''}${cfg.total_profit} fch</td>
+      <td style="font-weight:700;${roiClass}">${cfg.roi >= 0 ? '+' : ''}${cfg.roi}%</td>
+      <td><div class="attempt-bars">${bars}</div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('breakdown-tbody').innerHTML = rows;
+}
+
+function renderTabs(data) {
+  document.getElementById('tabs').innerHTML = data.configs.map((cfg, idx) =>
+    `<div class="tab ${idx === 0 ? 'active' : ''}" onclick="switchTab(${idx})">${cfg.label}</div>`
+  ).join('');
+  activeTab = 0;
+  renderEntries(data.configs[0]);
+}
+
+function switchTab(idx) {
+  activeTab = idx;
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  renderEntries(lastData.configs[idx]);
+}
+
+function renderEntries(cfg) {
+  const wrap = document.getElementById('entries-wrap');
+  if (!cfg.entries || !cfg.entries.length) {
+    wrap.innerHTML = '<div class="empty">Sem entradas detalhadas.</div>';
+    return;
+  }
+
+  const rows = cfg.entries.map(e => {
+    const rowClass = e.hit ? 'hit-row' : 'miss-row';
+    const badge = e.hit
+      ? `<span class="badge badge-win">WIN T${e.hit_attempt}</span>`
+      : `<span class="badge badge-loss">LOSS</span>`;
+    const profitStr = (e.profit >= 0 ? '+' : '') + e.profit;
+    const profitStyle = e.profit >= 0 ? 'color:var(--green);font-weight:700' : 'color:var(--red);font-weight:700';
+    const chips = e.palpites.map(n => {
+      const isHit = e.hit && n === e.hit_number;
+      return `<span class="num-chip ${isHit ? 'hit' : ''}">${n}</span>`;
+    }).join('');
+
+    return `<tr class="${rowClass}">
+      <td>${e.anchor}</td>
+      <td style="font-weight:600">${e.context_last}</td>
+      <td><div class="nums">${chips}</div></td>
+      <td>${badge}</td>
+      <td>${e.hit_number ?? '—'}</td>
+      <td style="${profitStyle}">${profitStr}</td>
+      <td style="color:var(--muted)">${e.invested}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Âncora</th>
+          <th>Último nº</th>
+          <th>Palpites (${cfg.qtd} fichas)</th>
+          <th>Resultado</th>
+          <th>Nº acertado</th>
+          <th>P&L</th>
+          <th>Investido</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+loadRoulettes();
+</script>
+</body>
+</html>

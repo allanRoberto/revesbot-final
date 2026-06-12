@@ -262,6 +262,12 @@ async def sequence_search_page():
         return f.read()
 
 
+@router.get("/previsao-setores", response_class=HTMLResponse)
+async def previsao_setores_page():
+    with open(os.path.join(templates_dir, "previsao_setores_backtest.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/validar-padrao-ocorrencia", response_class=HTMLResponse)
 async def occurrence_signal_page():
     with open(os.path.join(templates_dir, "occurrence_signal.html"), "r", encoding="utf-8") as f:
