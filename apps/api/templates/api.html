@@ -440,7 +440,7 @@
   /* Estilos para a grade de células */
   .grid {
     display: grid;
-    gap: 4px;
+    gap: 2px;
     transition: grid-template-columns 0.3s;
   }
 
@@ -592,15 +592,13 @@
     align-items: start;
   }
 
-  /* Sidebar vai para a esquerda, histórico fica à direita */
   #history-container {
-    order: 2;
     min-width: 0;
   }
 
-  #selected-list-container {
-    order: 1;
-  }
+  /* No main-split: histórico esquerda (order 1), racetrack direita (order 2) */
+  .main-split #history-container { order: 1; }
+  .main-split #right-panel       { order: 2; }
 
   @media (max-width: 992px) {
     .history-layout {
