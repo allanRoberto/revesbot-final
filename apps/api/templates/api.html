@@ -2331,7 +2331,7 @@
     min-height: 14px;
   }
 
-  /* ── Racetrack fixo no rodapé ── */
+  /* ── Footer fixo: modo de visualização + racetrack ── */
   #racetrack-footer {
     position: fixed;
     bottom: 0;
@@ -2340,27 +2340,53 @@
     z-index: 1050;
     background: var(--card-light, #fff);
     border-top: 1px solid var(--border-light, #e5e7eb);
-    padding: 6px 12px 4px;
+    padding: 4px 12px 2px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 2px;
   }
   body.dark-mode #racetrack-footer {
     background: var(--card-dark, #111827);
     border-color: var(--border-dark, #1f2937);
   }
+  .footer-mode-bar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    width: 100%;
+    max-width: 1100px;
+    scrollbar-width: none;
+  }
+  .footer-mode-bar::-webkit-scrollbar { display: none; }
+  .footer-mode-bar .destacar-btn {
+    padding: 3px 10px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .footer-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--border-light, #e5e7eb);
+    flex-shrink: 0;
+  }
+  body.dark-mode .footer-sep { background: #374151; }
   #racetrack-footer .racetrack-host {
     width: 100%;
-    max-width: 900px;
+    max-width: 800px;
+    transform: scale(0.82);
+    transform-origin: top center;
+    margin-bottom: -14px;
   }
   #racetrack-footer .racetrack-legend {
     font-size: 10px;
     color: var(--ui-muted, #64748b);
-    margin-top: 2px;
   }
   /* Espaço para o rodapé não cobrir o conteúdo */
   .card-body {
-    padding-bottom: 130px !important;
+    padding-bottom: 160px !important;
   }
 
   /* ── Roulette wheel order grid ── */
@@ -2838,31 +2864,6 @@
 
       <div class="card-body">
 
-        <!-- Barra de Destacar horizontal, acima do grid -->
-        <div id="destacar-bar">
-          <div class="destacar-bar-inner">
-            <span class="destacar-label">Modo de Visualização</span>
-            <div class="destacar-btns">
-              <button id="toggle-colors" class="destacar-btn active">Padrão (Cores)</button>
-              <button id="btn-sequence" class="destacar-btn">Sequência</button>
-              <button id="btn-skipped-sequence" class="destacar-btn">Seq. pulada</button>
-              <button id="btn-repeat" class="destacar-btn">Repetições</button>
-              <button id="btn-terminal-repeat" class="destacar-btn">Rep. terminais</button>
-              <button id="btn-select-mirrors" class="destacar-btn">Espelhos</button>
-              <button id="btn-select-neighbors" class="destacar-btn">Vizinhos</button>
-              <button id="btn-select-terminals" class="destacar-btn">Terminais</button>
-              <button id="btn-cavalos" class="destacar-btn">Cavalos</button>
-              <button id="btn-range-low" class="destacar-btn">Baixos</button>
-              <button id="btn-range-high" class="destacar-btn">Altos</button>
-              <button id="btn-sum-digits" class="destacar-btn">Σ Soma Coluna</button>
-              <button id="btn-binary-mode" class="destacar-btn">Binário</button>
-              <a id="reset-selection-link" class="destacar-reset">Resetar</a>
-            </div>
-          </div>
-          <div id="countResult" class="count-result-bar"></div>
-          <div id="selected-count" class="racetrack-legend" style="font-size:11px;color:var(--ui-muted);padding:2px 0;">Selecionados: 0</div>
-        </div>
-
         <div id="history-container">
           <div class="grid mb-5" id="history"></div>
         </div>
@@ -2882,8 +2883,26 @@
     </div>
   </div>
 
-  <!-- Racetrack fixo no rodapé -->
+  <!-- Footer fixo: modo de visualização + racetrack -->
   <div id="racetrack-footer">
+    <div class="footer-mode-bar">
+      <button id="toggle-colors" class="destacar-btn active">Padrão (Cores)</button>
+      <button id="btn-sequence" class="destacar-btn">Sequência</button>
+      <button id="btn-skipped-sequence" class="destacar-btn">Seq. pulada</button>
+      <button id="btn-repeat" class="destacar-btn">Repetições</button>
+      <button id="btn-terminal-repeat" class="destacar-btn">Rep. terminais</button>
+      <button id="btn-select-mirrors" class="destacar-btn">Espelhos</button>
+      <button id="btn-select-neighbors" class="destacar-btn">Vizinhos</button>
+      <button id="btn-select-terminals" class="destacar-btn">Terminais</button>
+      <button id="btn-cavalos" class="destacar-btn">Cavalos</button>
+      <button id="btn-range-low" class="destacar-btn">Baixos</button>
+      <button id="btn-range-high" class="destacar-btn">Altos</button>
+      <button id="btn-sum-digits" class="destacar-btn">Σ Soma</button>
+      <button id="btn-binary-mode" class="destacar-btn">Binário</button>
+      <div class="footer-sep"></div>
+      <div id="countResult" class="count-result-bar"></div>
+      <a id="reset-selection-link" class="destacar-reset">Resetar</a>
+    </div>
     <div id="racetrack-container" class="racetrack-host"></div>
     <div id="selected-count" class="racetrack-legend">Selecionados: 0</div>
   </div>
