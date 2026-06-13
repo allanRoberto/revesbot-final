@@ -2331,31 +2331,36 @@
     min-height: 14px;
   }
 
-  /* ── Layout principal 50/50: grid esquerda, racetrack direita ── */
-  .main-split {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    align-items: start;
+  /* ── Racetrack fixo no rodapé ── */
+  #racetrack-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background: var(--card-light, #fff);
+    border-top: 1px solid var(--border-light, #e5e7eb);
+    padding: 6px 12px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  #right-panel {
-    position: sticky;
-    top: 56px;
-    max-height: calc(100vh - 70px);
-    overflow-y: auto;
-    padding-right: 4px;
+  body.dark-mode #racetrack-footer {
+    background: var(--card-dark, #111827);
+    border-color: var(--border-dark, #1f2937);
   }
-  #right-panel .racetrack-host {
+  #racetrack-footer .racetrack-host {
     width: 100%;
+    max-width: 900px;
   }
-  @media (max-width: 900px) {
-    .main-split {
-      grid-template-columns: 1fr;
-    }
-    #right-panel {
-      position: static;
-      max-height: none;
-    }
+  #racetrack-footer .racetrack-legend {
+    font-size: 10px;
+    color: var(--ui-muted, #64748b);
+    margin-top: 2px;
+  }
+  /* Espaço para o rodapé não cobrir o conteúdo */
+  .card-body {
+    padding-bottom: 130px !important;
   }
 
   /* ── Roulette wheel order grid ── */
@@ -2858,32 +2863,29 @@
           <div id="selected-count" class="racetrack-legend" style="font-size:11px;color:var(--ui-muted);padding:2px 0;">Selecionados: 0</div>
         </div>
 
-        <div class="main-split">
-          <!-- Esquerda: grid de histórico -->
-          <div id="history-container">
-            <div class="grid mb-5" id="history"></div>
+        <div id="history-container">
+          <div class="grid mb-5" id="history"></div>
+        </div>
+        <div id="metrics-section" class="sidebar-section" style="margin-top:12px;">
+          <div class="metrics-head">
+            <div class="sidebar-title" style="margin:0;">🎯 Métricas de Assertividade</div>
+            <button id="btn-metrics-refresh" class="metrics-refresh" type="button">Atualizar</button>
+            <button id="btn-metrics-apply" class="metrics-refresh metrics-apply" type="button">Aplicar multiplicadores</button>
+            <button id="btn-auto-tune" class="metrics-refresh metrics-apply" type="button" style="background: linear-gradient(135deg, #10b981, #059669);">🔧 Auto-Tune</button>
           </div>
-
-          <!-- Direita: racetrack + métricas -->
-          <div id="right-panel">
-            <div id="racetrack-container" class="racetrack-host"></div>
-            <div id="selected-count" class="racetrack-legend">Selecionados: 0</div>
-            <div id="metrics-section" class="sidebar-section" style="margin-top:12px;">
-              <div class="metrics-head">
-                <div class="sidebar-title" style="margin:0;">🎯 Métricas de Assertividade</div>
-                <button id="btn-metrics-refresh" class="metrics-refresh" type="button">Atualizar</button>
-                <button id="btn-metrics-apply" class="metrics-refresh metrics-apply" type="button">Aplicar multiplicadores</button>
-                <button id="btn-auto-tune" class="metrics-refresh metrics-apply" type="button" style="background: linear-gradient(135deg, #10b981, #059669);">🔧 Auto-Tune</button>
-              </div>
-              <div id="metrics-summary" class="metrics-summary">Aguardando dados...</div>
-              <div id="metrics-pattern-list" class="metrics-list"></div>
-              <div class="tiny-label">Calibração por Faixa</div>
-              <div id="metrics-calibration" class="metrics-calibration"></div>
-            </div>
-          </div>
+          <div id="metrics-summary" class="metrics-summary">Aguardando dados...</div>
+          <div id="metrics-pattern-list" class="metrics-list"></div>
+          <div class="tiny-label">Calibração por Faixa</div>
+          <div id="metrics-calibration" class="metrics-calibration"></div>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Racetrack fixo no rodapé -->
+  <div id="racetrack-footer">
+    <div id="racetrack-container" class="racetrack-host"></div>
+    <div id="selected-count" class="racetrack-legend">Selecionados: 0</div>
   </div>
 
   <!-- Floating Action Button (mobile) -->
