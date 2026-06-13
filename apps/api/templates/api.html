@@ -2159,6 +2159,99 @@
       box-shadow: 0 0 0 2px rgba(255, 136, 0, 0.8) inset, 0 0 12px rgba(255, 153, 51, 0.6);
       transform: translateZ(0);
     }
+
+  /* ── Hover: borda amarela semi-opaca (sem mudar fundo) ── */
+  #history .cell:hover,
+  #history .cell.hovered {
+    box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.55) inset !important;
+    transform: none !important;
+  }
+
+  /* ── Selecionado: mantém cor natural (red/black/green) + anel branco ── */
+  #history .cell.instance-selected {
+    box-shadow: 0 0 0 2px #fff inset, 0 0 0 4px rgba(255, 255, 255, 0.35) !important;
+    filter: brightness(1.15);
+  }
+
+  /* ── Stats Drawer ── */
+  .stats-drawer {
+    position: fixed;
+    top: 0;
+    right: -360px;
+    width: 340px;
+    height: 100vh;
+    background: var(--card-light, #fff);
+    border-left: 1px solid var(--border-light, #ccc);
+    z-index: 1060;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.28s cubic-bezier(.4,0,.2,1);
+    box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+  }
+  body.dark-mode .stats-drawer {
+    background: var(--card-dark, #111827);
+    border-color: var(--border-dark, #1f2937);
+  }
+  .stats-drawer.open {
+    right: 0;
+  }
+  .stats-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    font-weight: 700;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-light, #e5e7eb);
+    flex-shrink: 0;
+  }
+  body.dark-mode .stats-drawer-header {
+    border-color: var(--border-dark, #1f2937);
+  }
+  .stats-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .stats-drawer-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 1059;
+  }
+  .stats-drawer-overlay.active {
+    display: block;
+  }
+
+  /* ── Células menores no selection-grid, fonte maior ── */
+  .selection-grid .cell {
+    width: var(--cell-size, 24px) !important;
+    height: var(--cell-size, 24px) !important;
+    font-size: clamp(0.72rem, 1.1vw, 1.05rem) !important;
+  }
+
+  /* ── Roulette wheel order grid ── */
+  .numbers-grid-wheel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .numbers-grid-wheel .num-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 </style>
 
   <!-- CSS adicional para os filtros -->
@@ -2435,13 +2528,10 @@
             </section>
           </div>
           <div class="col-6">
-            <!-- grid de botões 0–36, com popover Bootstrap -->
+            <!-- grid de botões em ordem da roleta -->
             <h6>Aposta:</h6>
             <div id="numbersGrid" class="numbers-grid">
-
-              {% for n in range(0,37) %}
-
-             
+              {% for n in [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26] %}
               <button type="button" class="cell btn btn-light num-btn" data-bs-toggle="popover" data-html="true"
                 data-bs-content='
                         <button class="btn btn-sm btn-block select-action" data-action="number" data-num="{{ n }}">Selecionar número</button>
@@ -2539,6 +2629,9 @@
     <button id="toggle-theme" class="grid-tooltip-toggle" title="Alternar tema">
       <i data-lucide="moon"></i>
     </button>
+    <button id="btn-stats-drawer" class="grid-tooltip-toggle" title="Estatísticas / Números quentes e frios">
+      <i data-lucide="bar-chart-2"></i>
+    </button>
     <button id="btn-settings" class="grid-tooltip-toggle" title="Configurações">
       <i data-lucide="settings"></i>
     </button>
@@ -2579,12 +2672,6 @@
         {% for r in all_roulettes %}
         <option value="{{ r.slug }}" data-url="{{ r.url }}">{{ r.name }}</option>
         {% endfor %}
-      </select>
-    </div>
-    <div class="roulette-select-group">
-      <span class="roulette-select-label">Treino de pesos</span>
-      <select id="weight-profile-select" class="form-select form-select-sm" style="max-width: 260px;">
-        <option value="">Peso padrão</option>
       </select>
     </div>
   </div>
@@ -2656,32 +2743,6 @@
               </div>
               <div id="racetrack-container" class="racetrack-host"></div>
               <div id="selected-count" class="racetrack-legend">Selecionados: 0</div>
-            </div>
-            <div class="sidebar-section">
-              <div class="sidebar-title">🔥 Números quentes</div>
-              <div class="hot-carousel">
-                <button class="carousel-nav hot-prev" type="button" aria-label="Anterior">‹</button>
-                <div class="swiper" id="hot-numbers">
-                  <div class="swiper-wrapper"></div>
-                  <div class="swiper-pagination"></div>
-                </div>
-                <button class="carousel-nav hot-next" type="button" aria-label="Próximo">›</button>
-              </div>
-            </div>
-            <div class="sidebar-section">
-              <div class="sidebar-title">❄️ Números frios</div>
-              <div class="hot-carousel cold-carousel">
-                <button class="carousel-nav cold-prev" type="button" aria-label="Anterior">‹</button>
-                <div class="swiper" id="cold-numbers">
-                  <div class="swiper-wrapper"></div>
-                  <div class="swiper-pagination"></div>
-                </div>
-                <button class="carousel-nav cold-next" type="button" aria-label="Próximo">›</button>
-              </div>
-            </div>
-            <div class="sidebar-section">
-              <div class="sidebar-title">📊 Estatísticas</div>
-              <div id="stats-grid" class="stats-grid"></div>
             </div>
             <div id="metrics-section" class="sidebar-section">
               <div class="metrics-head">
@@ -2770,6 +2831,43 @@
       <button id="btn-config-alert-mobile" class="btn btn-sm btn-warning">Configurar Alerta</button>
     </div>
   </div>
+
+  <!-- Stats Drawer (hot/cold/stats toggle) -->
+  <div id="stats-drawer" class="stats-drawer">
+    <div class="stats-drawer-header">
+      <span>📊 Estatísticas</span>
+      <button id="stats-drawer-close" class="btn-close" type="button">✕</button>
+    </div>
+    <div class="stats-drawer-body">
+      <div class="sidebar-section">
+        <div class="sidebar-title">🔥 Números quentes</div>
+        <div class="hot-carousel">
+          <button class="carousel-nav hot-prev" type="button" aria-label="Anterior">‹</button>
+          <div class="swiper" id="hot-numbers">
+            <div class="swiper-wrapper"></div>
+            <div class="swiper-pagination"></div>
+          </div>
+          <button class="carousel-nav hot-next" type="button" aria-label="Próximo">›</button>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">❄️ Números frios</div>
+        <div class="hot-carousel cold-carousel">
+          <button class="carousel-nav cold-prev" type="button" aria-label="Anterior">‹</button>
+          <div class="swiper" id="cold-numbers">
+            <div class="swiper-wrapper"></div>
+            <div class="swiper-pagination"></div>
+          </div>
+          <button class="carousel-nav cold-next" type="button" aria-label="Próximo">›</button>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">📊 Estatísticas</div>
+        <div id="stats-grid" class="stats-grid"></div>
+      </div>
+    </div>
+  </div>
+  <div id="stats-drawer-overlay" class="stats-drawer-overlay"></div>
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="settings-modal">
@@ -7385,11 +7483,11 @@ countContainers.forEach(({ selector, itemClass }) => {
       document.querySelectorAll(".cell.instance-selected")
         .forEach(el => el.classList.remove("instance-selected"));
 
-      // 2) Reaplica **todas** as instâncias com suas cores guardadas
+      // 2) Reaplica **todas** as instâncias — mantém cor natural do número
       instanceSelections.forEach((color, el) => {
         el.classList.add("instance-selected");
-        el.style.backgroundColor = color;
-        el.style.color = isColorLight(color) ? "black" : "white";
+        // Não sobrescreve backgroundColor: a cor natural (red/black/green) é mantida
+        // O anel branco via box-shadow (CSS) já indica a seleção
       });
 
       // 3) Agora aplica as seleções POR NÚMERO (single-click) nas demais células
@@ -7857,6 +7955,25 @@ countContainers.forEach(({ selector, itemClass }) => {
     }
 
     // Eventos
+    // === Stats Drawer toggle ===
+    (function() {
+      const drawer = document.getElementById('stats-drawer');
+      const overlay = document.getElementById('stats-drawer-overlay');
+      const btnOpen = document.getElementById('btn-stats-drawer');
+      const btnClose = document.getElementById('stats-drawer-close');
+      function openDrawer() {
+        drawer.classList.add('open');
+        overlay.classList.add('active');
+      }
+      function closeDrawer() {
+        drawer.classList.remove('open');
+        overlay.classList.remove('active');
+      }
+      if (btnOpen) btnOpen.addEventListener('click', openDrawer);
+      if (btnClose) btnClose.addEventListener('click', closeDrawer);
+      if (overlay) overlay.addEventListener('click', closeDrawer);
+    })();
+
     // === Inicializa os popovers do Bootstrap ===
     document.addEventListener('DOMContentLoaded', function () {
       applyTheme();
