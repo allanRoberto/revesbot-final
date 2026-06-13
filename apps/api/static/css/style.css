@@ -22,12 +22,12 @@
         }
 
         .cell.hovered {
-            background-color: yellow !important;
-            border : 1px dashed #2c3e50;
+            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.55) inset !important;
+            border: 1px dashed rgba(255, 215, 0, 0.6) !important;
         }
 
         .cell.hovered.black {
-            color: #2c3e50 !important;
+            color: inherit !important;
         }
 
 
