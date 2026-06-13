@@ -724,7 +724,7 @@
     border-radius: 8px;
     padding: 8px;
     display: none;
-    z-index: 5;
+    z-index: 1055;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
   }
 
@@ -2333,9 +2333,31 @@
     min-height: 14px;
   }
 
-  /* ── Layout sem sidebar quando só tem Métricas ── */
-  .history-layout {
-    grid-template-columns: 220px 1fr !important;
+  /* ── Layout principal 50/50: grid esquerda, racetrack direita ── */
+  .main-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  #right-panel {
+    position: sticky;
+    top: 56px;
+    max-height: calc(100vh - 70px);
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  #right-panel .racetrack-host {
+    width: 100%;
+  }
+  @media (max-width: 900px) {
+    .main-split {
+      grid-template-columns: 1fr;
+    }
+    #right-panel {
+      position: static;
+      max-height: none;
+    }
   }
 
   /* ── Roulette wheel order grid ── */
@@ -2733,6 +2755,32 @@
     <button id="toggle-theme" class="grid-tooltip-toggle" title="Alternar tema">
       <i data-lucide="moon"></i>
     </button>
+    <div style="position:relative;display:flex;align-items:center;gap:4px;">
+      <button id="palette-toggle" class="grid-tooltip-toggle" title="Paleta de cores">
+        <i data-lucide="palette"></i>
+      </button>
+      <div id="selected-color-indicator" class="selected-color-indicator" style="width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,0.3);flex-shrink:0;"></div>
+      <div id="palette-panel" class="palette-panel" style="top:calc(100% + 6px);right:0;left:auto;">
+        <div class="palette-swatches">
+          <button class="swatch" data-color="#FFD700" style="background:#FFD700"></button>
+          <button class="swatch" data-color="#F59E0B" style="background:#F59E0B"></button>
+          <button class="swatch" data-color="#FB923C" style="background:#FB923C"></button>
+          <button class="swatch" data-color="#EF4444" style="background:#EF4444"></button>
+          <button class="swatch" data-color="#F97316" style="background:#F97316"></button>
+          <button class="swatch" data-color="#EC4899" style="background:#EC4899"></button>
+          <button class="swatch" data-color="#A855F7" style="background:#A855F7"></button>
+          <button class="swatch" data-color="#8B5CF6" style="background:#8B5CF6"></button>
+          <button class="swatch" data-color="#6366F1" style="background:#6366F1"></button>
+          <button class="swatch" data-color="#3B82F6" style="background:#3B82F6"></button>
+          <button class="swatch" data-color="#0EA5E9" style="background:#0EA5E9"></button>
+          <button class="swatch" data-color="#06B6D4" style="background:#06B6D4"></button>
+          <button class="swatch" data-color="#14B8A6" style="background:#14B8A6"></button>
+          <button class="swatch" data-color="#10B981" style="background:#10B981"></button>
+          <button class="swatch" data-color="#22C55E" style="background:#22C55E"></button>
+          <button class="swatch" data-color="#84CC16" style="background:#84CC16"></button>
+        </div>
+      </div>
+    </div>
     <button id="btn-stats-drawer" class="grid-tooltip-toggle" title="Estatísticas / Números quentes e frios">
       <i data-lucide="bar-chart-2"></i>
     </button>
@@ -2805,48 +2853,24 @@
               <button id="btn-range-high" class="destacar-btn">Altos</button>
               <button id="btn-sum-digits" class="destacar-btn">Σ Soma Coluna</button>
               <button id="btn-binary-mode" class="destacar-btn">Binário</button>
-              <div class="destacar-sep"></div>
-              <button id="palette-toggle" class="destacar-btn palette-btn" type="button" title="Paleta de cores">
-                <i data-lucide="palette"></i>
-                <span>Cor</span>
-              </button>
-              <div id="selected-color-indicator" class="selected-color-indicator"></div>
               <a id="reset-selection-link" class="destacar-reset">Resetar</a>
-            </div>
-          </div>
-          <div id="palette-panel" class="palette-panel">
-            <div class="palette-swatches">
-              <button class="swatch" data-color="#FFD700" style="background:#FFD700"></button>
-              <button class="swatch" data-color="#F59E0B" style="background:#F59E0B"></button>
-              <button class="swatch" data-color="#FB923C" style="background:#FB923C"></button>
-              <button class="swatch" data-color="#EF4444" style="background:#EF4444"></button>
-              <button class="swatch" data-color="#F97316" style="background:#F97316"></button>
-              <button class="swatch" data-color="#EC4899" style="background:#EC4899"></button>
-              <button class="swatch" data-color="#A855F7" style="background:#A855F7"></button>
-              <button class="swatch" data-color="#8B5CF6" style="background:#8B5CF6"></button>
-              <button class="swatch" data-color="#6366F1" style="background:#6366F1"></button>
-              <button class="swatch" data-color="#3B82F6" style="background:#3B82F6"></button>
-              <button class="swatch" data-color="#0EA5E9" style="background:#0EA5E9"></button>
-              <button class="swatch" data-color="#06B6D4" style="background:#06B6D4"></button>
-              <button class="swatch" data-color="#14B8A6" style="background:#14B8A6"></button>
-              <button class="swatch" data-color="#10B981" style="background:#10B981"></button>
-              <button class="swatch" data-color="#22C55E" style="background:#22C55E"></button>
-              <button class="swatch" data-color="#84CC16" style="background:#84CC16"></button>
             </div>
           </div>
           <div id="countResult" class="count-result-bar"></div>
           <div id="selected-count" class="racetrack-legend" style="font-size:11px;color:var(--ui-muted);padding:2px 0;">Selecionados: 0</div>
         </div>
 
-        <div class="history-layout">
-          <!-- Grid de histórico -->
+        <div class="main-split">
+          <!-- Esquerda: grid de histórico -->
           <div id="history-container">
-            <div id="racetrack-container" class="racetrack-host" style="margin-bottom:8px;"></div>
             <div class="grid mb-5" id="history"></div>
           </div>
 
-          <div id="selected-list-container" class="mw-20">
-            <div id="metrics-section" class="sidebar-section">
+          <!-- Direita: racetrack + métricas -->
+          <div id="right-panel">
+            <div id="racetrack-container" class="racetrack-host"></div>
+            <div id="selected-count" class="racetrack-legend">Selecionados: 0</div>
+            <div id="metrics-section" class="sidebar-section" style="margin-top:12px;">
               <div class="metrics-head">
                 <div class="sidebar-title" style="margin:0;">🎯 Métricas de Assertividade</div>
                 <button id="btn-metrics-refresh" class="metrics-refresh" type="button">Atualizar</button>
@@ -2858,7 +2882,6 @@
               <div class="tiny-label">Calibração por Faixa</div>
               <div id="metrics-calibration" class="metrics-calibration"></div>
             </div>
-
           </div>
         </div>
       </div>
