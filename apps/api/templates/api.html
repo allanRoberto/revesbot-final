@@ -2340,31 +2340,55 @@
     z-index: 1050;
     background: var(--card-light, #fff);
     border-top: 1px solid var(--border-light, #e5e7eb);
-    padding: 4px 12px;
+    padding: 2px 10px 2px;
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+    transition: transform 0.25s cubic-bezier(.4,0,.2,1);
   }
   body.dark-mode #racetrack-footer {
     background: var(--card-dark, #111827);
     border-color: var(--border-dark, #1f2937);
   }
+  #racetrack-footer.collapsed #footer-body {
+    display: none;
+  }
+  #footer-body {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+  /* Botão toggle no topo do footer */
+  .footer-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 1px 0 2px;
+    cursor: pointer;
+    color: var(--ui-muted, #64748b);
+    font-size: 10px;
+    line-height: 1;
+  }
+  .footer-toggle-btn:hover { color: var(--ui-fg, #0f172a); }
+  body.dark-mode .footer-toggle-btn:hover { color: #f9fafb; }
   .footer-left {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
   }
   .footer-left .racetrack-host {
     width: 50vw;
-    transform-origin: top left;
   }
   .footer-right {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
     min-width: 0;
   }
   .footer-mode-label {
@@ -2377,20 +2401,17 @@
   .footer-mode-bar {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 5px;
   }
   .footer-mode-bar .destacar-btn {
-    padding: 3px 10px;
-    font-size: 11px;
+    padding: 5px 14px;
+    font-size: 12px;
+    border-radius: 6px;
   }
   .footer-bottom-row {
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-  #racetrack-footer .racetrack-legend {
-    font-size: 10px;
-    color: var(--ui-muted, #64748b);
   }
   .card-body {
     padding-bottom: 160px !important;
@@ -2892,6 +2913,10 @@
 
   <!-- Footer fixo: racetrack esquerda + botões direita -->
   <div id="racetrack-footer">
+    <button id="footer-toggle-btn" class="footer-toggle-btn" title="Expandir/minimizar footer">
+      <span id="footer-toggle-icon">▲</span>
+    </button>
+    <div id="footer-body">
     <div class="footer-left">
       <div id="racetrack-container" class="racetrack-host"></div>
     </div>
@@ -2917,6 +2942,7 @@
         <a id="reset-selection-link" class="destacar-reset">Resetar</a>
       </div>
     </div>
+    </div><!-- /footer-body -->
   </div>
 
   <!-- Floating Action Button (mobile) -->
@@ -8111,6 +8137,20 @@ countContainers.forEach(({ selector, itemClass }) => {
     }
 
     // Eventos
+    // === Footer toggle (expandir/minimizar) ===
+    (function() {
+      const footer = document.getElementById('racetrack-footer');
+      const btn = document.getElementById('footer-toggle-btn');
+      const icon = document.getElementById('footer-toggle-icon');
+      const cardBody = document.querySelector('.card-body');
+      if (!footer || !btn) return;
+      btn.addEventListener('click', () => {
+        const collapsed = footer.classList.toggle('collapsed');
+        icon.textContent = collapsed ? '▲' : '▼';
+        if (cardBody) cardBody.style.paddingBottom = collapsed ? '28px' : '';
+      });
+    })();
+
     // === Stats Drawer toggle ===
     (function() {
       const drawer = document.getElementById('stats-drawer');
