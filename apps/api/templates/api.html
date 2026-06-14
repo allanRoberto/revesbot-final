@@ -54,6 +54,10 @@
   }
 
   /* Modo claro (padrão) */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
   body {
     background-color: var(--bg-light);
     color: var(--text-light);
@@ -594,11 +598,9 @@
 
   #history-container {
     min-width: 0;
+    overflow-y: auto;
+    height: calc(100vh - var(--header-h, 58px) - var(--footer-h, 120px));
   }
-
-  /* No main-split: histórico esquerda (order 1), racetrack direita (order 2) */
-  .main-split #history-container { order: 1; }
-  .main-split #right-panel       { order: 2; }
 
   @media (max-width: 992px) {
     .history-layout {
@@ -2414,7 +2416,17 @@
     gap: 8px;
   }
   .card-body {
-    padding-bottom: 160px !important;
+    padding-bottom: 0 !important;
+  }
+  /* Bootstrap containers não devem criar scroll extra */
+  .container-fluid, .row, .card {
+    height: 100%;
+    overflow: hidden;
+  }
+  .card-body {
+    height: 100%;
+    overflow: hidden;
+    padding: 0 !important;
   }
 
   /* ── Roulette wheel order grid ── */
@@ -2893,7 +2905,7 @@
       <div class="card-body">
 
         <div id="history-container">
-          <div class="grid mb-5" id="history"></div>
+          <div class="grid" id="history"></div>
         </div>
         <div id="metrics-section" class="sidebar-section" style="margin-top:12px;">
           <div class="metrics-head">
@@ -8137,17 +8149,31 @@ countContainers.forEach(({ selector, itemClass }) => {
     }
 
     // Eventos
+    // === Ajuste dinâmico de altura do #history-container ===
+    function updateHistoryHeight() {
+      const header = document.querySelector('.api-header-bar');
+      const footer = document.getElementById('racetrack-footer');
+      const container = document.getElementById('history-container');
+      if (!container) return;
+      const headerH = header ? header.offsetHeight : 58;
+      const footerH = footer ? footer.offsetHeight : 120;
+      container.style.height = `calc(100vh - ${headerH}px - ${footerH}px)`;
+    }
+    window.addEventListener('resize', updateHistoryHeight);
+    document.addEventListener('DOMContentLoaded', updateHistoryHeight);
+    // Chama também após footer toggle
+    setTimeout(updateHistoryHeight, 100);
+
     // === Footer toggle (expandir/minimizar) ===
     (function() {
       const footer = document.getElementById('racetrack-footer');
       const btn = document.getElementById('footer-toggle-btn');
       const icon = document.getElementById('footer-toggle-icon');
-      const cardBody = document.querySelector('.card-body');
       if (!footer || !btn) return;
       btn.addEventListener('click', () => {
         const collapsed = footer.classList.toggle('collapsed');
         icon.textContent = collapsed ? '▲' : '▼';
-        if (cardBody) cardBody.style.paddingBottom = collapsed ? '28px' : '';
+        setTimeout(updateHistoryHeight, 50);
       });
     })();
 
