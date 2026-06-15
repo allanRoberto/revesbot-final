@@ -379,3 +379,9 @@ async def multi_pivo_signals_page():
     """Dashboard de assertividade — Sinais Multi-Pivô."""
     with open(os.path.join(templates_dir, "multi_pivo_signals.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/autoroulette", response_class=HTMLResponse)
+async def autoroulette_page():
+    with open(os.path.join(templates_dir, "autoroulette.html"), "r", encoding="utf-8") as f:
+        return f.read()

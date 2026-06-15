@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto Roulette — Dashboard</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff;
+  --bg2: #f5f5f2;
+  --bg3: #eeece8;
+  --text: #1a1a18;
+  --text2: #6b6a65;
+  --text3: #a09f9a;
+  --border: rgba(0,0,0,0.12);
+  --border2: rgba(0,0,0,0.22);
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1c;
+    --bg2: #2a2a28;
+    --bg3: #323230;
+    --text: #f0efe9;
+    --text2: #a09f9a;
+    --text3: #6b6a65;
+    --border: rgba(255,255,255,0.12);
+    --border2: rgba(255,255,255,0.22);
+  }
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; padding: 1.5rem; }
+.container { max-width: 900px; margin: 0 auto; }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.title { font-size: 20px; font-weight: 600; }
+.subtitle { font-size: 13px; color: var(--text2); margin-top: 3px; }
+.controls { display: flex; align-items: center; gap: 10px; }
+.badge-live { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: #eaf3de; color: #3b6d11; font-weight: 500; display: flex; align-items: center; gap: 5px; }
+@media (prefers-color-scheme: dark) { .badge-live { background: #27500a; color: #c0dd97; } }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #3b6d11; animation: blink 1.2s infinite; }
+@media (prefers-color-scheme: dark) { .dot { background: #97c459; } }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+button { cursor: pointer; font-family: inherit; font-size: 13px; display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); transition: background 0.15s; }
+button:hover { background: var(--bg2); }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+.stat-card { background: var(--bg); border-radius: var(--radius); padding: 0.85rem 1rem; border: 0.5px solid var(--border); }
+.stat-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+.stat-value { font-size: 24px; font-weight: 600; }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.section-label { font-size: 13px; color: var(--text2); font-weight: 500; margin-bottom: 8px; }
+.numbers-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; }
+.num-ball { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; transition: transform 0.15s; }
+.num-ball:hover { transform: scale(1.1); }
+.num-ball.red { background: #D85A30; color: #fff; }
+.num-ball.black { background: #2C2C2A; color: #fff; }
+.num-ball.green { background: #3B6D11; color: #fff; }
+.num-ball.latest { outline: 3px solid var(--text2); outline-offset: 2px; transform: scale(1.15); }
+.two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+@media (max-width: 560px) { .two-cols { grid-template-columns: 1fr; } }
+.card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; }
+.dist-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+.dist-label { min-width: 52px; color: var(--text2); }
+.dist-bar-wrap { flex: 1; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+.dist-bar { height: 100%; border-radius: 4px; transition: width 0.4s; }
+.dist-val { min-width: 36px; text-align: right; font-weight: 500; }
+.table-wrap { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 1rem; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+th { background: var(--bg2); padding: 9px 12px; text-align: left; color: var(--text2); font-weight: 500; font-size: 12px; }
+td { padding: 8px 12px; border-top: 0.5px solid var(--border); vertical-align: middle; }
+tr:hover td { background: var(--bg2); }
+.num-inline { display: inline-flex; width: 28px; height: 28px; border-radius: 50%; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; }
+.num-inline.red { background: #D85A30; }
+.num-inline.black { background: #2C2C2A; }
+.num-inline.green { background: #3B6D11; }
+.color-tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+.tag-red { background: #FAECE7; color: #993C1D; }
+.tag-black { background: #D3D1C7; color: #2C2C2A; }
+.tag-green { background: #EAF3DE; color: #3B6D11; }
+@media (prefers-color-scheme: dark) {
+  .tag-red { background: #4A1B0C; color: #F0997B; }
+  .tag-black { background: #444441; color: #D3D1C7; }
+  .tag-green { background: #173404; color: #97c459; }
+}
+.type-tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--bg2); color: var(--text2); }
+.footer { font-size: 11px; color: var(--text3); text-align: right; margin-top: 0.5rem; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--text2); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-row td { text-align: center; color: var(--text2); padding: 2rem; }
+.error-row td { text-align: center; color: #D85A30; padding: 1rem; }
+.countdown { font-size: 12px; color: var(--text3); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div>
+      <div class="title">Auto Roulette</div>
+      <div class="subtitle" id="table-name">Mesa: —</div>
+    </div>
+    <div class="controls">
+      <div class="badge-live"><div class="dot"></div> Ao vivo</div>
+      <button onclick="loadData(true)">
+        <i class="ti ti-refresh"></i> Atualizar
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Último número</div>
+      <div class="stat-value" id="last-num">—</div>
+      <div class="stat-sub" id="last-color">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total de rodadas</div>
+      <div class="stat-value" id="total-rounds">—</div>
+      <div class="stat-sub">nesta consulta</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Maior prêmio</div>
+      <div class="stat-value" id="top-prize">—</div>
+      <div class="stat-sub">EUR nesta sessão</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Número + frequente</div>
+      <div class="stat-value" id="hot-num">—</div>
+      <div class="stat-sub" id="hot-count">—</div>
+    </div>
+  </div>
+
+  <div class="section-label">Histórico de números <span class="countdown" id="countdown"></span></div>
+  <div class="numbers-row" id="numbers-row">
+    <div style="color:var(--text2);font-size:13px">Carregando...</div>
+  </div>
+
+  <div class="two-cols">
+    <div class="card">
+      <div class="section-label">Distribuição de cores</div>
+      <div id="dist-colors"></div>
+    </div>
+    <div class="card">
+      <div class="section-label">Par / Ímpar</div>
+      <div id="dist-types"></div>
+    </div>
+  </div>
+
+  <div class="section-label">Últimas rodadas</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:54px">Nº</th>
+          <th style="width:80px">Cor</th>
+          <th style="width:70px">Tipo</th>
+          <th>Horário</th>
+          <th style="width:75px">Venc.</th>
+          <th style="width:100px">Total (€)</th>
+        </tr>
+      </thead>
+      <tbody id="results-table">
+        <tr class="loading-row"><td colspan="6"><div class="spinner"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer" id="last-update"></div>
+</div>
+
+<script>
+const API = 'https://api-cs.casino.org/svc-evolution-game-events/api/autoroulette';
+const REFRESH_INTERVAL = 45;
+let countdown = REFRESH_INTERVAL;
+let timer;
+
+function colorClass(c) { return c === 'Red' ? 'red' : c === 'Black' ? 'black' : 'green'; }
+function colorLabel(c) { return c === 'Red' ? 'Vermelho' : c === 'Black' ? 'Preto' : 'Verde'; }
+function tagClass(c)   { return c === 'Red' ? 'tag-red'  : c === 'Black' ? 'tag-black'  : 'tag-green'; }
+function typeLabel(t)  { return t === 'Odd' ? 'Ímpar' : t === 'Even' ? 'Par' : '—'; }
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+function fmtNum(n) {
+  return new Intl.NumberFormat('pt-BR').format(Math.round(n));
+}
+
+function startCountdown() {
+  clearInterval(timer);
+  countdown = REFRESH_INTERVAL;
+  timer = setInterval(() => {
+    countdown--;
+    const el = document.getElementById('countdown');
+    if (el) el.textContent = '(próxima em ' + countdown + 's)';
+    if (countdown <= 0) loadData(false);
+  }, 1000);
+}
+
+async function loadData(showSpinner = false) {
+  if (showSpinner) {
+    document.getElementById('results-table').innerHTML =
+      '<tr class="loading-row"><td colspan="6"><div class="spinner"></div></td></tr>';
+  }
+  try {
+    const res = await fetch(API);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    render(data);
+    startCountdown();
+  } catch (e) {
+    document.getElementById('results-table').innerHTML =
+      '<tr class="error-row"><td colspan="6">Erro ao carregar: ' + e.message + '</td></tr>';
+  }
+}
+
+function render(data) {
+  if (!data || !data.length) return;
+
+  const latest = data[0];
+  const out = latest.data.result.outcome;
+
+  document.getElementById('table-name').textContent = 'Mesa: ' + latest.data.table.name;
+  document.getElementById('last-num').textContent = out.number;
+  document.getElementById('last-color').textContent = colorLabel(out.color) + ' · ' + typeLabel(out.type);
+  document.getElementById('total-rounds').textContent = data.length;
+
+  const topAmount = Math.max(...data.map(d => d.totalAmount));
+  document.getElementById('top-prize').textContent = fmtNum(topAmount);
+
+  const freq = {};
+  data.forEach(d => {
+    const n = d.data.result.outcome.number;
+    freq[n] = (freq[n] || 0) + 1;
+  });
+  const hotEntry = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+  document.getElementById('hot-num').textContent = hotEntry[0];
+  document.getElementById('hot-count').textContent = hotEntry[1] + 'x nas últimas ' + data.length + ' rodadas';
+
+  document.getElementById('numbers-row').innerHTML = data.map((d, i) => {
+    const o = d.data.result.outcome;
+    return `<div class="num-ball ${colorClass(o.color)}${i === 0 ? ' latest' : ''}"
+      title="${colorLabel(o.color)} · ${typeLabel(o.type)} · ${fmtTime(d.data.settledAt)}">${o.number}</div>`;
+  }).join('');
+
+  const colorCount = { Red: 0, Black: 0, Green: 0 };
+  const typeCount  = { Even: 0, Odd: 0, None: 0 };
+  data.forEach(d => {
+    const o = d.data.result.outcome;
+    colorCount[o.color] = (colorCount[o.color] || 0) + 1;
+    typeCount[o.type]   = (typeCount[o.type]   || 0) + 1;
+  });
+  const total = data.length;
+
+  const colorBars = [
+    ['Red',   'Vermelho', '#D85A30'],
+    ['Black', 'Preto',    '#444441'],
+    ['Green', 'Verde',    '#3B6D11'],
+  ];
+  document.getElementById('dist-colors').innerHTML = colorBars.map(([k, label, color]) => {
+    const pct = Math.round((colorCount[k] || 0) / total * 100);
+    return `<div class="dist-row">
+      <span class="dist-label">${label}</span>
+      <div class="dist-bar-wrap"><div class="dist-bar" style="width:${pct}%;background:${color}"></div></div>
+      <span class="dist-val">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  const typeBars = [['Even','Par'], ['Odd','Ímpar'], ['None','Zero']];
+  document.getElementById('dist-types').innerHTML = typeBars.map(([k, label]) => {
+    const pct = Math.round((typeCount[k] || 0) / total * 100);
+    return `<div class="dist-row">
+      <span class="dist-label">${label}</span>
+      <div class="dist-bar-wrap"><div class="dist-bar" style="width:${pct}%;background:#888780"></div></div>
+      <span class="dist-val">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('results-table').innerHTML = data.map(d => {
+    const o = d.data.result.outcome;
+    return `<tr>
+      <td><span class="num-inline ${colorClass(o.color)}">${o.number}</span></td>
+      <td><span class="color-tag ${tagClass(o.color)}">${colorLabel(o.color)}</span></td>
+      <td><span class="type-tag">${typeLabel(o.type)}</span></td>
+      <td style="color:var(--text2)">${fmtTime(d.data.settledAt)}</td>
+      <td>${fmtNum(d.totalWinners)}</td>
+      <td>€ ${fmtNum(d.totalAmount)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('last-update').textContent =
+    'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+}
+
+loadData(true);
+</script>
+</body>
+</html>
