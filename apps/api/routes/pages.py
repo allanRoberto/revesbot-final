@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 
+import httpx
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from api.core.config import settings
 from api.helpers.roulettes_list import roulettes
@@ -385,3 +386,12 @@ async def multi_pivo_signals_page():
 async def autoroulette_page():
     with open(os.path.join(templates_dir, "autoroulette.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+
+@router.get("/proxy/autoroulette")
+async def autoroulette_proxy():
+    url = "https://api-cs.casino.org/svc-evolution-game-events/api/autoroulette"
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        resp.raise_for_status()
+        return JSONResponse(content=resp.json())
