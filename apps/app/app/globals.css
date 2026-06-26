@@ -223,6 +223,23 @@ a {
   z-index: 10;
 }
 
+/* topbar da tela de jogo: linha 1 = Voltar + Saldo; linha 2 = sugestão centralizada */
+.play-topbar {
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+.play-topbar > .play-head-left {
+  order: 1;
+}
+.play-topbar > .balance {
+  order: 2;
+}
+.play-topbar > .suggestion-zone {
+  order: 3;
+  flex: 1 1 100%;
+  justify-content: center;
+}
+
 .logo-sm {
   font-size: 20px;
   font-weight: 800;
@@ -496,6 +513,114 @@ a {
   color: var(--text-dim);
 }
 
+/* zona central: sugestão + controles (recalcular / auto) */
+.suggestion-zone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.suggestion-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.recalc-btn {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--neon);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.recalc-btn:hover:not(:disabled) {
+  border-color: var(--neon);
+}
+.recalc-btn:disabled {
+  cursor: wait;
+}
+.recalc-btn.spinning {
+  animation: spin 0.7s linear infinite;
+}
+
+.auto-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.auto-toggle span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.auto-toggle input {
+  appearance: none;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.auto-toggle input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform 0.2s, background 0.2s;
+}
+.auto-toggle input:checked {
+  background: rgba(43, 255, 136, 0.2);
+  border-color: var(--neon);
+}
+.auto-toggle input:checked::after {
+  transform: translateX(14px);
+  background: var(--neon);
+}
+
+/* dots menu (só mobile) */
+.dots {
+  position: relative;
+  display: none;
+}
+.dots-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dots-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.9);
+  z-index: 30;
+}
+
 .game-frame {
   flex: 1;
   width: 100%;
@@ -569,33 +694,39 @@ a {
     line-height: 1;
   }
 
-  /* a caixa some: Últimos e Sugestão viram itens diretos do topbar */
-  .suggestion {
-    display: contents;
+  /* topbar vira flex: linha 1 = seta + saldo; linha 2 = sugestão centralizada */
+  .play-topbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
   }
-
-  /* rótulo em cima dos números */
-  .suggestion-group {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
-  }
-
-  /* Linha 1: Voltar (1) · Sugestão (2) · Saldo (3) */
   .play-head-left { order: 1; }
-  .suggestion-group { order: 2; flex: 1 1 auto; }
-  .balance { order: 3; }
-
-  /* Linha 2: Últimos (base) ocupa a linha inteira */
-  .suggestion-last {
-    order: 4;
+  .balance { order: 2; }
+  /* sugestão empilhada e centralizada: Últimos / Sugestão / controles */
+  .suggestion-zone {
+    order: 3;
     flex: 1 1 100%;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* toggle vai pro menu dots; some o inline */
+  .auto-inline { display: none; }
+  .dots { display: block; }
+
+  /* sugestão/últimos centralizados, podendo quebrar em linhas */
+  .suggestion {
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .suggestion-last {
     border-right: none;
     padding-right: 0;
     margin-right: 0;
   }
 
-  /* chips menores p/ a sugestão caber na primeira linha */
   .sug-chip {
     min-width: 22px;
     height: 22px;

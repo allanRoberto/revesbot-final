@@ -31,7 +31,7 @@ export default async function PlayPage({
 
   return (
     <div className="play-shell">
-      <header className="topbar">
+      <header className="topbar play-topbar">
         <div className="play-head-left">
           <Link className="back-btn" href="/dashboard">
             <span className="back-arrow">‹</span>
