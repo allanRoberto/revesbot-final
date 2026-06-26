@@ -5,7 +5,7 @@ import { getUsers } from '@/lib/mongo';
 import { getBookmakerUser, startGame } from '@/lib/bookmaker';
 import { findRoulette } from '@/lib/games';
 import BalanceBadge from '@/components/BalanceBadge';
-import SuggestionCarousel from '@/components/SuggestionCarousel';
+import SuggestionStrip from '@/components/SuggestionStrip';
 
 export default async function PlayPage({
   params,
@@ -39,10 +39,9 @@ export default async function PlayPage({
           </Link>
           <span className="play-title">{game.name}</span>
         </div>
+        <SuggestionStrip gameId={gameId} />
         <BalanceBadge initial={bookmaker?.balance ?? null} />
       </header>
-
-      <SuggestionCarousel gameId={gameId} />
 
       {result.ok && result.link ? (
         <iframe
