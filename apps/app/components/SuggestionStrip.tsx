@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Cores da roleta (conhecimento público — não é o algoritmo).
 const REDS = new Set([
@@ -16,8 +16,6 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
   const [loading, setLoading] = useState(true);
   const [auto, setAuto] = useState(true);
   const [recalcing, setRecalcing] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   async function refresh() {
     try {
@@ -49,38 +47,11 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto, gameId]);
 
-  // Fecha o menu dots ao clicar fora (listener registrado no próximo tick
-  // pra não capturar o próprio clique que abriu o menu).
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDocClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    const t = setTimeout(() => document.addEventListener('click', onDocClick), 0);
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener('click', onDocClick);
-    };
-  }, [menuOpen]);
-
   async function manualRecalc() {
     setRecalcing(true);
     await refresh();
     setRecalcing(false);
   }
-
-  const renderAutoToggle = (label: string) => (
-    <label className="auto-toggle">
-      <input
-        type="checkbox"
-        checked={auto}
-        onChange={(e) => setAuto(e.target.checked)}
-      />
-      <span>{label}</span>
-    </label>
-  );
 
   return (
     <div className="suggestion-zone">
@@ -130,24 +101,15 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
           ↻
         </button>
 
-        {/* Toggle inline (desktop) */}
-        <div className="auto-inline">{renderAutoToggle('Auto')}</div>
-
-        {/* Menu dots (mobile) */}
-        <div className="dots" ref={menuRef}>
-          <button
-            className="dots-btn"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label="Opções"
-          >
-            ⋮
-          </button>
-          {menuOpen && (
-            <div className="dots-pop">
-              {renderAutoToggle('Recalcular automático')}
-            </div>
-          )}
-        </div>
+        {/* Toggle de recálculo automático (sempre visível) */}
+        <label className="auto-toggle" title="Recálculo automático">
+          <input
+            type="checkbox"
+            checked={auto}
+            onChange={(e) => setAuto(e.target.checked)}
+          />
+          <span>Auto</span>
+        </label>
       </div>
     </div>
   );
