@@ -223,21 +223,21 @@ a {
   z-index: 10;
 }
 
-/* topbar da tela de jogo: linha 1 = Voltar + Saldo; linha 2 = sugestão centralizada */
+/* topbar da tela de jogo: tudo numa linha — Voltar | sugestão (centro) | Saldo */
 .play-topbar {
-  flex-wrap: wrap;
-  row-gap: 10px;
+  flex-wrap: nowrap;
 }
 .play-topbar > .play-head-left {
-  order: 1;
+  flex: 0 0 auto;
 }
 .play-topbar > .balance {
-  order: 2;
+  flex: 0 0 auto;
 }
 .play-topbar > .suggestion-zone {
-  order: 3;
-  flex: 1 1 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   justify-content: center;
+  overflow-x: auto;
 }
 
 .logo-sm {
@@ -524,6 +524,14 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* esconde a barra de scroll da zona central (mantém scroll por swipe em telas estreitas) */
+.suggestion-zone {
+  scrollbar-width: none;
+}
+.suggestion-zone::-webkit-scrollbar {
+  display: none;
 }
 
 .recalc-btn {
