@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getRecentNumbers } from '@/lib/mongo';
 import { findRoulette } from '@/lib/games';
-import { topSuggestion } from '@/lib/suggestion';
+import { ensembleSuggestion } from '@/lib/suggestion';
 
-// Sugestão ATUAL (8 números) + os 3 últimos números da mesa (base/momento).
-// Algoritmo roda no servidor; só os números finais vão pro cliente.
+// Sugestão por ENSEMBLE (9 números): combina a sugestão de 8 das janelas
+// 50/100/200/300/360, pontuando cada número e seus vizinhos de roda, e pega o
+// top 9. + os 3 últimos números da mesa (base). Algoritmo roda só no servidor.
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ gameId: string }> },
@@ -22,8 +23,8 @@ export async function GET(
     return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
   }
 
-  const numbers = await getRecentNumbers(game.rouletteId, 200);
-  const suggestion = topSuggestion(numbers, 8);
+  const numbers = await getRecentNumbers(game.rouletteId, 360);
+  const suggestion = ensembleSuggestion(numbers, undefined, 9);
 
   return NextResponse.json({
     numbers: suggestion.map((s) => s.num),

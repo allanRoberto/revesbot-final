@@ -162,3 +162,41 @@ export function topSuggestion(
   if (valid.length < 30) return [];
   return analisar(valid, cfg).slice(0, top);
 }
+
+// Janelas (em nº de giros) usadas no ensemble.
+export const ENSEMBLE_WINDOWS = [50, 100, 200, 300, 360];
+
+// Pontuação: número sugerido vale mais; cada vizinho de roda (1 de cada lado) vale menos.
+const DIRECT_SCORE = 2;
+const NEIGHBOR_SCORE = 1;
+
+/**
+ * Ensemble: roda a sugestão de 8 em várias janelas (50/100/200/300/360),
+ * pontua cada número sugerido (+DIRECT) e seus 2 vizinhos de roda (+NEIGHBOR),
+ * soma tudo num ranking e devolve os TOP `top` (default 9).
+ */
+export function ensembleSuggestion(
+  numbersMostRecentFirst: number[],
+  windows: number[] = ENSEMBLE_WINDOWS,
+  top = 9,
+): RankedNumber[] {
+  const valid = numbersMostRecentFirst.filter((x) => x >= 0 && x <= 36);
+  const score = new Float64Array(37);
+
+  for (const w of windows) {
+    const slice = valid.slice(0, w);
+    const picks = topSuggestion(slice, 8);
+    for (const { num } of picks) {
+      score[num] += DIRECT_SCORE;
+      for (const v of vizinhosRoda(num)) {
+        score[v] += NEIGHBOR_SCORE;
+      }
+    }
+  }
+
+  return [...Array(37).keys()]
+    .map((num) => ({ num, score: score[num] }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, top);
+}
