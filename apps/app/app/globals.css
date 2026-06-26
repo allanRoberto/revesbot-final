@@ -659,8 +659,7 @@ a {
     padding: 10px 12px;
   }
 
-  /* botão Voltar vira só a seta; título some */
-  .play-title,
+  /* botão Voltar vira só a seta; nome da roleta aparece entre a seta e o saldo */
   .back-label {
     display: none;
   }
@@ -672,6 +671,18 @@ a {
   .back-arrow {
     font-size: 20px;
     line-height: 1;
+  }
+
+  /* linha 1 (seta + nome) ocupa o espaço; nome trunca se faltar largura */
+  .play-head-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .play-title {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* topbar vira flex: linha 1 = seta + saldo; linha 2 = sugestão centralizada */
