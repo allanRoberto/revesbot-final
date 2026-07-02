@@ -3,6 +3,20 @@ import axios from 'axios';
 
 const router = Router();
 
+// Casas suportadas (mesma plataforma, muda só o domínio). A casa vem no
+// header 'x-house' enviado pelo app. Novas casas: só adicionar aqui.
+const HOUSE_DOMAINS: Record<string, string> = {
+    lotogreen: 'lotogreen.bet.br',
+    esportiva: 'esportiva.bet.br',
+    bateu: 'bateu.bet.br',
+};
+
+function houseFromReq(req: any): { domain: string; base: string } {
+    const id = (req.headers['x-house'] as string) || 'lotogreen';
+    const domain = HOUSE_DOMAINS[id] || HOUSE_DOMAINS.lotogreen;
+    return { domain, base: `https://${domain}` };
+}
+
 class CookieManager {
     private cookies: { [key: string]: string };
     
@@ -42,19 +56,22 @@ router.post('/auth/login', async (req, res) => {
         // Extrai email e senha do corpo da requisição
         const { email, password } = req.body;
 
-        // Configuração da requisição para a API da LotoGreen
+        // Casa escolhida (header x-house). Todas usam a mesma API.
+        const { base } = houseFromReq(req);
+
+        // Configuração da requisição para a API da casa
         const config = {
             method: 'post',
-            url: 'https://lotogreen.bet.br/api/auth/login',
-            headers: { 
-                'accept': 'application/json', 
-                'accept-language': 'pt,pt-PT;q=0.9,en-US;q=0.8,en;q=0.7', 
-                'authorization': 'Bearer null', 
-                'cache-control': 'private, max-age=600', 
-                'content-type': 'application/json', 
-                'origin': 'https://lotogreen.bet.br', 
-                'priority': 'u=1, i', 
-                'referer': 'https://lotogreen.bet.br/', 
+            url: `${base}/api/auth/login`,
+            headers: {
+                'accept': 'application/json',
+                'accept-language': 'pt,pt-PT;q=0.9,en-US;q=0.8,en;q=0.7',
+                'authorization': 'Bearer null',
+                'cache-control': 'private, max-age=600',
+                'content-type': 'application/json',
+                'origin': base,
+                'priority': 'u=1, i',
+                'referer': `${base}/`,
                 'sec-ch-ua': '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"', 
                 'sec-ch-ua-mobile': '?0', 
                 'sec-ch-ua-platform': '"macOS"', 
@@ -98,13 +115,13 @@ router.post('/auth/login', async (req, res) => {
         // Configuração para verificar o status do Legitimuz (verificação de identidade)
         const legitimuzConfig = {
             method: 'get',
-            url: 'https://lotogreen.bet.br/api/legitimuzStatus',
-            headers: { 
+            url: `${base}/api/legitimuzStatus`,
+            headers: {
                 'accept': '*/*',
                 'authorization': `Bearer ${token}`,
                 'content-type': 'application/json',
-                'origin': 'https://lotogreen.bet.br',
-                'referer': 'https://lotogreen.bet.br/'
+                'origin': base,
+                'referer': `${base}/`
             }
         };
 
@@ -161,14 +178,15 @@ router.get('/auth/user', async (req, res) => {
         }
 
         // Configuração da requisição para obter dados do usuário
+        const { base } = houseFromReq(req);
         const config = {
             method: 'get',
-            url: 'https://lotogreen.bet.br/api/auth/me',
-            headers: { 
+            url: `${base}/api/auth/me`,
+            headers: {
                 'accept': 'application/json',
                 'authorization': `Bearer ${accessToken}`,
-                'origin': 'https://lotogreen.bet.br',
-                'referer': 'https://lotogreen.bet.br/'
+                'origin': base,
+                'referer': `${base}/`
             }
         };
 
@@ -195,14 +213,15 @@ router.get('/bookmaker/verify', async (req, res) => {
       return res.json({ isConnected: false });
     }
 
+    const { base } = houseFromReq(req);
     const config = {
         method: 'get',
-        url: 'https://lotogreen.bet.br/api/auth/me',
-        headers: { 
+        url: `${base}/api/auth/me`,
+        headers: {
             'accept': 'application/json',
             'authorization': `Bearer ${token}`,
-            'origin': 'https://lotogreen.bet.br',
-            'referer': 'https://lotogreen.bet.br/'
+            'origin': base,
+            'referer': `${base}/`
         }
     };
     try {
@@ -228,19 +247,20 @@ router.get('/start-game/:gameId', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Não autenticado na casa de apostas' });
         }
         const { gameId } = req.params;
+        const { base } = houseFromReq(req);
 
         console.log(gameId)
 
         const gameResponse = await axios.get(
-            `https://lotogreen.bet.br/api/casino-games/${gameId}/start?demo=0&isMobileDevice=1`,
+            `${base}/api/casino-games/${gameId}/start?demo=0&isMobileDevice=1`,
             {
                 headers: {
                     'accept': 'application/json',
                     'accept-language': 'pt',
                     'authorization': `Bearer ${token}`,
                     'content-type': 'application/json',
-                    'origin': 'https://lotogreen.bet.br',
-                    'referer': `https://lotogreen.bet.br/play/${gameId}`
+                    'origin': base,
+                    'referer': `${base}/play/${gameId}`
                 },
                 // 👉 habilita captura de cookies
                 withCredentials: true,
