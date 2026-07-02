@@ -74,7 +74,10 @@ export async function POST(
   }
 
   try {
-    const state = await createBetSession(resolved.link, g.game!.rouletteId);
+    // Chave estável por usuário+casa+mesa: o bet_ws reusa a conexão viva em vez
+    // de recapturar (evita DOUBLE_SUBSCRIPTION da Pragmatic em reloads).
+    const clientKey = `${g.user!.email}:${g.house}:${gameId}`;
+    const state = await createBetSession(resolved.link, g.game!.rouletteId, clientKey);
     return NextResponse.json(state);
   } catch (err) {
     return NextResponse.json(

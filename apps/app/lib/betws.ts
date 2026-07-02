@@ -25,11 +25,12 @@ export interface TableState {
 export async function createBetSession(
   gameLink: string,
   rouletteId: string,
+  clientKey?: string,
 ): Promise<TableState> {
   const res = await fetch(`${BET_WS_URL}/session`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ gameLink, rouletteId }),
+    body: JSON.stringify({ gameLink, rouletteId, clientKey }),
     cache: 'no-store',
   });
   if (!res.ok) {

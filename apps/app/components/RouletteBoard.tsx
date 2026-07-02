@@ -37,6 +37,7 @@ interface TableState {
   connected: boolean;
   phase: 'idle' | 'open' | 'closing' | 'closed';
   secondsLeft: number | null;
+  kicked?: boolean;
   lastResult: number | null;
   lastNumbers: number[];
 }
@@ -58,6 +59,7 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conn, setConn] = useState<'connecting' | 'ready' | 'error'>('connecting');
   const [phase, setPhase] = useState<TableState['phase']>('idle');
+  const [kicked, setKicked] = useState(false);
   const [seconds, setSeconds] = useState<number | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [lastNumbers, setLastNumbers] = useState<number[]>([]);
@@ -95,6 +97,7 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
         const s: TableState = JSON.parse((ev as MessageEvent).data);
         setConn('ready');
         setPhase(s.phase);
+        setKicked(!!s.kicked);
         setSeconds(typeof s.secondsLeft === 'number' ? s.secondsLeft : null);
         if (Array.isArray(s.lastNumbers)) setLastNumbers(s.lastNumbers);
       } catch { /* ignora */ }
@@ -176,13 +179,15 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
     <div className="rb">
       <div className="rb-top">
         <div className={`rb-phase ph-${phase}`}>
-          {conn === 'connecting'
-            ? 'Conectando à mesa…'
-            : conn === 'error'
-              ? 'Sem conexão com a mesa'
-              : phase === 'open' && seconds != null
-                ? `${PHASE_LABEL[phase]} · ${seconds}s`
-                : PHASE_LABEL[phase]}
+          {kicked
+            ? 'Conta conectada em outro lugar'
+            : conn === 'connecting'
+              ? 'Conectando à mesa…'
+              : conn === 'error'
+                ? 'Sem conexão com a mesa'
+                : phase === 'open' && seconds != null
+                  ? `${PHASE_LABEL[phase]} · ${seconds}s`
+                  : PHASE_LABEL[phase]}
         </div>
         <div className="rb-last">
           {lastNumbers.slice(0, 12).map((n, i) => (
