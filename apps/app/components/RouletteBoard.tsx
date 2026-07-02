@@ -36,12 +36,19 @@ interface TableState {
   sessionId: string;
   connected: boolean;
   phase: 'idle' | 'open' | 'closing' | 'closed';
+  secondsLeft: number | null;
   lastResult: number | null;
   lastNumbers: number[];
 }
 
+interface LogEntry {
+  at: number;
+  kind: string;
+  label: string;
+}
+
 const PHASE_LABEL: Record<string, string> = {
-  idle: 'Aguardando…',
+  idle: 'Aguardando próxima rodada…',
   open: 'Apostas abertas',
   closing: 'Encerrando…',
   closed: 'Apostas fechadas',
@@ -51,6 +58,8 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conn, setConn] = useState<'connecting' | 'ready' | 'error'>('connecting');
   const [phase, setPhase] = useState<TableState['phase']>('idle');
+  const [seconds, setSeconds] = useState<number | null>(null);
+  const [log, setLog] = useState<LogEntry[]>([]);
   const [lastNumbers, setLastNumbers] = useState<number[]>([]);
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [chip, setChip] = useState(1);
@@ -86,6 +95,7 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
         const s: TableState = JSON.parse((ev as MessageEvent).data);
         setConn('ready');
         setPhase(s.phase);
+        setSeconds(typeof s.secondsLeft === 'number' ? s.secondsLeft : null);
         if (Array.isArray(s.lastNumbers)) setLastNumbers(s.lastNumbers);
       } catch { /* ignora */ }
     });
@@ -97,14 +107,28 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
         setTimeout(() => setLastResult((r) => (r === number ? null : r)), 6000);
       } catch { /* ignora */ }
     });
+    es.addEventListener('log', (ev) => {
+      try {
+        const l: LogEntry = JSON.parse((ev as MessageEvent).data);
+        setLog((prev) => [l, ...prev].slice(0, 20));
+      } catch { /* ignora */ }
+    });
     es.onerror = () => setConn((c) => (c === 'ready' ? c : 'error'));
     return () => es.close();
   }, [sessionId, gameId]);
 
+  // Countdown local: decrementa 1/s enquanto a mesa está aberta.
+  useEffect(() => {
+    if (phase !== 'open' || seconds == null) return;
+    if (seconds <= 0) return;
+    const t = setInterval(() => setSeconds((s) => (s == null || s <= 0 ? s : s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [phase, seconds]);
+
   const placeOn = useCallback(
     async (n: number) => {
       const sid = sidRef.current;
-      if (!sid || phase !== 'open') return;
+      if (!sid || (phase !== 'open' && phase !== 'closing')) return;
       const numbers = neighborsOf(n, neigh);
       setPlaced((p) => {
         const c = { ...p };
@@ -133,7 +157,7 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
     [phase, neigh, chip, gameId],
   );
 
-  const disabled = phase !== 'open' || conn !== 'ready';
+  const disabled = (phase !== 'open' && phase !== 'closing') || conn !== 'ready';
 
   const cell = (n: number) => (
     <button
@@ -152,7 +176,13 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
     <div className="rb">
       <div className="rb-top">
         <div className={`rb-phase ph-${phase}`}>
-          {conn === 'connecting' ? 'Conectando à mesa…' : PHASE_LABEL[phase]}
+          {conn === 'connecting'
+            ? 'Conectando à mesa…'
+            : conn === 'error'
+              ? 'Sem conexão com a mesa'
+              : phase === 'open' && seconds != null
+                ? `${PHASE_LABEL[phase]} · ${seconds}s`
+                : PHASE_LABEL[phase]}
         </div>
         <div className="rb-last">
           {lastNumbers.slice(0, 12).map((n, i) => (
@@ -203,6 +233,22 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
         </div>
         {msg && <span className="rb-msg">{msg}</span>}
       </div>
+
+      {log.length > 0 && (
+        <div className="rb-log">
+          <span className="rb-lbl">Mesa (ao vivo)</span>
+          <ul className="rb-log-list">
+            {log.map((l, i) => (
+              <li key={`${l.at}-${i}`} className={`rb-log-item lg-${l.kind}`}>
+                <span className="rb-log-time">
+                  {new Date(l.at).toLocaleTimeString('pt-BR', { hour12: false })}
+                </span>
+                <span className="rb-log-label">{l.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

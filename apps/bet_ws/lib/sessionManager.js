@@ -1,0 +1,233 @@
+// Gerencia N sessões de mesa simultâneas (uma por usuário/jogo).
+// Cada sessão mantém uma conexão WebSocket própria com a mesa da Pragmatic,
+// captura o estado (fase das apostas, últimos números) e envia apostas.
+// Emite eventos ('state' e 'result') para os assinantes SSE.
+
+const { randomUUID } = require('crypto');
+const { EventEmitter } = require('events');
+const WebSocket = require('ws');
+const { captureGameWsUrl } = require('./capture');
+const {
+  parseWinningNumber,
+  parseBetsOpen,
+  isBetsClosingSoon,
+  isBetsClosed,
+  parseCountdownSeconds,
+  parseHistory,
+  classify,
+} = require('./tableParser');
+const { buildBetMessage } = require('./wheel');
+
+const RECONNECT_DELAY_MS = 2000;
+const IDLE_TTL_MS = Number(process.env.SESSION_IDLE_TTL_MS || 30 * 60 * 1000);
+const MAX_HISTORY = 30;
+
+class Session extends EventEmitter {
+  constructor(id, { gameWsUrl, rouletteId }) {
+    super();
+    this.setMaxListeners(0); // muitos assinantes SSE
+    this.id = id;
+    this.gameWsUrl = gameWsUrl;
+    this.rouletteId = rouletteId || null;
+    this.ws = null;
+    this.gameInfo = null; // { game, table }
+    this.phase = 'idle'; // idle | open | closing | closed
+    this.secondsLeft = null; // segundos restantes na fase de aposta (se a mesa informar)
+    this.phaseAt = Date.now(); // quando entrou na fase atual (p/ derivar countdown)
+    this.lastResult = null;
+    this.lastResultAt = 0;
+    this.lastNumbers = []; // histórico (mais recente primeiro), até MAX_HISTORY
+    this.lastActivity = Date.now();
+    this.closedByUser = false;
+  }
+
+  // Aposta é aceita enquanto ABERTA e também na janela de "encerrando" — o
+  // Pragmatic ainda aceita bets durante o <betsClosingSoon> (mesmo comportamento
+  // do bot_automatico, que só bloqueia no <betsClosed>).
+  get betsOpen() {
+    return this.phase === 'open' || this.phase === 'closing';
+  }
+
+  setPhase(phase, seconds) {
+    this.phase = phase;
+    this.phaseAt = Date.now();
+    if (seconds !== undefined) this.secondsLeft = seconds;
+  }
+
+  touch() {
+    this.lastActivity = Date.now();
+  }
+
+  connect() {
+    this.ws = new WebSocket(this.gameWsUrl);
+    this.ws.on('open', () => console.log(`[${this.id}] mesa conectada`));
+    this.ws.on('message', (data) => this.handleMessage(data));
+    this.ws.on('close', (code) => {
+      console.log(`[${this.id}] mesa desconectada (code=${code})`);
+      if (this.phase !== 'idle') { this.setPhase('closed', null); this.emitState(); }
+      if (!this.closedByUser) {
+        setTimeout(() => { if (!this.closedByUser) this.connect(); }, RECONNECT_DELAY_MS);
+      }
+    });
+    this.ws.on('error', (err) => console.error(`[${this.id}] erro no WS:`, err.message));
+  }
+
+  handleMessage(data) {
+    const text = data.toString();
+
+    // DEBUG temporário: dump de TODA mensagem crua (primeiros 200 chars) p/
+    // descobrir o formato real do feed da mesa. Remover depois.
+    if (process.env.DEBUG_RAW === '1') {
+      console.log(`[${this.id}] RAW: ${text.slice(0, 200).replace(/\n/g, ' ')}`);
+    }
+
+    // Log ao vivo: repassa toda mensagem reconhecida da mesa para os assinantes
+    // (o front mostra "mesa aberta / segundos / encerrando / resultado").
+    const info = classify(text);
+    if (info) {
+      this.emit('log', { at: Date.now(), kind: info.kind, label: info.label });
+    }
+
+    const open = parseBetsOpen(text);
+    if (open) {
+      this.gameInfo = open;
+      // o timer (segundos) costuma chegar logo antes do betsopen — se o betsopen
+      // não trouxer o tempo, preserva o que o timer já informou.
+      const secs = parseCountdownSeconds(text);
+      this.setPhase('open', secs !== null ? secs : this.secondsLeft);
+      this.emitState();
+      return;
+    }
+    if (isBetsClosingSoon(text)) {
+      this.setPhase('closing', 0);
+      this.emitState();
+      return;
+    }
+    if (isBetsClosed(text)) {
+      this.setPhase('closed', null);
+      this.emitState();
+      return;
+    }
+
+    // Snapshot inicial do histórico (mesa JSON manda ao conectar).
+    const hist = parseHistory(text);
+    if (hist && this.lastNumbers.length === 0) {
+      this.lastNumbers = hist.slice(0, MAX_HISTORY);
+      if (this.lastResult === null) {
+        this.lastResult = hist[0];
+        this.lastResultAt = Date.now(); // dedupe do snapshot 'sc' que vem logo depois
+      }
+      this.emitState();
+      return;
+    }
+
+    // Countdown ao vivo (mensagem timer type=auto): indica rodada de aposta
+    // começando/em andamento. Abre a fase e atualiza os segundos.
+    const secs = parseCountdownSeconds(text);
+    if (secs !== null) {
+      this.setPhase('open', secs);
+      this.emitState();
+      return;
+    }
+
+    const n = parseWinningNumber(text);
+    if (n !== null && !Number.isNaN(n)) {
+      const now = Date.now();
+      // dedupe: ignora repetição do mesmo número em janela curta (reconexão/replay)
+      if (!(n === this.lastResult && now - this.lastResultAt < 5000)) {
+        this.lastResult = n;
+        this.lastResultAt = now;
+        this.lastNumbers = [n, ...this.lastNumbers].slice(0, MAX_HISTORY);
+        this.emit('result', n);
+        this.emitState();
+      }
+    }
+  }
+
+  emitState() {
+    this.emit('state', this.state());
+  }
+
+  bet(numbers, chipValue) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('Conexão com a mesa ainda não está pronta. Aguarde alguns segundos.');
+    }
+    if (!this.betsOpen) {
+      const motivo = this.phase === 'closed' ? 'As apostas já fecharam nesta rodada.'
+        : this.phase === 'idle' ? 'Aguardando a próxima rodada abrir.'
+        : 'As apostas não estão abertas no momento.';
+      throw new Error(motivo);
+    }
+    const message = buildBetMessage(this.gameInfo, numbers, chipValue);
+    this.ws.send(message);
+    this.touch();
+    return { numbers, chipValue: Number(chipValue), gameInfo: this.gameInfo };
+  }
+
+  state() {
+    return {
+      sessionId: this.id,
+      connected: !!this.ws && this.ws.readyState === WebSocket.OPEN,
+      phase: this.phase,
+      betsOpen: this.betsOpen,
+      secondsLeft: this.secondsLeft,
+      phaseAt: this.phaseAt,
+      gameInfo: this.gameInfo,
+      lastResult: this.lastResult,
+      lastNumbers: this.lastNumbers,
+      rouletteId: this.rouletteId,
+    };
+  }
+
+  destroy() {
+    this.closedByUser = true;
+    this.emit('closed');
+    this.removeAllListeners();
+    try { if (this.ws) this.ws.close(); } catch (_) { /* noop */ }
+    this.ws = null;
+  }
+}
+
+class SessionManager {
+  constructor() {
+    this.sessions = new Map();
+    setInterval(() => this.reapIdle(), 60 * 1000).unref();
+  }
+
+  async create({ gameLink, rouletteId }) {
+    if (!gameLink) throw new Error('gameLink é obrigatório.');
+    const { gameWsUrl } = await captureGameWsUrl(gameLink);
+    const id = randomUUID();
+    const session = new Session(id, { gameWsUrl, rouletteId });
+    this.sessions.set(id, session);
+    session.connect();
+    return session;
+  }
+
+  get(id) {
+    const s = this.sessions.get(id);
+    if (s) s.touch();
+    return s || null;
+  }
+
+  destroy(id) {
+    const s = this.sessions.get(id);
+    if (!s) return false;
+    s.destroy();
+    this.sessions.delete(id);
+    return true;
+  }
+
+  reapIdle() {
+    const now = Date.now();
+    for (const [id, s] of this.sessions) {
+      if (now - s.lastActivity > IDLE_TTL_MS) {
+        console.log(`[${id}] sessão expirada por inatividade`);
+        s.destroy();
+        this.sessions.delete(id);
+      }
+    }
+  }
+}
+
+module.exports = { SessionManager };
