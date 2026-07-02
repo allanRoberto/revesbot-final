@@ -3,9 +3,15 @@ import { loginBookmaker } from '@/lib/bookmaker';
 import { getUsers } from '@/lib/mongo';
 import { encrypt } from '@/lib/crypto';
 import { createSession } from '@/lib/session';
+import { findHouse, DEFAULT_HOUSE, houseMode } from '@/lib/houses';
 
 export async function POST(req: Request) {
-  let body: { email?: string; password?: string; autoReconnect?: boolean };
+  let body: {
+    email?: string;
+    password?: string;
+    autoReconnect?: boolean;
+    house?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -15,6 +21,7 @@ export async function POST(req: Request) {
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
   const autoReconnect = Boolean(body.autoReconnect);
+  const house = findHouse(body.house)?.id ?? DEFAULT_HOUSE;
 
   if (!email || !password) {
     return NextResponse.json(
@@ -23,8 +30,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // 1) Valida na casa de apostas (via Express → LotoGreen).
-  const result = await loginBookmaker(email, password);
+  // 1) Valida na casa de apostas escolhida (via Express → plataforma).
+  const result = await loginBookmaker(email, password, house);
   if (!result.ok || !result.token) {
     return NextResponse.json(
       { error: result.error ?? 'Falha no login.' },
@@ -38,6 +45,7 @@ export async function POST(req: Request) {
 
   const update: Record<string, unknown> = {
     email,
+    house,
     lotogreenToken: result.token,
     tokenObtidoEm: now,
     autoReconnect,
@@ -45,24 +53,26 @@ export async function POST(req: Request) {
     ultimoLogin: now,
   };
 
-  if (autoReconnect) {
-    // Guarda a senha criptografada (reversível) para reconectar quando expirar.
+  // Casas do modo navegador (Esportiva/Bateu) EXIGEM a senha guardada: o
+  // house-agent reloga (headless) a cada início de jogo. Casas http só guardam
+  // se o usuário marcou reconexão automática.
+  const mustStorePassword = autoReconnect || houseMode(house) === 'browser';
+  if (mustStorePassword) {
     update.encryptedPassword = encrypt(password);
   }
 
   await users.updateOne(
-    { email },
+    { email, house },
     {
       $set: update,
-      // Remove a senha salva se o usuário desmarcou a reconexão automática.
-      ...(autoReconnect ? {} : { $unset: { encryptedPassword: '' } }),
+      ...(mustStorePassword ? {} : { $unset: { encryptedPassword: '' } }),
       $setOnInsert: { criadoEm: now },
     },
     { upsert: true },
   );
 
-  // 3) Emite a nossa sessão (cookie httpOnly).
-  await createSession(email);
+  // 3) Emite a nossa sessão (cookie httpOnly), guardando a casa escolhida.
+  await createSession(email, house);
 
   return NextResponse.json({ ok: true });
 }

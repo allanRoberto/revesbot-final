@@ -2,7 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { RouletteGame } from '@/lib/games';
+import {
+  type RouletteGame,
+  isGameAvailable,
+  availableHouseNames,
+} from '@/lib/games';
 
 function RouletteWheel() {
   return (
@@ -40,37 +44,61 @@ function RouletteWheel() {
   );
 }
 
-export default function RouletteGrid({ games }: { games: RouletteGame[] }) {
+export default function RouletteGrid({
+  games,
+  house,
+}: {
+  games: RouletteGame[];
+  house: string;
+}) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   function play(gameId: string) {
     setLoadingId(gameId);
-    // A página /play inicia o jogo no servidor e embute o iframe.
     router.push(`/play/${gameId}`);
   }
 
   return (
     <div className="games-grid">
-      {games.map((g) => (
-        <button
-          key={g.gameId}
-          className="game-card"
-          onClick={() => play(g.gameId)}
-          disabled={loadingId !== null}
-        >
-          <div className="game-thumb">
-            <RouletteWheel />
-            <span className="game-badge">Roleta</span>
-          </div>
-          <div className="game-info">
-            <span className="game-name">{g.name}</span>
-            <span className="game-cta">
-              {loadingId === g.gameId ? 'Abrindo...' : 'Jogar ▸'}
-            </span>
-          </div>
-        </button>
-      ))}
+      {games.map((g) => {
+        const available = isGameAvailable(g, house);
+        if (!available) {
+          return (
+            <div key={g.gameId} className="game-card unavailable" aria-disabled="true">
+              <div className="game-thumb">
+                <RouletteWheel />
+                <span className="game-badge">Roleta</span>
+              </div>
+              <div className="game-info">
+                <span className="game-name">{g.name}</span>
+                <span className="game-unavailable">
+                  Disponível apenas em: {availableHouseNames(g).join(', ')}
+                </span>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <button
+            key={g.gameId}
+            className="game-card"
+            onClick={() => play(g.gameId)}
+            disabled={loadingId !== null}
+          >
+            <div className="game-thumb">
+              <RouletteWheel />
+              <span className="game-badge">Roleta</span>
+            </div>
+            <div className="game-info">
+              <span className="game-name">{g.name}</span>
+              <span className="game-cta">
+                {loadingId === g.gameId ? 'Abrindo...' : 'Jogar ▸'}
+              </span>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 // Camada de comunicação com o Express (auth_api) que valida o login na LotoGreen.
 // Tudo aqui roda server-side; o token da casa nunca é exposto ao browser.
 
+import { DEFAULT_HOUSE } from './houses';
+
 const EXPRESS_URL = process.env.EXPRESS_URL || 'http://localhost:3090';
 
 export interface BookmakerLoginResult {
@@ -19,12 +21,13 @@ export interface BookmakerLoginResult {
 export async function loginBookmaker(
   email: string,
   password: string,
+  house: string = DEFAULT_HOUSE,
 ): Promise<BookmakerLoginResult> {
   let res: Response;
   try {
     res = await fetch(`${EXPRESS_URL}/auth/login`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-house': house },
       body: JSON.stringify({ email, password }),
       cache: 'no-store',
     });
@@ -64,11 +67,12 @@ export interface BookmakerUser {
 /** Busca os dados do usuário (inclui saldo) via Express /auth/user. */
 export async function getBookmakerUser(
   bookmakerToken: string,
+  house: string = DEFAULT_HOUSE,
 ): Promise<BookmakerUser | null> {
   try {
     const res = await fetch(`${EXPRESS_URL}/auth/user`, {
       method: 'GET',
-      headers: { cookie: `bookmaker_token=${bookmakerToken}` },
+      headers: { cookie: `bookmaker_token=${bookmakerToken}`, 'x-house': house },
       cache: 'no-store',
     });
     if (!res.ok) return null;
@@ -94,12 +98,13 @@ export interface StartGameResult {
 export async function startGame(
   gameId: string,
   bookmakerToken: string,
+  house: string = DEFAULT_HOUSE,
 ): Promise<StartGameResult> {
   let res: Response;
   try {
     res = await fetch(`${EXPRESS_URL}/start-game/${gameId}`, {
       method: 'GET',
-      headers: { cookie: `bookmaker_token=${bookmakerToken}` },
+      headers: { cookie: `bookmaker_token=${bookmakerToken}`, 'x-house': house },
       cache: 'no-store',
     });
   } catch {

@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
+import { DEFAULT_HOUSE } from './houses';
 
 // Sessão PRÓPRIA do nosso app, desacoplada do token da LotoGreen.
 // O cookie guarda só o e-mail do usuário; o token da casa fica no Mongo.
@@ -15,10 +16,11 @@ function getSecret(): Uint8Array {
 
 export interface SessionPayload {
   email: string;
+  house: string;
 }
 
-export async function createSession(email: string): Promise<void> {
-  const token = await new SignJWT({ email })
+export async function createSession(email: string, house: string): Promise<void> {
+  const token = await new SignJWT({ email, house })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE_SECONDS}s`)
@@ -40,7 +42,11 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret());
-    return { email: payload.email as string };
+    // house ausente = sessão antiga (pré-multicasa) → assume a casa padrão.
+    return {
+      email: payload.email as string,
+      house: (payload.house as string) || DEFAULT_HOUSE,
+    };
   } catch {
     return null;
   }

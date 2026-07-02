@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session';
 import { getRecentNumbers } from '@/lib/mongo';
 import { findRoulette } from '@/lib/games';
 import { ensembleSuggestion } from '@/lib/suggestion';
+import { isActive } from '@/lib/subscription';
 
 // Sugestão por ENSEMBLE (9 números): combina a sugestão de 8 das janelas
 // 50/100/200/300/360, pontuando cada número e seus vizinhos de roda, e pega o
@@ -21,6 +22,14 @@ export async function GET(
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  }
+
+  // Sugestão é exclusiva de assinantes com plano ativo.
+  if (!(await isActive(session.email))) {
+    return NextResponse.json(
+      { error: 'Assinatura necessária.', paywall: true },
+      { status: 402 },
+    );
   }
 
   const numbers = await getRecentNumbers(game.rouletteId, 360);
