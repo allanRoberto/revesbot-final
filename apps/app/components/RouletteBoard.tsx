@@ -69,6 +69,9 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
   const [placed, setPlaced] = useState<Record<number, number>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const sidRef = useRef<string | null>(null);
+  // A mesa trata cada comando lpbet como o "slip" completo (substitui o anterior),
+  // então mantemos o conjunto acumulado e reenviamos tudo a cada clique.
+  const placedRef = useRef<Record<number, number>>({});
 
   // Cria a sessão da mesa (nosso WS via bet_ws) uma vez.
   useEffect(() => {
@@ -106,6 +109,7 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
       try {
         const { number } = JSON.parse((ev as MessageEvent).data);
         setLastResult(number);
+        placedRef.current = {};
         setPlaced({}); // nova rodada: limpa as fichas do pano
         setTimeout(() => setLastResult((r) => (r === number ? null : r)), 6000);
       } catch { /* ignora */ }
@@ -132,13 +136,18 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
     async (n: number) => {
       const sid = sidRef.current;
       if (!sid || (phase !== 'open' && phase !== 'closing')) return;
-      const numbers = neighborsOf(n, neigh);
-      setPlaced((p) => {
-        const c = { ...p };
-        numbers.forEach((x) => (c[x] = (c[x] || 0) + 1));
-        return c;
-      });
+
+      const prev = placedRef.current;
+      const added = neighborsOf(n, neigh);
+      const next = { ...prev };
+      added.forEach((x) => (next[x] = (next[x] || 0) + 1));
+      placedRef.current = next;
+      setPlaced(next);
       setMsg(null);
+
+      // Envia o SLIP COMPLETO (todos os números marcados) num único comando —
+      // a mesa substitui a aposta anterior a cada envio, então tudo precisa ir junto.
+      const numbers = Object.keys(next).map(Number);
       try {
         const res = await fetch(`/api/games/${gameId}/place-bet`, {
           method: 'POST',
@@ -148,12 +157,9 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Falha ao apostar.');
       } catch (e) {
-        // reverte a marcação otimista
-        setPlaced((p) => {
-          const c = { ...p };
-          numbers.forEach((x) => { c[x] = Math.max(0, (c[x] || 0) - 1); if (!c[x]) delete c[x]; });
-          return c;
-        });
+        // reverte para o estado anterior a este clique
+        placedRef.current = prev;
+        setPlaced(prev);
         setMsg(e instanceof Error ? e.message : 'Erro ao apostar.');
       }
     },

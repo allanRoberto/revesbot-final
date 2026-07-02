@@ -39,6 +39,8 @@ class Session extends EventEmitter {
     this.lastNumbers = []; // histórico (mais recente primeiro), até MAX_HISTORY
     this.lastActivity = Date.now();
     this.closedByUser = false;
+    this.clientKey = null;
+    this.kicked = false; // derrubado por conexão duplicada (não reconectar em loop)
   }
 
   // Aposta é aceita enquanto ABERTA e também na janela de "encerrando" — o
@@ -65,8 +67,10 @@ class Session extends EventEmitter {
     this.ws.on('close', (code) => {
       console.log(`[${this.id}] mesa desconectada (code=${code})`);
       if (this.phase !== 'idle') { this.setPhase('closed', null); this.emitState(); }
-      if (!this.closedByUser) {
-        setTimeout(() => { if (!this.closedByUser) this.connect(); }, RECONNECT_DELAY_MS);
+      // Se foi kick por duplicação, NÃO reconectar (senão entra em loop de
+      // expulsão com a outra conexão da mesma conta).
+      if (!this.closedByUser && !this.kicked) {
+        setTimeout(() => { if (!this.closedByUser && !this.kicked) this.connect(); }, RECONNECT_DELAY_MS);
       }
     });
     this.ws.on('error', (err) => console.error(`[${this.id}] erro no WS:`, err.message));
@@ -79,6 +83,14 @@ class Session extends EventEmitter {
     // descobrir o formato real do feed da mesa. Remover depois.
     if (process.env.DEBUG_RAW === '1') {
       console.log(`[${this.id}] RAW: ${text.slice(0, 200).replace(/\n/g, ' ')}`);
+    }
+
+    // Kick por conexão duplicada (mesma conta abriu a mesa em outro lugar).
+    if (/duplicate connection|duplicated_connection|DOUBLE_SUBSCRIPTION/i.test(text)) {
+      this.kicked = true;
+      this.emit('log', { at: Date.now(), kind: 'closed', label: 'Conta conectada em outro lugar' });
+      this.emitState();
+      return;
     }
 
     // Log ao vivo: repassa toda mensagem reconhecida da mesa para os assinantes
@@ -159,6 +171,9 @@ class Session extends EventEmitter {
       throw new Error(motivo);
     }
     const message = buildBetMessage(this.gameInfo, numbers, chipValue);
+    if (process.env.DEBUG_RAW === '1') {
+      console.log(`[${this.id}] BET SEND: ${message}`);
+    }
     this.ws.send(message);
     this.touch();
     return { numbers, chipValue: Number(chipValue), gameInfo: this.gameInfo };
@@ -172,6 +187,7 @@ class Session extends EventEmitter {
       betsOpen: this.betsOpen,
       secondsLeft: this.secondsLeft,
       phaseAt: this.phaseAt,
+      kicked: this.kicked,
       gameInfo: this.gameInfo,
       lastResult: this.lastResult,
       lastNumbers: this.lastNumbers,
@@ -194,11 +210,30 @@ class SessionManager {
     setInterval(() => this.reapIdle(), 60 * 1000).unref();
   }
 
-  async create({ gameLink, rouletteId }) {
+  async create({ gameLink, rouletteId, clientKey }) {
     if (!gameLink) throw new Error('gameLink é obrigatório.');
+
+    // Uma conexão por conta/mesa: a Pragmatic derruba a sessão antiga se a mesma
+    // conta abrir a mesa de novo (DOUBLE_SUBSCRIPTION). Então, se já temos uma
+    // sessão viva para este clientKey, REUSA (não recaptura = não faz novo login).
+    if (clientKey) {
+      for (const s of this.sessions.values()) {
+        if (s.clientKey !== clientKey) continue;
+        if (s.ws && s.ws.readyState === WebSocket.OPEN) {
+          s.touch();
+          return s;
+        }
+        // sessão morta/zumbi para este cliente: descarta antes de recriar.
+        s.destroy();
+        this.sessions.delete(s.id);
+        break;
+      }
+    }
+
     const { gameWsUrl } = await captureGameWsUrl(gameLink);
     const id = randomUUID();
     const session = new Session(id, { gameWsUrl, rouletteId });
+    session.clientKey = clientKey || null;
     this.sessions.set(id, session);
     session.connect();
     return session;
