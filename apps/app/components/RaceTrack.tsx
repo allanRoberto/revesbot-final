@@ -47,11 +47,11 @@ export default function RaceTrack({
     };
   }, []);
 
-  // Números apostados ficam destacados na pista.
+  // Fichas com a quantidade apostada aparecem sobre os números.
   useEffect(() => {
     const rt = rtRef.current;
     if (!rt) return;
-    rt.highlightNumbers(Object.keys(placed).map(Number));
+    rt.setBets(placed);
   }, [placed]);
 
   // Número sorteado brilha por alguns segundos (heatmap do plugin).

@@ -53,6 +53,10 @@ class RouletteRacetrack {
             'tiers': 'Tiers du Cylindre'
         };
 
+        // Centro de cada célula (preenchido ao construir) — usado pelo setBets
+        // para posicionar a ficha com a quantidade apostada sobre o número.
+        this.cellCenters = {};
+
         this.init();
     }
 
@@ -105,6 +109,15 @@ class RouletteRacetrack {
             }
             .roulette-racetrack .section-btn.active .section-text {
                 fill: var(--rt-highlight, #00ffff);
+            }
+            .roulette-racetrack .section-area {
+                transition: fill 0.1s ease;
+            }
+            .roulette-racetrack .section-btn:hover .section-area {
+                fill: rgba(255, 255, 255, 0.10);
+            }
+            .roulette-racetrack .section-btn.active .section-area {
+                fill: rgba(255, 209, 90, 0.14);
             }
             
             /* Responsivo para telas menores */
@@ -176,6 +189,10 @@ class RouletteRacetrack {
         this.numbersGroup = this.createEl('g', { id: 'rt-numbers' });
         svg.appendChild(this.numbersGroup);
 
+        // Grupo de fichas apostadas (desenhadas por cima dos números)
+        this.chipsGroup = this.createEl('g', { id: 'rt-chips', 'pointer-events': 'none' });
+        svg.appendChild(this.chipsGroup);
+
         this.svg = svg;
         this.wrapper.appendChild(svg);
         this.container.appendChild(this.wrapper);
@@ -242,15 +259,39 @@ class RouletteRacetrack {
     }
 
     buildSections() {
+        // Áreas dentro do oval interno (x 40..644, y 88..192, pontas r=52):
+        // Jeu Zero com borda direita curva (bolha) e divisórias inclinadas
+        // entre Voisins/Orphelins e Orphelins/Tiers — como na mesa real.
         const sectionsData = [
-            { key: 'jeu-zero', x: 118, label: 'Jeu Zero' },
-            { key: 'voisins', x: 250, label: 'Voisins' },
-            { key: 'orphelins', x: 382, label: 'Orphelins' },
-            { key: 'tiers', x: 514, label: 'Tiers' }
+            {
+                key: 'jeu-zero', x: 118, label: 'Jeu Zero',
+                d: 'M 92 88 A 52 52 0 0 0 92 192 L 160 192 Q 205 140 160 88 Z'
+            },
+            {
+                key: 'voisins', x: 250, label: 'Voisins',
+                d: 'M 160 88 Q 205 140 160 192 L 306 192 L 322 88 Z'
+            },
+            {
+                key: 'orphelins', x: 382, label: 'Orphelins',
+                d: 'M 322 88 L 306 192 L 458 192 L 440 88 Z'
+            },
+            {
+                key: 'tiers', x: 535, label: 'Tiers',
+                d: 'M 440 88 L 458 192 L 592 192 A 52 52 0 0 0 592 88 Z'
+            }
         ];
 
-        sectionsData.forEach(({ key, x, label }) => {
+        sectionsData.forEach(({ key, x, label, d }) => {
             const g = this.createEl('g', { class: 'section-btn', 'data-section': key });
+
+            // Área clicável da seção (o stroke desenha as linhas divisórias).
+            g.appendChild(this.createEl('path', {
+                class: 'section-area',
+                d: d,
+                fill: 'rgba(255, 255, 255, 0.02)',
+                stroke: 'rgba(255, 255, 255, 0.38)',
+                'stroke-width': 1
+            }));
 
             const text = this.createEl('text', {
                 class: 'section-text',
@@ -259,7 +300,8 @@ class RouletteRacetrack {
                 'text-anchor': 'middle',
                 fill: '#cccccc',
                 'font-size': 15,
-                'font-weight': 600
+                'font-weight': 600,
+                'pointer-events': 'none'
             });
             text.textContent = label;
             g.appendChild(text);
@@ -301,6 +343,7 @@ class RouletteRacetrack {
     }
 
     createRectCell(n, x, y, w, h) {
+        this.cellCenters[n] = { x: x + w / 2, y: y + h / 2 };
         const g = this.createEl('g', { class: 'number-cell', 'data-n': n });
         g.appendChild(this.createEl('rect', {
             x, y, width: w, height: h, fill: this.getColor(n), stroke: '#444', 'stroke-width': 1
@@ -352,6 +395,7 @@ class RouletteRacetrack {
     }
 
     createArcCell(n, pathD, textX, textY) {
+        this.cellCenters[n] = { x: textX, y: textY - 4 };
         const g = this.createEl('g', { class: 'number-cell', 'data-n': n });
         g.appendChild(this.createEl('path', {
             d: pathD, fill: this.getColor(n), stroke: '#444', 'stroke-width': 1
@@ -442,6 +486,44 @@ class RouletteRacetrack {
     clearHighlights() {
         this.svg.querySelectorAll('.highlighted').forEach(el => el.classList.remove('highlighted'));
         this.svg.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+    }
+
+    /**
+     * Mostra a quantidade de fichas apostada sobre cada número.
+     * bets: { numero: quantidade } — quantidade 0/ausente remove a ficha.
+     */
+    setBets(bets = {}) {
+        while (this.chipsGroup.firstChild) {
+            this.chipsGroup.removeChild(this.chipsGroup.firstChild);
+        }
+        Object.entries(bets || {}).forEach(([n, count]) => {
+            const c = this.cellCenters[n];
+            const qty = Number(count);
+            if (!c || !qty) return;
+
+            const g = this.createEl('g', { class: 'bet-chip' });
+            g.appendChild(this.createEl('circle', {
+                cx: c.x, cy: c.y, r: 11,
+                fill: '#e7b53c',
+                stroke: '#fff8e1',
+                'stroke-width': 2,
+                'stroke-dasharray': '3 2'
+            }));
+            const t = this.createEl('text', {
+                x: c.x, y: c.y + 4,
+                'text-anchor': 'middle',
+                fill: '#3a2400',
+                'font-size': 11,
+                'font-weight': 'bold'
+            });
+            t.textContent = qty;
+            g.appendChild(t);
+            this.chipsGroup.appendChild(g);
+        });
+    }
+
+    clearBets() {
+        this.setBets({});
     }
 
     applyHeatmap(heatmap = {}) {
