@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatBRL } from '@/lib/format';
+import RaceTrack from '@/components/RaceTrack';
 
 // Ordem física da roda europeia (para calcular vizinhos e a pista).
 const WHEEL = [
@@ -20,19 +21,8 @@ const FELT_ROWS = [
   [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
 ];
 
-// Racetrack (pista oval), segmentos na ordem da roda.
-const TRACK_LEFT = [0, 26, 3, 35]; // ponta esquerda (topo → base)
-const TRACK_TOP = [32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30];
-const TRACK_RIGHT = [8, 23, 10, 5]; // ponta direita (topo → base)
-const TRACK_BOTTOM = [12, 28, 7, 29, 18, 22, 9, 31, 14, 20, 1, 33, 16, 24];
-
-// Apostas anunciadas (call bets) — grupos clássicos da pista.
-const SEC_JEU_ZERO = [0, 3, 12, 15, 26, 32, 35];
-const SEC_VOISINS = [0, 2, 3, 4, 7, 12, 15, 18, 19, 21, 22, 25, 26, 28, 29, 32, 35];
-const SEC_ORPHELINS = [1, 6, 9, 14, 17, 20, 31, 34];
-const SEC_TIERS = [5, 8, 10, 11, 13, 16, 23, 24, 27, 30, 33, 36];
-
 const CHIPS = [0.5, 1, 2, 5, 10, 25];
+const chipLabel = (c: number) => c.toString().replace('.', ',');
 const POLL_MS = 15000;
 
 function neighborsOf(n: number, k: number): number[] {
@@ -239,30 +229,6 @@ export default function RouletteBoard({
     </button>
   );
 
-  const trackCell = (n: number) => (
-    <button
-      key={n}
-      className={`track-cell ${color(n)}${lastResult === n ? ' win' : ''}`}
-      onClick={() => placeOn(n)}
-      disabled={disabled}
-      title={neigh > 0 ? `${n} + ${neigh} vizinho(s)` : `${n}`}
-    >
-      {n}
-      {placed[n] ? <span className="rb-chip sm">{placed[n]}</span> : null}
-    </button>
-  );
-
-  const section = (label: string, numbers: number[], extra = '') => (
-    <button
-      className={`track-sec ${extra}`}
-      onClick={() => commit(numbers)}
-      disabled={disabled}
-      title={`${label}: ${numbers.length} números`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className="st-overlay">
       {/* fase da mesa (pílula central no topo) */}
@@ -318,20 +284,13 @@ export default function RouletteBoard({
 
       {/* pista oval (racetrack) */}
       <div className="st-track">
-        <div className="track">
-          <div className="track-end track-endL">{TRACK_LEFT.map(trackCell)}</div>
-          <div className="track-mid">
-            <div className="track-row">{TRACK_TOP.map(trackCell)}</div>
-            <div className="track-sections">
-              {section('JEU ZERO', SEC_JEU_ZERO, 'jz')}
-              {section('VOISINS', SEC_VOISINS)}
-              {section('ORPHELINS', SEC_ORPHELINS)}
-              {section('TIERS', SEC_TIERS, 'tiers')}
-            </div>
-            <div className="track-row">{TRACK_BOTTOM.map(trackCell)}</div>
-          </div>
-          <div className="track-end track-endR">{TRACK_RIGHT.map(trackCell)}</div>
-        </div>
+        <RaceTrack
+          placed={placed}
+          lastResult={lastResult}
+          disabled={disabled}
+          onNumber={placeOn}
+          onSection={commit}
+        />
       </div>
 
       {/* painel lateral direito (conteúdo definitivo virá depois) */}
@@ -386,20 +345,19 @@ export default function RouletteBoard({
         </div>
       </div>
 
-      {/* seletor de fichas + vizinhos (centro inferior) */}
+      {/* seletor de fichas + vizinhos (centro inferior, estilo Pragmatic) */}
       <div className="st-chipbar">
-        <div className="rb-chips">
-          <span className="rb-lbl">Ficha</span>
-          {CHIPS.map((c) => (
-            <button
-              key={c}
-              className={`rb-chip-btn${chip === c ? ' on' : ''}`}
-              onClick={() => setChip(c)}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <button className="cb-round" disabled title="Em breve">↺</button>
+        {CHIPS.map((c, i) => (
+          <button
+            key={c}
+            className={`cb-chip c${i}${chip === c ? ' on' : ''}`}
+            onClick={() => setChip(c)}
+          >
+            {chipLabel(c)}
+          </button>
+        ))}
+        <button className="cb-round" disabled title="Em breve">⟳</button>
         <div className="rb-neigh">
           <span className="rb-lbl">Vizinhos</span>
           {[0, 1, 2].map((k) => (
