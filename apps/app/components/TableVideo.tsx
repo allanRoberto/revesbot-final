@@ -63,7 +63,6 @@ export default function TableVideo({ gameId }: { gameId: string }) {
         autoPlay
         muted
         playsInline
-        controls
       />
       {status !== 'playing' && (
         <div className="table-video-status">

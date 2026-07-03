@@ -938,6 +938,309 @@ a {
 .rb-log-item.lg-closed .rb-log-label { color: #ff8f8f; }
 .rb-log-item.lg-result .rb-log-label { color: var(--gold, #ffd15a); font-weight: 700; }
 
+/* ---------- Stage: vídeo fullscreen + overlays (layout Pragmatic) ---------- */
+.stage {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #000;
+}
+.stage > .table-video-wrap { position: absolute; inset: 0; }
+.stage .table-video { object-fit: cover; }
+
+.stage-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 30;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+  border-bottom: none;
+}
+
+.st-overlay { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.st-overlay > * { pointer-events: auto; }
+
+.st-phase {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+}
+
+/* ----- pano de apostas (esquerda) ----- */
+.st-felt {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-62%);
+  width: clamp(360px, 29vw, 520px);
+  font-weight: 800;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+}
+.felt-top { display: flex; }
+.felt-zero {
+  position: relative;
+  flex: 0 0 40px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 22px 0 0 22px;
+  background: rgba(20, 138, 74, 0.88);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.felt-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+}
+.felt-cell {
+  position: relative;
+  height: 37px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+  min-width: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  transition: filter 0.1s;
+}
+.felt-cell.r { background: rgba(199, 32, 42, 0.85); }
+.felt-cell.b { background: rgba(12, 14, 18, 0.72); }
+.felt-cell:hover:not(:disabled), .felt-zero:hover:not(:disabled),
+.track-cell:hover:not(:disabled), .track-sec:hover:not(:disabled) { filter: brightness(1.35); }
+.felt-cell:disabled, .felt-zero:disabled { opacity: 0.75; cursor: not-allowed; }
+.felt-cell.win, .felt-zero.win, .track-cell.win {
+  outline: 2px solid var(--gold, #ffd15a);
+  outline-offset: -1px; z-index: 2;
+  box-shadow: 0 0 14px 3px rgba(255, 209, 90, 0.85);
+}
+.felt-2to1 { flex: 0 0 40px; display: flex; flex-direction: column; }
+.felt-2to1 .felt-out { flex: 1; }
+.felt-out {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(10, 14, 20, 0.5);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 31px;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.felt-dozens, .felt-evens { display: flex; margin: 0 40px; }
+.felt-dozens .felt-out, .felt-evens .felt-out { flex: 1; }
+.fd { width: 14px; height: 14px; transform: rotate(45deg); display: inline-block; }
+.fd.r { background: #d02b35; }
+.fd.b { background: #14171c; border: 1px solid rgba(255, 255, 255, 0.4); }
+
+/* ----- pista oval (racetrack) ----- */
+.st-track {
+  position: absolute;
+  left: 53%;
+  top: 50%;
+  transform: translate(-50%, -46%);
+  width: clamp(520px, 42vw, 840px);
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+}
+.track { display: flex; height: 146px; }
+.track-end { flex: 0 0 52px; display: flex; flex-direction: column; overflow: hidden; }
+.track-endL { border-radius: 76px 0 0 76px; }
+.track-endR { border-radius: 0 76px 76px 0; }
+.track-end .track-cell { flex: 1; }
+.track-mid { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.track-row { display: flex; height: 40px; }
+.track-row .track-cell { flex: 1; }
+.track-cell {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+  min-width: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.track-cell.r { background: rgba(185, 24, 34, 0.92); }
+.track-cell.b { background: rgba(13, 15, 19, 0.88); }
+.track-cell.g { background: rgba(20, 138, 74, 0.92); }
+.track-cell:disabled, .track-sec:disabled { opacity: 0.75; cursor: not-allowed; }
+.track-sections { flex: 1; display: flex; }
+.track-sec {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(10, 18, 34, 0.42);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  flex: 1;
+}
+.track-sec.jz { flex: 0 0 22%; border-radius: 999px 0 0 999px; }
+.track-sec.tiers { border-radius: 0 999px 999px 0; }
+
+/* ficha menor (pista) */
+.rb-chip.sm { min-width: 18px; height: 18px; font-size: 10px; }
+
+/* ----- painel lateral direito ----- */
+.st-side {
+  position: absolute;
+  right: 18px;
+  top: 96px;
+  width: clamp(300px, 23vw, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 20;
+}
+.st-panel {
+  background: rgba(10, 14, 22, 0.74);
+  border-radius: 14px;
+  padding: 10px 14px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+}
+.st-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 34px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #8d97a5;
+  font-size: 15px;
+}
+.st-tab { padding: 2px 4px; cursor: default; }
+.st-tab.on { color: #fff; border-bottom: 2px solid #fff; }
+.st-panel-body {
+  min-height: 110px;
+  max-height: 170px;
+  overflow-y: auto;
+  padding-top: 8px;
+}
+.st-panel-empty { font-size: 12px; color: var(--text-dim); }
+.st-lastrow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 6px;
+  font-size: 15px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.st-last-n.r { color: #ff5252; }
+.st-last-n.b { color: #fff; }
+.st-last-n.g { color: #3ddc84; }
+.st-last-n.first {
+  background: #fff;
+  border-radius: 4px;
+  padding: 1px 7px;
+  text-shadow: none;
+}
+.st-last-n.first.b { color: #14171c; }
+
+/* ----- saldo / aposta total ----- */
+.st-wallet {
+  position: absolute;
+  left: 18px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  background: rgba(10, 14, 22, 0.74);
+  border-radius: 12px;
+  backdrop-filter: blur(6px);
+  z-index: 20;
+  padding-left: 12px;
+}
+.st-wallet-ico {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #ffe9a8, #e7b53c 60%, #b8862a);
+  border: 2px dashed #fff8e1;
+  flex: none;
+}
+.st-wallet-seg {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px;
+}
+.st-wallet-seg + .st-wallet-seg { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.st-wallet-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #9aa4b0;
+  font-weight: 700;
+}
+.st-wallet-val { font-size: 15px; font-weight: 800; color: #fff; }
+
+/* ----- barra de fichas (centro inferior) ----- */
+.st-chipbar {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(10, 14, 22, 0.62);
+  border-radius: 999px;
+  padding: 8px 18px;
+  backdrop-filter: blur(6px);
+  z-index: 20;
+}
+
+/* ----- autoplay (canto inferior direito) ----- */
+.st-autoplay {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(10, 14, 22, 0.74);
+  border: none;
+  border-radius: 12px;
+  color: #cbd3dd;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 12px 18px;
+  backdrop-filter: blur(6px);
+  z-index: 20;
+  cursor: default;
+}
+.st-auto-ico { font-size: 14px; }
+
+/* ----- fallback mobile: volta a empilhar ----- */
+@media (max-width: 900px) {
+  .stage { height: auto; min-height: 100vh; overflow: visible; display: flex; flex-direction: column; }
+  .stage > .table-video-wrap { position: relative; inset: auto; height: 38vh; flex: none; }
+  .stage .table-video { object-fit: contain; }
+  .stage-topbar { position: relative; background: var(--panel, #101418); }
+  .st-overlay {
+    position: relative; inset: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 12px;
+    background: radial-gradient(120% 140% at 50% -20%, #10321f 0%, #0a1f14 55%, #06120c 100%);
+  }
+  .st-phase, .st-felt, .st-track, .st-side, .st-wallet, .st-chipbar, .st-autoplay {
+    position: static;
+    transform: none;
+    width: 100%;
+  }
+  .st-phase { align-self: center; }
+  .st-track { overflow-x: auto; }
+  .track { min-width: 560px; }
+  .st-chipbar { flex-wrap: wrap; justify-content: center; border-radius: 14px; }
+  .st-autoplay { display: none; }
+}
+
 .play-error {
   flex: 1;
   display: grid;

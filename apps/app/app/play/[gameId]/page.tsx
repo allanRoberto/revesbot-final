@@ -4,7 +4,6 @@ import { getSession } from '@/lib/session';
 import { findAppUser } from '@/lib/mongo';
 import { getBookmakerUser } from '@/lib/bookmaker';
 import { findRoulette, isGameAvailable, availableHouseNames } from '@/lib/games';
-import BalanceBadge from '@/components/BalanceBadge';
 import SuggestionStrip from '@/components/SuggestionStrip';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import TableVideo from '@/components/TableVideo';
@@ -55,8 +54,12 @@ export default async function PlayPage({
   const bookmaker = await getBookmakerUser(user.lotogreenToken, session.house);
 
   return (
-    <div className="play-shell">
-      <header className="topbar play-topbar">
+    <div className="stage">
+      {/* vídeo da mesa em tela cheia (fundo) */}
+      <TableVideo gameId={gameId} />
+
+      {/* barra superior translúcida sobre o vídeo */}
+      <header className="topbar play-topbar stage-topbar">
         <div className="play-head-left">
           <Link className="back-btn" href="/dashboard">
             <span className="back-arrow">‹</span>
@@ -65,13 +68,10 @@ export default async function PlayPage({
           <span className="play-title">{game.name}</span>
         </div>
         <SuggestionStrip gameId={gameId} />
-        <BalanceBadge initial={bookmaker?.balance ?? null} />
       </header>
 
-      <div className="play-main">
-        <TableVideo gameId={gameId} />
-        <RouletteBoard gameId={gameId} />
-      </div>
+      {/* overlays de aposta (pano, pista, saldo, painel) */}
+      <RouletteBoard gameId={gameId} initialBalance={bookmaker?.balance ?? null} />
 
       <SubscriptionGate />
     </div>
