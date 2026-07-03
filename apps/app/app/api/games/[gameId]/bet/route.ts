@@ -50,8 +50,12 @@ export async function POST(
     );
   }
 
+  // Slip { numero: valor } — mesma ficha para todos os sugeridos.
+  const chip = Number(body.chipValue) > 0 ? Number(body.chipValue) : 0.5;
+  const bets = Object.fromEntries(suggestion.map((n) => [n, chip]));
+
   try {
-    const result = await placeBet(body.sessionId, suggestion, body.chipValue);
+    const result = await placeBet(body.sessionId, bets);
     return NextResponse.json(result);
   } catch (err) {
     // bet_ws devolve mensagens de negócio (apostas fechadas, sessão inexistente…).

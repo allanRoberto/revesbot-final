@@ -489,34 +489,39 @@ class RouletteRacetrack {
     }
 
     /**
-     * Mostra a quantidade de fichas apostada sobre cada número.
-     * bets: { numero: quantidade } — quantidade 0/ausente remove a ficha.
+     * Mostra o VALOR apostado sobre cada número (ficha dourada).
+     * bets: { numero: valor } — valor 0/ausente remove a ficha.
+     * Cliques repetidos somam no chamador; aqui só exibimos o acumulado.
      */
     setBets(bets = {}) {
         while (this.chipsGroup.firstChild) {
             this.chipsGroup.removeChild(this.chipsGroup.firstChild);
         }
-        Object.entries(bets || {}).forEach(([n, count]) => {
+        Object.entries(bets || {}).forEach(([n, value]) => {
             const c = this.cellCenters[n];
-            const qty = Number(count);
-            if (!c || !qty) return;
+            const amt = Number(value);
+            if (!c || !amt) return;
+
+            const label = String(amt).replace('.', ',');
+            const r = label.length > 3 ? 13 : 11;
+            const fontSize = label.length > 3 ? 9 : 10;
 
             const g = this.createEl('g', { class: 'bet-chip' });
             g.appendChild(this.createEl('circle', {
-                cx: c.x, cy: c.y, r: 11,
+                cx: c.x, cy: c.y, r: r,
                 fill: '#e7b53c',
                 stroke: '#fff8e1',
                 'stroke-width': 2,
                 'stroke-dasharray': '3 2'
             }));
             const t = this.createEl('text', {
-                x: c.x, y: c.y + 4,
+                x: c.x, y: c.y + 3.5,
                 'text-anchor': 'middle',
                 fill: '#3a2400',
-                'font-size': 11,
+                'font-size': fontSize,
                 'font-weight': 'bold'
             });
-            t.textContent = qty;
+            t.textContent = label;
             g.appendChild(t);
             this.chipsGroup.appendChild(g);
         });

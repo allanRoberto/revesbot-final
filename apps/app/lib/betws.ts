@@ -55,22 +55,24 @@ export async function getBetSessionState(
 
 export interface BetResult {
   ok: boolean;
-  numbers: number[];
-  chipValue: number;
+  bets: Record<string, number>;
   gameInfo: { game: string; table: string } | null;
   state: TableState;
 }
 
-/** Envia a aposta real (marca os números) na sessão informada. */
+/**
+ * Envia a aposta real na sessão informada.
+ * bets: { numero: valor } — o slip COMPLETO (o lpbet substitui o anterior),
+ * com o valor acumulado de cada número.
+ */
 export async function placeBet(
   sessionId: string,
-  numbers: number[],
-  chipValue?: number,
+  bets: Record<number, number>,
 ): Promise<BetResult> {
   const res = await fetch(`${BET_WS_URL}/session/${sessionId}/bet`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ numbers, chipValue }),
+    body: JSON.stringify({ bets }),
     cache: 'no-store',
   });
   if (!res.ok) throw new Error(await safeError(res));

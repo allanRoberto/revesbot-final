@@ -160,7 +160,8 @@ class Session extends EventEmitter {
     this.emit('state', this.state());
   }
 
-  bet(numbers, chipValue) {
+  // bets: { numero: valor } — o slip completo com o valor acumulado por número.
+  bet(bets) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('Conexão com a mesa ainda não está pronta. Aguarde alguns segundos.');
     }
@@ -170,13 +171,13 @@ class Session extends EventEmitter {
         : 'As apostas não estão abertas no momento.';
       throw new Error(motivo);
     }
-    const message = buildBetMessage(this.gameInfo, numbers, chipValue);
+    const message = buildBetMessage(this.gameInfo, bets);
     if (process.env.DEBUG_RAW === '1') {
       console.log(`[${this.id}] BET SEND: ${message}`);
     }
     this.ws.send(message);
     this.touch();
-    return { numbers, chipValue: Number(chipValue), gameInfo: this.gameInfo };
+    return { bets, gameInfo: this.gameInfo };
   }
 
   state() {

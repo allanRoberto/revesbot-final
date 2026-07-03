@@ -41,6 +41,10 @@ export default function RaceTrack({
       },
     });
     rtRef.current = rt;
+    if (process.env.NODE_ENV !== 'production') {
+      // handle de depuração (só em dev): permite inspecionar/testar o plugin
+      (window as unknown as Record<string, unknown>).__rt = rt;
+    }
     return () => {
       rt.destroy();
       rtRef.current = null;

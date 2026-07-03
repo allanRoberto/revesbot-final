@@ -76,14 +76,18 @@ export default function RouletteBoard({
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [chip, setChip] = useState(1);
   const [neigh, setNeigh] = useState(0);
+  // placed: { numero: VALOR apostado em reais } — clicar de novo SOMA o valor
+  // da ficha selecionada ao que já estava no número.
   const [placed, setPlaced] = useState<Record<number, number>>({});
-  const [totalBet, setTotalBet] = useState(0); // em reais (valor enviado no slip)
   const [balance, setBalance] = useState<number | null>(initialBalance);
   const [msg, setMsg] = useState<string | null>(null);
   const sidRef = useRef<string | null>(null);
   // A mesa trata cada comando lpbet como o "slip" completo (substitui o anterior),
   // então mantemos o conjunto acumulado e reenviamos tudo a cada clique.
   const placedRef = useRef<Record<number, number>>({});
+
+  // Aposta total da rodada (derivada do slip).
+  const totalBet = Object.values(placed).reduce((s, v) => s + v, 0);
 
   // Cria a sessão da mesa (nosso WS via bet_ws) uma vez.
   useEffect(() => {
@@ -123,7 +127,6 @@ export default function RouletteBoard({
         setLastResult(number);
         placedRef.current = {};
         setPlaced({}); // nova rodada: limpa as fichas do pano
-        setTotalBet(0);
         setTimeout(() => setLastResult((r) => (r === number ? null : r)), 6000);
       } catch { /* ignora */ }
     });
@@ -160,28 +163,39 @@ export default function RouletteBoard({
     return () => { active = false; clearInterval(id); };
   }, []);
 
-  // Adiciona um conjunto de números (já expandidos) ao slip e reenvia tudo num
+  // Soma o valor da ficha nos números clicados e reenvia o slip COMPLETO num
   // único comando — a mesa substitui a aposta anterior a cada envio.
   const commit = useCallback(
     async (added: number[]) => {
+      if (added.length === 0) return;
       const sid = sidRef.current;
-      if (!sid || (phase !== 'open' && phase !== 'closing') || added.length === 0) return;
+      if (!sid || conn !== 'ready') {
+        setMsg('Ainda conectando à mesa… aguarde.');
+        return;
+      }
+      if (phase !== 'open' && phase !== 'closing') {
+        setMsg(
+          phase === 'closed'
+            ? 'Apostas fechadas — aguarde a próxima rodada.'
+            : 'Aguarde as apostas abrirem para marcar.',
+        );
+        return;
+      }
 
       const prev = placedRef.current;
-      const prevTotal = totalBet;
       const next = { ...prev };
-      added.forEach((x) => (next[x] = (next[x] || 0) + 1));
+      added.forEach((x) => {
+        next[x] = Math.round(((next[x] || 0) + chip) * 100) / 100;
+      });
       placedRef.current = next;
       setPlaced(next);
       setMsg(null);
 
-      const numbers = Object.keys(next).map(Number);
-      setTotalBet(numbers.length * chip);
       try {
         const res = await fetch(`/api/games/${gameId}/place-bet`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sessionId: sid, numbers, chipValue: chip }),
+          body: JSON.stringify({ sessionId: sid, bets: next }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Falha ao apostar.');
@@ -189,11 +203,10 @@ export default function RouletteBoard({
         // reverte para o estado anterior a esta marcação
         placedRef.current = prev;
         setPlaced(prev);
-        setTotalBet(prevTotal);
         setMsg(e instanceof Error ? e.message : 'Erro ao apostar.');
       }
     },
-    [phase, chip, gameId, totalBet],
+    [phase, conn, chip, gameId],
   );
 
   const placeOn = useCallback(
@@ -225,7 +238,7 @@ export default function RouletteBoard({
       title={neigh > 0 ? `${n} + ${neigh} vizinho(s)` : `${n}`}
     >
       {n}
-      {placed[n] ? <span className="rb-chip">{placed[n]}</span> : null}
+      {placed[n] ? <span className="rb-chip">{chipLabel(placed[n])}</span> : null}
     </button>
   );
 
@@ -252,7 +265,7 @@ export default function RouletteBoard({
             onClick={() => placeOn(0)}
             disabled={disabled}
           >
-            0{placed[0] ? <span className="rb-chip">{placed[0]}</span> : null}
+            0{placed[0] ? <span className="rb-chip">{chipLabel(placed[0])}</span> : null}
           </button>
           <div className="felt-grid">
             {FELT_ROWS.map((row) => row.map(feltCell))}

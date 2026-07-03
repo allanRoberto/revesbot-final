@@ -33,11 +33,11 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.post('/session', async (req, res) => {
   try {
-    const { gameLink, rouletteId } = req.body || {};
+    const { gameLink, rouletteId, clientKey } = req.body || {};
     if (!gameLink) {
       return res.status(400).json({ error: 'gameLink é obrigatório.' });
     }
-    const session = await manager.create({ gameLink, rouletteId });
+    const session = await manager.create({ gameLink, rouletteId, clientKey });
     return res.json(session.state());
   } catch (err) {
     console.error('[POST /session]', err.message);
@@ -91,9 +91,14 @@ app.post('/session/:id/bet', (req, res) => {
   const session = manager.get(req.params.id);
   if (!session) return res.status(404).json({ error: 'session_not_found' });
   try {
-    const { numbers, chipValue } = req.body || {};
-    const value = chipValue !== undefined ? Number(chipValue) : BASE_CHIP;
-    const result = session.bet(numbers, value);
+    const { bets, numbers, chipValue } = req.body || {};
+    // Formato novo: { bets: { numero: valor } }. Legado: { numbers, chipValue }.
+    let slip = bets;
+    if (!slip && Array.isArray(numbers)) {
+      const value = chipValue !== undefined ? Number(chipValue) : BASE_CHIP;
+      slip = Object.fromEntries(numbers.map((n) => [n, value]));
+    }
+    const result = session.bet(slip || {});
     return res.json({ ok: true, ...result, state: session.state() });
   } catch (err) {
     return res.status(409).json({ error: err.message });
