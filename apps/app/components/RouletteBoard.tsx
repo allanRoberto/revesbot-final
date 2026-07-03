@@ -414,11 +414,6 @@ export default function RouletteBoard({
         </div>
         {msg && <span className="rb-msg">{msg}</span>}
       </div>
-
-      {/* autoplay (visual, em breve) */}
-      <button className="st-autoplay" disabled title="Em breve">
-        <span className="st-auto-ico">⟳</span> AUTOPLAY
-      </button>
     </div>
   );
 }

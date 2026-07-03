@@ -972,8 +972,7 @@ a {
 .st-felt {
   position: absolute;
   left: 18px;
-  top: 50%;
-  transform: translateY(-62%);
+  bottom: 86px;
   width: clamp(360px, 29vw, 520px);
   font-weight: 800;
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
@@ -1041,9 +1040,9 @@ a {
 /* ----- pista oval (racetrack) ----- */
 .st-track {
   position: absolute;
-  left: 53%;
-  top: 50%;
-  transform: translate(-50%, -46%);
+  left: 55%;
+  bottom: 86px;
+  transform: translateX(-50%);
   width: clamp(520px, 42vw, 840px);
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
 }
@@ -1195,28 +1194,6 @@ a {
   z-index: 20;
 }
 
-/* ----- autoplay (canto inferior direito) ----- */
-.st-autoplay {
-  position: absolute;
-  right: 18px;
-  bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(10, 14, 22, 0.74);
-  border: none;
-  border-radius: 12px;
-  color: #cbd3dd;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  padding: 12px 18px;
-  backdrop-filter: blur(6px);
-  z-index: 20;
-  cursor: default;
-}
-.st-auto-ico { font-size: 14px; }
-
 /* ----- fallback mobile: volta a empilhar ----- */
 @media (max-width: 900px) {
   .stage { height: auto; min-height: 100vh; overflow: visible; display: flex; flex-direction: column; }
@@ -1229,7 +1206,7 @@ a {
     padding: 12px;
     background: radial-gradient(120% 140% at 50% -20%, #10321f 0%, #0a1f14 55%, #06120c 100%);
   }
-  .st-phase, .st-felt, .st-track, .st-side, .st-wallet, .st-chipbar, .st-autoplay {
+  .st-phase, .st-felt, .st-track, .st-side, .st-wallet, .st-chipbar {
     position: static;
     transform: none;
     width: 100%;
@@ -1238,7 +1215,6 @@ a {
   .st-track { overflow-x: auto; }
   .track { min-width: 560px; }
   .st-chipbar { flex-wrap: wrap; justify-content: center; border-radius: 14px; }
-  .st-autoplay { display: none; }
 }
 
 .play-error {
