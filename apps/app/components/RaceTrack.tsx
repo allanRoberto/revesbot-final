@@ -29,9 +29,15 @@ interface Cell {
   ly: number;
 }
 
-// Quanto as células de canto (32/30/35/24) "dobram" para dentro da curva —
-// na Pragmatic o 32 ocupa o topo da curva e o 0 fica logo abaixo dele.
-const BETA = 20;
+// Quanto as células de canto "dobram" para dentro da curva. Na Pragmatic as
+// dobras são assimétricas: à esquerda (32/35) o corte desce até ~45º (o 0 fica
+// centrado a ~60º, bem abaixo do 32); à direita (30/24) o corte é menor (~22º)
+// porque a curva comporta 4 números (8/23/10/5) em vez de 3.
+const BETA_L = 45;
+const BETA_R = 22;
+// Raio dos rótulos nas curvas — levemente puxado para o lado interno do anel,
+// como na referência.
+const LR = 100;
 
 function buildCells(): Cell[] {
   const cells: Cell[] = [];
@@ -54,20 +60,20 @@ function buildCells(): Cell[] {
   TOP.forEach((n, i) => {
     const x = R + i * sw;
     if (i === 0) {
-      // 32: retângulo + cunha 0..BETA da curva esquerda (corte diagonal).
+      // 32: retângulo + cunha 0..BETA_L da curva esquerda (corte diagonal).
       cells.push({
         n,
-        d: `M ${j(lp(R, BETA))} A ${R} ${R} 0 0 1 ${R} 0 H ${x + sw} V ${T} H ${R} A ${IR} ${IR} 0 0 0 ${j(lp(IR, BETA))} Z`,
-        lx: x + sw / 2,
-        ly: T / 2,
+        d: `M ${j(lp(R, BETA_L))} A ${R} ${R} 0 0 1 ${R} 0 H ${x + sw} V ${T} H ${R} A ${IR} ${IR} 0 0 0 ${j(lp(IR, BETA_L))} Z`,
+        lx: 118,
+        ly: 38,
       });
       return;
     }
     if (i === TOP.length - 1) {
-      // 30: retângulo + cunha 0..BETA da curva direita.
+      // 30: retângulo + cunha 0..BETA_R da curva direita.
       cells.push({
         n,
-        d: `M ${x} 0 H ${W - R} A ${R} ${R} 0 0 1 ${j(rp(R, BETA))} L ${j(rp(IR, BETA))} A ${IR} ${IR} 0 0 0 ${W - R} ${T} H ${x} Z`,
+        d: `M ${x} 0 H ${W - R} A ${R} ${R} 0 0 1 ${j(rp(R, BETA_R))} L ${j(rp(IR, BETA_R))} A ${IR} ${IR} 0 0 0 ${W - R} ${T} H ${x} Z`,
         lx: x + sw / 2,
         ly: T / 2,
       });
@@ -84,20 +90,20 @@ function buildCells(): Cell[] {
   BOTTOM.forEach((n, i) => {
     const x = R + i * sw;
     if (i === 0) {
-      // 35: retângulo + cunha (180-BETA)..180 da curva esquerda.
+      // 35: retângulo + cunha (180-BETA_L)..180 da curva esquerda.
       cells.push({
         n,
-        d: `M ${j(lp(R, 180 - BETA))} A ${R} ${R} 0 0 0 ${R} ${H} H ${x + sw} V ${H - T} H ${R} A ${IR} ${IR} 0 0 1 ${j(lp(IR, 180 - BETA))} Z`,
-        lx: x + sw / 2,
-        ly: H - T / 2,
+        d: `M ${j(lp(R, 180 - BETA_L))} A ${R} ${R} 0 0 0 ${R} ${H} H ${x + sw} V ${H - T} H ${R} A ${IR} ${IR} 0 0 1 ${j(lp(IR, 180 - BETA_L))} Z`,
+        lx: 118,
+        ly: H - 38,
       });
       return;
     }
     if (i === BOTTOM.length - 1) {
-      // 24: retângulo + cunha (180-BETA)..180 da curva direita.
+      // 24: retângulo + cunha (180-BETA_R)..180 da curva direita.
       cells.push({
         n,
-        d: `M ${x} ${H - T} H ${W - R} A ${IR} ${IR} 0 0 1 ${j(rp(IR, 180 - BETA))} L ${j(rp(R, 180 - BETA))} A ${R} ${R} 0 0 1 ${W - R} ${H} H ${x} Z`,
+        d: `M ${x} ${H - T} H ${W - R} A ${IR} ${IR} 0 0 1 ${j(rp(IR, 180 - BETA_R))} L ${j(rp(R, 180 - BETA_R))} A ${R} ${R} 0 0 1 ${W - R} ${H} H ${x} Z`,
         lx: x + sw / 2,
         ly: H - T / 2,
       });
@@ -112,11 +118,11 @@ function buildCells(): Cell[] {
   });
 
   // Cunhas da ponta direita (entre as dobras do 30 e do 24).
-  const segR = (180 - 2 * BETA) / RIGHT.length;
+  const segR = (180 - 2 * BETA_R) / RIGHT.length;
   RIGHT.forEach((n, i) => {
-    const a1 = BETA + i * segR;
-    const a2 = BETA + (i + 1) * segR;
-    const [lx, ly] = rp((R + IR) / 2, (a1 + a2) / 2);
+    const a1 = BETA_R + i * segR;
+    const a2 = BETA_R + (i + 1) * segR;
+    const [lx, ly] = rp(LR, (a1 + a2) / 2);
     cells.push({
       n,
       d: `M ${j(rp(R, a1))} A ${R} ${R} 0 0 1 ${j(rp(R, a2))} L ${j(rp(IR, a2))} A ${IR} ${IR} 0 0 0 ${j(rp(IR, a1))} Z`,
@@ -125,12 +131,12 @@ function buildCells(): Cell[] {
     });
   });
 
-  // Cunhas da ponta esquerda (0 abaixo do 32, como na Pragmatic).
-  const segL = (180 - 2 * BETA) / LEFT.length;
+  // Cunhas da ponta esquerda (0 centrado a ~60º, abaixo do corte do 32).
+  const segL = (180 - 2 * BETA_L) / LEFT.length;
   LEFT.forEach((n, i) => {
-    const a1 = BETA + i * segL;
-    const a2 = BETA + (i + 1) * segL;
-    const [lx, ly] = lp((R + IR) / 2, (a1 + a2) / 2);
+    const a1 = BETA_L + i * segL;
+    const a2 = BETA_L + (i + 1) * segL;
+    const [lx, ly] = lp(LR, (a1 + a2) / 2);
     cells.push({
       n,
       d: `M ${j(lp(R, a1))} A ${R} ${R} 0 0 0 ${j(lp(R, a2))} L ${j(lp(IR, a2))} A ${IR} ${IR} 0 0 1 ${j(lp(IR, a1))} Z`,
