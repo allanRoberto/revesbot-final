@@ -1,0 +1,15 @@
+{
+  "name": "video-ingest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PROTÓTIPO: puxa o vídeo WebRTC da mesa (via Chrome sob xvfb) e reempacota em HLS.",
+  "main": "ingest.js",
+  "scripts": {
+    "get-link": "node get-link.js",
+    "ingest": "xvfb-run -a -s \"-screen 0 1280x720x24\" node ingest.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.34.0",
+    "ws": "^8.18.3"
+  }
+}
