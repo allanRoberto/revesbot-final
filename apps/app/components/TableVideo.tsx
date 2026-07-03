@@ -11,6 +11,46 @@ const VIDEO_BASE = process.env.NEXT_PUBLIC_VIDEO_BASE || '';
 export default function TableVideo({ gameId }: { gameId: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading');
+  // Travou/caiu? Mostra o poster borrado da mesa por cima (nada de tela preta).
+  const [stalled, setStalled] = useState(false);
+  const posterUrl = VIDEO_BASE ? `${VIDEO_BASE}/hls/${gameId}/poster.jpg` : '';
+
+  // Detecção de travamento (revela o poster): eventos do vídeo (buffer vazio,
+  // stall, erro) + um watchdog de currentTime como rede de segurança.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const onStall = () => setStalled(true);
+    const onOk = () => setStalled(false);
+    video.addEventListener('waiting', onStall);
+    video.addEventListener('stalled', onStall);
+    video.addEventListener('error', onStall);
+    video.addEventListener('emptied', onStall);
+    video.addEventListener('playing', onOk);
+    video.addEventListener('canplay', onOk);
+
+    let lastT = -1;
+    let same = 0;
+    const id = setInterval(() => {
+      if (video.paused) return;
+      if (Math.abs(video.currentTime - lastT) < 0.02) {
+        if (++same >= 2) setStalled(true);
+      } else {
+        same = 0;
+        setStalled(false);
+      }
+      lastT = video.currentTime;
+    }, 1200);
+    return () => {
+      clearInterval(id);
+      video.removeEventListener('waiting', onStall);
+      video.removeEventListener('stalled', onStall);
+      video.removeEventListener('error', onStall);
+      video.removeEventListener('emptied', onStall);
+      video.removeEventListener('playing', onOk);
+      video.removeEventListener('canplay', onOk);
+    };
+  }, [gameId]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -150,6 +190,8 @@ export default function TableVideo({ gameId }: { gameId: string }) {
     };
   }, [gameId]);
 
+  const showPoster = status !== 'playing' || stalled;
+
   return (
     <div className="table-video-wrap">
       <video
@@ -159,12 +201,15 @@ export default function TableVideo({ gameId }: { gameId: string }) {
         muted
         playsInline
       />
-      {status !== 'playing' && (
-        <div className="table-video-status">
-          {status === 'loading'
-            ? 'Conectando ao vídeo da mesa…'
-            : 'Vídeo desta mesa indisponível no momento.'}
-        </div>
+      {/* fallback: poster borrado da mesa (sem tela preta quando trava/cai) */}
+      {showPoster && posterUrl && (
+        <div
+          className="table-video-poster"
+          style={{ backgroundImage: `url(${posterUrl})` }}
+        />
+      )}
+      {status === 'loading' && (
+        <div className="table-video-status">Conectando ao vídeo da mesa…</div>
       )}
     </div>
   );

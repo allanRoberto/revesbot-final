@@ -749,6 +749,18 @@ a {
   font-size: 14px;
   pointer-events: none;
 }
+/* fallback quando o vídeo trava/cai: poster borrado da mesa (nunca tela preta) */
+.table-video-poster {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(8px) brightness(0.7);
+  transform: scale(1.08); /* esconde as bordas que o blur revela */
+  pointer-events: none;
+  animation: tvp-fade 0.3s ease;
+}
+@keyframes tvp-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Vídeo + tabuleiro ---------- */
 .play-main {
@@ -986,33 +998,79 @@ a {
   to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 
+/* ----- GATE: mesa não conectada (poster borrado + "Conectando à mesa") ----- */
+.st-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+  background-color: #0a0f16;
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  place-items: center;
+}
+.st-gate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 8, 14, 0.5);
+  backdrop-filter: blur(6px);
+}
+.st-gate-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 24px;
+}
+.st-gate-msg {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+.st-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.22);
+  border-top-color: #ffd15a;
+  animation: st-spin 0.8s linear infinite;
+}
+@keyframes st-spin { to { transform: rotate(360deg); } }
+
+/* ----- HUD colado ao tabuleiro central (contador + faixa de espera) -----
+   Fica logo acima da pista/pano que estiver no centro, acompanhando o swap. */
+.st-centerhud {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 16;
+}
+
 /* ----- faixa "Aguarde o próximo jogo" (entre rodadas) ----- */
 .st-waitbanner {
-  position: absolute;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 24;
-  padding: 14px 46px;
+  padding: 12px 40px;
   background: rgba(6, 10, 16, 0.62);
   backdrop-filter: blur(3px);
   color: #fff;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: 3px;
   text-transform: uppercase;
   text-align: center;
   white-space: nowrap;
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
-}
-
-/* ----- contador circular com anel de progresso ----- */
-.st-countdown {
-  position: absolute;
-  top: 58px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 26;
 }
 .cd-ring {
   position: relative;
@@ -1063,28 +1121,15 @@ a {
   bottom: 86px;
   width: min(50vw, 1000px, calc(100vw - clamp(360px, 29vw, 520px) * 0.8 - 78px));
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
-  transition: left 0.35s ease, width 0.35s ease, bottom 0.35s ease, transform 0.9s ease, opacity 0.9s ease;
+  transform-origin: bottom center;
+  transition: left 0.35s ease, width 0.35s ease, bottom 0.35s ease, transform 0.5s ease;
   z-index: 14;
 }
 
-/* ----- apostas fechadas: some com as fichas + desce o tabuleiro central ----- */
-/* fichas apostadas (camada #rt-chips existe na pista e no pano) */
-.st-overlay.bets-closed [id="rt-chips"] {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-/* o tabuleiro central desliza lentamente para baixo e some */
+/* ----- apostas fechadas: só ENCOLHE o tabuleiro central -----
+   As fichas continuam visíveis e clicáveis (pré-marca p/ a próxima jogada). */
 .st-overlay.bets-closed .st-slot-center {
-  transform: translateY(150px);
-  opacity: 0;
-  pointer-events: none;
-}
-/* a barra de fichas também recolhe (não dá pra apostar com a mesa fechada) */
-.st-overlay.bets-closed .st-chipbar {
-  transform: translate(-50%, 60px);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 0.6s ease, opacity 0.6s ease;
+  transform: scale(0.82);
 }
 .st-swapbtn {
   position: absolute;
@@ -1231,20 +1276,46 @@ a {
   flex: none;
 }
 .cb-round:disabled { opacity: 0.85; }
+/* ficha de cassino: disco colorido + segmentos tracejados brancos na borda
+   (spots) + fina linha da face interna + valor em negrito no centro */
 .cb-chip {
-  width: 48px;
-  height: 48px;
+  position: relative;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   border: none;
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
   cursor: pointer;
   flex: none;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85), inset 0 0 0 5px rgba(0, 0, 0, 0.18), 0 3px 7px rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.55);
   transition: transform 0.08s, box-shadow 0.08s;
 }
+/* spots tracejados na borda (8 segmentos brancos) */
+.cb-chip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -11deg, rgba(255, 255, 255, 0.92) 0 9deg, transparent 9deg 45deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 67%, #000 69%);
+  mask: radial-gradient(circle, transparent 0 67%, #000 69%);
+}
+/* linha fina da face interna */
+.cb-chip::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  z-index: 0;
+}
+.cb-chip > * { position: relative; z-index: 1; }
 /* cores por valor: 0,5 / 2,5 / 5 / 25 / 100 / 500 / 2,5K / 5K (igual ao anexo) */
 .cb-chip.c0 { background: radial-gradient(circle at 50% 35%, #ffffff, #cfd4da 65%, #a9b0b8); color: #23272d; text-shadow: none; }
 .cb-chip.c1 { background: radial-gradient(circle at 50% 35%, #5cc078, #2e9e52 65%, #1e7a3c); }
@@ -1256,7 +1327,7 @@ a {
 .cb-chip.c7 { background: radial-gradient(circle at 50% 35%, #f0d68a, #d8ad42 65%, #a9801f); color: #2a2410; text-shadow: none; }
 .cb-chip.on {
   transform: translateY(-6px) scale(1.12);
-  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.95), inset 0 0 0 5px rgba(0, 0, 0, 0.18), 0 0 0 3px var(--gold, #ffd15a), 0 6px 12px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 3px var(--gold, #ffd15a), 0 6px 12px rgba(0, 0, 0, 0.6);
 }
 .st-chipbar .rb-neigh {
   margin-left: 10px;

@@ -230,4 +230,24 @@ function startFfmpeg() {
     }
     last = bytes;
   }, 5000);
+
+  // Poster borrado da mesa: 1 frame do HLS a cada 8s → poster.jpg. O player usa
+  // como fallback quando o vídeo trava/cai (nada de tela preta) e a UI usa como
+  // fundo enquanto conecta na mesa. Só gera quando já há stream.
+  const posterPath = path.join(HLS_DIR, 'poster.jpg');
+  const m3u8Path = path.join(HLS_DIR, 'stream.m3u8');
+  setInterval(() => {
+    if (bytes <= 0 || !fs.existsSync(m3u8Path)) return;
+    const p = spawn('ffmpeg', [
+      '-y', '-loglevel', 'error',
+      '-i', m3u8Path,
+      '-frames:v', '1',
+      '-vf', 'scale=720:-1,gblur=sigma=20',
+      '-q:v', '6',
+      posterPath,
+    ], { stdio: 'ignore' });
+    const kt = setTimeout(() => { try { p.kill('SIGKILL'); } catch (_) {} }, 9000);
+    p.on('exit', () => clearTimeout(kt));
+    p.on('error', () => clearTimeout(kt));
+  }, 8000);
 })();

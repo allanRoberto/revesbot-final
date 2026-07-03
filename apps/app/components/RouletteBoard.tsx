@@ -17,6 +17,7 @@ const REDS = new Set([
 ]);
 const color = (n: number) => (n === 0 ? 'g' : REDS.has(n) ? 'r' : 'b');
 
+const VIDEO_BASE = process.env.NEXT_PUBLIC_VIDEO_BASE || '';
 const CHIPS = [0.5, 2.5, 5, 25, 100, 500, 2500, 5000];
 const chipLabel = (c: number) =>
   c >= 1000
@@ -98,6 +99,9 @@ export default function RouletteBoard({
   // A mesa trata cada comando lpbet como o "slip" completo (substitui o anterior),
   // então mantemos o conjunto acumulado e reenviamos tudo a cada clique.
   const placedRef = useRef<Record<number, number>>({});
+  // Pré-marcação: true quando há fichas marcadas com a mesa fechada, ainda não
+  // enviadas — o slip é disparado ao reabrir as apostas.
+  const pendingRef = useRef(false);
 
   // Aposta total da rodada (derivada do slip).
   const totalBet = Object.values(placed).reduce((s, v) => s + v, 0);
@@ -199,22 +203,16 @@ export default function RouletteBoard({
   const totalBetCents = Math.round(totalBet * 100);
   const availableCents = balance != null ? balance - totalBetCents : null;
 
-  // Soma o valor da ficha nos números clicados e reenvia o slip COMPLETO num
-  // único comando — a mesa substitui a aposta anterior a cada envio.
+  // Soma o valor da ficha nos números clicados. Com a mesa ABERTA, envia o slip
+  // completo na hora (a mesa substitui a aposta anterior a cada envio). Com a
+  // mesa FECHADA, apenas pré-marca localmente (pendingRef) — o slip é disparado
+  // quando a mesa reabre.
   const commit = useCallback(
     async (added: number[]) => {
       if (added.length === 0) return;
       const sid = sidRef.current;
       if (!sid || conn !== 'ready') {
         setMsg('Ainda conectando à mesa… aguarde.');
-        return;
-      }
-      if (phase !== 'open' && phase !== 'closing') {
-        setMsg(
-          phase === 'closed'
-            ? 'Apostas fechadas — aguarde a próxima rodada.'
-            : 'Aguarde as apostas abrirem para marcar.',
-        );
         return;
       }
 
@@ -234,6 +232,12 @@ export default function RouletteBoard({
       setPlaced(next);
       setMsg(null);
 
+      // Apostas fechadas → guarda para a próxima rodada (não envia agora).
+      if (phase !== 'open' && phase !== 'closing') {
+        pendingRef.current = true;
+        return;
+      }
+
       try {
         const res = await fetch(`/api/games/${gameId}/place-bet`, {
           method: 'POST',
@@ -242,6 +246,7 @@ export default function RouletteBoard({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Falha ao apostar.');
+        pendingRef.current = false;
       } catch (e) {
         // reverte para o estado anterior a esta marcação
         placedRef.current = prev;
@@ -251,6 +256,32 @@ export default function RouletteBoard({
     },
     [phase, conn, chip, gameId, balance, totalBetCents],
   );
+
+  // Ao REABRIR as apostas, dispara o slip pré-marcado (feito com a mesa fechada).
+  useEffect(() => {
+    if (phase !== 'open' || !pendingRef.current) return;
+    const sid = sidRef.current;
+    const slip = placedRef.current;
+    if (!sid || Object.keys(slip).length === 0) {
+      pendingRef.current = false;
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`/api/games/${gameId}/place-bet`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sessionId: sid, bets: slip }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Falha ao enviar a aposta.');
+        pendingRef.current = false;
+        setMsg(null);
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : 'Falha ao enviar a pré-marcação.');
+      }
+    })();
+  }, [phase, gameId]);
 
   const placeOn = useCallback(
     (n: number) => commit(neighborsOf(n, neigh)),
@@ -270,39 +301,31 @@ export default function RouletteBoard({
     return () => window.removeEventListener('reves:mark', handler);
   }, [commit, neigh]);
 
-  const disabled = (phase !== 'open' && phase !== 'closing') || conn !== 'ready';
-  // Apostas fechadas: esconde as fichas e desce o tabuleiro central devagar.
+  // Só bloqueia a marcação quando a mesa não está utilizável (sem conexão/kick).
+  // Com apostas fechadas a pessoa PODE marcar para a próxima jogada (pré-marca).
+  const disabled = conn !== 'ready' || kicked;
+  const posterUrl = VIDEO_BASE ? `${VIDEO_BASE}/hls/${gameId}/poster.jpg` : '';
+  // Apostas fechadas: apenas ENCOLHE o tabuleiro central (sem sumir/bloquear).
   const betsClosed = conn === 'ready' && !kicked && (phase === 'closed' || phase === 'idle');
+
+  // HUD que acompanha o tabuleiro central: contador (apostas abertas) e faixa
+  // "Aguarde o próximo jogo" (entre rodadas). Fica logo acima do centro.
+  const centerHud = (
+    <div className="st-centerhud">
+      {phase === 'open' && seconds != null && (
+        <CountdownRing seconds={seconds} total={roundTotal} />
+      )}
+      {lastResult == null && (phase === 'idle' || phase === 'closed') && (
+        <div className="st-waitbanner">Aguarde o próximo jogo</div>
+      )}
+    </div>
+  );
 
   return (
     <div className={`st-overlay${betsClosed ? ' bets-closed' : ''}`}>
       {/* leque de resultado (vencedor + vizinhos) — mostrado ~6s após o giro */}
       {lastResult != null && resultCells(lastResult) && (
         <ResultFan cells={resultCells(lastResult)!} />
-      )}
-
-      {/* contador circular (anel de progresso) durante as apostas abertas */}
-      {conn === 'ready' && !kicked && phase === 'open' && seconds != null && (
-        <div className="st-countdown">
-          <CountdownRing seconds={seconds} total={roundTotal} />
-        </div>
-      )}
-
-      {/* faixa "AGUARDE O PRÓXIMO JOGO" — mesa fechada / entre rodadas
-          (some enquanto o leque de resultado está na tela) */}
-      {conn === 'ready' && !kicked && lastResult == null && (phase === 'idle' || phase === 'closed') && (
-        <div className="st-waitbanner">Aguarde o próximo jogo</div>
-      )}
-
-      {/* pílula de status — só conexão/erro/kick (o resto tem ring ou faixa) */}
-      {(kicked || conn !== 'ready') && (
-        <div className={`rb-phase st-phase ph-${phase}`}>
-          {kicked
-            ? 'Conta conectada em outro lugar'
-            : conn === 'connecting'
-              ? 'Conectando à mesa…'
-              : 'Sem conexão com a mesa'}
-        </div>
       )}
 
       {/* pano de apostas — objeto do mesmo plugin, fichas sincronizadas */}
@@ -316,6 +339,7 @@ export default function RouletteBoard({
             ⇄
           </button>
         )}
+        {center === 'felt' && centerHud}
         <BetTable placed={placed} disabled={disabled} onNumber={placeOn} />
       </div>
 
@@ -330,6 +354,7 @@ export default function RouletteBoard({
             ⇄
           </button>
         )}
+        {center === 'track' && centerHud}
         <RaceTrack
           placed={placed}
           lastResult={lastResult}
@@ -418,6 +443,26 @@ export default function RouletteBoard({
         </div>
         {msg && <span className="rb-msg">{msg}</span>}
       </div>
+
+      {/* GATE: mesa não conectada → cobre a tela com poster borrado + mensagem.
+          Só some (revela a mesa) quando a conexão fica pronta. */}
+      {(conn !== 'ready' || kicked) && (
+        <div
+          className="st-gate"
+          style={posterUrl ? { backgroundImage: `url(${posterUrl})` } : undefined}
+        >
+          <div className="st-gate-inner">
+            {!kicked && <div className="st-spinner" aria-hidden />}
+            <div className="st-gate-msg">
+              {kicked
+                ? 'Conta conectada em outro lugar'
+                : conn === 'error'
+                  ? 'Reconectando à mesa…'
+                  : 'Conectando à mesa…'}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

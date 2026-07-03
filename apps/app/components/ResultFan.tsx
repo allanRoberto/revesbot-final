@@ -1,8 +1,8 @@
 'use client';
 
 // Overlay de resultado estilo Pragmatic: leque de 3 cunhas convergindo para a
-// bolinha embaixo. Centro = número vencedor (grande, na cor dele); laterais =
-// vizinhos imediatos na roda. Ex.: 15 | 19 | 4.
+// bolinha embaixo. Centro = número vencedor (o mais LARGO e alto, na cor dele);
+// laterais = vizinhos imediatos na roda, mais estreitos. Ex.: 15 | 19 | 4.
 
 interface Props {
   cells: { n: number; color: 'r' | 'b' | 'g' }[]; // [vizinho esq, vencedor, vizinho dir]
@@ -10,24 +10,23 @@ interface Props {
 
 const FILL: Record<string, string> = {
   r: '#c1121f',
-  b: '#14171c',
+  b: '#1a1d24',
   g: '#1e7a3c',
 };
 
 // Geometria polar: cunhas irradiando de um ponto perto do rodapé (a bolinha).
 const CX = 200;
-const CY = 244;
-const R0 = 54; // raio interno (junto da bolinha)
-const R1 = 214; // raio externo
+const CY = 252;
+const R0 = 46; // raio interno (junto da bolinha)
 const rad = (deg: number) => (deg * Math.PI) / 180;
 const pt = (a: number, r: number) => [CX + r * Math.cos(rad(a)), CY + r * Math.sin(rad(a))];
 
-// Ângulos (graus, 0 = direita, -90 = topo). Leque largo: laterais recuadas,
-// centro vertical projetando mais longe (o vencedor domina).
+// Ângulos (graus, -90 = topo). O CENTRO é o mais largo; laterais recuam.
+// Pequenos vãos (2°) entre as cunhas.
 const SEGS = [
-  { a0: -133, a1: -99 }, // esquerda
-  { a0: -99, a1: -81 }, // centro (vencedor)
-  { a0: -81, a1: -47 }, // direita
+  { a0: -140, a1: -109, r1: 176 }, // esquerda (vizinho)
+  { a0: -107, a1: -73, r1: 220 }, // centro (vencedor) — mais largo e alto
+  { a0: -71, a1: -40, r1: 176 }, // direita (vizinho)
 ];
 
 function wedgePath(a0: number, a1: number, r1: number) {
@@ -41,21 +40,22 @@ function wedgePath(a0: number, a1: number, r1: number) {
 export default function ResultFan({ cells }: Props) {
   return (
     <div className="st-result" role="status" aria-label={`Resultado ${cells[1]?.n}`}>
-      <svg viewBox="0 0 400 260" width="100%" height="100%">
+      <svg viewBox="0 0 400 270" width="100%" height="100%">
         {SEGS.map((s, i) => {
           const cell = cells[i];
           if (!cell) return null;
           const center = i === 1;
-          const r1 = center ? R1 : R1 - 40; // centro projeta mais longe
           const mid = (s.a0 + s.a1) / 2;
-          const [lx, ly] = pt(mid, center ? 150 : 138);
+          const [lx, ly] = pt(mid, center ? 150 : 130);
+          const fill = FILL[cell.color];
           return (
             <g key={i}>
               <path
-                d={wedgePath(s.a0, s.a1, r1)}
-                fill={FILL[cell.color]}
-                stroke="rgba(0,0,0,0.55)"
-                strokeWidth={center ? 0 : 1}
+                d={wedgePath(s.a0, s.a1, s.r1)}
+                fill={fill}
+                stroke={fill}
+                strokeWidth={10}
+                strokeLinejoin="round"
               />
               <text
                 x={lx.toFixed(1)}
@@ -64,7 +64,7 @@ export default function ResultFan({ cells }: Props) {
                 dominantBaseline="central"
                 fill="#fff"
                 fontWeight="800"
-                fontSize={center ? 46 : 26}
+                fontSize={center ? 52 : 28}
                 style={{ textShadow: '0 2px 5px rgba(0,0,0,0.6)' }}
               >
                 {cell.n}
@@ -73,13 +73,12 @@ export default function ResultFan({ cells }: Props) {
           );
         })}
         {/* bolinha branca no ponto de convergência */}
-        <circle cx={CX} cy={CY - R0 + 14} r="15" fill="#fff" />
-        <circle cx={CX} cy={CY - R0 + 14} r="15" fill="url(#ballShine)" />
+        <circle cx={CX} cy={CY - R0 + 18} r="18" fill="url(#ballShine)" stroke="rgba(0,0,0,0.25)" strokeWidth="1" />
         <defs>
-          <radialGradient id="ballShine" cx="0.38" cy="0.32" r="0.75">
+          <radialGradient id="ballShine" cx="0.38" cy="0.30" r="0.85">
             <stop offset="0%" stopColor="#fff" />
-            <stop offset="70%" stopColor="#e6e6e6" />
-            <stop offset="100%" stopColor="#b8b8b8" />
+            <stop offset="65%" stopColor="#eaeaea" />
+            <stop offset="100%" stopColor="#b4b4b4" />
           </radialGradient>
         </defs>
       </svg>
