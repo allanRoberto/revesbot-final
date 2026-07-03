@@ -29,12 +29,50 @@ interface Cell {
   ly: number;
 }
 
+// Quanto as células de canto (32/30/35/24) "dobram" para dentro da curva —
+// na Pragmatic o 32 ocupa o topo da curva e o 0 fica logo abaixo dele.
+const BETA = 20;
+
 function buildCells(): Cell[] {
   const cells: Cell[] = [];
   const sw = (W - 2 * R) / TOP.length; // largura das células retas
 
+  // Pontos nas pontas: ângulo 0º no topo (12h), crescendo em direção à base.
+  // Coordenadas arredondadas (2 casas) — precisão total de float diverge entre
+  // Node e browser na última casa e causa hydration mismatch.
+  const rnd = (v: number) => Math.round(v * 100) / 100;
+  const rp = (rad: number, deg: number): [number, number] => {
+    const a = (deg * Math.PI) / 180;
+    return [rnd(W - R + rad * Math.sin(a)), rnd(H / 2 - rad * Math.cos(a))];
+  };
+  const lp = (rad: number, deg: number): [number, number] => {
+    const a = (deg * Math.PI) / 180;
+    return [rnd(R - rad * Math.sin(a)), rnd(H / 2 - rad * Math.cos(a))];
+  };
+  const j = (p: [number, number]) => `${p[0]} ${p[1]}`;
+
   TOP.forEach((n, i) => {
     const x = R + i * sw;
+    if (i === 0) {
+      // 32: retângulo + cunha 0..BETA da curva esquerda (corte diagonal).
+      cells.push({
+        n,
+        d: `M ${j(lp(R, BETA))} A ${R} ${R} 0 0 1 ${R} 0 H ${x + sw} V ${T} H ${R} A ${IR} ${IR} 0 0 0 ${j(lp(IR, BETA))} Z`,
+        lx: x + sw / 2,
+        ly: T / 2,
+      });
+      return;
+    }
+    if (i === TOP.length - 1) {
+      // 30: retângulo + cunha 0..BETA da curva direita.
+      cells.push({
+        n,
+        d: `M ${x} 0 H ${W - R} A ${R} ${R} 0 0 1 ${j(rp(R, BETA))} L ${j(rp(IR, BETA))} A ${IR} ${IR} 0 0 0 ${W - R} ${T} H ${x} Z`,
+        lx: x + sw / 2,
+        ly: T / 2,
+      });
+      return;
+    }
     cells.push({
       n,
       d: `M ${x} 0 H ${x + sw} V ${T} H ${x} Z`,
@@ -42,8 +80,29 @@ function buildCells(): Cell[] {
       ly: T / 2,
     });
   });
+
   BOTTOM.forEach((n, i) => {
     const x = R + i * sw;
+    if (i === 0) {
+      // 35: retângulo + cunha (180-BETA)..180 da curva esquerda.
+      cells.push({
+        n,
+        d: `M ${j(lp(R, 180 - BETA))} A ${R} ${R} 0 0 0 ${R} ${H} H ${x + sw} V ${H - T} H ${R} A ${IR} ${IR} 0 0 1 ${j(lp(IR, 180 - BETA))} Z`,
+        lx: x + sw / 2,
+        ly: H - T / 2,
+      });
+      return;
+    }
+    if (i === BOTTOM.length - 1) {
+      // 24: retângulo + cunha (180-BETA)..180 da curva direita.
+      cells.push({
+        n,
+        d: `M ${x} ${H - T} H ${W - R} A ${IR} ${IR} 0 0 1 ${j(rp(IR, 180 - BETA))} L ${j(rp(R, 180 - BETA))} A ${R} ${R} 0 0 1 ${W - R} ${H} H ${x} Z`,
+        lx: x + sw / 2,
+        ly: H - T / 2,
+      });
+      return;
+    }
     cells.push({
       n,
       d: `M ${x} ${H - T} H ${x + sw} V ${H} H ${x} Z`,
@@ -52,45 +111,29 @@ function buildCells(): Cell[] {
     });
   });
 
-  // Cunhas da ponta direita (ângulo 0º no topo, sentido horário).
-  const rp = (rad: number, deg: number): [number, number] => {
-    const a = (deg * Math.PI) / 180;
-    return [W - R + rad * Math.sin(a), H / 2 - rad * Math.cos(a)];
-  };
-  const segR = 180 / RIGHT.length;
+  // Cunhas da ponta direita (entre as dobras do 30 e do 24).
+  const segR = (180 - 2 * BETA) / RIGHT.length;
   RIGHT.forEach((n, i) => {
-    const a1 = i * segR;
-    const a2 = (i + 1) * segR;
-    const [ox1, oy1] = rp(R, a1);
-    const [ox2, oy2] = rp(R, a2);
-    const [ix1, iy1] = rp(IR, a1);
-    const [ix2, iy2] = rp(IR, a2);
+    const a1 = BETA + i * segR;
+    const a2 = BETA + (i + 1) * segR;
     const [lx, ly] = rp((R + IR) / 2, (a1 + a2) / 2);
     cells.push({
       n,
-      d: `M ${ox1} ${oy1} A ${R} ${R} 0 0 1 ${ox2} ${oy2} L ${ix2} ${iy2} A ${IR} ${IR} 0 0 0 ${ix1} ${iy1} Z`,
+      d: `M ${j(rp(R, a1))} A ${R} ${R} 0 0 1 ${j(rp(R, a2))} L ${j(rp(IR, a2))} A ${IR} ${IR} 0 0 0 ${j(rp(IR, a1))} Z`,
       lx,
       ly,
     });
   });
 
-  // Cunhas da ponta esquerda (espelhada).
-  const lp = (rad: number, deg: number): [number, number] => {
-    const a = (deg * Math.PI) / 180;
-    return [R - rad * Math.sin(a), H / 2 - rad * Math.cos(a)];
-  };
-  const segL = 180 / LEFT.length;
+  // Cunhas da ponta esquerda (0 abaixo do 32, como na Pragmatic).
+  const segL = (180 - 2 * BETA) / LEFT.length;
   LEFT.forEach((n, i) => {
-    const a1 = i * segL;
-    const a2 = (i + 1) * segL;
-    const [ox1, oy1] = lp(R, a1);
-    const [ox2, oy2] = lp(R, a2);
-    const [ix1, iy1] = lp(IR, a1);
-    const [ix2, iy2] = lp(IR, a2);
+    const a1 = BETA + i * segL;
+    const a2 = BETA + (i + 1) * segL;
     const [lx, ly] = lp((R + IR) / 2, (a1 + a2) / 2);
     cells.push({
       n,
-      d: `M ${ox1} ${oy1} A ${R} ${R} 0 0 0 ${ox2} ${oy2} L ${ix2} ${iy2} A ${IR} ${IR} 0 0 1 ${ix1} ${iy1} Z`,
+      d: `M ${j(lp(R, a1))} A ${R} ${R} 0 0 0 ${j(lp(R, a2))} L ${j(lp(IR, a2))} A ${IR} ${IR} 0 0 1 ${j(lp(IR, a1))} Z`,
       lx,
       ly,
     });

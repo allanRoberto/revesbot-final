@@ -1040,10 +1040,10 @@ a {
 /* ----- pista oval (racetrack) ----- */
 .st-track {
   position: absolute;
-  left: 55%;
+  /* ancorada logo à direita do pano (nunca sobrepõe) */
+  left: calc(42px + clamp(360px, 29vw, 520px));
   bottom: 86px;
-  transform: translateX(-50%);
-  width: clamp(520px, 42vw, 840px);
+  width: min(42vw, 840px, calc(100vw - clamp(360px, 29vw, 520px) - 78px));
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
 }
 .trk { width: 100%; height: auto; display: block; }
