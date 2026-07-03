@@ -968,43 +968,162 @@ a {
   z-index: 25;
 }
 
-/* ----- pano de apostas (esquerda) ----- */
-.st-felt {
+/* ----- leque de resultado (vencedor + vizinhos, estilo Pragmatic) ----- */
+.st-result {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 27;
+  width: min(360px, 46vw);
+  height: min(234px, 30vw);
+  pointer-events: none;
+  animation: st-result-in 0.35s ease;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.55));
+}
+@keyframes st-result-in {
+  from { opacity: 0; transform: translateX(-50%) scale(0.9); }
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+/* ----- faixa "Aguarde o próximo jogo" (entre rodadas) ----- */
+.st-waitbanner {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 24;
+  padding: 14px 46px;
+  background: rgba(6, 10, 16, 0.62);
+  backdrop-filter: blur(3px);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+}
+
+/* ----- contador circular com anel de progresso ----- */
+.st-countdown {
+  position: absolute;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 26;
+}
+.cd-ring {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(6, 10, 16, 0.55);
+  backdrop-filter: blur(3px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+.cd-ring svg { position: absolute; inset: 0; }
+.cd-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 6;
+}
+.cd-prog {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.3s ease;
+}
+.cd-num {
+  position: relative;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----- slots do palco: lateral (×0,8) e central (×1,2 — o maior) -----
+   O pano e a pista ocupam um slot cada; o botão ⇄ troca quem fica no centro. */
+.st-slot-side {
   position: absolute;
   left: 18px;
   bottom: 82px;
-  width: clamp(380px, 31vw, 560px);
+  width: calc(clamp(380px, 31vw, 560px) * 0.8);
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+  transition: left 0.35s ease, width 0.35s ease, bottom 0.35s ease;
+  z-index: 15;
 }
+.st-slot-center {
+  position: absolute;
+  left: calc(42px + clamp(360px, 29vw, 520px) * 0.8);
+  bottom: 86px;
+  width: min(50vw, 1000px, calc(100vw - clamp(360px, 29vw, 520px) * 0.8 - 78px));
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+  transition: left 0.35s ease, width 0.35s ease, bottom 0.35s ease, transform 0.9s ease, opacity 0.9s ease;
+  z-index: 14;
+}
+
+/* ----- apostas fechadas: some com as fichas + desce o tabuleiro central ----- */
+/* fichas apostadas (camada #rt-chips existe na pista e no pano) */
+.st-overlay.bets-closed [id="rt-chips"] {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+/* o tabuleiro central desliza lentamente para baixo e some */
+.st-overlay.bets-closed .st-slot-center {
+  transform: translateY(150px);
+  opacity: 0;
+  pointer-events: none;
+}
+/* a barra de fichas também recolhe (não dá pra apostar com a mesa fechada) */
+.st-overlay.bets-closed .st-chipbar {
+  transform: translate(-50%, 60px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.6s ease, opacity 0.6s ease;
+}
+.st-swapbtn {
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  z-index: 5;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(16, 20, 28, 0.9);
+  color: #ffd15a;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+.st-swapbtn:hover { background: rgba(30, 36, 48, 0.95); }
+
 /* pano de apostas (objeto do plugin, SVG) */
 .ft-box { width: 100%; }
 .ft-off .roulette-bettable { pointer-events: none; }
 .roulette-bettable .number-cell { cursor: pointer; }
 .roulette-bettable .number-cell:hover rect,
 .roulette-bettable .number-cell:hover path { filter: brightness(1.35); }
-
-/* ----- pista oval (racetrack) ----- */
-.st-track {
-  position: absolute;
-  /* ancorada logo à direita do pano (nunca sobrepõe) */
-  left: calc(42px + clamp(360px, 29vw, 520px));
-  bottom: 86px;
-  width: min(42vw, 840px, calc(100vw - clamp(360px, 29vw, 520px) - 78px));
-  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
-}
 /* wrapper do plugin RouletteRacetrack (lib/roulette-racetrack.js) */
 .rt-box { width: 100%; filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45)); }
 .rt-off { opacity: 0.85; }
 .rt-off .roulette-racetrack { pointer-events: none; }
 
-/* ----- painel lateral direito ----- */
+/* ----- painel lateral direito (log alinhado na parte inferior) ----- */
 .st-side {
   position: absolute;
   right: 18px;
-  top: 96px;
+  bottom: 16px;
   width: clamp(300px, 23vw, 420px);
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: 8px;
   z-index: 20;
 }
@@ -1126,13 +1245,15 @@ a {
   box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85), inset 0 0 0 5px rgba(0, 0, 0, 0.18), 0 3px 7px rgba(0, 0, 0, 0.55);
   transition: transform 0.08s, box-shadow 0.08s;
 }
-/* cores por valor: 0,5 / 1 / 2 / 5 / 10 / 25 */
-.cb-chip.c0 { background: radial-gradient(circle at 50% 35%, #ffffff, #d9dde2 65%, #b8bec6); color: #23272d; text-shadow: none; }
-.cb-chip.c1 { background: radial-gradient(circle at 50% 35%, #b7bec6, #848c96 65%, #5f6670); }
-.cb-chip.c2 { background: radial-gradient(circle at 50% 35%, #5cc078, #2e9e52 65%, #1e7a3c); }
-.cb-chip.c3 { background: radial-gradient(circle at 50% 35%, #ecc25e, #d8a531 65%, #a97e1f); }
+/* cores por valor: 0,5 / 2,5 / 5 / 25 / 100 / 500 / 2,5K / 5K (igual ao anexo) */
+.cb-chip.c0 { background: radial-gradient(circle at 50% 35%, #ffffff, #cfd4da 65%, #a9b0b8); color: #23272d; text-shadow: none; }
+.cb-chip.c1 { background: radial-gradient(circle at 50% 35%, #5cc078, #2e9e52 65%, #1e7a3c); }
+.cb-chip.c2 { background: radial-gradient(circle at 50% 35%, #f6b24a, #e08a2c 65%, #b06414); }
+.cb-chip.c3 { background: radial-gradient(circle at 50% 35%, #e05561, #c22f3a 65%, #96202a); }
 .cb-chip.c4 { background: radial-gradient(circle at 50% 35%, #a06ae8, #7b3fd1 65%, #5c2aa3); }
-.cb-chip.c5 { background: radial-gradient(circle at 50% 35%, #e05561, #c22f3a 65%, #96202a); }
+.cb-chip.c5 { background: radial-gradient(circle at 50% 35%, #4b5560, #2b333d 65%, #171c22); }
+.cb-chip.c6 { background: radial-gradient(circle at 50% 35%, #ef7bb4, #d63f8f 65%, #a71e6a); }
+.cb-chip.c7 { background: radial-gradient(circle at 50% 35%, #f0d68a, #d8ad42 65%, #a9801f); color: #2a2410; text-shadow: none; }
 .cb-chip.on {
   transform: translateY(-6px) scale(1.12);
   box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.95), inset 0 0 0 5px rgba(0, 0, 0, 0.18), 0 0 0 3px var(--gold, #ffd15a), 0 6px 12px rgba(0, 0, 0, 0.6);
@@ -1156,12 +1277,14 @@ a {
     padding: 12px;
     background: radial-gradient(120% 140% at 50% -20%, #10321f 0%, #0a1f14 55%, #06120c 100%);
   }
-  .st-phase, .st-felt, .st-track, .st-side, .st-wallet, .st-chipbar {
+  .st-phase, .st-felt, .st-track, .st-slot-side, .st-slot-center, .st-side, .st-wallet, .st-chipbar {
     position: static;
     transform: none;
     width: 100%;
   }
   .st-phase { align-self: center; }
+  /* no empilhado não existe "centro" — o swap não faz sentido */
+  .st-swapbtn { display: none; }
   .st-track { overflow-x: auto; }
   .st-track .roulette-racetrack { min-width: 560px; }
   .st-chipbar { flex-wrap: wrap; justify-content: center; }

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatBRL } from '@/lib/format';
 import RaceTrack from '@/components/RaceTrack';
 import BetTable from '@/components/BetTable';
+import CountdownRing from '@/components/CountdownRing';
+import ResultFan from '@/components/ResultFan';
 
 // Ordem física da roda europeia (para calcular vizinhos e a pista).
 const WHEEL = [
@@ -15,8 +17,11 @@ const REDS = new Set([
 ]);
 const color = (n: number) => (n === 0 ? 'g' : REDS.has(n) ? 'r' : 'b');
 
-const CHIPS = [0.5, 1, 2, 5, 10, 25];
-const chipLabel = (c: number) => c.toString().replace('.', ',');
+const CHIPS = [0.5, 2.5, 5, 25, 100, 500, 2500, 5000];
+const chipLabel = (c: number) =>
+  c >= 1000
+    ? `${(c / 1000).toString().replace('.', ',')}K`
+    : c.toString().replace('.', ',');
 const POLL_MS = 15000;
 
 function neighborsOf(n: number, k: number): number[] {
@@ -28,6 +33,15 @@ function neighborsOf(n: number, k: number): number[] {
     out.push(WHEEL[(i + d) % WHEEL.length]);
   }
   return [...new Set(out)];
+}
+
+// [vizinho esquerdo, vencedor, vizinho direito] na ordem física da roda — para o leque.
+function resultCells(n: number): { n: number; color: 'r' | 'b' | 'g' }[] | null {
+  const i = WHEEL.indexOf(n);
+  if (i < 0) return null;
+  const L = WHEEL[(i - 1 + WHEEL.length) % WHEEL.length];
+  const R = WHEEL[(i + 1) % WHEEL.length];
+  return [L, n, R].map((x) => ({ n: x, color: color(x) as 'r' | 'b' | 'g' }));
 }
 
 interface TableState {
@@ -68,8 +82,13 @@ export default function RouletteBoard({
   const [log, setLog] = useState<LogEntry[]>([]);
   const [lastNumbers, setLastNumbers] = useState<number[]>([]);
   const [lastResult, setLastResult] = useState<number | null>(null);
-  const [chip, setChip] = useState(1);
+  const [chip, setChip] = useState(5);
   const [neigh, setNeigh] = useState(0);
+  // Qual tabuleiro ocupa o slot central (maior): pista ou pano. O ⇄ troca.
+  const [center, setCenter] = useState<'track' | 'felt'>('track');
+  // Tempo total da rodada de apostas (para a fração do anel do contador).
+  const [roundTotal, setRoundTotal] = useState(30);
+  const prevPhaseRef = useRef<TableState['phase']>('idle');
   // placed: { numero: VALOR apostado em reais } — clicar de novo SOMA o valor
   // da ficha selecionada ao que já estava no número.
   const [placed, setPlaced] = useState<Record<number, number>>({});
@@ -145,6 +164,16 @@ export default function RouletteBoard({
     if (seconds <= 0) return;
     const t = setInterval(() => setSeconds((s) => (s == null || s <= 0 ? s : s - 1)), 1000);
     return () => clearInterval(t);
+  }, [phase, seconds]);
+
+  // Ao ENTRAR na fase aberta, o primeiro secondsLeft é o total da rodada
+  // (base para a fração do anel). Guardamos o maior visto no ciclo.
+  useEffect(() => {
+    if (phase === 'open' && seconds != null) {
+      if (prevPhaseRef.current !== 'open') setRoundTotal(seconds || 30);
+      else setRoundTotal((t) => (seconds > t ? seconds : t));
+    }
+    prevPhaseRef.current = phase;
   }, [phase, seconds]);
 
   // Saldo-base (centavos): o valor real da conta. Só atualiza pelo polling
@@ -242,29 +271,65 @@ export default function RouletteBoard({
   }, [commit, neigh]);
 
   const disabled = (phase !== 'open' && phase !== 'closing') || conn !== 'ready';
+  // Apostas fechadas: esconde as fichas e desce o tabuleiro central devagar.
+  const betsClosed = conn === 'ready' && !kicked && (phase === 'closed' || phase === 'idle');
 
   return (
-    <div className="st-overlay">
-      {/* fase da mesa (pílula central no topo) */}
-      <div className={`rb-phase st-phase ph-${phase}`}>
-        {kicked
-          ? 'Conta conectada em outro lugar'
-          : conn === 'connecting'
-            ? 'Conectando à mesa…'
-            : conn === 'error'
-              ? 'Sem conexão com a mesa'
-              : phase === 'open' && seconds != null
-                ? `${PHASE_LABEL[phase]} · ${seconds}s`
-                : PHASE_LABEL[phase]}
-      </div>
+    <div className={`st-overlay${betsClosed ? ' bets-closed' : ''}`}>
+      {/* leque de resultado (vencedor + vizinhos) — mostrado ~6s após o giro */}
+      {lastResult != null && resultCells(lastResult) && (
+        <ResultFan cells={resultCells(lastResult)!} />
+      )}
 
-      {/* pano de apostas (esquerda) — objeto do mesmo plugin, fichas sincronizadas */}
-      <div className="st-felt">
+      {/* contador circular (anel de progresso) durante as apostas abertas */}
+      {conn === 'ready' && !kicked && phase === 'open' && seconds != null && (
+        <div className="st-countdown">
+          <CountdownRing seconds={seconds} total={roundTotal} />
+        </div>
+      )}
+
+      {/* faixa "AGUARDE O PRÓXIMO JOGO" — mesa fechada / entre rodadas
+          (some enquanto o leque de resultado está na tela) */}
+      {conn === 'ready' && !kicked && lastResult == null && (phase === 'idle' || phase === 'closed') && (
+        <div className="st-waitbanner">Aguarde o próximo jogo</div>
+      )}
+
+      {/* pílula de status — só conexão/erro/kick (o resto tem ring ou faixa) */}
+      {(kicked || conn !== 'ready') && (
+        <div className={`rb-phase st-phase ph-${phase}`}>
+          {kicked
+            ? 'Conta conectada em outro lugar'
+            : conn === 'connecting'
+              ? 'Conectando à mesa…'
+              : 'Sem conexão com a mesa'}
+        </div>
+      )}
+
+      {/* pano de apostas — objeto do mesmo plugin, fichas sincronizadas */}
+      <div className={`st-felt ${center === 'felt' ? 'st-slot-center' : 'st-slot-side'}`}>
+        {center === 'felt' && (
+          <button
+            className="st-swapbtn"
+            title="Trocar pano ↔ pista"
+            onClick={() => setCenter('track')}
+          >
+            ⇄
+          </button>
+        )}
         <BetTable placed={placed} disabled={disabled} onNumber={placeOn} />
       </div>
 
       {/* pista oval (racetrack) */}
-      <div className="st-track">
+      <div className={`st-track ${center === 'track' ? 'st-slot-center' : 'st-slot-side'}`}>
+        {center === 'track' && (
+          <button
+            className="st-swapbtn"
+            title="Trocar pano ↔ pista"
+            onClick={() => setCenter('felt')}
+          >
+            ⇄
+          </button>
+        )}
         <RaceTrack
           placed={placed}
           lastResult={lastResult}
