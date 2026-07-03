@@ -1046,57 +1046,10 @@ a {
   width: min(42vw, 840px, calc(100vw - clamp(360px, 29vw, 520px) - 78px));
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
 }
-.trk { width: 100%; height: auto; display: block; }
-.trk-cell { cursor: pointer; }
-.trk-cell path {
-  stroke: rgba(255, 255, 255, 0.85);
-  stroke-width: 1.6;
-  transition: filter 0.1s;
-}
-.trk:not(.trk-off) .trk-cell:hover path { filter: brightness(1.45); }
-.trk-cell text {
-  fill: #fff;
-  font-size: 20px;
-  font-weight: 800;
-  text-anchor: middle;
-  dominant-baseline: central;
-  pointer-events: none;
-  paint-order: stroke;
-}
-.trk-sec { cursor: pointer; }
-.trk-sec path {
-  fill: rgba(22, 30, 44, 0.55);
-  stroke: rgba(255, 255, 255, 0.75);
-  stroke-width: 1.3;
-  transition: fill 0.1s;
-}
-.trk:not(.trk-off) .trk-sec:hover path { fill: rgba(64, 86, 118, 0.6); }
-.trk-sec text {
-  fill: #fff;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 3px;
-  text-anchor: middle;
-  dominant-baseline: central;
-  pointer-events: none;
-}
-.trk-off .trk-cell, .trk-off .trk-sec { cursor: not-allowed; }
-.trk-win path {
-  stroke: var(--gold, #ffd15a);
-  stroke-width: 3;
-}
-.trk-chip {
-  fill: #e7b53c;
-  stroke: #fff8e1;
-  stroke-width: 2;
-  stroke-dasharray: 4 2.5;
-  pointer-events: none;
-}
-.trk-chip-txt {
-  fill: #3a2400 !important;
-  font-size: 13px !important;
-  font-weight: 900 !important;
-}
+/* wrapper do plugin RouletteRacetrack (lib/roulette-racetrack.js) */
+.rt-box { width: 100%; filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45)); }
+.rt-off { opacity: 0.85; }
+.rt-off .roulette-racetrack { pointer-events: none; }
 
 /* ----- painel lateral direito ----- */
 .st-side {
@@ -1264,7 +1217,7 @@ a {
   }
   .st-phase { align-self: center; }
   .st-track { overflow-x: auto; }
-  .trk { min-width: 560px; }
+  .st-track .roulette-racetrack { min-width: 560px; }
   .st-chipbar { flex-wrap: wrap; justify-content: center; }
 }
 
