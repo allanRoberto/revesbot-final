@@ -132,21 +132,20 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
     return () => clearInterval(t);
   }, [phase, seconds]);
 
-  const placeOn = useCallback(
-    async (n: number) => {
+  // Adiciona um conjunto de números (já expandidos) ao slip e reenvia tudo num
+  // único comando — a mesa substitui a aposta anterior a cada envio.
+  const commit = useCallback(
+    async (added: number[]) => {
       const sid = sidRef.current;
-      if (!sid || (phase !== 'open' && phase !== 'closing')) return;
+      if (!sid || (phase !== 'open' && phase !== 'closing') || added.length === 0) return;
 
       const prev = placedRef.current;
-      const added = neighborsOf(n, neigh);
       const next = { ...prev };
       added.forEach((x) => (next[x] = (next[x] || 0) + 1));
       placedRef.current = next;
       setPlaced(next);
       setMsg(null);
 
-      // Envia o SLIP COMPLETO (todos os números marcados) num único comando —
-      // a mesa substitui a aposta anterior a cada envio, então tudo precisa ir junto.
       const numbers = Object.keys(next).map(Number);
       try {
         const res = await fetch(`/api/games/${gameId}/place-bet`, {
@@ -157,14 +156,32 @@ export default function RouletteBoard({ gameId }: { gameId: string }) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Falha ao apostar.');
       } catch (e) {
-        // reverte para o estado anterior a este clique
+        // reverte para o estado anterior a esta marcação
         placedRef.current = prev;
         setPlaced(prev);
         setMsg(e instanceof Error ? e.message : 'Erro ao apostar.');
       }
     },
-    [phase, neigh, chip, gameId],
+    [phase, chip, gameId],
   );
+
+  const placeOn = useCallback(
+    (n: number) => commit(neighborsOf(n, neigh)),
+    [commit, neigh],
+  );
+
+  // "Marcar sugeridos": o SuggestionStrip dispara este evento com os números;
+  // simulamos o clique deles no tabuleiro (fichas aparecem, aposta é enviada).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const nums = (e as CustomEvent<{ numbers?: number[] }>).detail?.numbers;
+      if (!Array.isArray(nums) || nums.length === 0) return;
+      const expanded = [...new Set(nums.flatMap((n) => neighborsOf(n, neigh)))];
+      commit(expanded);
+    };
+    window.addEventListener('reves:mark', handler);
+    return () => window.removeEventListener('reves:mark', handler);
+  }, [commit, neigh]);
 
   const disabled = (phase !== 'open' && phase !== 'closing') || conn !== 'ready';
 

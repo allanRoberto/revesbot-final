@@ -17,9 +17,6 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
   const [auto, setAuto] = useState(true);
   const [recalcing, setRecalcing] = useState(false);
   const [locked, setLocked] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [betting, setBetting] = useState(false);
-  const [betMsg, setBetMsg] = useState<string | null>(null);
 
   async function refresh() {
     try {
@@ -62,50 +59,14 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
     setRecalcing(false);
   }
 
-  // Garante uma sessão de mesa (captura o WS via bet_ws). Reaproveita a atual.
-  async function ensureSession(): Promise<string> {
-    if (sessionId) return sessionId;
-    const res = await fetch(`/api/games/${gameId}/bet-session`, {
-      method: 'POST',
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? 'Falha ao conectar na mesa.');
-    setSessionId(data.sessionId);
-    return data.sessionId;
-  }
-
-  // Marca (aposta) os números sugeridos na mesa.
-  async function markSuggested() {
-    setBetting(true);
-    setBetMsg(null);
-    try {
-      let sid = await ensureSession();
-      let res = await fetch(`/api/games/${gameId}/bet`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ sessionId: sid }),
-      });
-      // Sessão expirou/derrubada: recria uma vez e tenta de novo.
-      if (res.status === 409 || res.status === 404) {
-        const data = await res.clone().json().catch(() => ({}));
-        if (String(data.error || '').includes('session_not_found')) {
-          setSessionId(null);
-          sid = await ensureSession();
-          res = await fetch(`/api/games/${gameId}/bet`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ sessionId: sid }),
-          });
-        }
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Não foi possível marcar.');
-      setBetMsg(`✓ Marcado: ${data.numbers.join(', ')}`);
-    } catch (e) {
-      setBetMsg(e instanceof Error ? e.message : 'Erro ao marcar.');
-    } finally {
-      setBetting(false);
-    }
+  // "Marcar sugeridos": apenas simula o clique dos números no tabuleiro.
+  // O RouletteBoard ouve este evento, coloca as fichas e envia a aposta —
+  // a confirmação visual são as próprias fichas (sem mensagem).
+  function markSuggested() {
+    if (!numbers || numbers.length === 0) return;
+    window.dispatchEvent(
+      new CustomEvent('reves:mark', { detail: { numbers } }),
+    );
   }
 
   return (
@@ -152,14 +113,12 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
           <button
             className="mark-btn"
             onClick={markSuggested}
-            disabled={betting || !numbers || numbers.length === 0}
+            disabled={!numbers || numbers.length === 0}
             title="Marcar os números sugeridos na mesa"
           >
-            {betting ? 'Marcando…' : 'Marcar sugeridos'}
+            Marcar sugeridos
           </button>
         )}
-
-        {betMsg && <span className="bet-msg">{betMsg}</span>}
 
         {/* Recalcular agora (manual) */}
         <button
