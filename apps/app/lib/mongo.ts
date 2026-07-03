@@ -62,7 +62,13 @@ export async function findAppUser(
 ): Promise<AppUser | null> {
   const users = await getUsers();
   if (house === DEFAULT_HOUSE) {
-    return users.findOne({ email, $or: [{ house }, { house: { $exists: false } }] });
+    // Prioriza o doc da casa exata (token atual); só cai no doc legado (sem
+    // campo house) se não existir um doc específico — senão um doc antigo sem
+    // house pode "sombrear" o login fresco e devolver um token expirado.
+    return (
+      (await users.findOne({ email, house })) ??
+      (await users.findOne({ email, house: { $exists: false } }))
+    );
   }
   return users.findOne({ email, house });
 }
