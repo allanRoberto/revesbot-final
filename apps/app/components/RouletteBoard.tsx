@@ -362,6 +362,24 @@ export default function RouletteBoard({
           onNumber={placeOn}
           onSection={commit}
         />
+        {/* vizinhos (0–9): só aparece SOBRE a racetrack, no estilo da foto */}
+        <div className="rt-neigh">
+          <button
+            className="rt-neigh-btn"
+            onClick={() => setNeigh((k) => Math.max(0, k - 1))}
+            aria-label="Menos vizinhos"
+          >
+            −
+          </button>
+          <span className="rt-neigh-val">{neigh}</span>
+          <button
+            className="rt-neigh-btn"
+            onClick={() => setNeigh((k) => Math.min(9, k + 1))}
+            aria-label="Mais vizinhos"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {/* painel lateral direito (conteúdo definitivo virá depois) */}
@@ -429,18 +447,6 @@ export default function RouletteBoard({
           </button>
         ))}
         <button className="cb-round" disabled title="Em breve">⟳</button>
-        <div className="rb-neigh">
-          <span className="rb-lbl">Vizinhos</span>
-          {[0, 1, 2].map((k) => (
-            <button
-              key={k}
-              className={`rb-chip-btn${neigh === k ? ' on' : ''}`}
-              onClick={() => setNeigh(k)}
-            >
-              {k}
-            </button>
-          ))}
-        </div>
         {msg && <span className="rb-msg">{msg}</span>}
       </div>
 

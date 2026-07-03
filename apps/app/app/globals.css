@@ -1329,11 +1329,48 @@ a {
   transform: translateY(-6px) scale(1.12);
   box-shadow: 0 0 0 3px var(--gold, #ffd15a), 0 6px 12px rgba(0, 0, 0, 0.6);
 }
-.st-chipbar .rb-neigh {
-  margin-left: 10px;
-  background: rgba(16, 20, 28, 0.85);
-  border-radius: 12px;
-  padding: 6px 10px;
+/* ----- vizinhos (0–9): barra − N + SOBRE a racetrack (estilo da foto) ----- */
+.rt-neigh {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(28, 20, 10, 0.55);
+  border-top: 2px solid rgba(214, 184, 122, 0.85);
+  border-bottom: 2px solid rgba(214, 184, 122, 0.85);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+.rt-neigh-btn {
+  width: 52px;
+  border: none;
+  background: transparent;
+  color: #f2e6c6;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.rt-neigh-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.rt-neigh-btn:active { background: rgba(255, 255, 255, 0.2); }
+.rt-neigh-val {
+  min-width: 58px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid rgba(214, 184, 122, 0.5);
+  border-right: 1px solid rgba(214, 184, 122, 0.5);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 /* ----- fallback mobile: volta a empilhar ----- */
