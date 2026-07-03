@@ -121,6 +121,11 @@ export default function RouletteBoard({
         setLastResult(number);
         placedRef.current = {};
         setPlaced({}); // nova rodada: limpa as fichas do pano
+        // rodada liquidada: ressincroniza o saldo real (ganho/perda já debitado)
+        fetch('/api/me', { cache: 'no-store' })
+          .then((r) => r.json())
+          .then((d) => { if (typeof d.balance === 'number') setBalance(d.balance); })
+          .catch(() => {});
         setTimeout(() => setLastResult((r) => (r === number ? null : r)), 6000);
       } catch { /* ignora */ }
     });
@@ -142,7 +147,9 @@ export default function RouletteBoard({
     return () => clearInterval(t);
   }, [phase, seconds]);
 
-  // Saldo ao vivo (mesma fonte do BalanceBadge).
+  // Saldo-base (centavos): o valor real da conta. Só atualiza pelo polling
+  // quando NÃO há aposta na mesa — assim o "disponível" (base − aposta total)
+  // não conta em dobro se a casa debitar durante a rodada.
   useEffect(() => {
     let active = true;
     async function refresh() {
@@ -150,12 +157,18 @@ export default function RouletteBoard({
         const res = await fetch('/api/me', { cache: 'no-store' });
         if (!res.ok || !active) return;
         const data = await res.json();
-        if (typeof data.balance === 'number') setBalance(data.balance);
+        if (typeof data.balance === 'number' && Object.keys(placedRef.current).length === 0) {
+          setBalance(data.balance);
+        }
       } catch { /* mantém último valor */ }
     }
     const id = setInterval(refresh, POLL_MS);
     return () => { active = false; clearInterval(id); };
   }, []);
+
+  // Saldo disponível = base − aposta total desta rodada (em centavos).
+  const totalBetCents = Math.round(totalBet * 100);
+  const availableCents = balance != null ? balance - totalBetCents : null;
 
   // Soma o valor da ficha nos números clicados e reenvia o slip COMPLETO num
   // único comando — a mesa substitui a aposta anterior a cada envio.
@@ -173,6 +186,13 @@ export default function RouletteBoard({
             ? 'Apostas fechadas — aguarde a próxima rodada.'
             : 'Aguarde as apostas abrirem para marcar.',
         );
+        return;
+      }
+
+      // Bloqueia se o novo total ultrapassar o saldo da conta.
+      const addedCostCents = Math.round(added.length * chip * 100);
+      if (balance != null && totalBetCents + addedCostCents > balance) {
+        setMsg('Saldo insuficiente para esta aposta.');
         return;
       }
 
@@ -200,7 +220,7 @@ export default function RouletteBoard({
         setMsg(e instanceof Error ? e.message : 'Erro ao apostar.');
       }
     },
-    [phase, conn, chip, gameId],
+    [phase, conn, chip, gameId, balance, totalBetCents],
   );
 
   const placeOn = useCallback(
@@ -295,13 +315,13 @@ export default function RouletteBoard({
         <div className="st-wallet-seg">
           <span className="st-wallet-lbl">Saldo</span>
           <span className="st-wallet-val">
-            {typeof balance === 'number' ? formatBRL(balance) : '—'}
+            {availableCents != null ? formatBRL(Math.max(0, availableCents)) : '—'}
           </span>
         </div>
         <div className="st-wallet-seg">
           <span className="st-wallet-lbl">Aposta total</span>
           <span className="st-wallet-val">
-            {formatBRL(Math.round(totalBet * 100))}
+            {formatBRL(totalBetCents)}
           </span>
         </div>
       </div>
