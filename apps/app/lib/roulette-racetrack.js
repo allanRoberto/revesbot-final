@@ -595,9 +595,187 @@ class RouletteRacetrack {
     }
 }
 
+/**
+ * Pano de apostas (betting table) em SVG — mesmo estilo visual do racetrack
+ * (gradientes rt-red/rt-black/rt-green, fichas via setBets). É um objeto irmão
+ * do plugin: compartilha a convenção de cores e a API setBets/clearBets.
+ *
+ * Uso:
+ *   const felt = new RouletteBetTable('#container', { onNumberClick });
+ *   felt.setBets({ 0: 0.5, 17: 1 });
+ */
+class RouletteBetTable {
+    constructor(selector, options = {}) {
+        this.container = typeof selector === 'string'
+            ? document.querySelector(selector) : selector;
+        if (!this.container) throw new Error('Container não encontrado');
+
+        this.options = { width: 648, height: 220, onNumberClick: null, ...options };
+        this.reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+        this.cellCenters = {};
+
+        // reaproveita utilitários do racetrack
+        this.createEl = RouletteRacetrack.prototype.createEl;
+        this.getColor = RouletteRacetrack.prototype.getColor;
+        this.getColorName = RouletteRacetrack.prototype.getColorName;
+        this.setBets = RouletteRacetrack.prototype.setBets;
+        this.clearBets = RouletteRacetrack.prototype.clearBets;
+
+        this._build();
+    }
+
+    _build() {
+        RouletteRacetrack.prototype.injectStyles();
+
+        this.wrapper = document.createElement('div');
+        this.wrapper.className = 'roulette-racetrack-wrapper';
+
+        const svg = this.createEl('svg', {
+            viewBox: `0 0 ${this.options.width} ${this.options.height}`,
+            preserveAspectRatio: 'xMidYMid meet',
+            class: 'roulette-racetrack roulette-bettable'
+        });
+
+        const defs = this.createEl('defs');
+        defs.innerHTML = `
+            <linearGradient id="rt-red" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#e63946"/><stop offset="100%" stop-color="#9d0208"/></linearGradient>
+            <linearGradient id="rt-black" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2b2d42"/><stop offset="100%" stop-color="#14213d"/></linearGradient>
+            <linearGradient id="rt-green" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2a9d8f"/><stop offset="100%" stop-color="#1a7f72"/></linearGradient>
+        `;
+        svg.appendChild(defs);
+
+        this.numbersGroup = this.createEl('g', { id: 'ft-numbers' });
+        svg.appendChild(this.numbersGroup);
+        this.outsideGroup = this.createEl('g', { id: 'ft-outside' });
+        svg.appendChild(this.outsideGroup);
+        this.chipsGroup = this.createEl('g', { id: 'rt-chips', 'pointer-events': 'none' });
+        svg.appendChild(this.chipsGroup);
+
+        this.svg = svg;
+        this._buildNumbers();
+        this._buildOutside();
+
+        this.wrapper.appendChild(svg);
+        this.container.appendChild(this.wrapper);
+        this._attach();
+    }
+
+    _numCell(n, x, y, w, h) {
+        this.cellCenters[n] = { x: x + w / 2, y: y + h / 2 };
+        const g = this.createEl('g', { class: 'number-cell', 'data-n': n });
+        g.appendChild(this.createEl('rect', {
+            x, y, width: w, height: h, rx: 3, ry: 3,
+            fill: this.getColor(n), stroke: 'rgba(255,255,255,0.55)', 'stroke-width': 1
+        }));
+        const t = this.createEl('text', {
+            class: 'number-text', x: x + w / 2, y: y + h / 2 + 5,
+            'text-anchor': 'middle', fill: '#fff', 'font-size': 15,
+            'font-weight': 'bold', 'pointer-events': 'none'
+        });
+        t.textContent = n;
+        g.appendChild(t);
+        this.numbersGroup.appendChild(g);
+    }
+
+    _outCell(label, x, y, w, h, colorSquare) {
+        const g = this.createEl('g', { class: 'outside-cell' });
+        g.appendChild(this.createEl('rect', {
+            x, y, width: w, height: h, rx: 3, ry: 3,
+            fill: 'rgba(10,18,30,0.5)', stroke: 'rgba(255,255,255,0.4)', 'stroke-width': 1
+        }));
+        if (colorSquare) {
+            const s = 14;
+            const r = this.createEl('rect', {
+                x: x + w / 2 - s / 2, y: y + h / 2 - s / 2, width: s, height: s,
+                transform: `rotate(45 ${x + w / 2} ${y + h / 2})`,
+                fill: colorSquare === 'red' ? '#d02b35' : '#14171c',
+                stroke: 'rgba(255,255,255,0.4)', 'stroke-width': 1
+            });
+            g.appendChild(r);
+        } else {
+            const t = this.createEl('text', {
+                x: x + w / 2, y: y + h / 2 + 4, 'text-anchor': 'middle',
+                fill: '#dfe4ea', 'font-size': 12, 'font-weight': 600
+            });
+            t.textContent = label;
+            g.appendChild(t);
+        }
+        this.outsideGroup.appendChild(g);
+    }
+
+    _buildNumbers() {
+        const x0 = 48, y0 = 4, cw = 46, ch = 44;
+        // zero (coluna alta à esquerda)
+        this.cellCenters[0] = { x: x0 / 2 + 2, y: y0 + ch * 1.5 };
+        const gz = this.createEl('g', { class: 'number-cell', 'data-n': 0 });
+        gz.appendChild(this.createEl('path', {
+            d: `M ${x0} ${y0} H 22 A 22 22 0 0 0 22 ${y0 + ch * 3} H ${x0} Z`,
+            fill: this.getColor(0), stroke: 'rgba(255,255,255,0.55)', 'stroke-width': 1
+        }));
+        const tz = this.createEl('text', {
+            class: 'number-text', x: (x0 + 8) / 2, y: y0 + ch * 1.5 + 5,
+            'text-anchor': 'middle', fill: '#fff', 'font-size': 16,
+            'font-weight': 'bold', 'pointer-events': 'none'
+        });
+        tz.textContent = 0;
+        gz.appendChild(tz);
+        this.numbersGroup.appendChild(gz);
+
+        const rows = [
+            [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
+            [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
+            [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]
+        ];
+        rows.forEach((row, ri) => {
+            row.forEach((n, ci) => {
+                this._numCell(n, x0 + ci * cw, y0 + ri * ch, cw, ch);
+            });
+        });
+        this._gridRight = x0 + 12 * cw; // fim da grade (início do 2:1)
+        this._gridBottom = y0 + 3 * ch;
+    }
+
+    _buildOutside() {
+        const x0 = 48, y0 = 4, cw = 46, ch = 44;
+        const right = this._gridRight, bottom = this._gridBottom;
+        // coluna 2:1
+        for (let i = 0; i < 3; i++) this._outCell('2:1', right, y0 + i * ch, 40, ch);
+        // dúzias
+        const dozW = (right - x0) / 3;
+        ['1.ª 12', '2.ª 12', '3.ª 12'].forEach((d, i) => {
+            this._outCell(d, x0 + i * dozW, bottom + 4, dozW, 34);
+        });
+        // even money
+        const evW = (right - x0) / 6;
+        const evy = bottom + 42;
+        this._outCell('1-18', x0 + 0 * evW, evy, evW, 34);
+        this._outCell('PAR', x0 + 1 * evW, evy, evW, 34);
+        this._outCell('', x0 + 2 * evW, evy, evW, 34, 'red');
+        this._outCell('', x0 + 3 * evW, evy, evW, 34, 'black');
+        this._outCell('ÍMPAR', x0 + 4 * evW, evy, evW, 34);
+        this._outCell('19-36', x0 + 5 * evW, evy, evW, 34);
+    }
+
+    _attach() {
+        this.numbersGroup.querySelectorAll('.number-cell').forEach((cell) => {
+            const n = parseInt(cell.getAttribute('data-n'), 10);
+            cell.addEventListener('click', () => {
+                if (this.options.onNumberClick) this.options.onNumberClick({ number: n });
+            });
+        });
+    }
+
+    destroy() {
+        if (this.wrapper && this.wrapper.parentNode) this.wrapper.parentNode.removeChild(this.wrapper);
+    }
+}
+
 // Exportar para uso como módulo ou global
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = RouletteRacetrack;
+    module.exports.RouletteRacetrack = RouletteRacetrack;
+    module.exports.RouletteBetTable = RouletteBetTable;
 } else {
     window.RouletteRacetrack = RouletteRacetrack;
+    window.RouletteBetTable = RouletteBetTable;
 }

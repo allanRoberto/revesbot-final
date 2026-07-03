@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatBRL } from '@/lib/format';
 import RaceTrack from '@/components/RaceTrack';
+import BetTable from '@/components/BetTable';
 
 // Ordem física da roda europeia (para calcular vizinhos e a pista).
 const WHEEL = [
@@ -13,13 +14,6 @@ const REDS = new Set([
   1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36,
 ]);
 const color = (n: number) => (n === 0 ? 'g' : REDS.has(n) ? 'r' : 'b');
-
-// Pano lateral (layout Pragmatic): colunas crescem de 3 em 3.
-const FELT_ROWS = [
-  [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
-  [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
-  [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
-];
 
 const CHIPS = [0.5, 1, 2, 5, 10, 25];
 const chipLabel = (c: number) => c.toString().replace('.', ',');
@@ -229,19 +223,6 @@ export default function RouletteBoard({
 
   const disabled = (phase !== 'open' && phase !== 'closing') || conn !== 'ready';
 
-  const feltCell = (n: number) => (
-    <button
-      key={n}
-      className={`felt-cell ${color(n)}${lastResult === n ? ' win' : ''}`}
-      onClick={() => placeOn(n)}
-      disabled={disabled}
-      title={neigh > 0 ? `${n} + ${neigh} vizinho(s)` : `${n}`}
-    >
-      {n}
-      {placed[n] ? <span className="rb-chip">{chipLabel(placed[n])}</span> : null}
-    </button>
-  );
-
   return (
     <div className="st-overlay">
       {/* fase da mesa (pílula central no topo) */}
@@ -257,42 +238,9 @@ export default function RouletteBoard({
                 : PHASE_LABEL[phase]}
       </div>
 
-      {/* pano de apostas (esquerda) */}
+      {/* pano de apostas (esquerda) — objeto do mesmo plugin, fichas sincronizadas */}
       <div className="st-felt">
-        <div className="felt-top">
-          <button
-            className={`felt-zero${lastResult === 0 ? ' win' : ''}`}
-            onClick={() => placeOn(0)}
-            disabled={disabled}
-          >
-            0{placed[0] ? <span className="rb-chip">{chipLabel(placed[0])}</span> : null}
-          </button>
-          <div className="felt-grid">
-            {FELT_ROWS.map((row) => row.map(feltCell))}
-          </div>
-          <div className="felt-2to1">
-            {[0, 1, 2].map((i) => (
-              <button key={i} className="felt-out" disabled title="Em breve">
-                2:1
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="felt-dozens">
-          {['1.ª 12', '2.ª 12', '3.ª 12'].map((d) => (
-            <button key={d} className="felt-out" disabled title="Em breve">
-              {d}
-            </button>
-          ))}
-        </div>
-        <div className="felt-evens">
-          <button className="felt-out" disabled title="Em breve">1-18</button>
-          <button className="felt-out" disabled title="Em breve">PARES</button>
-          <button className="felt-out" disabled title="Em breve"><span className="fd r" /></button>
-          <button className="felt-out" disabled title="Em breve"><span className="fd b" /></button>
-          <button className="felt-out" disabled title="Em breve">ÍMPARES</button>
-          <button className="felt-out" disabled title="Em breve">19-36</button>
-        </div>
+        <BetTable placed={placed} disabled={disabled} onNumber={placeOn} />
       </div>
 
       {/* pista oval (racetrack) */}

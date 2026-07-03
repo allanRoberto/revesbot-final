@@ -972,70 +972,16 @@ a {
 .st-felt {
   position: absolute;
   left: 18px;
-  bottom: 86px;
-  width: clamp(360px, 29vw, 520px);
-  font-weight: 800;
+  bottom: 82px;
+  width: clamp(380px, 31vw, 560px);
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
 }
-.felt-top { display: flex; }
-.felt-zero {
-  position: relative;
-  flex: 0 0 40px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 22px 0 0 22px;
-  background: rgba(20, 138, 74, 0.88);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 800;
-  cursor: pointer;
-}
-.felt-grid {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-}
-.felt-cell {
-  position: relative;
-  height: 37px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  padding: 0;
-  min-width: 0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
-  transition: filter 0.1s;
-}
-.felt-cell.r { background: rgba(199, 32, 42, 0.85); }
-.felt-cell.b { background: rgba(12, 14, 18, 0.72); }
-.felt-cell:hover:not(:disabled), .felt-zero:hover:not(:disabled),
-.track-cell:hover:not(:disabled), .track-sec:hover:not(:disabled) { filter: brightness(1.35); }
-.felt-cell:disabled, .felt-zero:disabled { opacity: 0.75; cursor: not-allowed; }
-.felt-cell.win, .felt-zero.win, .track-cell.win {
-  outline: 2px solid var(--gold, #ffd15a);
-  outline-offset: -1px; z-index: 2;
-  box-shadow: 0 0 14px 3px rgba(255, 209, 90, 0.85);
-}
-.felt-2to1 { flex: 0 0 40px; display: flex; flex-direction: column; }
-.felt-2to1 .felt-out { flex: 1; }
-.felt-out {
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: rgba(10, 14, 20, 0.5);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  min-height: 31px;
-  cursor: default;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.felt-dozens, .felt-evens { display: flex; margin: 0 40px; }
-.felt-dozens .felt-out, .felt-evens .felt-out { flex: 1; }
-.fd { width: 14px; height: 14px; transform: rotate(45deg); display: inline-block; }
-.fd.r { background: #d02b35; }
-.fd.b { background: #14171c; border: 1px solid rgba(255, 255, 255, 0.4); }
+/* pano de apostas (objeto do plugin, SVG) */
+.ft-box { width: 100%; }
+.ft-off .roulette-bettable { pointer-events: none; }
+.roulette-bettable .number-cell { cursor: pointer; }
+.roulette-bettable .number-cell:hover rect,
+.roulette-bettable .number-cell:hover path { filter: brightness(1.35); }
 
 /* ----- pista oval (racetrack) ----- */
 .st-track {
