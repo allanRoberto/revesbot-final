@@ -259,25 +259,32 @@ class RouletteRacetrack {
     }
 
     buildSections() {
-        // Áreas dentro do oval interno (x 40..644, y 88..192, pontas r=52):
-        // Jeu Zero com borda direita curva (bolha) e divisórias inclinadas
-        // entre Voisins/Orphelins e Orphelins/Tiers — como na mesa real.
+        // Áreas dentro do oval interno (x 40..644, y 88..192, pontas r=52),
+        // com as fronteiras ALINHADAS aos números que cada seção representa
+        // (células retas de 38px a partir de x=90):
+        // - Jeu Zero {12,35,3,26,0,32,15}: curva esquerda + 15(topo)/12(base)
+        //   → bolha curva até x=128 (fim das células 15/12).
+        // - Voisins termina em 25(topo, x=318) e 22(base, x=318) → divisória
+        //   vertical em x=318 (fronteiras 25|17 e 22|9).
+        // - Orphelins termina em 6(topo, x=432) e 1(base, x=508) → divisória
+        //   inclinada de (432,88) a (508,192) (fronteiras 6|27 e 1|33).
+        // - Tiers: da divisória até a curva direita.
         const sectionsData = [
             {
-                key: 'jeu-zero', x: 118, label: 'Jeu Zero',
-                d: 'M 92 88 A 52 52 0 0 0 92 192 L 160 192 Q 205 140 160 88 Z'
+                key: 'jeu-zero', x: 100, label: 'Jeu Zero',
+                d: 'M 92 88 A 52 52 0 0 0 92 192 L 128 192 Q 172 140 128 88 Z'
             },
             {
-                key: 'voisins', x: 250, label: 'Voisins',
-                d: 'M 160 88 Q 205 140 160 192 L 306 192 L 322 88 Z'
+                key: 'voisins', x: 235, label: 'Voisins',
+                d: 'M 128 88 Q 172 140 128 192 L 318 192 L 318 88 Z'
             },
             {
-                key: 'orphelins', x: 382, label: 'Orphelins',
-                d: 'M 322 88 L 306 192 L 458 192 L 440 88 Z'
+                key: 'orphelins', x: 390, label: 'Orphelins',
+                d: 'M 318 88 L 318 192 L 508 192 L 432 88 Z'
             },
             {
-                key: 'tiers', x: 535, label: 'Tiers',
-                d: 'M 440 88 L 458 192 L 592 192 A 52 52 0 0 0 592 88 Z'
+                key: 'tiers', x: 550, label: 'Tiers',
+                d: 'M 432 88 L 508 192 L 592 192 A 52 52 0 0 0 592 88 Z'
             }
         ];
 
