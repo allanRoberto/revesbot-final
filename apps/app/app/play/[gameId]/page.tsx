@@ -6,8 +6,7 @@ import { getBookmakerUser } from '@/lib/bookmaker';
 import { findRoulette, isGameAvailable, availableHouseNames } from '@/lib/games';
 import SuggestionStrip from '@/components/SuggestionStrip';
 import SubscriptionGate from '@/components/SubscriptionGate';
-import TableVideo from '@/components/TableVideo';
-import RouletteBoard from '@/components/RouletteBoard';
+import PlayStage from '@/components/PlayStage';
 
 export default async function PlayPage({
   params,
@@ -55,10 +54,7 @@ export default async function PlayPage({
 
   return (
     <div className="stage">
-      {/* vídeo da mesa em tela cheia (fundo) */}
-      <TableVideo gameId={gameId} />
-
-      {/* barra superior translúcida sobre o vídeo */}
+      {/* barra superior translúcida sobre o vídeo/iframe */}
       <header className="topbar play-topbar stage-topbar">
         <div className="play-head-left">
           <Link className="back-btn" href="/dashboard">
@@ -70,8 +66,8 @@ export default async function PlayPage({
         <SuggestionStrip gameId={gameId} />
       </header>
 
-      {/* overlays de aposta (pano, pista, saldo, painel) */}
-      <RouletteBoard gameId={gameId} initialBalance={bookmaker?.balance ?? null} />
+      {/* palco: nossa transmissão (vídeo + tabuleiro) OU o jogo original (iframe) */}
+      <PlayStage gameId={gameId} initialBalance={bookmaker?.balance ?? null} />
 
       <SubscriptionGate />
     </div>

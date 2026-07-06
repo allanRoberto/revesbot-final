@@ -961,6 +961,50 @@ a {
 .stage > .table-video-wrap { position: absolute; inset: 0; }
 .stage .table-video { object-fit: cover; }
 
+/* ---------- Modo "jogo original": iframe da Pragmatic (abaixo da topbar) ---------- */
+.game-iframe-wrap {
+  position: absolute;
+  inset: 52px 0 0 0;
+  z-index: 8;
+  background: #000;
+}
+.game-iframe { width: 100%; height: 100%; border: none; display: block; }
+.game-iframe-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+/* botão flutuante: alterna transmissão <-> jogo original */
+.stage-modebtn {
+  position: absolute;
+  top: 58px;
+  right: 14px;
+  z-index: 45;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(16, 20, 28, 0.82);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  transition: background 0.15s, transform 0.08s;
+}
+.stage-modebtn:hover { background: rgba(30, 36, 48, 0.92); }
+.stage-modebtn:active { transform: scale(0.97); }
+.stage-modebtn.on { background: var(--accent, #177a5b); border-color: transparent; }
+
 .stage-topbar {
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -1378,6 +1422,8 @@ a {
   .stage { height: auto; min-height: 100vh; overflow: visible; display: flex; flex-direction: column; }
   .stage > .table-video-wrap { position: relative; inset: auto; height: 38vh; flex: none; }
   .stage .table-video { object-fit: contain; }
+  .game-iframe-wrap { position: relative; inset: auto; height: 82vh; flex: none; }
+  .stage-modebtn { top: auto; bottom: 12px; right: 12px; }
   .stage-topbar { position: relative; background: var(--panel, #101418); }
   .st-overlay {
     position: relative; inset: auto;

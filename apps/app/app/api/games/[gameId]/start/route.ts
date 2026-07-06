@@ -29,7 +29,7 @@ export async function POST(
     );
   }
 
-  const result = await startGame(gameId, user.lotogreenToken);
+  const result = await startGame(gameId, user.lotogreenToken, session.house);
   if (!result.ok || !result.link) {
     return NextResponse.json(
       { error: result.error ?? 'Falha ao iniciar o jogo.' },
