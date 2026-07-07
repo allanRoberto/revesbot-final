@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { getUsers } from '@/lib/mongo';
+import { findAppUser } from '@/lib/mongo';
 import { startGame } from '@/lib/bookmaker';
 import { findRoulette } from '@/lib/games';
 
@@ -20,11 +20,12 @@ export async function POST(
     return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
   }
 
-  const users = await getUsers();
-  const user = await users.findOne({ email: session.email });
+  // Doc CERTO por (email, casa) — o findOne({email}) pegava um doc antigo/de
+  // outra casa e mandava um token stale, causando "precisa estar logado".
+  const user = await findAppUser(session.email, session.house);
   if (!user?.lotogreenToken) {
     return NextResponse.json(
-      { error: 'Sessão da LotoGreen não encontrada. Faça login novamente.' },
+      { error: 'Sessão da casa não encontrada. Faça login novamente.' },
       { status: 401 },
     );
   }

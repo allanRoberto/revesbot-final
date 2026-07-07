@@ -34,12 +34,22 @@ export default function GameIframe({ gameId }: { gameId: string }) {
   return (
     <div className="game-iframe-wrap">
       {link ? (
-        <iframe
-          className="game-iframe"
-          src={link}
-          allow="autoplay; fullscreen; encrypted-media"
-          title="Jogo original"
-        />
+        <>
+          <iframe
+            className="game-iframe"
+            src={link}
+            allow="autoplay; fullscreen; encrypted-media"
+            title="Jogo original"
+          />
+          {/* escape hatch discreto: se algum navegador recusar o embed, abre fora */}
+          <button
+            className="game-iframe-newtab"
+            onClick={() => window.open(link, '_blank', 'noopener')}
+            title="Abrir o jogo em nova aba"
+          >
+            Abrir em nova aba ↗
+          </button>
+        </>
       ) : (
         <div className="game-iframe-status">{err ?? 'Abrindo o jogo original…'}</div>
       )}

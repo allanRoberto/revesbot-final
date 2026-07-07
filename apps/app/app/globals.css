@@ -979,6 +979,23 @@ a {
   color: var(--text-dim);
   font-size: 15px;
 }
+/* atalho sempre disponível: abrir o jogo em nova aba */
+.game-iframe-newtab {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  z-index: 6;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(16, 20, 28, 0.8);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.game-iframe-newtab:hover { background: rgba(30, 36, 48, 0.92); }
 
 /* botão flutuante: alterna transmissão <-> jogo original */
 .stage-modebtn {
