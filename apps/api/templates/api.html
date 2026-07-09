@@ -942,8 +942,15 @@
     .main-layout {
       grid-template-columns: 1fr !important;
     }
+    /* Painel de informações também aparece no mobile, abaixo do grid/racetrack */
     #number-info-panel {
-      display: none;
+      display: flex;
+      width: 100%;
+      position: static;
+      height: auto;
+      max-height: none;
+      margin-top: 12px;
+      margin-bottom: 90px;
     }
   }
 
@@ -8210,11 +8217,8 @@ countContainers.forEach(({ selector, itemClass }) => {
         const pct      = Math.round((freq / maxFreq) * 100);
         const neighbors = getNeighbors(n);
         const mirrors   = mirrorMap[n] || [];
-        const sections  = getSections(n);
         const terminal  = n % 10;
-        const tColor    = terminalColors[terminal] || "#6b7280";
         const cavaGrp   = n === 0 ? "—" : getCavalosGroup(n);
-        const cavaColor = n === 0 ? "#6b7280" : getCavalosColor(n);
         const followup  = analyzeFollowups(n, followupDepth);
         const afterBreakdown  = buildCategoryBreakdown(followup.after);
         const beforeBreakdown = buildCategoryBreakdown(followup.before);
@@ -8229,34 +8233,6 @@ countContainers.forEach(({ selector, itemClass }) => {
               </div>
             </div>
             <div class="info-rows">
-              <div class="info-row">
-                <span class="info-row-label">Dúzia</span>
-                <span class="info-row-value">${getDozen(n)}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-row-label">Coluna</span>
-                <span class="info-row-value">${getColumn(n)}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-row-label">Paridade</span>
-                <span class="info-row-value">${getParity(n)}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-row-label">Faixa</span>
-                <span class="info-row-value">${getHighLow(n)}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-row-label">Seção</span>
-                <span class="info-row-value" style="text-align:right;max-width:130px">${sections.join(", ")}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-row-label">Terminal</span>
-                <span class="info-row-value" style="color:${tColor}">${terminal}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-row-label">Cavalos</span>
-                <span class="info-row-value" style="color:${cavaColor}">Grupo ${cavaGrp}</span>
-              </div>
               <div class="info-row">
                 <span class="info-row-label">Freq. (${sliceCurrent.length})</span>
                 <span class="info-row-value">${freq}×</span>
