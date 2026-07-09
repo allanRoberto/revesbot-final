@@ -154,6 +154,39 @@
       grid-template-columns: 1fr !important;
     }
 
+    /* No mobile, a coluna do grid não trava altura — racetrack/modos viram
+       uma barra fixa no rodapé (painel de info já fica oculto aqui) */
+    .grid-column {
+      height: auto;
+    }
+
+    #racetrack-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1050;
+      border-radius: 0;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    /* Empilha racetrack em cima dos botões (lado a lado espreme demais em telas estreitas) */
+    #footer-body {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+
+    .footer-left {
+      align-items: center !important;
+    }
+
+    .footer-left .racetrack-host {
+      max-width: 320px !important;
+      margin: 0 auto !important;
+    }
+
     .card-body {
       padding-top: 0px;
     }
@@ -588,7 +621,7 @@
     opacity: 0.3 !important;
   }
 
-  /* Layout: grid numérico à esquerda + painel de info à direita */
+  /* Layout: coluna do grid (números + racetrack/modos) à esquerda + painel de info à direita */
   .main-layout {
     display: grid;
     grid-template-columns: 1fr 360px;
@@ -596,10 +629,19 @@
     align-items: start;
   }
 
+  /* Coluna esquerda: grid de números em cima, racetrack + modo de visualização embaixo */
+  .grid-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: calc(100vh - var(--header-h, 58px));
+  }
+
   #history-container {
     min-width: 0;
+    min-height: 0;
+    flex: 1;
     overflow-y: auto;
-    height: calc(100vh - var(--header-h, 58px) - var(--footer-h, 120px));
   }
 
   /* ── Painel de informações ─────────────────────────────────────────── */
@@ -608,7 +650,7 @@
     min-width: 0;
     position: sticky;
     top: 70px;
-    height: calc(100vh - var(--header-h, 58px) - var(--footer-h, 120px));
+    height: calc(100vh - var(--header-h, 58px));
     overflow-y: auto;
     background: var(--card-light);
     border: 1px solid var(--border-light);
@@ -2627,19 +2669,16 @@
     min-height: 14px;
   }
 
-  /* ── Footer fixo: racetrack esquerda + botões direita ── */
+  /* ── Racetrack + modo de visualização: dentro da coluna do grid ── */
   #racetrack-footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1050;
+    flex-shrink: 0;
+    width: 100%;
     background: var(--card-light, #fff);
     border-top: 1px solid var(--border-light, #e5e7eb);
+    border-radius: 0 0 10px 10px;
     padding: 2px 10px 2px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
     transition: transform 0.25s cubic-bezier(.4,0,.2,1);
   }
   body.dark-mode #racetrack-footer {
@@ -2678,7 +2717,8 @@
     align-items: flex-start;
   }
   .footer-left .racetrack-host {
-    width: 50vw;
+    width: 100%;
+    max-width: 260px;
   }
   .footer-right {
     flex: 1;
@@ -3198,8 +3238,44 @@
 
       <div class="card-body">
         <div class="main-layout">
-          <div id="history-container">
-            <div class="grid" id="history"></div>
+          <div class="grid-column">
+            <div id="history-container">
+              <div class="grid" id="history"></div>
+            </div>
+
+            <!-- Racetrack + modo de visualização (dentro da coluna do grid) -->
+            <div id="racetrack-footer">
+              <button id="footer-toggle-btn" class="footer-toggle-btn" title="Expandir/minimizar">
+                <span id="footer-toggle-icon">▼</span>
+              </button>
+              <div id="footer-body">
+              <div class="footer-left">
+                <div id="racetrack-container" class="racetrack-host"></div>
+              </div>
+              <div class="footer-right">
+                <div class="footer-mode-label">Modo de Visualização</div>
+                <div class="footer-mode-bar">
+                  <button id="toggle-colors" class="destacar-btn active">Padrão (Cores)</button>
+                  <button id="btn-sequence" class="destacar-btn">Sequência</button>
+                  <button id="btn-skipped-sequence" class="destacar-btn">Seq. pulada</button>
+                  <button id="btn-repeat" class="destacar-btn">Repetições</button>
+                  <button id="btn-terminal-repeat" class="destacar-btn">Rep. terminais</button>
+                  <button id="btn-select-mirrors" class="destacar-btn">Espelhos</button>
+                  <button id="btn-select-neighbors" class="destacar-btn">Vizinhos</button>
+                  <button id="btn-select-terminals" class="destacar-btn">Terminais</button>
+                  <button id="btn-cavalos" class="destacar-btn">Cavalos</button>
+                  <button id="btn-range-low" class="destacar-btn">Baixos</button>
+                  <button id="btn-range-high" class="destacar-btn">Altos</button>
+                  <button id="btn-sum-digits" class="destacar-btn">Σ Soma</button>
+                  <button id="btn-binary-mode" class="destacar-btn">Binário</button>
+                </div>
+                <div class="footer-bottom-row">
+                  <div id="countResult" class="count-result-bar"></div>
+                  <a id="reset-selection-link" class="destacar-reset">Resetar</a>
+                </div>
+              </div>
+              </div><!-- /footer-body -->
+            </div>
           </div>
 
           <!-- Painel de informações do número selecionado -->
@@ -3219,40 +3295,6 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- Footer fixo: racetrack esquerda + botões direita -->
-  <div id="racetrack-footer">
-    <button id="footer-toggle-btn" class="footer-toggle-btn" title="Expandir/minimizar footer">
-      <span id="footer-toggle-icon">▲</span>
-    </button>
-    <div id="footer-body">
-    <div class="footer-left">
-      <div id="racetrack-container" class="racetrack-host"></div>
-    </div>
-    <div class="footer-right">
-      <div class="footer-mode-label">Modo de Visualização</div>
-      <div class="footer-mode-bar">
-        <button id="toggle-colors" class="destacar-btn active">Padrão (Cores)</button>
-        <button id="btn-sequence" class="destacar-btn">Sequência</button>
-        <button id="btn-skipped-sequence" class="destacar-btn">Seq. pulada</button>
-        <button id="btn-repeat" class="destacar-btn">Repetições</button>
-        <button id="btn-terminal-repeat" class="destacar-btn">Rep. terminais</button>
-        <button id="btn-select-mirrors" class="destacar-btn">Espelhos</button>
-        <button id="btn-select-neighbors" class="destacar-btn">Vizinhos</button>
-        <button id="btn-select-terminals" class="destacar-btn">Terminais</button>
-        <button id="btn-cavalos" class="destacar-btn">Cavalos</button>
-        <button id="btn-range-low" class="destacar-btn">Baixos</button>
-        <button id="btn-range-high" class="destacar-btn">Altos</button>
-        <button id="btn-sum-digits" class="destacar-btn">Σ Soma</button>
-        <button id="btn-binary-mode" class="destacar-btn">Binário</button>
-      </div>
-      <div class="footer-bottom-row">
-        <div id="countResult" class="count-result-bar"></div>
-        <a id="reset-selection-link" class="destacar-reset">Resetar</a>
-      </div>
-    </div>
-    </div><!-- /footer-body -->
   </div>
 
   <!-- Floating Action Button (mobile) -->
@@ -8688,22 +8730,24 @@ countContainers.forEach(({ selector, itemClass }) => {
     }
 
     // Eventos
-    // === Ajuste dinâmico de altura do #history-container ===
+    // === Ajuste dinâmico de altura da coluna do grid + painel de info ===
+    // O racetrack/modo de visualização agora vive DENTRO de .grid-column
+    // (acima de #history-container via flex), então só precisamos descontar
+    // a altura do header — o footer some/aparece via flex, sem recalcular nada.
     function updateHistoryHeight() {
       const header = document.querySelector('.api-header-bar');
-      const footer = document.getElementById('racetrack-footer');
-      const container = document.getElementById('history-container');
-      if (!container) return;
+      const gridColumn = document.querySelector('.grid-column');
+      const infoPanel = document.getElementById('number-info-panel');
       const headerH = header ? header.offsetHeight : 58;
-      const footerH = footer ? footer.offsetHeight : 120;
-      container.style.height = `calc(100vh - ${headerH}px - ${footerH}px)`;
+      const heightCalc = `calc(100vh - ${headerH}px)`;
+      if (gridColumn) gridColumn.style.height = heightCalc;
+      if (infoPanel) infoPanel.style.height = heightCalc;
     }
     window.addEventListener('resize', updateHistoryHeight);
     document.addEventListener('DOMContentLoaded', updateHistoryHeight);
-    // Chama também após footer toggle
     setTimeout(updateHistoryHeight, 100);
 
-    // === Footer toggle (expandir/minimizar) ===
+    // === Footer toggle (expandir/minimizar racetrack + modo de visualização) ===
     (function() {
       const footer = document.getElementById('racetrack-footer');
       const btn = document.getElementById('footer-toggle-btn');
@@ -8712,7 +8756,6 @@ countContainers.forEach(({ selector, itemClass }) => {
       btn.addEventListener('click', () => {
         const collapsed = footer.classList.toggle('collapsed');
         icon.textContent = collapsed ? '▲' : '▼';
-        setTimeout(updateHistoryHeight, 50);
       });
     })();
 
