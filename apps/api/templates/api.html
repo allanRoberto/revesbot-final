@@ -764,6 +764,131 @@
     margin-top: 3px;
   }
 
+  /* ── Seletor de profundidade da análise de puxadas ─────────────────── */
+  .info-depth-selector {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--card-light);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+  }
+
+  body.dark-mode .info-depth-selector {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .info-depth-selector label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9ca3af;
+    white-space: nowrap;
+  }
+
+  .info-depth-selector select {
+    width: 70px;
+    padding: 2px 6px;
+    font-size: 12px;
+  }
+
+  /* ── Seções de puxadas (o que puxou / de onde veio) ────────────────── */
+  .info-followup-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-light);
+  }
+
+  body.dark-mode .info-followup-section {
+    border-top-color: var(--border-dark);
+  }
+
+  .info-followup-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .info-followup-count {
+    font-size: 10px;
+    color: #9ca3af;
+    white-space: nowrap;
+  }
+
+  .info-followup-empty {
+    font-size: 11px;
+    color: #9ca3af;
+    font-style: italic;
+  }
+
+  .info-cat-group {
+    margin-bottom: 8px;
+  }
+
+  .info-cat-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9ca3af;
+    margin-bottom: 3px;
+  }
+
+  .info-cat-bar-row {
+    display: grid;
+    grid-template-columns: 62px 1fr 52px;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+
+  .info-cat-bar-label {
+    color: var(--text-light);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.dark-mode .info-cat-bar-label {
+    color: var(--text-dark);
+  }
+
+  .info-cat-bar-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-light);
+    overflow: hidden;
+  }
+
+  body.dark-mode .info-cat-bar-track {
+    background: #374151;
+  }
+
+  .info-cat-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  .info-cat-bar-pct {
+    font-size: 10px;
+    color: #9ca3af;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .info-chip small {
+    opacity: 0.85;
+    font-weight: 500;
+  }
+
   @media (max-width: 992px) {
     .main-layout {
       grid-template-columns: 1fr 300px;
@@ -7885,6 +8010,114 @@ countContainers.forEach(({ selector, itemClass }) => {
       renderNumberInfoPanel();
     }
 
+    // ── Análise de puxadas (o que puxou / de onde veio) ────────────────────
+    let followupDepth = parseInt(loadConfig("followupDepth", "1"), 10) || 1;
+
+    // Para o número `num`, percorre todas as ocorrências no histórico atual e
+    // coleta os números vizinhos no tempo: `after` = saíram DEPOIS dele
+    // (índice menor = mais recente), `before` = saíram ANTES dele (índice maior).
+    function analyzeFollowups(num, depth) {
+      const sliceCurrent = history.slice(0, maxHistory);
+      const after = [];
+      const before = [];
+      let occurrences = 0;
+      sliceCurrent.forEach((v, i) => {
+        if (v !== num) return;
+        occurrences++;
+        for (let d = 1; d <= depth; d++) {
+          if (i - d >= 0) after.push(sliceCurrent[i - d]);
+          if (i + d < sliceCurrent.length) before.push(sliceCurrent[i + d]);
+        }
+      });
+      return { after, before, occurrences };
+    }
+
+    // Agrega uma lista de números por cor, paridade, dúzia, coluna, seção e top números.
+    function buildCategoryBreakdown(nums) {
+      const total = nums.length;
+      const colorLabel = { red: "Vermelho", black: "Preto", green: "Verde" };
+      const colorCount = {}, parityCount = {}, dozenCount = {}, columnCount = {}, sectionCount = {}, numberCount = {};
+      nums.forEach(n => {
+        const color = colorLabel[getColor(n)] || "—";
+        colorCount[color] = (colorCount[color] || 0) + 1;
+        parityCount[getParity(n)] = (parityCount[getParity(n)] || 0) + 1;
+        dozenCount[getDozen(n)] = (dozenCount[getDozen(n)] || 0) + 1;
+        columnCount[getColumn(n)] = (columnCount[getColumn(n)] || 0) + 1;
+        getSections(n).forEach(sec => { sectionCount[sec] = (sectionCount[sec] || 0) + 1; });
+        numberCount[n] = (numberCount[n] || 0) + 1;
+      });
+      const toSortedArr = (obj) => Object.entries(obj)
+        .sort((a, b) => b[1] - a[1])
+        .map(([label, count]) => ({ label, count, pct: total ? Math.round((count / total) * 100) : 0 }));
+      const topNumbers = Object.entries(numberCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([numStr, count]) => ({ num: parseInt(numStr, 10), count }));
+      return {
+        total,
+        color: toSortedArr(colorCount),
+        parity: toSortedArr(parityCount),
+        dozen: toSortedArr(dozenCount),
+        column: toSortedArr(columnCount),
+        section: toSortedArr(sectionCount),
+        topNumbers,
+      };
+    }
+
+    const FOLLOWUP_COLOR_MAP = { "Vermelho": "var(--color-red)", "Preto": "var(--color-black)", "Verde": "var(--color-zero)" };
+
+    function renderCategoryBars(rows, colorMap) {
+      return rows.map(r => `
+        <div class="info-cat-bar-row">
+          <span class="info-cat-bar-label">${r.label}</span>
+          <div class="info-cat-bar-track"><div class="info-cat-bar-fill" style="width:${r.pct}%;background:${(colorMap && colorMap[r.label]) || '#eab308'}"></div></div>
+          <span class="info-cat-bar-pct">${r.pct}% <small>(${r.count})</small></span>
+        </div>`).join("");
+    }
+
+    function renderFollowupSection(title, icon, breakdown, occurrences) {
+      if (!breakdown.total) {
+        return `
+          <div class="info-followup-section">
+            <div class="info-followup-header"><span class="info-panel-title" style="margin:0">${icon} ${title}</span></div>
+            <div class="info-followup-empty">Sem ocorrências suficientes no histórico atual.</div>
+          </div>`;
+      }
+      return `
+        <div class="info-followup-section">
+          <div class="info-followup-header">
+            <span class="info-panel-title" style="margin:0">${icon} ${title}</span>
+            <span class="info-followup-count">${occurrences} ocorrência${occurrences === 1 ? "" : "s"} · ${breakdown.total} números</span>
+          </div>
+          <div class="info-cat-group">
+            <div class="info-cat-label">Cor</div>
+            ${renderCategoryBars(breakdown.color, FOLLOWUP_COLOR_MAP)}
+          </div>
+          <div class="info-cat-group">
+            <div class="info-cat-label">Paridade</div>
+            ${renderCategoryBars(breakdown.parity)}
+          </div>
+          <div class="info-cat-group">
+            <div class="info-cat-label">Dúzia</div>
+            ${renderCategoryBars(breakdown.dozen)}
+          </div>
+          <div class="info-cat-group">
+            <div class="info-cat-label">Coluna</div>
+            ${renderCategoryBars(breakdown.column)}
+          </div>
+          <div class="info-cat-group">
+            <div class="info-cat-label">Seção</div>
+            ${renderCategoryBars(breakdown.section)}
+          </div>
+          <div class="info-cat-group">
+            <div class="info-cat-label">Top números</div>
+            <div class="info-number-chips">
+              ${breakdown.topNumbers.map(t => `<span class="info-chip ${getColor(t.num)}">${t.num} <small>×${t.count}</small></span>`).join("")}
+            </div>
+          </div>
+        </div>`;
+    }
+
     // ── Painel de informações do número selecionado ────────────────────────
     function renderNumberInfoPanel() {
       const placeholder = document.getElementById("number-info-placeholder");
@@ -7917,7 +8150,19 @@ countContainers.forEach(({ selector, itemClass }) => {
         return `<span class="info-chip ${cls}">${n}</span>`;
       }
 
-      content.innerHTML = nums.map(n => {
+      const depthOptionsHtml = [1, 2, 3, 5, 10].map(d =>
+        `<option value="${d}" ${d === followupDepth ? "selected" : ""}>${d}</option>`
+      ).join("");
+
+      const depthSelectorHtml = `
+        <div class="info-depth-selector">
+          <label for="followup-depth-select">Profundidade da puxada</label>
+          <select id="followup-depth-select" class="form-select form-select-sm">
+            ${depthOptionsHtml}
+          </select>
+        </div>`;
+
+      const cardsHtml = nums.map(n => {
         const cls      = getColor(n);
         const freq     = freqMap[n] || 0;
         const pct      = Math.round((freq / maxFreq) * 100);
@@ -7928,6 +8173,9 @@ countContainers.forEach(({ selector, itemClass }) => {
         const tColor    = terminalColors[terminal] || "#6b7280";
         const cavaGrp   = n === 0 ? "—" : getCavalosGroup(n);
         const cavaColor = n === 0 ? "#6b7280" : getCavalosColor(n);
+        const followup  = analyzeFollowups(n, followupDepth);
+        const afterBreakdown  = buildCategoryBreakdown(followup.after);
+        const beforeBreakdown = buildCategoryBreakdown(followup.before);
 
         return `
           <div class="info-number-card">
@@ -7985,8 +8233,21 @@ countContainers.forEach(({ selector, itemClass }) => {
               <div class="info-row-label" style="margin-bottom:4px">Espelhos</div>
               <div class="info-number-chips">${mirrors.map(chipHtml).join("")}</div>
             </div>` : ""}
+            ${renderFollowupSection("O que puxou depois", "🔺", afterBreakdown, followup.occurrences)}
+            ${renderFollowupSection("De onde veio (antes)", "🔻", beforeBreakdown, followup.occurrences)}
           </div>`;
       }).join("");
+
+      content.innerHTML = depthSelectorHtml + cardsHtml;
+
+      const depthSelect = document.getElementById("followup-depth-select");
+      if (depthSelect) {
+        depthSelect.addEventListener("change", () => {
+          followupDepth = parseInt(depthSelect.value, 10) || 1;
+          saveConfig("followupDepth", String(followupDepth));
+          renderNumberInfoPanel();
+        });
+      }
     }
 
     // 1) Extrai a lógica de cor num só lugar
