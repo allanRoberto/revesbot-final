@@ -1519,15 +1519,16 @@
         
         // Inicialização
         window.onload = async function() {
-            await loadRoulettes();
-            
-            // Definir data padrão (último mês)
+            // Datas padrão ANTES da primeira busca — senão o applyFilters inicial
+            // dispara sem filtro e puxa o histórico completo da mesa
             const today = new Date();
             const lastMonth = new Date(today);
             lastMonth.setDate(today.getDate() - 30);
-            
+
             document.getElementById('startDate').value = lastMonth.toISOString().split('T')[0];
             document.getElementById('endDate').value = today.toISOString().split('T')[0];
+
+            await loadRoulettes();
         };
         
         async function loadRoulettes() {
@@ -1857,16 +1858,43 @@
             });
         }
         
-        function renderOccurrences(filterNumber = null) {
+        async function renderOccurrences(filterNumber = null) {
             const container = document.getElementById('occurrencesList');
             container.innerHTML = '';
-            
+
             let occurrences = [];
-            
+
             if (filterNumber !== null && currentData.number_statistics[filterNumber]) {
+                const stats = currentData.number_statistics[filterNumber];
+
+                // A resposta enxuta não traz as ocorrências: busca sob demanda
+                // (com os mesmos filtros ativos) só quando o número é clicado
+                if (!stats.occurrences) {
+                    container.innerHTML = '<div style="padding:20px;text-align:center;color:#6c757d;">Carregando ocorrências...</div>';
+                    try {
+                        const params = new URLSearchParams({ number: filterNumber });
+                        const startDate = document.getElementById('startDate').value;
+                        if (startDate) params.append('start_date', startDate);
+                        const endDate = document.getElementById('endDate').value;
+                        if (endDate) params.append('end_date', endDate);
+                        const hourStart = document.getElementById('hourStart').value;
+                        if (hourStart) params.append('hour_start', hourStart);
+                        const hourEnd = document.getElementById('hourEnd').value;
+                        if (hourEnd) params.append('hour_end', hourEnd);
+                        const rouletteId = document.getElementById('rouletteSelect').value;
+                        const resp = await fetch(`/api/analise/${rouletteId}?${params.toString()}`);
+                        const detail = await resp.json();
+                        stats.occurrences = (detail.number_statistics[filterNumber] || {}).occurrences || [];
+                    } catch (e) {
+                        console.error('Erro ao buscar ocorrências do número:', e);
+                        stats.occurrences = [];
+                    }
+                    container.innerHTML = '';
+                }
+
                 // Mostrar ocorrências do número específico
-                occurrences = currentData.number_statistics[filterNumber].occurrences;
-                
+                occurrences = stats.occurrences;
+
                 const header = document.createElement('div');
                 header.style.padding = '15px';
                 header.style.background = '#f8f9fa';
@@ -1951,29 +1979,43 @@
                 alert('Por favor, aplique os filtros primeiro');
                 return;
             }
-            
+
             const rouletteId = document.getElementById('rouletteSelect').value;
-            const rouletteName = document.getElementById('rouletteSelect').options[
-                document.getElementById('rouletteSelect').selectedIndex
-            ].text;
-            
-            // Criar conteúdo CSV
-            let csv = 'Número,Data,Hora,Dia da Semana\n';
-            
-            for (const [num, stats] of Object.entries(currentData.number_statistics)) {
-                if (stats.occurrences) {
-                    stats.occurrences.forEach(occ => {
-                        csv += `${num},"${occ.date}","${occ.time}","${occ.day_of_week}"\n`;
-                    });
-                }
+
+            // A resposta da análise é enxuta (só contagens); o CSV completo vem
+            // do /history-detailed com os mesmos filtros aplicados
+            try {
+                const params = new URLSearchParams({ limit: '50000' });
+                const startDate = document.getElementById('startDate').value;
+                if (startDate) params.append('start_date', startDate);
+                const endDate = document.getElementById('endDate').value;
+                if (endDate) params.append('end_date', endDate);
+                const hourStart = document.getElementById('hourStart').value;
+                if (hourStart) params.append('start_hour', hourStart);
+                const hourEnd = document.getElementById('hourEnd').value;
+                if (hourEnd) params.append('end_hour', hourEnd);
+
+                const resp = await fetch(`/history-detailed/${rouletteId}?${params.toString()}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const rows = await resp.json();
+
+                const numberFilter = document.getElementById('numberSelect').value;
+                let csv = 'Número,Data,Hora,Dia da Semana\n';
+                rows.forEach(row => {
+                    if (numberFilter !== '' && String(row.value) !== numberFilter) return;
+                    csv += `${row.value},"${row.date}","${row.time}","${row.day_of_week}"\n`;
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `analise_${rouletteId}_${new Date().toISOString().split('T')[0]}.csv`;
+                link.click();
+            } catch (e) {
+                console.error('Erro ao exportar dados:', e);
+                alert('Erro ao exportar dados. Verifique o console.');
             }
-            
-            // Criar blob e download
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `analise_${rouletteId}_${new Date().toISOString().split('T')[0]}.csv`;
-            link.click();
         }
         
         // Adicionar atalhos de teclado
