@@ -1332,8 +1332,15 @@
                                 <option value="90">Últimos 90 dias</option>
                             </select>
                         </div>
+
+                        <div style="display: flex; align-items: flex-end;">
+                            <label style="display: flex; align-items: center; gap: 10px; font-weight: bold; color: #495057; cursor: pointer; padding: 10px; border: 2px solid #dee2e6; border-radius: 8px; width: 100%; background: white;">
+                                <input type="checkbox" id="predictionAllRoulettes" style="width: 20px; height: 20px; cursor: pointer;">
+                                🌐 Todas as roletas
+                            </label>
+                        </div>
                     </div>
-                    
+
                     <button class="btn btn-primary" onclick="getPrediction()" style="width: 100%; padding: 15px; font-size: 18px;">
                         🔮 Gerar Previsão
                     </button>
@@ -2206,36 +2213,40 @@ function renderHeatmap() {
 // Remova todas as funções antigas de padrões e adicione estas:
 
 async function getPrediction() {
+    const allRoulettes = document.getElementById('predictionAllRoulettes').checked;
     const rouletteId = document.getElementById('rouletteSelect').value;
-    if (!rouletteId) {
-        alert('Por favor, selecione uma roleta primeiro!');
+    if (!allRoulettes && !rouletteId) {
+        alert('Por favor, selecione uma roleta primeiro (ou marque "Todas as roletas")!');
         return;
     }
-    
+
     const time = document.getElementById('predictionTime').value;
     if (!time) {
         alert('Por favor, selecione um horário!');
         return;
     }
-    
+
     const interval = document.getElementById('predictionInterval').value;
     const daysBack = document.getElementById('predictionDays').value;
-    
+
     document.getElementById('predictionLoading').style.display = 'block';
     document.getElementById('predictionResult').style.display = 'none';
-    
+
     try {
         const params = new URLSearchParams({
             time: time,
             interval: interval,
             days_back: daysBack
         });
-        
-        const response = await fetch(`/api/analise/previsao/${rouletteId}?${params}`);
+
+        const url = allRoulettes
+            ? `/api/analise-global/previsao?${params}`
+            : `/api/analise/previsao/${rouletteId}?${params}`;
+        const response = await fetch(url);
         const data = await response.json();
-        
+
         renderPredictionResult(data);
-        
+
     } catch (error) {
         console.error('Erro ao gerar previsão:', error);
         alert('Erro ao gerar previsão. Verifique o console.');
@@ -2248,6 +2259,11 @@ function renderPredictionResult(data) {
     document.getElementById('predictionResult').style.display = 'block';
     
     // Informações do intervalo
+    const roulettesInfo = data.roulettes_with_occurrences !== undefined ? `
+            <div>
+                <strong>🌐 Roletas Analisadas:</strong><br>
+                ${data.roulettes_with_occurrences}
+            </div>` : '';
     document.getElementById('intervalInfo').innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
             <div>
@@ -2265,7 +2281,7 @@ function renderPredictionResult(data) {
             <div>
                 <strong>Taxa de Ocorrência:</strong><br>
                 ${((data.days_with_occurrences / data.days_analyzed) * 100).toFixed(1)}%
-            </div>
+            </div>${roulettesInfo}
         </div>
     `;
     

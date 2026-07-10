@@ -1594,6 +1594,151 @@ async def get_prediction(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/analise-global/previsao")
+async def get_prediction_global(
+    time: str,  # Formato HH:MM
+    interval: int = 5,  # Intervalo em minutos (5, 10, 15, 20, 30)
+    days_back: int = 30  # Quantos dias analisar
+):
+    """
+    Mesma lógica da previsão por horário, mas agregando TODAS as roletas:
+    dado um horário e intervalo, retorna o ranking global de números somando
+    as ocorrências de todas as mesas naquela janela.
+    """
+    try:
+        hour, minute = map(int, time.split(":"))
+
+        # Janela em minutos totais do dia, com wrap nas duas direções
+        # (a versão por roleta perde a fatia anterior quando start fica negativo)
+        center = hour * 60 + minute
+        start_total = (center - interval) % 1440
+        end_total = (center + interval) % 1440
+        end_hour, end_minute = divmod(end_total, 60)
+
+        start_date = datetime.now() - timedelta(days=days_back)
+
+        # Filtro de hora/minuto direto no MongoDB: todas as roletas em 30 dias
+        # são centenas de milhares de docs — trazer tudo pro Python não escala
+        tz_name = "America/Sao_Paulo"
+        if start_total < end_total:
+            window_match = {"$and": [
+                {"$gte": ["$_t", start_total]},
+                {"$lt": ["$_t", end_total]},
+            ]}
+        else:
+            # Janela atravessa a meia-noite
+            window_match = {"$or": [
+                {"$gte": ["$_t", start_total]},
+                {"$lt": ["$_t", end_total]},
+            ]}
+
+        pipeline = [
+            {"$match": {"timestamp": {"$gte": start_date}}},
+            {"$addFields": {
+                "_t": {"$add": [
+                    {"$multiply": [{"$hour": {"date": "$timestamp", "timezone": tz_name}}, 60]},
+                    {"$minute": {"date": "$timestamp", "timezone": tz_name}},
+                ]},
+            }},
+            {"$match": {"$expr": window_match}},
+            {"$group": {
+                "_id": "$value",
+                "count": {"$sum": 1},
+                "days": {"$addToSet": {"$dateToString": {
+                    "format": "%Y-%m-%d", "date": "$timestamp", "timezone": tz_name,
+                }}},
+                "roulettes": {"$addToSet": "$roulette_id"},
+            }},
+        ]
+
+        groups = await history_coll.aggregate(pipeline).to_list(length=None)
+
+        numbers_count: dict[int, int] = {}
+        all_days: set[str] = set()
+        all_roulettes: set[str] = set()
+        for g in groups:
+            num = int(g["_id"])
+            numbers_count[num] = int(g["count"])
+            all_days.update(g.get("days") or [])
+            all_roulettes.update(g.get("roulettes") or [])
+
+        total_in_interval = sum(numbers_count.values())
+        days_with_data = len(all_days)
+
+        # Ranking (inclui números que nunca saíram, com count 0)
+        ranking = []
+        for num in range(37):
+            count = numbers_count.get(num, 0)
+            ranking.append({
+                "number": num,
+                "count": count,
+                "percentage": (count / total_in_interval * 100) if total_in_interval > 0 else 0,
+                "average_per_day": count / days_with_data if days_with_data else 0,
+            })
+        ranking.sort(key=lambda x: x["count"], reverse=True)
+
+        # Quebras por categoria calculadas a partir das contagens por número
+        # (resultado idêntico ao doc-a-doc da rota original)
+        red_numbers = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+
+        def calc_percentage(count):
+            return (count / total_in_interval * 100) if total_in_interval > 0 else 0
+
+        colors_count = {"verde": 0, "vermelho": 0, "preto": 0}
+        dozens_count = {"1ª dúzia": 0, "2ª dúzia": 0, "3ª dúzia": 0, "zero": 0}
+        columns_count = {"1ª coluna": 0, "2ª coluna": 0, "3ª coluna": 0, "zero": 0}
+        parity_count = {"par": 0, "ímpar": 0, "zero": 0}
+        half_count = {"1-18": 0, "19-36": 0, "zero": 0}
+
+        for num, count in numbers_count.items():
+            if num == 0:
+                colors_count["verde"] += count
+                dozens_count["zero"] += count
+                columns_count["zero"] += count
+                parity_count["zero"] += count
+                half_count["zero"] += count
+                continue
+            colors_count["vermelho" if num in red_numbers else "preto"] += count
+            if num <= 12:
+                dozens_count["1ª dúzia"] += count
+            elif num <= 24:
+                dozens_count["2ª dúzia"] += count
+            else:
+                dozens_count["3ª dúzia"] += count
+            col = num % 3
+            columns_count["1ª coluna" if col == 1 else "2ª coluna" if col == 2 else "3ª coluna"] += count
+            parity_count["par" if num % 2 == 0 else "ímpar"] += count
+            half_count["1-18" if num <= 18 else "19-36"] += count
+
+        colors_analysis = {c: {"count": n, "percentage": calc_percentage(n)} for c, n in colors_count.items()}
+        dozens_analysis = {d: {"count": n, "percentage": calc_percentage(n), "numbers": get_dozen_numbers(d)} for d, n in dozens_count.items()}
+        columns_analysis = {c: {"count": n, "percentage": calc_percentage(n), "numbers": get_column_numbers(c)} for c, n in columns_count.items()}
+        parity_analysis = {p: {"count": n, "percentage": calc_percentage(n)} for p, n in parity_count.items()}
+        half_analysis = {h: {"count": n, "percentage": calc_percentage(n)} for h, n in half_count.items()}
+
+        return {
+            "time": time,
+            "interval_minutes": interval,
+            "interval_end": f"{end_hour:02d}:{end_minute:02d}",
+            "days_analyzed": days_back,
+            "total_occurrences_in_interval": total_in_interval,
+            "days_with_occurrences": days_with_data,
+            "roulettes_with_occurrences": len(all_roulettes),
+            "ranking": ranking[:37],
+            "top_5": ranking[:5],
+            "bottom_5": [r for r in ranking if r["count"] == 0][:5],
+            "colors": colors_analysis,
+            "dozens": dozens_analysis,
+            "columns": columns_analysis,
+            "parity": parity_analysis,
+            "half": half_analysis,
+        }
+
+    except Exception as e:
+        logging.error(f"Erro na previsão global: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/analise/previsao-2/{roulette_id}")
 async def get_prediction_detail(
     roulette_id: str,
