@@ -46,3 +46,19 @@ export function isGameAvailable(game: RouletteGame, house: string): boolean {
 export function availableHouseNames(game: RouletteGame): string[] {
   return HOUSES.filter((h) => isGameAvailable(game, h.id)).map((h) => h.name);
 }
+
+// ===== Jogos de cassino (não-roleta) — abrem em NOVA ABA na conta do usuário,
+// pois não têm mesa ao vivo/overlay próprio. gameId = id da LotoGreen. =====
+export interface CasinoGame {
+  gameId: string;
+  name: string;
+  provider: string;
+}
+
+export const CASINO_GAMES: CasinoGame[] = [
+  { gameId: '3836', name: 'Mines', provider: 'Spribe' },
+];
+
+export function findCasinoGame(gameId: string): CasinoGame | undefined {
+  return CASINO_GAMES.find((g) => g.gameId === gameId);
+}

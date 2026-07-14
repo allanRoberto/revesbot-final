@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
 import { findAppUser } from '@/lib/mongo';
 import { getBookmakerUser } from '@/lib/bookmaker';
-import { ROULETTES } from '@/lib/games';
+import { ROULETTES, CASINO_GAMES } from '@/lib/games';
 import { houseName } from '@/lib/houses';
 import BalanceBadge from '@/components/BalanceBadge';
 import SubscriptionGate from '@/components/SubscriptionGate';
@@ -33,7 +33,7 @@ export default async function Dashboard() {
       <main className="content">
         <h1 className="page-title">Escolha uma roleta</h1>
         <p className="page-sub">Clique para entrar na mesa da {houseName(session.house)}.</p>
-        <RouletteGrid games={ROULETTES} house={session.house} />
+        <RouletteGrid games={ROULETTES} casinoGames={CASINO_GAMES} house={session.house} />
       </main>
 
       <SubscriptionGate />
