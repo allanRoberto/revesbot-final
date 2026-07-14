@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   type RouletteGame,
@@ -88,32 +88,6 @@ export default function RouletteGrid({
     router.push(`/play/${gameId}`);
   }
 
-  // Jogo de cassino (Mines): abre em NOVA ABA. A aba é aberta já no clique
-  // (gesto do usuário) p/ não ser bloqueada como popup; depois navega no link.
-  // Abrimos SEM a flag 'noopener' (senão window.open devolve null e perdemos a
-  // referência p/ navegar) e cortamos o opener manualmente por segurança.
-  async function launchCasino(gameId: string) {
-    const win = window.open('about:blank', '_blank');
-    if (win) {
-      try { win.opener = null; } catch { /* ok */ }
-      win.document.write('<p style="font:16px sans-serif;color:#888;padding:24px">Abrindo o jogo…</p>');
-    }
-    setLoadingId(gameId);
-    try {
-      const res = await fetch(`/api/casino/${gameId}/launch`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok || !data.link) throw new Error(data.error ?? 'Falha ao abrir o jogo.');
-      if (win) win.location.href = data.link;
-      else window.location.href = data.link; // popup bloqueado: navega na própria aba
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Erro ao abrir o jogo.';
-      if (win) win.document.body.innerHTML = `<p style="font:16px sans-serif;color:#c33;padding:24px">${msg}</p>`;
-      else alert(msg);
-    } finally {
-      setLoadingId(null);
-    }
-  }
-
   return (
     <div className="games-grid">
       {games.map((g) => {
@@ -155,26 +129,84 @@ export default function RouletteGrid({
         );
       })}
 
-      {/* Jogos de cassino (Mines) — abrem em nova aba na conta do usuário */}
+      {/* Jogos de cassino (Mines) — link real que abre em nova aba */}
       {casinoGames.map((g) => (
-        <button
-          key={`casino-${g.gameId}`}
-          className="game-card"
-          onClick={() => launchCasino(g.gameId)}
-          disabled={loadingId !== null}
-        >
-          <div className="game-thumb">
-            <MinesIcon />
-            <span className="game-badge">{g.provider}</span>
-          </div>
-          <div className="game-info">
-            <span className="game-name">{g.name}</span>
-            <span className="game-cta">
-              {loadingId === g.gameId ? 'Abrindo...' : 'Jogar em nova aba ↗'}
-            </span>
-          </div>
-        </button>
+        <CasinoCard key={`casino-${g.gameId}`} game={g} />
       ))}
     </div>
+  );
+}
+
+// Card de jogo de cassino: busca o link jogável quando o dashboard carrega e o
+// renderiza como <a target="_blank"> — clique num link nativo NUNCA é bloqueado
+// como popup (o window.open era barrado em alguns navegadores).
+function CasinoCard({ game }: { game: CasinoGame }) {
+  const [link, setLink] = useState<string | null>(null);
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const lastFetch = useRef(0);
+
+  const fetchLink = useCallback(async () => {
+    setState((s) => (s === 'ready' ? s : 'loading'));
+    try {
+      const res = await fetch(`/api/casino/${game.gameId}/launch`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.link) throw new Error(data.error ?? 'Falha');
+      setLink(data.link);
+      setState('ready');
+      lastFetch.current = Date.now();
+    } catch {
+      setState('error');
+    }
+  }, [game.gameId]);
+
+  useEffect(() => {
+    fetchLink();
+  }, [fetchLink]);
+
+  // Mantém o link fresco: se o usuário voltar à aba do dashboard depois de muito
+  // tempo (>4min), refaz o link (o token de launch pode expirar).
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastFetch.current > 240000) {
+        fetchLink();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [fetchLink]);
+
+  const thumb = (
+    <div className="game-thumb">
+      <MinesIcon />
+      <span className="game-badge">{game.provider}</span>
+    </div>
+  );
+
+  if (state === 'ready' && link) {
+    return (
+      <a className="game-card" href={link} target="_blank" rel="noopener noreferrer">
+        {thumb}
+        <div className="game-info">
+          <span className="game-name">{game.name}</span>
+          <span className="game-cta">Jogar em nova aba ↗</span>
+        </div>
+      </a>
+    );
+  }
+
+  return (
+    <button
+      className="game-card"
+      onClick={state === 'error' ? fetchLink : undefined}
+      disabled={state === 'loading'}
+    >
+      {thumb}
+      <div className="game-info">
+        <span className="game-name">{game.name}</span>
+        <span className="game-cta">
+          {state === 'error' ? 'Tentar de novo' : 'Carregando…'}
+        </span>
+      </div>
+    </button>
   );
 }
