@@ -1,4 +1,4 @@
-"""Worker prospectivo para as sete estrategias de gatilho orbital.
+"""Worker prospectivo para as estrategias de gatilho orbital.
 
 O processo consome somente previsoes previamente congeladas pelo shadow worker,
 nao reconstrui entradas depois do resultado e nao publica sinais de aposta.
@@ -23,6 +23,7 @@ from apps.signals.orbit_engine.shadow_worker import DEFAULT_ROULETTES, MULTI_ENG
 from apps.signals.orbit_engine.snapshot import _mongo_url
 from shared.python.roulette.orbit.triggers.catalog import (
     DEFAULT_MAX_ATTEMPTS,
+    STRATEGIES,
     TRIGGER_ENGINE_VERSION,
 )
 from shared.python.roulette.orbit.triggers.state_machine import (
@@ -30,6 +31,7 @@ from shared.python.roulette.orbit.triggers.state_machine import (
     advance_candidate,
     advance_trigger_trial_document,
     build_ryan_entry,
+    build_ryan2_entry,
     expand_with_neighbors,
 )
 
@@ -328,6 +330,26 @@ class OrbitTriggerWorker:
                     current_prediction=prediction,
                 )
             )
+
+        ryan2 = build_ryan2_entry(top9)
+        if ryan2:
+            created += int(
+                self._create_trigger_trial(
+                    activation=TriggerActivation(
+                        strategy_slug="ryan-2",
+                        entry_numbers=ryan2["entry_numbers"],
+                        base_numbers=ryan2["base_numbers"],
+                        source_trial_id=source_id,
+                        metadata={
+                            "first_three": list(ryan2["first_three"]),
+                            "first_colors": list(ryan2["first_colors"]),
+                            "target_color": ryan2["target_color"],
+                            "neighbor_span": 1,
+                        },
+                    ),
+                    current_prediction=prediction,
+                )
+            )
         return created
 
     def _arm_new_candidates(
@@ -436,7 +458,8 @@ class OrbitTriggerWorker:
     def run_forever(self) -> None:
         self.ensure_indexes()
         LOGGER.info(
-            "monitor prospectivo ativo strategies=7 attempts=%s roulettes=%s",
+            "monitor prospectivo ativo strategies=%s attempts=%s roulettes=%s",
+            len(STRATEGIES),
             self.max_attempts,
             ",".join(self.roulette_ids),
         )

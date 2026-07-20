@@ -23,6 +23,27 @@ def test_profitability_request_accepts_five_non_negative_stakes():
     assert payload.attempt_stakes[4] == Decimal("160")
 
 
+def test_profitability_request_accepts_all_eight_strategy_slugs():
+    strategy_slugs = [
+        "green-primeira",
+        "allan",
+        "inception",
+        "inception-primeiros-4",
+        "interrompimento",
+        "distancia",
+        "ryan",
+        "ryan-2",
+    ]
+    payload = OrbitTriggerProfitabilityRequest(
+        roulette_ids=["roulette-1"],
+        strategy_slugs=strategy_slugs,
+        initial_bank=1000,
+        attempt_stakes=[10, 20, 40, 80, 160],
+    )
+
+    assert payload.strategy_slugs == strategy_slugs
+
+
 @pytest.mark.parametrize(
     "field, value",
     [

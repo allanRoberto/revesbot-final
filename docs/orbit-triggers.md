@@ -31,6 +31,10 @@ sinais no Redis e nao envia apostas.
 7. `ryan`: exige exatamente uma confluencia entre os tres pivos e o Top 9. Os outros
    pivos geram vizinhos, suas familias por ultimo digito sao cruzadas com o Top 9 e os
    centros resultantes recebem dois vizinhos fisicos de cada lado.
+8. `ryan-2`: exige que os tres primeiros numeros da sugestao alternem entre vermelho,
+   preto e vermelho, ou entre preto, vermelho e preto. Todos os alvos da cor repetida
+   presentes no Top 9 recebem um vizinho fisico de cada lado. O zero nos tres primeiros
+   lugares nao ativa a estrategia.
 
 ## Execucao
 

@@ -11,7 +11,7 @@ PerformanceWindow = Literal["1h", "3h", "6h", "12h", "24h", "all"]
 
 class OrbitTriggerProfitabilityRequest(BaseModel):
     roulette_ids: List[str] = Field(min_length=1, max_length=20)
-    strategy_slugs: Optional[List[str]] = Field(default=None, min_length=1, max_length=7)
+    strategy_slugs: Optional[List[str]] = Field(default=None, min_length=1, max_length=8)
     window: PerformanceWindow = "24h"
     initial_bank: Decimal = Field(gt=0, le=Decimal("1000000000"))
     attempt_stakes: List[Decimal] = Field(min_length=5, max_length=5)

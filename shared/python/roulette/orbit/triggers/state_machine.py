@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
-from ..constants import EUROPEAN_WHEEL, WHEEL_INDEX, validate_number
+from ..constants import (
+    BLACK_NUMBERS,
+    EUROPEAN_WHEEL,
+    RED_NUMBERS,
+    WHEEL_INDEX,
+    validate_number,
+)
 from .catalog import DEFAULT_MAX_ATTEMPTS
 
 
@@ -83,6 +89,43 @@ def build_ryan_entry(
         "confluence": (pivots[confluence_positions[0]],),
         "remaining_pivots": remaining,
         "pivot_neighbors": tuple(pivot_neighbors),
+        "base_numbers": base_numbers,
+        "entry_numbers": entry_numbers,
+    }
+
+
+def build_ryan2_entry(suggestion: Sequence[int]) -> dict[str, Any] | None:
+    """Constroi a entrada Ryan 2 quando o Top 3 alterna vermelho e preto."""
+
+    ranked = tuple(validate_number(value) for value in suggestion[:9])
+    if len(ranked) < 3:
+        return None
+
+    first_three = ranked[:3]
+    first_colors = tuple(
+        "red"
+        if number in RED_NUMBERS
+        else "black"
+        if number in BLACK_NUMBERS
+        else "green"
+        for number in first_three
+    )
+    if first_colors == ("red", "black", "red"):
+        target_color = "red"
+        color_numbers = RED_NUMBERS
+    elif first_colors == ("black", "red", "black"):
+        target_color = "black"
+        color_numbers = BLACK_NUMBERS
+    else:
+        return None
+
+    top9 = tuple(dict.fromkeys(ranked))
+    base_numbers = tuple(number for number in top9 if number in color_numbers)
+    entry_numbers = expand_with_neighbors(base_numbers, span=1)
+    return {
+        "first_three": first_three,
+        "first_colors": first_colors,
+        "target_color": target_color,
         "base_numbers": base_numbers,
         "entry_numbers": entry_numbers,
     }

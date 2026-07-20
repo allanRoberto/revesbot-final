@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from apps.monitoring.orbit_triggers.worker import main
+from apps.monitoring.orbit_triggers.worker import OrbitTriggerWorker, main
 from shared.python.roulette.orbit.triggers.performance import (
     build_trigger_performance_summary,
 )
@@ -10,6 +10,8 @@ from shared.python.roulette.orbit.triggers.state_machine import (
     advance_candidate,
     advance_trigger_trial_document,
     build_ryan_entry,
+    build_ryan2_entry,
+    expand_with_neighbors,
 )
 
 
@@ -52,6 +54,67 @@ def test_ryan_example_produces_22_and_20_as_base_numbers():
 def test_ryan_requires_exactly_one_confluence():
     assert build_ryan_entry([32, 13, 15], [13, 15, 20]) is None
     assert build_ryan_entry([32, 13, 15], [1, 2, 3]) is None
+
+
+def test_ryan2_red_black_red_selects_every_red_target_from_top9():
+    result = build_ryan2_entry([1, 2, 3, 4, 5, 8, 9, 10, 12])
+
+    assert result is not None
+    assert result["first_three"] == (1, 2, 3)
+    assert result["first_colors"] == ("red", "black", "red")
+    assert result["target_color"] == "red"
+    assert result["base_numbers"] == (1, 3, 5, 9, 12)
+    assert result["entry_numbers"] == expand_with_neighbors(
+        (1, 3, 5, 9, 12), span=1
+    )
+
+
+def test_ryan2_black_red_black_selects_every_black_target_from_top9():
+    result = build_ryan2_entry([2, 1, 4, 3, 6, 5, 8, 7, 10])
+
+    assert result is not None
+    assert result["first_colors"] == ("black", "red", "black")
+    assert result["target_color"] == "black"
+    assert result["base_numbers"] == (2, 4, 6, 8, 10)
+    assert result["entry_numbers"] == expand_with_neighbors((2, 4, 6, 8, 10), span=1)
+
+
+@pytest.mark.parametrize(
+    "suggestion",
+    [
+        [1, 3, 2, 4, 5],
+        [2, 4, 1, 3, 5],
+        [1, 0, 3, 2, 4],
+        [0, 1, 2, 3, 4],
+        [1, 2],
+    ],
+)
+def test_ryan2_rejects_non_alternating_or_green_top3(suggestion):
+    assert build_ryan2_entry(suggestion) is None
+
+
+def test_trigger_worker_registers_ryan2_as_an_immediate_entry(monkeypatch):
+    worker = OrbitTriggerWorker.__new__(OrbitTriggerWorker)
+    activations = []
+
+    def capture(*, activation, current_prediction):
+        del current_prediction
+        activations.append(activation)
+        return True
+
+    monkeypatch.setattr(worker, "_create_trigger_trial", capture)
+    worker._create_direct_entries(
+        {
+            "trial_id": "prediction-1",
+            "top9": [1, 2, 3, 4, 5, 8, 9, 10, 12],
+            "recent_pivots": [20, 21, 22],
+        }
+    )
+
+    ryan2 = next(row for row in activations if row.strategy_slug == "ryan-2")
+    assert ryan2.base_numbers == (1, 3, 5, 9, 12)
+    assert ryan2.metadata["target_color"] == "red"
+    assert ryan2.metadata["neighbor_span"] == 1
 
 
 def test_green_waits_one_spin_then_uses_current_top9():

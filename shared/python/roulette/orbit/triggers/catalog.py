@@ -101,6 +101,20 @@ STRATEGIES: tuple[TriggerStrategySpec, ...] = (
             "cada lado; de um a quatro candidatos centrais."
         ),
     ),
+    TriggerStrategySpec(
+        slug="ryan-2",
+        name="Modelo Ryan 2",
+        short_name="Ryan 2",
+        summary="Ativa pela alternância de cores entre os três primeiros alvos.",
+        activation_rule=(
+            "Os três primeiros números da sugestão devem formar vermelho-preto-vermelho "
+            "ou preto-vermelho-preto; o zero não completa o padrão."
+        ),
+        entry_rule=(
+            "Todos os números do Top 9 com a cor das posições 1 e 3, protegidos com "
+            "um vizinho físico de cada lado."
+        ),
+    ),
 )
 
 _BY_SLUG = {strategy.slug: strategy for strategy in STRATEGIES}

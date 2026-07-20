@@ -7,6 +7,7 @@ from .state_machine import (
     advance_candidate,
     advance_trigger_trial_document,
     build_ryan_entry,
+    build_ryan2_entry,
     expand_with_neighbors,
 )
 
@@ -18,6 +19,7 @@ __all__ = [
     "advance_candidate",
     "advance_trigger_trial_document",
     "build_ryan_entry",
+    "build_ryan2_entry",
     "expand_with_neighbors",
     "get_strategy",
 ]
