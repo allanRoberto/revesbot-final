@@ -46,8 +46,35 @@ No PM2, o processo e `orbit-trigger-monitor-<ambiente>`.
 
 - `GET /api/orbit-triggers/catalog?roulette_ids=...`
 - `GET /api/orbit-triggers/{strategy_slug}?roulette_ids=...&history_limit=20`
+- `POST /api/orbit-triggers/profitability`
 - `/orbit/triggers`
 - `/orbit/triggers/{strategy_slug}`
 
 As paginas exibem janelas de 1, 3, 6, 12 e 24 horas, acumulado geral, curva da primeira
-a quinta tentativa, cobertura media, melhor horario e o historico congelado por roleta.
+a quinta tentativa, quantidade exata de sinais que bateram em cada tentativa, cobertura
+media, melhor horario e o historico congelado por roleta.
+
+## Calculadora de lucratividade
+
+A calculadora usa somente entradas prospectivas encerradas e respeita a janela de tempo
+selecionada na pagina. A banca e simulada em ordem cronologica, separadamente para cada
+combinacao de estrategia e roleta. Nao existe banca ou sequencia financeira acumulada
+entre mesas.
+
+- A banca inicial e os cinco valores de entrada sao configurados pelo usuario.
+- Cada roleta inicia uma simulacao independente com a mesma banca configurada.
+- Cada valor informado e o investimento total da tentativa, dividido igualmente entre
+  todos os numeros protegidos pela entrada congelada.
+- No acerto, o retorno bruto e `(entrada / quantidade de alvos) * 36`.
+- Depois do primeiro acerto daquele sinal, as tentativas restantes nao sao executadas.
+- Sem acerto, os cinco investimentos sao debitados.
+- Se a banca nao cobrir a proxima tentativa, a simulacao para naquele ponto e informa o
+  sinal e a tentativa interrompidos.
+- O ROI exibido e `lucro liquido / total investido`; o grafico representa o saldo da
+  banca depois de cada sinal historico.
+
+O endpoint recebe `initial_bank`, cinco itens em `attempt_stakes`, `window`, os IDs das
+roletas e, opcionalmente, uma lista de `strategy_slugs`. A resposta agrupa os resultados
+em `roulettes[]`, cada uma com suas proprias `strategies[]`. A camada Next.js injeta os
+IDs das roletas autorizadas no servidor, sem aceitar esse escopo diretamente do
+navegador.

@@ -185,5 +185,8 @@ def test_trigger_performance_uses_variable_target_coverage():
 
     curve = summary["windows"]["all"]["entry"]
     assert curve["average_target_size"] == pytest.approx(14)
+    assert curve["attempts"][0]["exact_hits"] == 1
+    assert curve["attempts"][0]["exact_hit_rate"] == pytest.approx(0.5)
+    assert curve["misses_after_max_attempts"] == 1
     assert curve["attempts"][0]["hit_rate"] == pytest.approx(0.5)
     assert curve["attempts"][0]["random_baseline"] == pytest.approx(14 / 37, abs=1e-6)

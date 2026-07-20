@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import styles from './triggers.module.css';
 
 type WindowKey = '1h' | '3h' | '6h' | '12h' | '24h' | 'all';
@@ -9,6 +9,8 @@ type OutcomeStatus = 'hit' | 'miss' | 'pending';
 
 interface AttemptMetric {
   attempt: number;
+  exact_hits: number;
+  exact_hit_rate: number;
   hits: number;
   hit_rate: number;
   confidence_lower: number;
@@ -22,6 +24,7 @@ interface PerformanceWindow {
   entry: {
     sample_size: number;
     average_target_size: number;
+    misses_after_max_attempts: number;
     attempts: AttemptMetric[];
   };
 }
@@ -112,6 +115,60 @@ interface DetailPayload {
   error?: string;
 }
 
+interface ProfitChartPoint {
+  signal: number;
+  bank: number;
+  net_profit: number;
+  timestamp_utc: string | null;
+}
+
+interface ProfitabilityStrategy {
+  slug: string;
+  name: string;
+  short_name: string;
+  records_capped: boolean;
+  initial_bank: number;
+  final_bank: number;
+  net_profit: number;
+  roi_on_staked: number;
+  bank_growth: number;
+  total_staked: number;
+  total_returned: number;
+  signals_available: number;
+  signals_started: number;
+  signals_completed: number;
+  winning_signals: number;
+  losing_signals: number;
+  unplayed_signals: number;
+  exact_hits_by_attempt: Array<{ attempt: number; hits: number }>;
+  max_drawdown: number;
+  max_drawdown_rate: number;
+  bankroll_insufficient: boolean;
+  bankroll_stop: { signal: number; attempt: number } | null;
+  chart: {
+    points: ProfitChartPoint[];
+    points_total: number;
+    points_capped: boolean;
+  };
+}
+
+interface ProfitabilityRoulette {
+  roulette_id: string;
+  name: string;
+  strategies: ProfitabilityStrategy[];
+}
+
+interface ProfitabilityPayload {
+  engine_version: string;
+  window: WindowKey;
+  initial_bank: number;
+  attempt_stakes: number[];
+  calculation_scope: 'per_roulette';
+  roulettes: ProfitabilityRoulette[];
+  generated_at: string;
+  error?: string;
+}
+
 const WINDOWS: Array<{ key: WindowKey; label: string }> = [
   { key: '1h', label: '1 hora' },
   { key: '3h', label: '3 horas' },
@@ -125,6 +182,13 @@ const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 
 
 function pct(value: number | undefined): string {
   return `${((value ?? 0) * 100).toFixed(1).replace('.', ',')}%`;
+}
+
+function money(value: number | undefined): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value ?? 0);
 }
 
 function time(value: string | null | undefined): string {
@@ -178,7 +242,7 @@ function AttemptCurve({ performance, windowKey }: { performance: TriggerPerforma
   return (
     <div className={styles.curve}>
       <div className={styles.curveHead}>
-        <span>Acerto acumulado</span>
+        <span>Acertos por tentativa</span>
         <small>n = {selected?.sample_size ?? 0}</small>
       </div>
       <div className={styles.curveGrid}>
@@ -187,17 +251,228 @@ function AttemptCurve({ performance, windowKey }: { performance: TriggerPerforma
           return (
             <div key={index}>
               <span>{index + 1}ª</span>
-              <strong>{pct(row?.hit_rate)}</strong>
+              <strong>{row?.exact_hits ?? 0} sinais</strong>
+              <small>{pct(row?.exact_hit_rate)} nesta</small>
+              <small>acum. {pct(row?.hit_rate)}</small>
               <small>base {pct(row?.random_baseline)}</small>
             </div>
           );
         })}
       </div>
       <div className={styles.coverageLine}>
-        <span>Cobertura média</span>
-        <strong>{selected?.entry?.average_target_size?.toFixed(1).replace('.', ',') ?? '0'} números</strong>
+        <span>Sem acerto: <b>{selected?.entry?.misses_after_max_attempts ?? 0} sinais</b></span>
+        <span>Cobertura média: <b>{selected?.entry?.average_target_size?.toFixed(1).replace('.', ',') ?? '0'} números</b></span>
       </div>
     </div>
+  );
+}
+
+function ProfitChart({ strategy, rouletteName }: { strategy: ProfitabilityStrategy; rouletteName: string }) {
+  const points = strategy.chart.points;
+  const width = 620;
+  const height = 190;
+  const paddingX = 30;
+  const paddingY = 22;
+  if (points.length < 2) {
+    return <div className={styles.emptyChart}>Sem sinais encerrados neste período.</div>;
+  }
+  const banks = points.map((point) => point.bank);
+  let minimum = Math.min(...banks, strategy.initial_bank);
+  let maximum = Math.max(...banks, strategy.initial_bank);
+  if (minimum === maximum) {
+    minimum -= 1;
+    maximum += 1;
+  }
+  const x = (index: number) => paddingX + (index / (points.length - 1)) * (width - paddingX * 2);
+  const y = (value: number) => paddingY + ((maximum - value) / (maximum - minimum)) * (height - paddingY * 2);
+  const line = points.map((point, index) => `${x(index)},${y(point.bank)}`).join(' ');
+  const baselineY = y(strategy.initial_bank);
+  const positive = strategy.net_profit >= 0;
+  return (
+    <div className={styles.profitChartWrap}>
+      <svg
+        aria-label={`Evolução da banca do ${strategy.name} na ${rouletteName}, de ${money(strategy.initial_bank)} para ${money(strategy.final_bank)}`}
+        className={styles.profitChart}
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+      >
+        <title>Evolução da banca — {strategy.name} — {rouletteName}</title>
+        <desc>Saldo exclusivo desta roleta após cada sinal histórico encerrado no período selecionado.</desc>
+        {[0, 1, 2, 3].map((row) => {
+          const gridY = paddingY + (row / 3) * (height - paddingY * 2);
+          return <line className={styles.chartGridLine} key={row} x1={paddingX} x2={width - paddingX} y1={gridY} y2={gridY} />;
+        })}
+        <line className={styles.chartBaseline} x1={paddingX} x2={width - paddingX} y1={baselineY} y2={baselineY} />
+        <polyline className={positive ? styles.chartPositive : styles.chartNegative} fill="none" points={line} />
+        <circle
+          className={positive ? styles.chartPointPositive : styles.chartPointNegative}
+          cx={x(points.length - 1)}
+          cy={y(points[points.length - 1].bank)}
+          r="4"
+        />
+        <text className={styles.chartLabel} x={paddingX} y={height - 2}>0</text>
+        <text className={styles.chartLabel} textAnchor="end" x={width - paddingX} y={height - 2}>
+          {points[points.length - 1].signal} sinais
+        </text>
+        <text className={styles.chartValue} x={paddingX} y={14}>{money(maximum)}</text>
+        <text className={styles.chartValue} x={paddingX} y={height - 17}>{money(minimum)}</text>
+      </svg>
+    </div>
+  );
+}
+
+function ProfitabilityCard({ strategy, rouletteName }: { strategy: ProfitabilityStrategy; rouletteName: string }) {
+  const positive = strategy.net_profit >= 0;
+  return (
+    <article className={styles.profitCard}>
+      <header>
+        <div>
+          <span>{rouletteName} · simulação histórica</span>
+          <h3>{strategy.short_name}</h3>
+        </div>
+        <strong className={positive ? styles.positiveMoney : styles.negativeMoney}>
+          {money(strategy.net_profit)}
+        </strong>
+      </header>
+      <div className={styles.profitStats}>
+        <span><small>Banca final</small><strong>{money(strategy.final_bank)}</strong></span>
+        <span><small>ROI investido</small><strong>{pct(strategy.roi_on_staked)}</strong></span>
+        <span><small>Investido</small><strong>{money(strategy.total_staked)}</strong></span>
+        <span><small>Retornado</small><strong>{money(strategy.total_returned)}</strong></span>
+        <span><small>Green / loss</small><strong>{strategy.winning_signals} / {strategy.losing_signals}</strong></span>
+        <span><small>Queda máxima</small><strong>{money(strategy.max_drawdown)}</strong></span>
+      </div>
+      <div className={styles.profitAttempts}>
+        {strategy.exact_hits_by_attempt.map((row) => (
+          <span key={row.attempt}><small>{row.attempt}ª</small><strong>{row.hits}</strong></span>
+        ))}
+      </div>
+      <ProfitChart rouletteName={rouletteName} strategy={strategy} />
+      <footer>
+        <span>{strategy.signals_completed} de {strategy.signals_available} sinais simulados</span>
+        {strategy.bankroll_insufficient && strategy.bankroll_stop ? (
+          <b>Banca insuficiente no sinal {strategy.bankroll_stop.signal}, {strategy.bankroll_stop.attempt}ª tentativa</b>
+        ) : strategy.records_capped ? <b>Limite de registros aplicado</b> : null}
+      </footer>
+    </article>
+  );
+}
+
+function ProfitabilityCalculator({ slug, windowKey }: { slug?: string; windowKey: WindowKey }) {
+  const [initialBank, setInitialBank] = useState('1000');
+  const [stakes, setStakes] = useState(['10', '20', '40', '80', '160']);
+  const [result, setResult] = useState<ProfitabilityPayload | null>(null);
+  const [selectedRouletteId, setSelectedRouletteId] = useState('');
+  const [calculating, setCalculating] = useState(false);
+  const [calculatorError, setCalculatorError] = useState<string | null>(null);
+
+  const parseMoney = (value: string) => Number(value.trim().replace(',', '.'));
+  const selectedRoulette = result?.roulettes.find(
+    (roulette) => roulette.roulette_id === selectedRouletteId,
+  ) ?? result?.roulettes[0];
+
+  async function calculate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const bank = parseMoney(initialBank);
+    const parsedStakes = stakes.map(parseMoney);
+    if (!Number.isFinite(bank) || bank <= 0 || parsedStakes.some((value) => !Number.isFinite(value) || value < 0)) {
+      setCalculatorError('Informe uma banca positiva e cinco entradas maiores ou iguais a zero.');
+      return;
+    }
+    setCalculating(true);
+    try {
+      const response = await fetch('/api/orbit-triggers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          initial_bank: bank,
+          attempt_stakes: parsedStakes,
+          window: windowKey,
+          strategy_slugs: slug ? [slug] : undefined,
+        }),
+      });
+      const payload = (await response.json()) as ProfitabilityPayload;
+      if (!response.ok) throw new Error(payload.error ?? 'Falha ao calcular lucratividade.');
+      setResult(payload);
+      setSelectedRouletteId((current) => (
+        payload.roulettes.some((roulette) => roulette.roulette_id === current)
+          ? current
+          : (payload.roulettes[0]?.roulette_id ?? '')
+      ));
+      setCalculatorError(null);
+    } catch (reason) {
+      setCalculatorError(reason instanceof Error ? reason.message : 'Falha ao calcular lucratividade.');
+    } finally {
+      setCalculating(false);
+    }
+  }
+
+  return (
+    <section className={styles.calculatorSection}>
+      <div className={styles.calculatorHead}>
+        <div>
+          <span>Simulador financeiro</span>
+          <h2>Assertividade e lucratividade por roleta</h2>
+          <p>Cada roleta usa uma banca independente. A entrada total é dividida entre os números protegidos e para no primeiro acerto.</p>
+        </div>
+        <small>Pagamento bruto 36× por número acertado</small>
+      </div>
+      <form className={styles.calculatorForm} onSubmit={calculate}>
+        <label>
+          <span>Banca inicial</span>
+          <input inputMode="decimal" onChange={(event) => setInitialBank(event.target.value)} value={initialBank} />
+        </label>
+        {stakes.map((stake, index) => (
+          <label key={index}>
+            <span>{index + 1}ª tentativa</span>
+            <input
+              inputMode="decimal"
+              onChange={(event) => setStakes((current) => current.map((value, position) => position === index ? event.target.value : value))}
+              value={stake}
+            />
+          </label>
+        ))}
+        <button disabled={calculating} type="submit">
+          {calculating ? 'Calculando…' : 'Calcular lucratividade'}
+        </button>
+      </form>
+      {calculatorError ? <div className={styles.calculatorError}>{calculatorError}</div> : null}
+      {result && result.roulettes.length ? (
+        <div className={styles.profitResults}>
+          <div className={styles.profitRouletteBar}>
+            <div className={styles.profitRouletteIdentity}>
+              <span>Resultado isolado por mesa</span>
+              <strong>{selectedRoulette?.name}</strong>
+              <small>A banca inicial é reiniciada para cada roleta.</small>
+            </div>
+            <div aria-label="Roleta da simulação" className={styles.profitRouletteTabs} role="group">
+              {result.roulettes.map((roulette) => (
+                <button
+                  aria-pressed={roulette.roulette_id === selectedRouletteId}
+                  className={roulette.roulette_id === selectedRouletteId ? styles.activeProfitRoulette : ''}
+                  key={roulette.roulette_id}
+                  onClick={() => setSelectedRouletteId(roulette.roulette_id)}
+                  type="button"
+                >
+                  {roulette.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.profitGrid}>
+            {selectedRoulette?.strategies.map((strategy) => (
+              <ProfitabilityCard
+                key={strategy.slug}
+                rouletteName={selectedRoulette.name}
+                strategy={strategy}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className={styles.calculatorHint}>Configure os valores e calcule separadamente os sinais encerrados de cada roleta.</div>
+      )}
+    </section>
   );
 }
 
@@ -394,6 +669,7 @@ export default function TriggerDashboard({ slug }: { slug?: string }) {
       </div>
       {error ? <div className={styles.error}>{error}</div> : null}
       <WindowFilter value={windowKey} onChange={setWindowKey} />
+      <ProfitabilityCalculator key={`${slug ?? 'catalog'}-${windowKey}`} slug={slug} windowKey={windowKey} />
       {loading && !data ? (
         <div className={styles.loadingGrid}>{[0, 1, 2].map((item) => <div key={item} />)}</div>
       ) : data && 'strategies' in data ? (

@@ -35,11 +35,15 @@ def _curve(trials: Sequence[Mapping[str, Any]], *, max_attempts: int) -> dict[st
     total = len(trials)
     attempts: list[dict[str, Any]] = []
     for attempt in range(1, max_attempts + 1):
+        exact_hits = sum(
+            1 for trial in trials if _first_hit(trial) == attempt
+        )
         hits = sum(
             1
             for trial in trials
             if (first_hit := _first_hit(trial)) is not None and first_hit <= attempt
         )
+        exact_rate = exact_hits / total if total else 0.0
         rate = hits / total if total else 0.0
         lower, upper = wilson_interval(hits, total)
         baseline = (
@@ -50,6 +54,8 @@ def _curve(trials: Sequence[Mapping[str, Any]], *, max_attempts: int) -> dict[st
         attempts.append(
             {
                 "attempt": attempt,
+                "exact_hits": exact_hits,
+                "exact_hit_rate": round(exact_rate, 6),
                 "hits": hits,
                 "hit_rate": round(rate, 6),
                 "confidence_lower": round(lower, 6),
@@ -64,6 +70,9 @@ def _curve(trials: Sequence[Mapping[str, Any]], *, max_attempts: int) -> dict[st
     return {
         "sample_size": total,
         "average_target_size": round(average_size, 3),
+        "misses_after_max_attempts": sum(
+            1 for trial in trials if _first_hit(trial) is None
+        ),
         "attempts": attempts,
     }
 
@@ -164,7 +173,7 @@ def build_trigger_performance_summary(
         "windows": windows,
         "best_hour": _hour_summary(completed),
         "methodology": {
-            "rate_type": "cumulative_first_hit",
+            "rate_type": "exact_and_cumulative_first_hit",
             "cohort": "completed_windows_only",
             "baseline": "mean_independent_spin_target_coverage",
             "timezone": "America/Sao_Paulo",

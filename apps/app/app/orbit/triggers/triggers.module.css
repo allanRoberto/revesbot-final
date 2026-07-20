@@ -319,10 +319,8 @@
 }
 
 .curveGrid small {
-  overflow: hidden;
   max-width: 100%;
   color: var(--gold);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -331,8 +329,377 @@
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.coverageLine strong {
+.coverageLine b {
   color: var(--text);
+  font-weight: 750;
+}
+
+.calculatorSection {
+  margin: 0 0 22px;
+  padding: 20px;
+  border: 1px solid rgba(255, 214, 10, 0.18);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 214, 10, 0.035), transparent 48%),
+    rgba(13, 20, 15, 0.72);
+}
+
+.calculatorHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.calculatorHead > div > span,
+.profitCard > header span {
+  color: var(--gold);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.calculatorHead h2 {
+  margin: 5px 0 4px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.calculatorHead p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.calculatorHead > small {
+  flex: none;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 214, 10, 0.2);
+  border-radius: 999px;
+  color: var(--gold);
+  background: rgba(255, 214, 10, 0.05);
+  font-size: 9px;
+}
+
+.calculatorForm {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(90px, 1fr)) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.calculatorForm label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.calculatorForm label span {
+  color: var(--text-dim);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.calculatorForm input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  outline: none;
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.calculatorForm input:focus {
+  border-color: rgba(43, 255, 136, 0.48);
+  box-shadow: 0 0 0 2px rgba(43, 255, 136, 0.08);
+}
+
+.calculatorForm button {
+  min-height: 35px;
+  padding: 8px 13px;
+  border: 1px solid rgba(43, 255, 136, 0.38);
+  border-radius: 8px;
+  background: rgba(43, 255, 136, 0.1);
+  color: var(--neon);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.calculatorForm button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.calculatorHint,
+.calculatorError {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  color: var(--text-dim);
+  font-size: 10px;
+  text-align: center;
+}
+
+.calculatorError {
+  border-color: rgba(255, 92, 92, 0.28);
+  color: #ff8d8d;
+}
+
+.profitGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+  gap: 12px;
+}
+
+.profitResults {
+  margin-top: 16px;
+}
+
+.profitRouletteBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+  padding: 11px 12px;
+  border: 1px solid rgba(43, 255, 136, 0.12);
+  border-radius: 10px;
+  background: rgba(43, 255, 136, 0.025);
+}
+
+.profitRouletteIdentity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profitRouletteIdentity span {
+  color: var(--gold);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profitRouletteIdentity strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.profitRouletteIdentity small {
+  color: var(--text-dim);
+  font-size: 8px;
+}
+
+.profitRouletteTabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.profitRouletteTabs button {
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.profitRouletteTabs button:hover,
+.profitRouletteTabs button.activeProfitRoulette {
+  border-color: rgba(43, 255, 136, 0.38);
+  background: rgba(43, 255, 136, 0.08);
+  color: var(--neon);
+}
+
+.profitCard {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.13);
+}
+
+.profitCard > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.profitCard > header h3 {
+  margin: 4px 0 0;
+  font-size: 17px;
+}
+
+.profitCard > header > strong {
+  font-size: 17px;
+  white-space: nowrap;
+}
+
+.positiveMoney {
+  color: var(--neon);
+}
+
+.negativeMoney {
+  color: #ff7373;
+}
+
+.profitStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin: 13px 0 8px;
+}
+
+.profitStats > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.profitStats small {
+  color: var(--text-dim);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.profitStats strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profitAttempts {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.profitAttempts span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid rgba(255, 214, 10, 0.1);
+  border-radius: 6px;
+}
+
+.profitAttempts small {
+  color: var(--text-dim);
+  font-size: 7px;
+}
+
+.profitAttempts strong {
+  color: var(--gold);
+  font-size: 10px;
+}
+
+.profitChartWrap {
+  width: 100%;
+}
+
+.profitChart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chartGridLine {
+  stroke: rgba(255, 255, 255, 0.055);
+  stroke-width: 1;
+}
+
+.chartBaseline {
+  stroke: rgba(255, 214, 10, 0.35);
+  stroke-dasharray: 4 4;
+  stroke-width: 1;
+}
+
+.chartPositive,
+.chartNegative {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chartPositive {
+  stroke: var(--neon);
+}
+
+.chartNegative {
+  stroke: #ff7373;
+}
+
+.chartPointPositive {
+  fill: var(--neon);
+}
+
+.chartPointNegative {
+  fill: #ff7373;
+}
+
+.chartLabel,
+.chartValue {
+  fill: var(--text-dim);
+  font-family: inherit;
+  font-size: 8px;
+}
+
+.chartValue {
+  font-size: 7px;
+}
+
+.emptyChart {
+  display: flex;
+  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.profitCard > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  font-size: 8px;
+}
+
+.profitCard > footer b {
+  color: var(--gold);
   font-size: 10px;
 }
 
@@ -739,6 +1106,29 @@
     flex-direction: column;
   }
 
+  .calculatorHead {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .profitRouletteBar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .profitRouletteTabs {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .calculatorForm {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .calculatorForm button {
+    grid-column: span 2;
+  }
+
   .toolbar button {
     width: 100%;
   }
@@ -766,6 +1156,28 @@
 }
 
 @media (max-width: 430px) {
+  .calculatorSection {
+    padding: 14px;
+  }
+
+  .calculatorForm {
+    grid-template-columns: 1fr;
+  }
+
+  .calculatorForm button {
+    grid-column: auto;
+  }
+
+  .profitStats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .profitCard > header,
+  .profitCard > footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .curveGrid,
   .attempts > div {
     gap: 3px;

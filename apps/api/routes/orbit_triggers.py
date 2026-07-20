@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from api.schemas.orbit_triggers import OrbitTriggerProfitabilityRequest
 from api.services.orbit_trigger_service import orbit_trigger_service
 
 
@@ -22,6 +23,22 @@ async def trigger_catalog(
     roulette_ids: str = Query(min_length=1),
 ):
     return await orbit_trigger_service.catalog(_roulette_ids(roulette_ids))
+
+
+@router.post("/profitability")
+async def trigger_profitability(payload: OrbitTriggerProfitabilityRequest):
+    try:
+        return await orbit_trigger_service.profitability(
+            payload.roulette_ids,
+            initial_bank=payload.initial_bank,
+            attempt_stakes=payload.attempt_stakes,
+            window=payload.window,
+            strategy_slugs=payload.strategy_slugs,
+            maximum_records=payload.maximum_records,
+            maximum_chart_points=payload.maximum_chart_points,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/{strategy_slug}")

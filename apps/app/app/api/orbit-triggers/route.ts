@@ -66,3 +66,72 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  }
+  if (!(await isActive(session.email))) {
+    return NextResponse.json(
+      { error: 'Assinatura necessária.', paywall: true },
+      { status: 402 },
+    );
+  }
+
+  let clientPayload: Record<string, unknown>;
+  try {
+    const parsed: unknown = await request.json();
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('payload inválido');
+    }
+    clientPayload = parsed as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: 'Dados da calculadora inválidos.' }, { status: 400 });
+  }
+
+  const rouletteIds = ROULETTES.map((game) => game.rouletteId);
+  const url = new URL('/api/orbit-triggers/profitability', orbitApiBase());
+  const payload = {
+    initial_bank: clientPayload.initial_bank,
+    attempt_stakes: clientPayload.attempt_stakes,
+    window: clientPayload.window,
+    strategy_slugs: clientPayload.strategy_slugs,
+    roulette_ids: rouletteIds,
+    maximum_records: 50_000,
+    maximum_chart_points: 400,
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(30_000),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: result?.detail ?? 'Não foi possível calcular a lucratividade.' },
+        { status: response.status },
+      );
+    }
+    const names = new Map(ROULETTES.map((game) => [game.rouletteId, game.name]));
+    return NextResponse.json({
+      ...result,
+      roulettes: Array.isArray(result?.roulettes)
+        ? result.roulettes.map((row: { roulette_id?: string }) => ({
+            ...row,
+            name: names.get(row.roulette_id ?? '') ?? row.roulette_id ?? 'Roleta',
+          }))
+        : [],
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Falha de conexão.';
+    return NextResponse.json(
+      { error: `Não foi possível executar a calculadora: ${message}` },
+      { status: 502 },
+    );
+  }
+}

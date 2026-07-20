@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any, Mapping, Sequence
 
 from shared.python.roulette.orbit.triggers.catalog import (
@@ -13,6 +14,10 @@ from shared.python.roulette.orbit.triggers.catalog import (
 from shared.python.roulette.orbit.triggers.performance import (
     build_trigger_performance_summary,
 )
+from shared.python.roulette.orbit.triggers.profitability import (
+    simulate_trigger_profitability,
+)
+from shared.python.roulette.orbit.performance import PERFORMANCE_WINDOWS
 
 from api.core.db import orbit_trigger_candidates_coll, orbit_trigger_trials_coll
 
@@ -224,6 +229,123 @@ class OrbitTriggerService:
                 for strategy, summary in zip(STRATEGIES, summaries)
             ],
             "generated_at": datetime.now(timezone.utc),
+        }
+
+    async def _profitability_rows(
+        self,
+        strategy_slug: str,
+        roulette_id: str,
+        *,
+        cutoff: datetime | None,
+        maximum_records: int,
+    ) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {
+            "strategy_slug": strategy_slug,
+            "roulette_id": str(roulette_id),
+            "status": "resolved",
+            "attempts_observed": {"$gte": DEFAULT_MAX_ATTEMPTS},
+        }
+        if cutoff is not None:
+            query["activation_timestamp_utc"] = {"$gte": cutoff}
+        rows = await (
+            orbit_trigger_trials_coll.find(
+                query,
+                {
+                    "_id": 0,
+                    "activation_timestamp_utc": 1,
+                    "first_hit_attempt": 1,
+                    "target_size": 1,
+                },
+            )
+            .sort([("activation_timestamp_utc", -1), ("_id", -1)])
+            .limit(maximum_records)
+            .to_list(length=maximum_records)
+        )
+        rows.reverse()
+        return rows
+
+    async def profitability(
+        self,
+        roulette_ids: Sequence[str],
+        *,
+        initial_bank: Decimal,
+        attempt_stakes: Sequence[Decimal],
+        window: str,
+        strategy_slugs: Sequence[str] | None = None,
+        maximum_records: int = 50_000,
+        maximum_chart_points: int = 400,
+    ) -> dict[str, Any]:
+        hours_by_window = dict(PERFORMANCE_WINDOWS)
+        if window not in hours_by_window:
+            raise ValueError(f"janela de desempenho invalida: {window}")
+        ids = tuple(dict.fromkeys(str(value) for value in roulette_ids))
+        selected_slugs = tuple(
+            dict.fromkeys(
+                str(value) for value in (strategy_slugs or [row.slug for row in STRATEGIES])
+            )
+        )
+        selected = [get_strategy(slug) for slug in selected_slugs]
+        safe_maximum = max(100, min(200_000, int(maximum_records)))
+        safe_chart_points = max(50, min(1_000, int(maximum_chart_points)))
+        now = datetime.now(timezone.utc)
+        hours = hours_by_window[window]
+        cutoff = now - timedelta(hours=hours) if hours is not None else None
+        combinations = [
+            (roulette_id, strategy)
+            for roulette_id in ids
+            for strategy in selected
+        ]
+        rows_by_combination = await asyncio.gather(
+            *(
+                self._profitability_rows(
+                    strategy.slug,
+                    roulette_id,
+                    cutoff=cutoff,
+                    maximum_records=safe_maximum,
+                )
+                for roulette_id, strategy in combinations
+            )
+        )
+        rows_by_key = {
+            (roulette_id, strategy.slug): rows
+            for (roulette_id, strategy), rows in zip(combinations, rows_by_combination)
+        }
+        roulettes = []
+        for roulette_id in ids:
+            strategies = []
+            for strategy in selected:
+                rows = rows_by_key[(roulette_id, strategy.slug)]
+                simulation = simulate_trigger_profitability(
+                    rows,
+                    initial_bank=initial_bank,
+                    attempt_stakes=attempt_stakes,
+                    max_attempts=DEFAULT_MAX_ATTEMPTS,
+                    maximum_chart_points=safe_chart_points,
+                )
+                strategies.append(
+                    {
+                        "slug": strategy.slug,
+                        "name": strategy.name,
+                        "short_name": strategy.short_name,
+                        "records_capped": len(rows) >= safe_maximum,
+                        **simulation,
+                    }
+                )
+            roulettes.append(
+                {
+                    "roulette_id": roulette_id,
+                    "strategies": strategies,
+                }
+            )
+        return {
+            "engine_version": TRIGGER_ENGINE_VERSION,
+            "window": window,
+            "roulette_ids": list(ids),
+            "initial_bank": float(initial_bank),
+            "attempt_stakes": [float(value) for value in attempt_stakes],
+            "calculation_scope": "per_roulette",
+            "roulettes": roulettes,
+            "generated_at": now,
         }
 
 
