@@ -7,10 +7,12 @@ import uvicorn
 
 CURRENT_DIR = Path(__file__).resolve().parent
 APPS_ROOT = CURRENT_DIR.parent
+REPO_ROOT = APPS_ROOT.parent
 
-# Garante que "api" seja importável a partir de apps/api após o move para apps/.
-if str(APPS_ROOT) not in sys.path:
-    sys.path.insert(0, str(APPS_ROOT))
+# Garante os imports ``api`` e ``shared`` depois da separacao em apps/ e shared/.
+for import_root in (REPO_ROOT, APPS_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8081))  # App Engine define essa variável

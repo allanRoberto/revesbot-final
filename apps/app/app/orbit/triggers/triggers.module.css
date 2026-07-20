@@ -1,0 +1,785 @@
+.page {
+  width: min(1380px, 100%);
+  margin: 0 auto;
+  padding: 42px 28px 72px;
+}
+
+.liveMarker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border: 1px solid rgba(43, 255, 136, 0.25);
+  border-radius: 999px;
+  color: var(--neon);
+  background: rgba(43, 255, 136, 0.07);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.liveMarker::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+  content: '';
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 28px;
+}
+
+.hero > div:first-child > span,
+.detailHero > span,
+.sectionLabel,
+.strategyHead > span,
+.ruleBoard span,
+.history > span,
+.numberSet > span,
+.attempts > span {
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.hero h1,
+.detailHero h1 {
+  margin: 7px 0 8px;
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-transform: capitalize;
+}
+
+.hero p,
+.detailHero p {
+  max-width: 700px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.heroBadge {
+  display: flex;
+  min-width: 190px;
+  flex: none;
+  flex-direction: column;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 214, 10, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 214, 10, 0.05);
+  text-align: right;
+}
+
+.heroBadge strong {
+  color: var(--gold);
+  font-size: 14px;
+}
+
+.heroBadge span {
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.detailHero {
+  margin: 12px 0 28px;
+}
+
+.backLink {
+  color: var(--neon);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.toolbar,
+.windowFilter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 10px 12px 10px 15px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(13, 20, 15, 0.68);
+}
+
+.toolbar > span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.toolbar i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--neon);
+  box-shadow: 0 0 10px rgba(43, 255, 136, 0.8);
+}
+
+.toolbar button {
+  padding: 8px 13px;
+  border: 1px solid rgba(43, 255, 136, 0.35);
+  border-radius: 8px;
+  background: rgba(43, 255, 136, 0.08);
+  color: var(--neon);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.toolbar button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.windowFilter > span {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.windowFilter > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.windowFilter button {
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.13);
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.windowFilter button:hover,
+.windowFilter button.activeWindow {
+  border-color: rgba(43, 255, 136, 0.34);
+  color: var(--neon);
+  background: rgba(43, 255, 136, 0.08);
+}
+
+.strategyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 18px;
+}
+
+.strategyCard,
+.rouletteCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(43, 255, 136, 0.025), transparent 42%),
+    linear-gradient(180deg, var(--surface-2), var(--surface));
+  box-shadow: 0 20px 55px -35px rgba(0, 0, 0, 0.95);
+}
+
+.strategyCard {
+  padding: 20px;
+}
+
+.strategyHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.strategyHead small,
+.rouletteCard > header > small {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 214, 10, 0.22);
+  border-radius: 999px;
+  color: var(--gold);
+  background: rgba(255, 214, 10, 0.06);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.strategyCard h2 {
+  margin: 12px 0 7px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.strategyCard > p {
+  min-height: 42px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.statusCounts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin: 16px 0 10px;
+}
+
+.statusCounts span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 8px;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.12);
+  font-size: 8px;
+  text-align: center;
+}
+
+.statusCounts strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.curve {
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.curveHead,
+.coverageLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.curveHead > span,
+.coverageLine > span {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.curveHead small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.curveGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin: 9px 0;
+}
+
+.curveGrid > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 2px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 7px;
+}
+
+.curveGrid span,
+.curveGrid small {
+  color: var(--text-dim);
+  font-size: 7px;
+}
+
+.curveGrid strong {
+  color: var(--neon);
+  font-size: 11px;
+}
+
+.curveGrid small {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--gold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coverageLine {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.coverageLine strong {
+  color: var(--text);
+  font-size: 10px;
+}
+
+.rulePreview {
+  margin: 12px 0;
+  padding: 10px 11px;
+  border-left: 2px solid rgba(255, 214, 10, 0.45);
+  background: rgba(255, 214, 10, 0.035);
+}
+
+.rulePreview span {
+  color: var(--gold);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rulePreview p {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.detailLink {
+  display: flex;
+  justify-content: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(43, 255, 136, 0.28);
+  border-radius: 9px;
+  color: var(--neon);
+  background: rgba(43, 255, 136, 0.06);
+  font-size: 10px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.detailLink:hover {
+  border-color: rgba(43, 255, 136, 0.5);
+  background: rgba(43, 255, 136, 0.1);
+}
+
+.ruleBoard {
+  display: grid;
+  grid-template-columns: 1fr 1fr minmax(150px, 0.35fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.detailIdentity {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+  padding: 17px 18px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(43, 255, 136, 0.05), rgba(13, 20, 15, 0.74));
+}
+
+.detailIdentity span {
+  color: var(--gold);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.detailIdentity h2 {
+  margin: 5px 0 3px;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.detailIdentity p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.detailIdentity > strong {
+  flex: none;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 214, 10, 0.22);
+  border-radius: 999px;
+  color: var(--gold);
+  background: rgba(255, 214, 10, 0.06);
+  font-size: 10px;
+}
+
+.ruleBoard > div {
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(13, 20, 15, 0.72);
+}
+
+.ruleBoard p {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ruleBoard .overallResult {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: right;
+}
+
+.overallResult strong {
+  margin: 3px 0;
+  color: var(--neon);
+  font-size: 25px;
+}
+
+.overallResult small {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.rouletteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 410px), 1fr));
+  align-items: start;
+  gap: 18px;
+}
+
+.rouletteCard > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 19px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rouletteCard > header span {
+  color: var(--gold);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.rouletteCard > header h2 {
+  margin: 5px 0 4px;
+  font-size: 18px;
+}
+
+.rouletteCard > header code {
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 9px;
+}
+
+.rouletteCard > .statusCounts,
+.rouletteCard > .curve,
+.rouletteCard > .bestHour {
+  margin-right: 14px;
+  margin-left: 14px;
+}
+
+.bestHour {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 214, 10, 0.12);
+  border-radius: 9px;
+  background: rgba(255, 214, 10, 0.035);
+}
+
+.bestHour span,
+.bestHour small {
+  color: var(--text-dim);
+  font-size: 8px;
+}
+
+.bestHour strong {
+  grid-row: span 2;
+  color: var(--gold);
+  font-size: 11px;
+}
+
+.history {
+  padding: 17px 14px 14px;
+}
+
+.history > .sectionLabel {
+  display: block;
+  margin: 0 0 9px 2px;
+}
+
+.history details {
+  margin-top: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.history summary {
+  display: grid;
+  grid-template-columns: 7px auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.history summary::-webkit-details-marker {
+  display: none;
+}
+
+.history summary > span:nth-child(3) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history summary strong {
+  font-size: 9px;
+}
+
+.history summary small {
+  color: var(--text-dim);
+  font-size: 7px;
+}
+
+.history summary b {
+  color: var(--gold);
+  font-size: 8px;
+}
+
+.outcomeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.outcomeDot.hit {
+  background: var(--neon);
+  box-shadow: 0 0 8px rgba(43, 255, 136, 0.65);
+}
+
+.outcomeDot.miss {
+  background: #ff5c5c;
+}
+
+.outcomeDot.pending {
+  background: var(--gold);
+}
+
+.historyDetail {
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.numberSet + .numberSet {
+  margin-top: 10px;
+}
+
+.numberSet > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.attempts {
+  margin-top: 12px;
+}
+
+.attempts > div {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.attempts > div > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 2px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 7px;
+}
+
+.attempts > div > div.matchAttempt {
+  border-color: rgba(43, 255, 136, 0.45);
+  background: rgba(43, 255, 136, 0.07);
+}
+
+.attempts span,
+.attempts small {
+  color: var(--text-dim);
+  font-size: 7px;
+}
+
+.attempts i {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.ball {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.18), 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.smallBall {
+  width: 25px;
+  height: 25px;
+  font-size: 8px;
+}
+
+.redBall {
+  background: linear-gradient(145deg, #d95656, #8d1d1d);
+}
+
+.blackBall {
+  background: linear-gradient(145deg, #3d414c, #14161b);
+}
+
+.greenBall {
+  background: linear-gradient(145deg, #26965d, #0b4d2c);
+}
+
+.empty,
+.error {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.1);
+  font-size: 11px;
+  text-align: center;
+}
+
+.error {
+  margin-bottom: 16px;
+  border-color: rgba(255, 92, 92, 0.28);
+  color: #ff8d8d;
+}
+
+.loadingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.loadingGrid > div {
+  min-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: linear-gradient(100deg, var(--surface), var(--surface-2), var(--surface));
+  background-size: 220% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  to { background-position: -220% 0; }
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 28px 14px 56px;
+  }
+
+  .hero {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .heroBadge {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .toolbar,
+  .windowFilter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar button {
+    width: 100%;
+  }
+
+  .windowFilter > div {
+    justify-content: flex-start;
+  }
+
+  .ruleBoard {
+    grid-template-columns: 1fr;
+  }
+
+  .detailIdentity {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ruleBoard .overallResult {
+    text-align: left;
+  }
+
+  .loadingGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .curveGrid,
+  .attempts > div {
+    gap: 3px;
+  }
+
+  .curveGrid strong {
+    font-size: 9px;
+  }
+
+  .history summary {
+    grid-template-columns: 7px auto 1fr;
+  }
+
+  .history summary b {
+    grid-column: 3;
+  }
+}

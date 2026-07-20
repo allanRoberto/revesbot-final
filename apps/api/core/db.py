@@ -51,6 +51,13 @@ gatilhos_coll = mongo_db["gatilhos"]
 sinais_coll = mongo_db["sinais"]
 roulettes_config_coll = mongo_db["roulettes_config"]
 app_settings_coll = mongo_db["app_settings"]
+orbit_predictions_coll = mongo_db["orbit_predictions"]
+orbit_prediction_trials_coll = mongo_db["orbit_prediction_trials"]
+orbit_trigger_trials_coll = mongo_db["orbit_trigger_trials"]
+orbit_trigger_candidates_coll = mongo_db["orbit_trigger_candidates"]
+orbit_model_runs_coll = mongo_db["orbit_model_runs"]
+orbit_backtest_runs_coll = mongo_db["orbit_backtest_runs"]
+orbit_snapshot_manifests_coll = mongo_db["orbit_snapshot_manifests"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
@@ -74,6 +81,8 @@ _gatilhos_indexes_ready = False
 _gatilhos_indexes_lock = asyncio.Lock()
 _sinais_indexes_ready = False
 _sinais_indexes_lock = asyncio.Lock()
+_orbit_indexes_ready = False
+_orbit_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -494,3 +503,116 @@ async def ensure_sinais_indexes() -> None:
         )
 
         _sinais_indexes_ready = True
+
+
+async def ensure_orbit_indexes() -> None:
+    global _orbit_indexes_ready
+    if _orbit_indexes_ready:
+        return
+    async with _orbit_indexes_lock:
+        if _orbit_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            orbit_predictions_coll,
+            [("prediction_id", ASCENDING)],
+            name="orbit_predictions_prediction_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            orbit_predictions_coll,
+            [("roulette_id", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="orbit_predictions_roulette_anchor_desc",
+        )
+        await _create_index_if_missing(
+            orbit_predictions_coll,
+            [("roulette_id", ASCENDING), ("engine_version", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="orbit_predictions_engine_anchor_desc",
+        )
+        await _create_index_if_missing(
+            orbit_prediction_trials_coll,
+            [("trial_id", ASCENDING)],
+            name="orbit_trials_trial_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            orbit_prediction_trials_coll,
+            [("roulette_id", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="orbit_trials_roulette_anchor_desc",
+        )
+        await _create_index_if_missing(
+            orbit_prediction_trials_coll,
+            [("roulette_id", ASCENDING), ("status", ASCENDING), ("anchor_timestamp_utc", DESCENDING)],
+            name="orbit_trials_status_anchor_desc",
+        )
+        await _create_index_if_missing(
+            orbit_trigger_trials_coll,
+            [("event_id", ASCENDING)],
+            name="orbit_trigger_trials_event_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            orbit_trigger_trials_coll,
+            [
+                ("strategy_slug", ASCENDING),
+                ("roulette_id", ASCENDING),
+                ("activation_timestamp_utc", DESCENDING),
+            ],
+            name="orbit_trigger_trials_strategy_roulette_activation_desc",
+        )
+        await _create_index_if_missing(
+            orbit_trigger_trials_coll,
+            [
+                ("strategy_slug", ASCENDING),
+                ("roulette_id", ASCENDING),
+                ("status", ASCENDING),
+                ("activation_timestamp_utc", DESCENDING),
+            ],
+            name="orbit_trigger_trials_strategy_status_activation_desc",
+        )
+        await _create_index_if_missing(
+            orbit_trigger_candidates_coll,
+            [("candidate_id", ASCENDING)],
+            name="orbit_trigger_candidates_candidate_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            orbit_trigger_candidates_coll,
+            [
+                ("roulette_id", ASCENDING),
+                ("strategy_slug", ASCENDING),
+                ("status", ASCENDING),
+                ("created_at_utc", ASCENDING),
+            ],
+            name="orbit_trigger_candidates_active",
+        )
+        await _create_index_if_missing(
+            orbit_model_runs_coll,
+            [("model_run_id", ASCENDING)],
+            name="orbit_model_runs_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            orbit_model_runs_coll,
+            [("roulette_id", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="orbit_model_runs_roulette_created_desc",
+        )
+        await _create_index_if_missing(
+            orbit_backtest_runs_coll,
+            [("backtest_id", ASCENDING)],
+            name="orbit_backtest_runs_id",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            orbit_backtest_runs_coll,
+            [("roulette_id", ASCENDING), ("created_at_utc", DESCENDING)],
+            name="orbit_backtest_runs_roulette_created_desc",
+        )
+        await _create_index_if_missing(
+            orbit_snapshot_manifests_coll,
+            [("snapshot_id", ASCENDING)],
+            name="orbit_snapshot_manifests_id",
+            unique=True,
+        )
+
+        _orbit_indexes_ready = True

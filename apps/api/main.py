@@ -60,6 +60,7 @@ from api.core.db import (
     ensure_puxado_trigger_indexes,
     ensure_gatilhos_indexes,
     ensure_sinais_indexes,
+    ensure_orbit_indexes,
 )
 from fastapi.responses import HTMLResponse
 
@@ -121,6 +122,8 @@ from api.routes.puxadas_inversao_signals import router as puxadas_inversao_signa
 from api.routes.puxadas_sinal_signals import router as puxadas_sinal_signals_router
 from api.routes.multi_pivo import router as multi_pivo_router
 from api.routes.multi_pivo_signals import router as multi_pivo_signals_router
+from api.routes.orbit import router as orbit_router
+from api.routes.orbit_triggers import router as orbit_triggers_router
 
 
 
@@ -258,6 +261,8 @@ app.include_router(puxadas_inversao_signals_router)
 app.include_router(puxadas_sinal_signals_router)
 app.include_router(multi_pivo_router)
 app.include_router(multi_pivo_signals_router)
+app.include_router(orbit_router)
+app.include_router(orbit_triggers_router)
 
 
 
@@ -311,6 +316,10 @@ async def _warm_api_runtime() -> None:
         await ensure_sinais_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices de sinais falhou: {exc}")
+    try:
+        await ensure_orbit_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices do motor orbital falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:

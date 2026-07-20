@@ -1,0 +1,29 @@
+{
+  "engine_version": "orbital-rule-v1",
+  "pre_window": 5,
+  "post_window": 5,
+  "memory_occurrences": 6,
+  "horizons": [1, 2, 3],
+  "ranking_sizes": [9, 12],
+  "occurrence_decay": 0.78,
+  "second_hop_damping": 0.2,
+  "max_hops": 2,
+  "relation_weights": {
+    "exact": 3.0,
+    "numeric_sequence": 1.0,
+    "wheel_neighbor": 1.0,
+    "mirror": 1.5,
+    "digit_sum": 1.2,
+    "terminal_family": 0.45,
+    "sector": 0.15,
+    "color": 0.0,
+    "parity": 0.0,
+    "dozen": 0.0,
+    "column": 0.0
+  },
+  "policy": {
+    "shadow_only": true,
+    "allow_abstention": true,
+    "publish_to_betting_stream": false
+  }
+}

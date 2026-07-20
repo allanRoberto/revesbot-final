@@ -16,6 +16,8 @@ const apiPort = process.env.API_PORT || (isDevelop ? "8081" : "8080");
 const authApiPort = process.env.AUTH_API_PORT || (isDevelop ? "3091" : "3090");
 const sinaisPort = process.env.SINAIS_PORT || (isDevelop ? "8091" : "8090");
 const nodeEnv = isDevelop ? "development" : "production";
+const orbitShadowEnabled = process.env.ORBIT_SHADOW_ENABLED !== "0";
+const orbitTriggerEnabled = process.env.ORBIT_TRIGGER_ENABLED !== "0";
 
 module.exports = {
   apps: [
@@ -351,6 +353,59 @@ module.exports = {
         MULTI_PIVO_BET_CHIPS: "12",
       },
     },
+    ...(orbitShadowEnabled
+      ? [
+          {
+            name: `orbit-shadow-${suffix}`,
+            cwd: repoRoot,
+            script: "apps/signals/orbit_engine/shadow_worker.py",
+            interpreter: pythonBin,
+            autorestart: true,
+            max_restarts: 10,
+            restart_delay: 3000,
+            kill_timeout: 5000,
+            time: true,
+            env: {
+              DEPLOY_STAGE: stage,
+              PYTHONUNBUFFERED: "1",
+              ORBIT_SHADOW_ENABLED: "1",
+              ORBIT_ROULETTE_IDS:
+                process.env.ORBIT_ROULETTE_IDS ||
+                "pragmatic-auto-roulette,pragmatic-brazilian-roulette,pragmatic-immersive-roulette-deluxe",
+              ORBIT_HISTORY_LIMIT: process.env.ORBIT_HISTORY_LIMIT || "600",
+              ORBIT_HORIZON: process.env.ORBIT_HORIZON || "3",
+              ORBIT_MAX_ATTEMPTS: process.env.ORBIT_MAX_ATTEMPTS || "10",
+              ORBIT_POLL_SECONDS: process.env.ORBIT_POLL_SECONDS || "2",
+            },
+          },
+        ]
+      : []),
+    ...(orbitTriggerEnabled
+      ? [
+          {
+            name: `orbit-trigger-monitor-${suffix}`,
+            cwd: repoRoot,
+            script: "apps/monitoring/orbit_triggers/worker.py",
+            interpreter: pythonBin,
+            autorestart: true,
+            max_restarts: 10,
+            restart_delay: 3000,
+            kill_timeout: 5000,
+            time: true,
+            env: {
+              DEPLOY_STAGE: stage,
+              PYTHONUNBUFFERED: "1",
+              ORBIT_TRIGGER_ENABLED: "1",
+              ORBIT_ROULETTE_IDS:
+                process.env.ORBIT_ROULETTE_IDS ||
+                "pragmatic-auto-roulette,pragmatic-brazilian-roulette,pragmatic-immersive-roulette-deluxe",
+              ORBIT_TRIGGER_MAX_ATTEMPTS: "5",
+              ORBIT_TRIGGER_POLL_SECONDS:
+                process.env.ORBIT_TRIGGER_POLL_SECONDS || "2",
+            },
+          },
+        ]
+      : []),
     {
       name: `sinais-${suffix}`,
       cwd: repoRoot,

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { getSession } from '@/lib/session';
 import { findAppUser } from '@/lib/mongo';
 import { getBookmakerUser } from '@/lib/bookmaker';
@@ -23,6 +24,9 @@ export default async function Dashboard() {
         <div className="logo-sm">REVESBOT</div>
         <div className="topbar-right">
           <BalanceBadge initial={bookmaker?.balance ?? null} />
+          <Link className="logout-sm" href="/orbit">
+            Sugestões
+          </Link>
           <span className="user-email">{session.email}</span>
           <a className="logout-sm" href="/api/auth/logout">
             Sair
