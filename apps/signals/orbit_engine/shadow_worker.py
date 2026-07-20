@@ -8,18 +8,25 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Sequence
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from shared.python.roulette.orbit.evidence_graph import EvidenceGraphConfig
 from shared.python.roulette.orbit.multi_pivot import MultiPivotOrbitScorer
 from shared.python.roulette.orbit.orbit_builder import OrbitBuilder
 from shared.python.roulette.orbit.scoring import OrbitalRuleScorer
 
-from .config import OrbitEngineSettings, load_engine_settings
-from .snapshot import _mongo_url
+from apps.signals.orbit_engine.config import OrbitEngineSettings, load_engine_settings
+from apps.signals.orbit_engine.snapshot import _mongo_url
 
 
 LOGGER = logging.getLogger("orbit-shadow")
