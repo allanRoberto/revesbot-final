@@ -360,7 +360,7 @@ function ProfitabilityCard({ strategy, rouletteName }: { strategy: Profitability
 
 function ProfitabilityCalculator({ slug, windowKey }: { slug?: string; windowKey: WindowKey }) {
   const [initialBank, setInitialBank] = useState('1000');
-  const [stakes, setStakes] = useState(['10', '20', '40', '80', '160']);
+  const [stakes, setStakes] = useState(['1', '2', '4', '8', '16']);
   const [result, setResult] = useState<ProfitabilityPayload | null>(null);
   const [selectedRouletteId, setSelectedRouletteId] = useState('');
   const [calculating, setCalculating] = useState(false);
@@ -375,8 +375,14 @@ function ProfitabilityCalculator({ slug, windowKey }: { slug?: string; windowKey
     event.preventDefault();
     const bank = parseMoney(initialBank);
     const parsedStakes = stakes.map(parseMoney);
-    if (!Number.isFinite(bank) || bank <= 0 || parsedStakes.some((value) => !Number.isFinite(value) || value < 0)) {
-      setCalculatorError('Informe uma banca positiva e cinco entradas maiores ou iguais a zero.');
+    if (
+      !Number.isFinite(bank)
+      || bank <= 0
+      || parsedStakes.some((value) => (
+        !Number.isFinite(value) || value < 0 || !Number.isInteger(value)
+      ))
+    ) {
+      setCalculatorError('Informe uma banca positiva e cinco fichas inteiras maiores ou iguais a zero.');
       return;
     }
     setCalculating(true);
@@ -413,9 +419,9 @@ function ProfitabilityCalculator({ slug, windowKey }: { slug?: string; windowKey
         <div>
           <span>Simulador financeiro</span>
           <h2>Assertividade e lucratividade por roleta</h2>
-          <p>Cada roleta usa uma banca independente. A entrada total é dividida entre os números protegidos e para no primeiro acerto.</p>
+          <p>Cada valor é a ficha inteira aplicada em cada número protegido. O custo da tentativa é a ficha multiplicada pela cobertura.</p>
         </div>
-        <small>Pagamento bruto 36× por número acertado</small>
+        <small>Pagamento bruto: 36× a ficha do número acertado</small>
       </div>
       <form className={styles.calculatorForm} onSubmit={calculate}>
         <label>
@@ -424,10 +430,13 @@ function ProfitabilityCalculator({ slug, windowKey }: { slug?: string; windowKey
         </label>
         {stakes.map((stake, index) => (
           <label key={index}>
-            <span>{index + 1}ª tentativa</span>
+            <span>{index + 1}ª tentativa · ficha por número</span>
             <input
-              inputMode="decimal"
+              inputMode="numeric"
+              min="0"
               onChange={(event) => setStakes((current) => current.map((value, position) => position === index ? event.target.value : value))}
+              step="1"
+              type="number"
               value={stake}
             />
           </label>

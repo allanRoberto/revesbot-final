@@ -15,11 +15,11 @@ def _trial(*, first_hit, target_size=10, minute=0):
     }
 
 
-def test_profitability_splits_total_stake_and_stops_after_first_hit():
+def test_profitability_uses_integer_chip_per_number_and_stops_after_first_hit():
     result = simulate_trigger_profitability(
         [_trial(first_hit=2, target_size=10)],
         initial_bank=1000,
-        attempt_stakes=[10, 20, 40, 80, 160],
+        attempt_stakes=[1, 2, 4, 8, 16],
     )
 
     assert result["total_staked"] == 30.0
@@ -34,12 +34,12 @@ def test_profitability_charges_all_attempts_when_signal_misses():
     result = simulate_trigger_profitability(
         [_trial(first_hit=None, target_size=9)],
         initial_bank=1000,
-        attempt_stakes=[10, 20, 40, 80, 160],
+        attempt_stakes=[1, 2, 4, 8, 16],
     )
 
-    assert result["total_staked"] == 310.0
+    assert result["total_staked"] == 279.0
     assert result["total_returned"] == 0.0
-    assert result["final_bank"] == 690.0
+    assert result["final_bank"] == 721.0
     assert result["losing_signals"] == 1
     assert result["signals_completed"] == 1
 
@@ -48,7 +48,7 @@ def test_profitability_stops_at_the_attempt_the_bank_cannot_cover():
     result = simulate_trigger_profitability(
         [_trial(first_hit=2), _trial(first_hit=1, minute=1)],
         initial_bank=15,
-        attempt_stakes=[10, 20, 40, 80, 160],
+        attempt_stakes=[1, 2, 4, 8, 16],
     )
 
     assert result["final_bank"] == 5.0
@@ -72,7 +72,7 @@ def test_profitability_orders_trials_chronologically_and_downsamples_chart():
     result = simulate_trigger_profitability(
         trials,
         initial_bank=1000,
-        attempt_stakes=[9, 0, 0, 0, 0],
+        attempt_stakes=[1, 0, 0, 0, 0],
         maximum_chart_points=8,
     )
 
@@ -89,6 +89,7 @@ def test_profitability_orders_trials_chronologically_and_downsamples_chart():
         ({"initial_bank": 0}, "banca inicial"),
         ({"attempt_stakes": [1, 2]}, "exatamente 5"),
         ({"attempt_stakes": [1, 2, 3, 4, -1]}, "nao podem ser negativos"),
+        ({"attempt_stakes": [1, 2, 3, 4, 5.5]}, "valores inteiros"),
     ],
 )
 def test_profitability_validates_inputs(kwargs, message):

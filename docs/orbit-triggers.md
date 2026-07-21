@@ -65,11 +65,10 @@ selecionada na pagina. A banca e simulada em ordem cronologica, separadamente pa
 combinacao de estrategia e roleta. Nao existe banca ou sequencia financeira acumulada
 entre mesas.
 
-- A banca inicial e os cinco valores de entrada sao configurados pelo usuario.
+- A banca inicial e as cinco fichas inteiras por numero sao configuradas pelo usuario.
 - Cada roleta inicia uma simulacao independente com a mesma banca configurada.
-- Cada valor informado e o investimento total da tentativa, dividido igualmente entre
-  todos os numeros protegidos pela entrada congelada.
-- No acerto, o retorno bruto e `(entrada / quantidade de alvos) * 36`.
+- O custo de cada tentativa e `ficha por numero * quantidade de alvos`.
+- No acerto, o retorno bruto e `ficha por numero * 36`.
 - Depois do primeiro acerto daquele sinal, as tentativas restantes nao sao executadas.
 - Sem acerto, os cinco investimentos sao debitados.
 - Se a banca nao cobrir a proxima tentativa, a simulacao para naquele ponto e informa o
@@ -77,7 +76,8 @@ entre mesas.
 - O ROI exibido e `lucro liquido / total investido`; o grafico representa o saldo da
   banca depois de cada sinal historico.
 
-O endpoint recebe `initial_bank`, cinco itens em `attempt_stakes`, `window`, os IDs das
+O endpoint recebe `initial_bank`, cinco fichas inteiras por numero em `attempt_stakes`,
+`window`, os IDs das
 roletas e, opcionalmente, uma lista de `strategy_slugs`. A resposta agrupa os resultados
 em `roulettes[]`, cada uma com suas proprias `strategies[]`. A camada Next.js injeta os
 IDs das roletas autorizadas no servidor, sem aceitar esse escopo diretamente do

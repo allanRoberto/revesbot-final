@@ -50,6 +50,7 @@ def test_profitability_request_accepts_all_eight_strategy_slugs():
         ("initial_bank", 0),
         ("attempt_stakes", [1, 2, 3]),
         ("attempt_stakes", [1, 2, 3, 4, -1]),
+        ("attempt_stakes", [1, 2, 3, 4, 5.5]),
         ("window", "48h"),
     ],
 )
@@ -84,7 +85,7 @@ def test_profitability_is_calculated_independently_for_each_roulette(monkeypatch
         service.profitability(
             ["roulette-a", "roulette-b", "roulette-a"],
             initial_bank=Decimal("1000"),
-            attempt_stakes=[Decimal(value) for value in (9, 18, 36, 72, 144)],
+            attempt_stakes=[Decimal(value) for value in (1, 2, 4, 8, 16)],
             window="all",
             strategy_slugs=["ryan"],
         )

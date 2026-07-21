@@ -56,8 +56,8 @@ def simulate_trigger_profitability(
 ) -> dict[str, Any]:
     """Simula uma entrada por sinal, parando no primeiro acerto.
 
-    Cada valor de ``attempt_stakes`` representa o total investido naquela
-    tentativa. O total e dividido igualmente entre os numeros protegidos.
+    Cada valor de ``attempt_stakes`` representa a ficha inteira aplicada em
+    cada numero protegido naquela tentativa.
     """
 
     safe_attempts = max(1, min(20, int(max_attempts)))
@@ -71,6 +71,8 @@ def simulate_trigger_profitability(
     stakes = tuple(_decimal(value) for value in attempt_stakes)
     if any(value < 0 for value in stakes):
         raise ValueError("os valores por tentativa nao podem ser negativos")
+    if any(value != value.to_integral_value() for value in stakes):
+        raise ValueError("as fichas por numero precisam ser valores inteiros")
     multiplier = _decimal(payout_multiplier)
     if multiplier <= 0:
         raise ValueError("o multiplicador de pagamento precisa ser positivo")
@@ -122,17 +124,18 @@ def simulate_trigger_profitability(
         signals_started += 1
         completed = True
         for attempt in range(1, (first_hit or safe_attempts) + 1):
-            stake = stakes[attempt - 1]
-            if bank < stake:
+            chip_per_number = stakes[attempt - 1]
+            total_attempt_cost = chip_per_number * Decimal(target_size)
+            if bank < total_attempt_cost:
                 bankrupt = True
                 completed = False
                 bankroll_stop = {"signal": signal_index, "attempt": attempt}
                 break
-            bank -= stake
-            total_staked += stake
+            bank -= total_attempt_cost
+            total_staked += total_attempt_cost
             update_drawdown()
             if first_hit == attempt:
-                gross_return = (stake / Decimal(target_size)) * multiplier
+                gross_return = chip_per_number * multiplier
                 bank += gross_return
                 total_returned += gross_return
                 exact_hits[attempt - 1] += 1
@@ -189,7 +192,8 @@ def simulate_trigger_profitability(
             "points_capped": len(chart_points) < len(points),
         },
         "assumptions": {
-            "stake_mode": "total_per_attempt_evenly_split_by_target",
+            "stake_mode": "integer_chip_per_number",
+            "attempt_cost_formula": "chip_per_number_x_target_size",
             "stop_after_first_hit": True,
             "payout_multiplier_gross": float(multiplier),
             "currency": "BRL",

@@ -35,6 +35,8 @@ class OrbitTriggerProfitabilityRequest(BaseModel):
     def validate_attempt_stakes(cls, values: List[Decimal]) -> List[Decimal]:
         if any(value < 0 for value in values):
             raise ValueError("os valores por tentativa nao podem ser negativos")
+        if any(value != value.to_integral_value() for value in values):
+            raise ValueError("as fichas por numero precisam ser valores inteiros")
         if any(value > Decimal("100000000") for value in values):
             raise ValueError("valor por tentativa acima do limite permitido")
         return values
