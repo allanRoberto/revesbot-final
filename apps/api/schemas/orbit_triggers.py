@@ -14,7 +14,7 @@ class OrbitTriggerProfitabilityRequest(BaseModel):
     strategy_slugs: Optional[List[str]] = Field(default=None, min_length=1, max_length=9)
     window: PerformanceWindow = "24h"
     initial_bank: Decimal = Field(gt=0, le=Decimal("1000000000"))
-    attempt_stakes: List[Decimal] = Field(min_length=5, max_length=5)
+    attempt_stakes: List[Decimal] = Field(min_length=5, max_length=10)
     maximum_records: int = Field(default=50_000, ge=100, le=200_000)
     maximum_chart_points: int = Field(default=400, ge=50, le=1_000)
 

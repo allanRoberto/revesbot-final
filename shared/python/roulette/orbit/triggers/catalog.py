@@ -127,10 +127,10 @@ STRATEGIES: tuple[TriggerStrategySpec, ...] = (
             "invalidam o gatilho."
         ),
         entry_rule=(
-            "Top 9 exato da sugestão, sem proteção de vizinhos. Depois dos três giros "
+            "Top 9 exato da sugestão, sem proteção de vizinhos. Depois dos dez giros "
             "observados, um giro adicional é aguardado antes de uma nova validação."
         ),
-        max_attempts=3,
+        max_attempts=10,
     ),
 )
 

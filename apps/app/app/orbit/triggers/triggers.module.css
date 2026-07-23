@@ -296,10 +296,6 @@
   margin: 9px 0;
 }
 
-.threeAttemptCurveGrid {
-  grid-template-columns: repeat(3, 1fr);
-}
-
 .curveGrid > div {
   display: flex;
   min-width: 0;
@@ -394,8 +390,8 @@
   gap: 8px;
 }
 
-.threeAttemptCalculatorForm {
-  grid-template-columns: repeat(4, minmax(90px, 1fr)) auto;
+.tenAttemptCalculatorForm {
+  grid-template-columns: repeat(6, minmax(90px, 1fr));
 }
 
 .calculatorForm label {

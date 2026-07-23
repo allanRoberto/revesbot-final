@@ -23,6 +23,18 @@ def test_profitability_request_accepts_five_non_negative_stakes():
     assert payload.attempt_stakes[4] == Decimal("160")
 
 
+def test_profitability_request_accepts_ten_non_negative_stakes():
+    payload = OrbitTriggerProfitabilityRequest(
+        roulette_ids=["roulette-1"],
+        strategy_slugs=["soma-ultimos-3"],
+        initial_bank="10000",
+        attempt_stakes=["1", "2", "4", "8", "16", "32", "64", "128", "256", "512"],
+    )
+
+    assert len(payload.attempt_stakes) == 10
+    assert payload.attempt_stakes[9] == Decimal("512")
+
+
 def test_profitability_request_accepts_all_nine_strategy_slugs():
     strategy_slugs = [
         "green-primeira",
@@ -107,12 +119,12 @@ def test_profitability_is_calculated_independently_for_each_roulette(monkeypatch
     assert {max_attempts for _, _, _, _, max_attempts in calls} == {5}
 
 
-def test_profitability_uses_only_three_stakes_for_sum_last3(monkeypatch):
+def test_profitability_uses_ten_stakes_for_sum_last3(monkeypatch):
     service = OrbitTriggerService()
 
     async def rows(strategy_slug, roulette_id, *, cutoff, maximum_records, max_attempts):
         del strategy_slug, roulette_id, cutoff, maximum_records
-        assert max_attempts == 3
+        assert max_attempts == 10
         return [
             {
                 "activation_timestamp_utc": datetime(
@@ -127,14 +139,14 @@ def test_profitability_uses_only_three_stakes_for_sum_last3(monkeypatch):
     result = asyncio.run(
         service.profitability(
             ["roulette-a"],
-            initial_bank=Decimal("1000"),
-            attempt_stakes=[Decimal(value) for value in (1, 2, 4, 8, 16)],
+            initial_bank=Decimal("10000"),
+            attempt_stakes=[Decimal("1")] * 10,
             window="all",
             strategy_slugs=["soma-ultimos-3"],
         )
     )
 
     strategy = result["roulettes"][0]["strategies"][0]
-    assert strategy["max_attempts"] == 3
-    assert strategy["final_bank"] == 937.0
-    assert len(strategy["exact_hits_by_attempt"]) == 3
+    assert strategy["max_attempts"] == 10
+    assert strategy["final_bank"] == 9910.0
+    assert len(strategy["exact_hits_by_attempt"]) == 10

@@ -212,11 +212,11 @@ def test_sum_last3_blocks_overlap_and_the_spin_that_resolves_the_previous_signal
     assert worker._sum_last3_entry_available(prediction) is True
 
 
-def test_sum_last3_uses_three_attempts_while_existing_strategies_keep_five():
+def test_sum_last3_uses_ten_attempts_while_existing_strategies_keep_five():
     worker = OrbitTriggerWorker.__new__(OrbitTriggerWorker)
     worker.max_attempts = 5
 
-    assert worker._strategy_max_attempts("soma-ultimos-3") == 3
+    assert worker._strategy_max_attempts("soma-ultimos-3") == 10
     assert worker._strategy_max_attempts("allan") == 5
 
 
@@ -327,7 +327,7 @@ def test_trigger_trial_resolves_only_after_five_complete_attempts():
     assert trial["status"] == "resolved"
 
 
-def test_three_attempt_trial_keeps_observing_after_first_hit_without_recounting_it():
+def test_ten_attempt_trial_keeps_observing_after_first_hit_without_recounting_it():
     trial = {
         "entry_numbers": [15],
         "attempt_numbers": [],
@@ -335,20 +335,21 @@ def test_three_attempt_trial_keeps_observing_after_first_hit_without_recounting_
         "attempt_timestamps_utc": [],
         "first_hit_attempt": None,
     }
-    for index, number in enumerate([15, 15, 2], start=1):
+    observed = [15, 15, 2, 3, 4, 5, 6, 7, 8, 9]
+    for index, number in enumerate(observed, start=1):
         payload = advance_trigger_trial_document(
             trial,
             number=number,
             history_id=f"spin-{index}",
             timestamp=datetime.now(timezone.utc),
-            max_attempts=3,
+            max_attempts=10,
         )
         assert payload is not None
         trial = {**trial, **payload}
 
-    assert trial["attempt_numbers"] == [15, 15, 2]
+    assert trial["attempt_numbers"] == observed
     assert trial["first_hit_attempt"] == 1
-    assert trial["attempts_observed"] == 3
+    assert trial["attempts_observed"] == 10
     assert trial["status"] == "resolved"
 
 

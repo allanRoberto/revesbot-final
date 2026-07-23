@@ -9,7 +9,7 @@ sinais no Redis e nao envia apostas.
 - O primeiro inicio apenas grava a baseline atual; previsoes anteriores nao sao
   reconstruidas.
 - A entrada e congelada no giro de ativacao e os resultados comecam no giro seguinte.
-- As oito estrategias originais usam cinco tentativas; `soma-ultimos-3` usa tres.
+- As oito estrategias originais usam cinco tentativas; `soma-ultimos-3` usa dez.
 - Uma entrada somente entra no denominador depois que todos os giros da estrategia
   foram observados.
 - O primeiro acerto define o resultado estatistico e financeiro. Os giros restantes
@@ -42,7 +42,7 @@ sinais no Redis e nao envia apostas.
    novamente o total. O total ou um de seus vizinhos fisicos precisa aparecer entre os
    quatro primeiros numeros da sugestao. Repeticoes exatas, qualquer par de espelhos e
    um trio formado somente por numeros de um digito invalidam o gatilho. A entrada usa
-   o Top 9 sem expansao, acompanha tres giros e espera mais um giro antes de voltar a
+   o Top 9 sem expansao, acompanha dez giros e espera mais um giro antes de voltar a
    validar uma entrada naquela roleta.
 
 ## Execucao
@@ -74,8 +74,8 @@ selecionada na pagina. A banca e simulada em ordem cronologica, separadamente pa
 combinacao de estrategia e roleta. Nao existe banca ou sequencia financeira acumulada
 entre mesas.
 
-- A banca inicial e as fichas inteiras por numero sao configuradas pelo usuario. As
-  estrategias de tres tentativas ignoram as fichas da quarta e quinta tentativas.
+- A banca inicial e as fichas inteiras por numero sao configuradas pelo usuario. Cada
+  estrategia utiliza apenas as fichas correspondentes ao seu total de tentativas.
 - Cada roleta inicia uma simulacao independente com a mesma banca configurada.
 - O custo de cada tentativa e `ficha por numero * quantidade de alvos`.
 - No acerto, o retorno bruto e `ficha por numero * 36`.
@@ -86,7 +86,8 @@ entre mesas.
 - O ROI exibido e `lucro liquido / total investido`; o grafico representa o saldo da
   banca depois de cada sinal historico.
 
-O endpoint recebe `initial_bank`, cinco fichas inteiras por numero em `attempt_stakes`,
+O endpoint recebe `initial_bank`, de cinco a dez fichas inteiras por numero em
+`attempt_stakes`,
 `window`, os IDs das
 roletas e, opcionalmente, uma lista de `strategy_slugs`. A resposta agrupa os resultados
 em `roulettes[]`, cada uma com suas proprias `strategies[]`. A camada Next.js injeta os

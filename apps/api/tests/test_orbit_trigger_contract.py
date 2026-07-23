@@ -18,7 +18,7 @@ def test_trigger_catalog_has_nine_strategies_with_strategy_specific_attempts():
         "soma-ultimos-3",
     }
     attempts = {strategy.slug: strategy.max_attempts for strategy in STRATEGIES}
-    assert attempts["soma-ultimos-3"] == 3
+    assert attempts["soma-ultimos-3"] == 10
     assert {value for slug, value in attempts.items() if slug != "soma-ultimos-3"} == {5}
 
 

@@ -247,11 +247,7 @@ function AttemptCurve({ performance, windowKey }: { performance: TriggerPerforma
         <span>Acertos por tentativa</span>
         <small>n = {selected?.sample_size ?? 0}</small>
       </div>
-      <div
-        className={`${styles.curveGrid} ${
-          maxAttempts === 3 ? styles.threeAttemptCurveGrid : ''
-        }`}
-      >
+      <div className={styles.curveGrid}>
         {Array.from({ length: maxAttempts }, (_, index) => {
           const row = attempts[index];
           return (
@@ -374,7 +370,18 @@ function ProfitabilityCalculator({
   maxAttempts?: number;
 }) {
   const [initialBank, setInitialBank] = useState('1000');
-  const [stakes, setStakes] = useState(['1', '2', '4', '8', '16']);
+  const [stakes, setStakes] = useState([
+    '1',
+    '2',
+    '4',
+    '8',
+    '16',
+    '32',
+    '64',
+    '128',
+    '256',
+    '512',
+  ]);
   const [result, setResult] = useState<ProfitabilityPayload | null>(null);
   const [selectedRouletteId, setSelectedRouletteId] = useState('');
   const [calculating, setCalculating] = useState(false);
@@ -438,14 +445,16 @@ function ProfitabilityCalculator({
           <p>
             Cada valor é a ficha inteira aplicada em cada número protegido. O custo da
             tentativa é a ficha multiplicada pela cobertura.
-            {maxAttempts < 5 ? ` Esta estratégia encerra em ${maxAttempts} tentativas.` : ''}
+            {maxAttempts !== 5
+              ? ` Esta estratégia encerra em ${maxAttempts} tentativas.`
+              : ''}
           </p>
         </div>
         <small>Pagamento bruto: 36× a ficha do número acertado</small>
       </div>
       <form
         className={`${styles.calculatorForm} ${
-          maxAttempts === 3 ? styles.threeAttemptCalculatorForm : ''
+          maxAttempts === 10 ? styles.tenAttemptCalculatorForm : ''
         }`}
         onSubmit={calculate}
       >
@@ -696,7 +705,9 @@ export default function TriggerDashboard({ slug }: { slug?: string }) {
 
   const calculatorMaxAttempts = data && 'strategy' in data
     ? data.strategy.max_attempts
-    : 5;
+    : data && 'strategies' in data
+      ? data.max_attempts
+      : 5;
 
   return (
     <>
