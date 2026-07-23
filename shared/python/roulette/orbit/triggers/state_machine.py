@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 from ..constants import (
     BLACK_NUMBERS,
     EUROPEAN_WHEEL,
+    MIRRORS,
     RED_NUMBERS,
     WHEEL_INDEX,
     validate_number,
@@ -128,6 +129,47 @@ def build_ryan2_entry(suggestion: Sequence[int]) -> dict[str, Any] | None:
         "target_color": target_color,
         "base_numbers": base_numbers,
         "entry_numbers": entry_numbers,
+    }
+
+
+def build_sum_last3_entry(
+    recent_pivots: Sequence[int],
+    suggestion: Sequence[int],
+) -> dict[str, Any] | None:
+    """Valida a entrada pela soma digital dos tres resultados mais recentes."""
+
+    pivots = tuple(validate_number(value) for value in recent_pivots[:3])
+    ranked = tuple(validate_number(value) for value in suggestion[:9])
+    if len(pivots) != 3 or len(ranked) < 4:
+        return None
+    if len(set(pivots)) != len(pivots):
+        return None
+    if all(number < 10 for number in pivots):
+        return None
+    if any(
+        MIRRORS.get(left) == right
+        for index, left in enumerate(pivots)
+        for right in pivots[index + 1 :]
+    ):
+        return None
+
+    digit_sums = tuple((number // 10) + (number % 10) for number in pivots)
+    sum_total = sum(digit_sums)
+    gate_numbers = wheel_neighbors(sum_total, span=1, include_center=True)
+    first_four = ranked[:4]
+    matched_first_four = tuple(number for number in first_four if number in gate_numbers)
+    if not matched_first_four:
+        return None
+
+    return {
+        "recent_pivots": pivots,
+        "digit_sums": digit_sums,
+        "sum_total": sum_total,
+        "gate_numbers": gate_numbers,
+        "first_four": first_four,
+        "matched_first_four": matched_first_four,
+        "base_numbers": matched_first_four,
+        "entry_numbers": tuple(dict.fromkeys(ranked)),
     }
 
 

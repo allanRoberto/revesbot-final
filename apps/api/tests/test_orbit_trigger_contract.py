@@ -4,8 +4,8 @@ from api.services.orbit_trigger_service import serialize_trigger_trial
 from shared.python.roulette.orbit.triggers.catalog import STRATEGIES
 
 
-def test_trigger_catalog_has_eight_strategies_with_five_attempts():
-    assert len(STRATEGIES) == 8
+def test_trigger_catalog_has_nine_strategies_with_strategy_specific_attempts():
+    assert len(STRATEGIES) == 9
     assert {strategy.slug for strategy in STRATEGIES} == {
         "green-primeira",
         "allan",
@@ -15,8 +15,11 @@ def test_trigger_catalog_has_eight_strategies_with_five_attempts():
         "distancia",
         "ryan",
         "ryan-2",
+        "soma-ultimos-3",
     }
-    assert {strategy.max_attempts for strategy in STRATEGIES} == {5}
+    attempts = {strategy.slug: strategy.max_attempts for strategy in STRATEGIES}
+    assert attempts["soma-ultimos-3"] == 3
+    assert {value for slug, value in attempts.items() if slug != "soma-ultimos-3"} == {5}
 
 
 def test_trigger_history_contract_marks_hit_and_preserves_frozen_entry():

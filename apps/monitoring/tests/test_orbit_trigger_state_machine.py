@@ -11,6 +11,7 @@ from shared.python.roulette.orbit.triggers.state_machine import (
     advance_trigger_trial_document,
     build_ryan_entry,
     build_ryan2_entry,
+    build_sum_last3_entry,
     expand_with_neighbors,
 )
 
@@ -93,6 +94,42 @@ def test_ryan2_rejects_non_alternating_or_green_top3(suggestion):
     assert build_ryan2_entry(suggestion) is None
 
 
+def test_sum_last3_uses_digit_sums_without_reducing_the_total():
+    result = build_sum_last3_entry(
+        [25, 30, 14],
+        [15, 7, 22, 4, 1, 2, 3, 5, 6],
+    )
+
+    assert result is not None
+    assert result["digit_sums"] == (7, 3, 5)
+    assert result["sum_total"] == 15
+    assert result["gate_numbers"] == (32, 15, 19)
+    assert result["matched_first_four"] == (15,)
+    assert result["entry_numbers"] == (15, 7, 22, 4, 1, 2, 3, 5, 6)
+
+
+@pytest.mark.parametrize(
+    "pivots",
+    [
+        [21, 24, 24],
+        [12, 24, 21],
+        [9, 3, 5],
+    ],
+)
+def test_sum_last3_rejects_repeats_mirrors_and_all_single_digit_trios(pivots):
+    assert build_sum_last3_entry(
+        pivots,
+        [15, 32, 19, 7, 1, 2, 3, 4, 5],
+    ) is None
+
+
+def test_sum_last3_requires_total_or_physical_neighbor_in_first_four():
+    assert build_sum_last3_entry(
+        [25, 30, 14],
+        [1, 2, 3, 4, 15, 32, 19, 7, 8],
+    ) is None
+
+
 def test_trigger_worker_registers_ryan2_as_an_immediate_entry(monkeypatch):
     worker = OrbitTriggerWorker.__new__(OrbitTriggerWorker)
     activations = []
@@ -115,6 +152,72 @@ def test_trigger_worker_registers_ryan2_as_an_immediate_entry(monkeypatch):
     assert ryan2.base_numbers == (1, 3, 5, 9, 12)
     assert ryan2.metadata["target_color"] == "red"
     assert ryan2.metadata["neighbor_span"] == 1
+
+
+def test_trigger_worker_registers_sum_last3_with_top9_without_expansion(monkeypatch):
+    worker = OrbitTriggerWorker.__new__(OrbitTriggerWorker)
+    activations = []
+
+    def capture(*, activation, current_prediction):
+        del current_prediction
+        activations.append(activation)
+        return True
+
+    monkeypatch.setattr(worker, "_create_trigger_trial", capture)
+    monkeypatch.setattr(worker, "_sum_last3_entry_available", lambda prediction: True)
+    top9 = [15, 7, 22, 4, 1, 2, 3, 5, 6]
+    worker._create_direct_entries(
+        {
+            "trial_id": "prediction-sum-1",
+            "top9": top9,
+            "recent_pivots": [25, 30, 14],
+        }
+    )
+
+    activation = next(row for row in activations if row.strategy_slug == "soma-ultimos-3")
+    assert activation.entry_numbers == tuple(top9)
+    assert activation.base_numbers == (15,)
+    assert activation.metadata["sum_total"] == 15
+    assert activation.metadata["gate_numbers"] == [32, 15, 19]
+
+
+class _LatestTrialCollection:
+    def __init__(self, latest):
+        self.latest = latest
+
+    def find_one(self, *args, **kwargs):
+        del args, kwargs
+        return self.latest
+
+
+def test_sum_last3_blocks_overlap_and_the_spin_that_resolves_the_previous_signal():
+    worker = OrbitTriggerWorker.__new__(OrbitTriggerWorker)
+    prediction = {
+        "roulette_id": "roulette-1",
+        "anchor_history_id": "spin-4",
+    }
+
+    worker.trigger_trials = _LatestTrialCollection({"status": "pending"})
+    assert worker._sum_last3_entry_available(prediction) is False
+
+    worker.trigger_trials = _LatestTrialCollection(
+        {
+            "status": "resolved",
+            "attempt_history_ids": ["spin-2", "spin-3", "spin-4"],
+        }
+    )
+    assert worker._sum_last3_entry_available(prediction) is False
+
+    prediction["anchor_history_id"] = "spin-5"
+    assert worker._sum_last3_entry_available(prediction) is True
+
+
+def test_sum_last3_uses_three_attempts_while_existing_strategies_keep_five():
+    worker = OrbitTriggerWorker.__new__(OrbitTriggerWorker)
+    worker.max_attempts = 5
+
+    assert worker._strategy_max_attempts("soma-ultimos-3") == 3
+    assert worker._strategy_max_attempts("allan") == 5
 
 
 def test_green_waits_one_spin_then_uses_current_top9():
@@ -221,6 +324,31 @@ def test_trigger_trial_resolves_only_after_five_complete_attempts():
 
     assert trial["first_hit_attempt"] == 2
     assert trial["attempts_observed"] == 5
+    assert trial["status"] == "resolved"
+
+
+def test_three_attempt_trial_keeps_observing_after_first_hit_without_recounting_it():
+    trial = {
+        "entry_numbers": [15],
+        "attempt_numbers": [],
+        "attempt_history_ids": [],
+        "attempt_timestamps_utc": [],
+        "first_hit_attempt": None,
+    }
+    for index, number in enumerate([15, 15, 2], start=1):
+        payload = advance_trigger_trial_document(
+            trial,
+            number=number,
+            history_id=f"spin-{index}",
+            timestamp=datetime.now(timezone.utc),
+            max_attempts=3,
+        )
+        assert payload is not None
+        trial = {**trial, **payload}
+
+    assert trial["attempt_numbers"] == [15, 15, 2]
+    assert trial["first_hit_attempt"] == 1
+    assert trial["attempts_observed"] == 3
     assert trial["status"] == "resolved"
 
 

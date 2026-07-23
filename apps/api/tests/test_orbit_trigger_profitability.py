@@ -23,7 +23,7 @@ def test_profitability_request_accepts_five_non_negative_stakes():
     assert payload.attempt_stakes[4] == Decimal("160")
 
 
-def test_profitability_request_accepts_all_eight_strategy_slugs():
+def test_profitability_request_accepts_all_nine_strategy_slugs():
     strategy_slugs = [
         "green-primeira",
         "allan",
@@ -33,6 +33,7 @@ def test_profitability_request_accepts_all_eight_strategy_slugs():
         "distancia",
         "ryan",
         "ryan-2",
+        "soma-ultimos-3",
     ]
     payload = OrbitTriggerProfitabilityRequest(
         roulette_ids=["roulette-1"],
@@ -70,8 +71,8 @@ def test_profitability_is_calculated_independently_for_each_roulette(monkeypatch
     service = OrbitTriggerService()
     calls = []
 
-    async def rows(strategy_slug, roulette_id, *, cutoff, maximum_records):
-        calls.append((strategy_slug, roulette_id, cutoff, maximum_records))
+    async def rows(strategy_slug, roulette_id, *, cutoff, maximum_records, max_attempts):
+        calls.append((strategy_slug, roulette_id, cutoff, maximum_records, max_attempts))
         return [
             {
                 "activation_timestamp_utc": datetime(2026, 7, 20, 18, tzinfo=timezone.utc),
@@ -99,7 +100,41 @@ def test_profitability_is_calculated_independently_for_each_roulette(monkeypatch
     ]
     assert result["roulettes"][0]["strategies"][0]["final_bank"] == 1027.0
     assert result["roulettes"][1]["strategies"][0]["final_bank"] == 721.0
-    assert {(strategy, roulette) for strategy, roulette, _, _ in calls} == {
+    assert {(strategy, roulette) for strategy, roulette, _, _, _ in calls} == {
         ("ryan", "roulette-a"),
         ("ryan", "roulette-b"),
     }
+    assert {max_attempts for _, _, _, _, max_attempts in calls} == {5}
+
+
+def test_profitability_uses_only_three_stakes_for_sum_last3(monkeypatch):
+    service = OrbitTriggerService()
+
+    async def rows(strategy_slug, roulette_id, *, cutoff, maximum_records, max_attempts):
+        del strategy_slug, roulette_id, cutoff, maximum_records
+        assert max_attempts == 3
+        return [
+            {
+                "activation_timestamp_utc": datetime(
+                    2026, 7, 20, 18, tzinfo=timezone.utc
+                ),
+                "first_hit_attempt": None,
+                "target_size": 9,
+            }
+        ]
+
+    monkeypatch.setattr(service, "_profitability_rows", rows)
+    result = asyncio.run(
+        service.profitability(
+            ["roulette-a"],
+            initial_bank=Decimal("1000"),
+            attempt_stakes=[Decimal(value) for value in (1, 2, 4, 8, 16)],
+            window="all",
+            strategy_slugs=["soma-ultimos-3"],
+        )
+    )
+
+    strategy = result["roulettes"][0]["strategies"][0]
+    assert strategy["max_attempts"] == 3
+    assert strategy["final_bank"] == 937.0
+    assert len(strategy["exact_hits_by_attempt"]) == 3

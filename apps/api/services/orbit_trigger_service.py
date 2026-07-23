@@ -87,14 +87,15 @@ class OrbitTriggerService:
         *,
         maximum_records: int = 50_000,
     ) -> dict[str, Any]:
-        get_strategy(strategy_slug)
+        strategy = get_strategy(strategy_slug)
+        max_attempts = strategy.max_attempts
         ids = [str(value) for value in roulette_ids]
         safe_maximum = max(100, min(200_000, int(maximum_records)))
         query: dict[str, Any] = {
             "strategy_slug": strategy_slug,
             "roulette_id": {"$in": ids},
             "status": "resolved",
-            "attempts_observed": {"$gte": DEFAULT_MAX_ATTEMPTS},
+            "attempts_observed": {"$gte": max_attempts},
         }
         projection = {
             "_id": 0,
@@ -145,7 +146,7 @@ class OrbitTriggerService:
             **build_trigger_performance_summary(
                 rows,
                 now=datetime.now(timezone.utc),
-                max_attempts=DEFAULT_MAX_ATTEMPTS,
+                max_attempts=max_attempts,
             ),
         }
 
@@ -223,7 +224,7 @@ class OrbitTriggerService:
         )
         return {
             "engine_version": TRIGGER_ENGINE_VERSION,
-            "max_attempts": DEFAULT_MAX_ATTEMPTS,
+            "max_attempts": max(strategy.max_attempts for strategy in STRATEGIES),
             "strategies": [
                 {**strategy.as_payload(), "performance": summary}
                 for strategy, summary in zip(STRATEGIES, summaries)
@@ -238,12 +239,13 @@ class OrbitTriggerService:
         *,
         cutoff: datetime | None,
         maximum_records: int,
+        max_attempts: int,
     ) -> list[dict[str, Any]]:
         query: dict[str, Any] = {
             "strategy_slug": strategy_slug,
             "roulette_id": str(roulette_id),
             "status": "resolved",
-            "attempts_observed": {"$gte": DEFAULT_MAX_ATTEMPTS},
+            "attempts_observed": {"$gte": int(max_attempts)},
         }
         if cutoff is not None:
             query["activation_timestamp_utc"] = {"$gte": cutoff}
@@ -302,6 +304,7 @@ class OrbitTriggerService:
                     roulette_id,
                     cutoff=cutoff,
                     maximum_records=safe_maximum,
+                    max_attempts=strategy.max_attempts,
                 )
                 for roulette_id, strategy in combinations
             )
@@ -318,8 +321,8 @@ class OrbitTriggerService:
                 simulation = simulate_trigger_profitability(
                     rows,
                     initial_bank=initial_bank,
-                    attempt_stakes=attempt_stakes,
-                    max_attempts=DEFAULT_MAX_ATTEMPTS,
+                    attempt_stakes=attempt_stakes[: strategy.max_attempts],
+                    max_attempts=strategy.max_attempts,
                     maximum_chart_points=safe_chart_points,
                 )
                 strategies.append(
@@ -327,6 +330,7 @@ class OrbitTriggerService:
                         "slug": strategy.slug,
                         "name": strategy.name,
                         "short_name": strategy.short_name,
+                        "max_attempts": strategy.max_attempts,
                         "records_capped": len(rows) >= safe_maximum,
                         **simulation,
                     }

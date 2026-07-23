@@ -126,6 +126,7 @@ interface ProfitabilityStrategy {
   slug: string;
   name: string;
   short_name: string;
+  max_attempts: number;
   records_capped: boolean;
   initial_bank: number;
   final_bank: number;
@@ -239,14 +240,19 @@ function WindowFilter({ value, onChange }: { value: WindowKey; onChange: (key: W
 function AttemptCurve({ performance, windowKey }: { performance: TriggerPerformance; windowKey: WindowKey }) {
   const selected = performance.windows?.[windowKey];
   const attempts = selected?.entry?.attempts ?? [];
+  const maxAttempts = Math.max(1, performance.max_attempts ?? attempts.length);
   return (
     <div className={styles.curve}>
       <div className={styles.curveHead}>
         <span>Acertos por tentativa</span>
         <small>n = {selected?.sample_size ?? 0}</small>
       </div>
-      <div className={styles.curveGrid}>
-        {Array.from({ length: 5 }, (_, index) => {
+      <div
+        className={`${styles.curveGrid} ${
+          maxAttempts === 3 ? styles.threeAttemptCurveGrid : ''
+        }`}
+      >
+        {Array.from({ length: maxAttempts }, (_, index) => {
           const row = attempts[index];
           return (
             <div key={index}>
@@ -358,7 +364,15 @@ function ProfitabilityCard({ strategy, rouletteName }: { strategy: Profitability
   );
 }
 
-function ProfitabilityCalculator({ slug, windowKey }: { slug?: string; windowKey: WindowKey }) {
+function ProfitabilityCalculator({
+  slug,
+  windowKey,
+  maxAttempts = 5,
+}: {
+  slug?: string;
+  windowKey: WindowKey;
+  maxAttempts?: number;
+}) {
   const [initialBank, setInitialBank] = useState('1000');
   const [stakes, setStakes] = useState(['1', '2', '4', '8', '16']);
   const [result, setResult] = useState<ProfitabilityPayload | null>(null);
@@ -382,7 +396,9 @@ function ProfitabilityCalculator({ slug, windowKey }: { slug?: string; windowKey
         !Number.isFinite(value) || value < 0 || !Number.isInteger(value)
       ))
     ) {
-      setCalculatorError('Informe uma banca positiva e cinco fichas inteiras maiores ou iguais a zero.');
+      setCalculatorError(
+        `Informe uma banca positiva e ${maxAttempts} fichas inteiras maiores ou iguais a zero.`,
+      );
       return;
     }
     setCalculating(true);
@@ -419,16 +435,25 @@ function ProfitabilityCalculator({ slug, windowKey }: { slug?: string; windowKey
         <div>
           <span>Simulador financeiro</span>
           <h2>Assertividade e lucratividade por roleta</h2>
-          <p>Cada valor é a ficha inteira aplicada em cada número protegido. O custo da tentativa é a ficha multiplicada pela cobertura.</p>
+          <p>
+            Cada valor é a ficha inteira aplicada em cada número protegido. O custo da
+            tentativa é a ficha multiplicada pela cobertura.
+            {maxAttempts < 5 ? ` Esta estratégia encerra em ${maxAttempts} tentativas.` : ''}
+          </p>
         </div>
         <small>Pagamento bruto: 36× a ficha do número acertado</small>
       </div>
-      <form className={styles.calculatorForm} onSubmit={calculate}>
+      <form
+        className={`${styles.calculatorForm} ${
+          maxAttempts === 3 ? styles.threeAttemptCalculatorForm : ''
+        }`}
+        onSubmit={calculate}
+      >
         <label>
           <span>Banca inicial</span>
           <input inputMode="decimal" onChange={(event) => setInitialBank(event.target.value)} value={initialBank} />
         </label>
-        {stakes.map((stake, index) => (
+        {stakes.slice(0, maxAttempts).map((stake, index) => (
           <label key={index}>
             <span>{index + 1}ª tentativa · ficha por número</span>
             <input
@@ -523,8 +548,8 @@ function CatalogView({ data, windowKey }: { data: CatalogPayload; windowKey: Win
 
 function outcomeLabel(trial: TriggerTrial): string {
   if (trial.outcome.status === 'hit') return `Green na ${trial.outcome.first_hit_attempt}ª`;
-  if (trial.outcome.status === 'miss') return 'Não bateu em 5';
-  return `${trial.attempts_observed}/5 observado`;
+  if (trial.outcome.status === 'miss') return `Não bateu em ${trial.max_attempts}`;
+  return `${trial.attempts_observed}/${trial.max_attempts} observado`;
 }
 
 function NumberSet({ label, numbers }: { label: string; numbers: number[] }) {
@@ -561,7 +586,7 @@ function TrialHistory({ trials }: { trials: TriggerTrial[] }) {
             <div className={styles.attempts}>
               <span>Resultados posteriores</span>
               <div>
-                {Array.from({ length: 5 }, (_, index) => {
+                {Array.from({ length: trial.max_attempts }, (_, index) => {
                   const attempt = trial.attempts[index];
                   return (
                     <div className={attempt?.match ? styles.matchAttempt : ''} key={index}>
@@ -582,7 +607,8 @@ function TrialHistory({ trials }: { trials: TriggerTrial[] }) {
 
 function DetailView({ data, windowKey }: { data: DetailPayload; windowKey: WindowKey }) {
   const overallWindow = data.overall.windows?.[windowKey];
-  const fifth = overallWindow?.entry?.attempts?.[4];
+  const maxAttempts = data.strategy.max_attempts;
+  const finalAttempt = overallWindow?.entry?.attempts?.[maxAttempts - 1];
   return (
     <>
       <div className={styles.detailIdentity}>
@@ -591,7 +617,7 @@ function DetailView({ data, windowKey }: { data: DetailPayload; windowKey: Windo
           <h2>{data.strategy.name}</h2>
           <p>{data.strategy.summary}</p>
         </div>
-        <strong>5 tentativas</strong>
+        <strong>{maxAttempts} tentativas</strong>
       </div>
       <div className={styles.ruleBoard}>
         <div>
@@ -603,8 +629,8 @@ function DetailView({ data, windowKey }: { data: DetailPayload; windowKey: Windo
           <p>{data.strategy.entry_rule}</p>
         </div>
         <div className={styles.overallResult}>
-          <span>Até a 5ª</span>
-          <strong>{pct(fifth?.hit_rate)}</strong>
+          <span>Até a {maxAttempts}ª</span>
+          <strong>{pct(finalAttempt?.hit_rate)}</strong>
           <small>n = {overallWindow?.sample_size ?? 0}</small>
         </div>
       </div>
@@ -618,7 +644,7 @@ function DetailView({ data, windowKey }: { data: DetailPayload; windowKey: Windo
                 <h2>{roulette.name}</h2>
                 <code>{roulette.roulette_id}</code>
               </div>
-              <small>5 tentativas</small>
+              <small>{maxAttempts} tentativas</small>
             </header>
             <StatusCounts performance={roulette.performance} />
             <AttemptCurve performance={roulette.performance} windowKey={windowKey} />
@@ -668,6 +694,10 @@ export default function TriggerDashboard({ slug }: { slug?: string }) {
     };
   }, [load]);
 
+  const calculatorMaxAttempts = data && 'strategy' in data
+    ? data.strategy.max_attempts
+    : 5;
+
   return (
     <>
       <div className={styles.toolbar}>
@@ -678,7 +708,12 @@ export default function TriggerDashboard({ slug }: { slug?: string }) {
       </div>
       {error ? <div className={styles.error}>{error}</div> : null}
       <WindowFilter value={windowKey} onChange={setWindowKey} />
-      <ProfitabilityCalculator key={`${slug ?? 'catalog'}-${windowKey}`} slug={slug} windowKey={windowKey} />
+      <ProfitabilityCalculator
+        key={`${slug ?? 'catalog'}-${windowKey}-${calculatorMaxAttempts}`}
+        maxAttempts={calculatorMaxAttempts}
+        slug={slug}
+        windowKey={windowKey}
+      />
       {loading && !data ? (
         <div className={styles.loadingGrid}>{[0, 1, 2].map((item) => <div key={item} />)}</div>
       ) : data && 'strategies' in data ? (

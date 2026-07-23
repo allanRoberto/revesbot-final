@@ -8,6 +8,7 @@ from .state_machine import (
     advance_trigger_trial_document,
     build_ryan_entry,
     build_ryan2_entry,
+    build_sum_last3_entry,
     expand_with_neighbors,
 )
 
@@ -20,6 +21,7 @@ __all__ = [
     "advance_trigger_trial_document",
     "build_ryan_entry",
     "build_ryan2_entry",
+    "build_sum_last3_entry",
     "expand_with_neighbors",
     "get_strategy",
 ]

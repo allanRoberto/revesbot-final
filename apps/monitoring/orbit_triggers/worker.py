@@ -25,6 +25,7 @@ from shared.python.roulette.orbit.triggers.catalog import (
     DEFAULT_MAX_ATTEMPTS,
     STRATEGIES,
     TRIGGER_ENGINE_VERSION,
+    get_strategy,
 )
 from shared.python.roulette.orbit.triggers.state_machine import (
     TriggerActivation,
@@ -32,6 +33,7 @@ from shared.python.roulette.orbit.triggers.state_machine import (
     advance_trigger_trial_document,
     build_ryan_entry,
     build_ryan2_entry,
+    build_sum_last3_entry,
     expand_with_neighbors,
 )
 
@@ -131,6 +133,12 @@ class OrbitTriggerWorker:
             parts.append(source_trial_id)
         return ":".join(parts)
 
+    def _strategy_max_attempts(self, strategy_slug: str) -> int:
+        configured = get_strategy(strategy_slug).max_attempts
+        if configured != DEFAULT_MAX_ATTEMPTS:
+            return configured
+        return self.max_attempts
+
     def _create_trigger_trial(
         self,
         *,
@@ -142,9 +150,19 @@ class OrbitTriggerWorker:
             return False
         strategy = activation.strategy_slug
         roulette_id = str(current_prediction["roulette_id"])
+        if strategy == "soma-ultimos-3" and self.trigger_trials.count_documents(
+            {
+                "strategy_slug": strategy,
+                "roulette_id": roulette_id,
+                "status": "pending",
+            },
+            limit=1,
+        ):
+            return False
         anchor_id = str(current_prediction["anchor_history_id"])
         event_id = self._event_id(strategy, roulette_id, anchor_id, activation.source_trial_id)
         now = datetime.now(timezone.utc)
+        max_attempts = self._strategy_max_attempts(strategy)
         document = {
             "event_id": event_id,
             "engine_version": TRIGGER_ENGINE_VERSION,
@@ -166,7 +184,7 @@ class OrbitTriggerWorker:
             "attempt_timestamps_utc": [],
             "attempts_observed": 0,
             "first_hit_attempt": None,
-            "max_attempts": self.max_attempts,
+            "max_attempts": max_attempts,
             "status": "pending",
             "shadow_only": True,
             "publishes_betting_signal": False,
@@ -230,12 +248,16 @@ class OrbitTriggerWorker:
             {"roulette_id": roulette_id, "status": "pending"}
         ).sort([("activation_timestamp_utc", 1), ("_id", 1)])
         for trial in pending:
+            trial_max_attempts = int(
+                trial.get("max_attempts")
+                or self._strategy_max_attempts(str(trial.get("strategy_slug") or ""))
+            )
             payload = advance_trigger_trial_document(
                 trial,
                 number=number,
                 history_id=history_id,
                 timestamp=prediction.get("anchor_timestamp_utc"),
-                max_attempts=self.max_attempts,
+                max_attempts=trial_max_attempts,
             )
             if payload is None:
                 continue
@@ -293,6 +315,28 @@ class OrbitTriggerWorker:
         )
         return self._prediction_payload(previous) if previous else None
 
+    def _sum_last3_entry_available(self, prediction: Mapping[str, Any]) -> bool:
+        latest = self.trigger_trials.find_one(
+            {
+                "strategy_slug": "soma-ultimos-3",
+                "roulette_id": str(prediction["roulette_id"]),
+            },
+            {
+                "_id": 0,
+                "status": 1,
+                "attempt_history_ids": 1,
+            },
+            sort=[("activation_timestamp_utc", -1), ("_id", -1)],
+        )
+        if not latest:
+            return True
+        if str(latest.get("status") or "") == "pending":
+            return False
+        attempt_ids = [str(value) for value in latest.get("attempt_history_ids") or []]
+        if not attempt_ids:
+            return True
+        return str(prediction["anchor_history_id"]) != attempt_ids[-1]
+
     def _create_direct_entries(self, prediction: Mapping[str, Any]) -> int:
         top9 = tuple(int(value) for value in prediction.get("top9") or [])[:9]
         source_id = str(prediction["trial_id"])
@@ -345,6 +389,33 @@ class OrbitTriggerWorker:
                             "first_colors": list(ryan2["first_colors"]),
                             "target_color": ryan2["target_color"],
                             "neighbor_span": 1,
+                        },
+                    ),
+                    current_prediction=prediction,
+                )
+            )
+
+        sum_last3 = build_sum_last3_entry(
+            prediction.get("recent_pivots") or [],
+            top9,
+        )
+        if sum_last3 and self._sum_last3_entry_available(prediction):
+            created += int(
+                self._create_trigger_trial(
+                    activation=TriggerActivation(
+                        strategy_slug="soma-ultimos-3",
+                        entry_numbers=sum_last3["entry_numbers"],
+                        base_numbers=sum_last3["base_numbers"],
+                        source_trial_id=source_id,
+                        metadata={
+                            "recent_pivots": list(sum_last3["recent_pivots"]),
+                            "digit_sums": list(sum_last3["digit_sums"]),
+                            "sum_total": sum_last3["sum_total"],
+                            "gate_numbers": list(sum_last3["gate_numbers"]),
+                            "first_four": list(sum_last3["first_four"]),
+                            "matched_first_four": list(sum_last3["matched_first_four"]),
+                            "neighbor_span": 1,
+                            "cooldown_spins_after_resolution": 1,
                         },
                     ),
                     current_prediction=prediction,

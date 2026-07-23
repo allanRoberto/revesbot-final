@@ -115,6 +115,23 @@ STRATEGIES: tuple[TriggerStrategySpec, ...] = (
             "um vizinho físico de cada lado."
         ),
     ),
+    TriggerStrategySpec(
+        slug="soma-ultimos-3",
+        name="Modelo Soma dos Últimos 3",
+        short_name="Soma Últimos 3",
+        summary="Valida o Top 9 pela soma digital dos três resultados mais recentes.",
+        activation_rule=(
+            "Soma os dígitos dos três resultados mais recentes, sem reduzir novamente o "
+            "total. O total ou um de seus vizinhos físicos precisa estar entre os quatro "
+            "primeiros alvos. Repetições, pares de espelhos e três números de um dígito "
+            "invalidam o gatilho."
+        ),
+        entry_rule=(
+            "Top 9 exato da sugestão, sem proteção de vizinhos. Depois dos três giros "
+            "observados, um giro adicional é aguardado antes de uma nova validação."
+        ),
+        max_attempts=3,
+    ),
 )
 
 _BY_SLUG = {strategy.slug: strategy for strategy in STRATEGIES}

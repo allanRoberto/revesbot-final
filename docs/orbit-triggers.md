@@ -9,8 +9,11 @@ sinais no Redis e nao envia apostas.
 - O primeiro inicio apenas grava a baseline atual; previsoes anteriores nao sao
   reconstruidas.
 - A entrada e congelada no giro de ativacao e os resultados comecam no giro seguinte.
-- Toda estrategia usa cinco tentativas.
-- Uma entrada somente entra no denominador depois que os cinco giros foram observados.
+- As oito estrategias originais usam cinco tentativas; `soma-ultimos-3` usa tres.
+- Uma entrada somente entra no denominador depois que todos os giros da estrategia
+  foram observados.
+- O primeiro acerto define o resultado estatistico e financeiro. Os giros restantes
+  continuam armazenados somente para observacao.
 - As chaves `event_id` e `candidate_id` possuem indices unicos para impedir duplicacao
   depois de reinicios.
 - A linha de base aleatoria usa a cobertura real de cada entrada, pois estrategias com
@@ -35,6 +38,12 @@ sinais no Redis e nao envia apostas.
    preto e vermelho, ou entre preto, vermelho e preto. Todos os alvos da cor repetida
    presentes no Top 9 recebem um vizinho fisico de cada lado. O zero nos tres primeiros
    lugares nao ativa a estrategia.
+9. `soma-ultimos-3`: soma os digitos dos tres resultados mais recentes, sem reduzir
+   novamente o total. O total ou um de seus vizinhos fisicos precisa aparecer entre os
+   quatro primeiros numeros da sugestao. Repeticoes exatas, qualquer par de espelhos e
+   um trio formado somente por numeros de um digito invalidam o gatilho. A entrada usa
+   o Top 9 sem expansao, acompanha tres giros e espera mais um giro antes de voltar a
+   validar uma entrada naquela roleta.
 
 ## Execucao
 
@@ -54,9 +63,9 @@ No PM2, o processo e `orbit-trigger-monitor-<ambiente>`.
 - `/orbit/triggers`
 - `/orbit/triggers/{strategy_slug}`
 
-As paginas exibem janelas de 1, 3, 6, 12 e 24 horas, acumulado geral, curva da primeira
-a quinta tentativa, quantidade exata de sinais que bateram em cada tentativa, cobertura
-media, melhor horario e o historico congelado por roleta.
+As paginas exibem janelas de 1, 3, 6, 12 e 24 horas, acumulado geral, curva ate a ultima
+tentativa de cada estrategia, quantidade exata de sinais cujo primeiro acerto ocorreu
+em cada tentativa, cobertura media, melhor horario e o historico congelado por roleta.
 
 ## Calculadora de lucratividade
 
@@ -65,12 +74,13 @@ selecionada na pagina. A banca e simulada em ordem cronologica, separadamente pa
 combinacao de estrategia e roleta. Nao existe banca ou sequencia financeira acumulada
 entre mesas.
 
-- A banca inicial e as cinco fichas inteiras por numero sao configuradas pelo usuario.
+- A banca inicial e as fichas inteiras por numero sao configuradas pelo usuario. As
+  estrategias de tres tentativas ignoram as fichas da quarta e quinta tentativas.
 - Cada roleta inicia uma simulacao independente com a mesma banca configurada.
 - O custo de cada tentativa e `ficha por numero * quantidade de alvos`.
 - No acerto, o retorno bruto e `ficha por numero * 36`.
 - Depois do primeiro acerto daquele sinal, as tentativas restantes nao sao executadas.
-- Sem acerto, os cinco investimentos sao debitados.
+- Sem acerto, todos os investimentos previstos para aquela estrategia sao debitados.
 - Se a banca nao cobrir a proxima tentativa, a simulacao para naquele ponto e informa o
   sinal e a tentativa interrompidos.
 - O ROI exibido e `lucro liquido / total investido`; o grafico representa o saldo da
