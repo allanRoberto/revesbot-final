@@ -66,6 +66,7 @@
   <section class="panel">
     <h2>Laboratório de estratégias de entrada <span class="shadow">SEM LOOKAHEAD</span></h2>
     <div class="controls">
+      <label>Padrão da estratégia<select id="strategyVariant"></select></label>
       <label>Seleção de mesas<select id="strategyMode"><option value="top3" selected>Top 3 do momento</option><option value="top1">Top 1 do momento</option><option value="all">Todas as mesas</option><option value="fixed">Mesa fixa</option></select></label>
       <label>Ranking recente<select id="rankingLookback"><option value="10" selected>Últimos 10</option><option value="20">Últimos 20</option><option value="30">Últimos 30</option><option value="50">Últimos 50</option></select></label>
       <label>Desempate<select id="tieBreakLookback"><option value="30" selected>Últimos 30</option><option value="50">Últimos 50</option><option value="100">Últimos 100</option><option value="200">Últimos 200</option></select></label>
@@ -149,6 +150,7 @@ async function loadCatalog(){
   const response=await fetch("/api/terminal-signals/catalog");if(!response.ok)throw new Error("Falha ao carregar catálogo");
   catalog=await response.json();
   $("variant").innerHTML=catalog.variants.map(v=>`<option value="${esc(v.slug)}">${esc(v.name)}</option>`).join("");
+  $("strategyVariant").innerHTML=catalog.variants.map(v=>`<option value="${esc(v.slug)}">${esc(v.name)}</option>`).join("");
   $("roulette").innerHTML='<option value="">Todas as mesas</option>'+catalog.roulettes.map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${(r.monitored_variants||[]).length}/${catalog.variants.length} workers</option>`).join("");
   $("fixedRoulette").innerHTML='<option value="">Selecione uma mesa</option>'+catalog.roulettes.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
   $("maxAttempts").innerHTML=Array.from({length:9},(_,i)=>i+2).map(n=>`<option value="${n}" ${n===2?"selected":""}>T${n}</option>`).join("");
@@ -204,7 +206,7 @@ function strategyPayload(){
   const mode=$("strategyMode").value,fixed=$("fixedRoulette").value,ranking=Number($("rankingLookback").value||10);
   const comparisonModes=["all","top3","top1"];if(mode==="fixed")comparisonModes.push("fixed");
   return {
-    variant:$("variant").value,roulette_ids:null,window:$("window").value,
+    variant:$("strategyVariant").value,roulette_ids:null,window:$("window").value,
     initial_bank:Number($("bank").value||100),attempt_stakes:attemptStakes(),
     max_attempts:Number($("maxAttempts").value||2),minimum_attempts:2,maximum_attempts:10,
     payout_mode:$("payout").value,maximum_records:50000,maximum_chart_points:500,
@@ -299,7 +301,7 @@ async function loadAll(){
 
 ["variant","roulette","window","maxAttempts","status","payout","bank"].forEach(id=>$(id).addEventListener("change",loadAll));
 $("strategyMode").addEventListener("change",()=>{toggleFixedRoulette();loadAll()});
-["rankingLookback","tieBreakLookback","minimumSamples","minimumAccuracy","fixedRoulette"].forEach(id=>$(id).addEventListener("change",loadAll));
+["strategyVariant","rankingLookback","tieBreakLookback","minimumSamples","minimumAccuracy","fixedRoulette"].forEach(id=>$(id).addEventListener("change",loadAll));
 $("simulateStrategy").addEventListener("click",loadAll);
 $("reload").addEventListener("click",loadAll);
 (async()=>{try{await loadCatalog();toggleFixedRoulette();await loadAll();timer=setInterval(loadAll,60000)}catch(error){setStatus(error.message,true);setStrategyStatus(error.message,true)}})();

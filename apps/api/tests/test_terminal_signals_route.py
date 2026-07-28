@@ -174,6 +174,7 @@ def test_dashboard_contains_variant_and_roulette_selectors() -> None:
     ).read_text(encoding="utf-8")
 
     assert 'id="variant"' in template
+    assert 'id="strategyVariant"' in template
     assert 'id="roulette"' in template
     assert 'id="chart"' in template
     assert "/api/terminal-signals/summary" in template
