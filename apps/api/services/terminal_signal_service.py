@@ -8,7 +8,11 @@ from typing import Any, Mapping, Sequence
 from bson import ObjectId
 from pymongo import DESCENDING
 
-from api.core.db import history_coll, terminal_signal_trials_coll
+from api.core.db import (
+    history_coll,
+    terminal_signal_trials_coll,
+    terminal_signal_worker_state_coll,
+)
 from shared.python.roulette.terminal_signals.catalog import (
     DEFAULT_ATTEMPT_STAKES,
     ENGINE_VERSION,
@@ -102,10 +106,22 @@ class TerminalSignalService:
     async def catalog(self) -> dict[str, Any]:
         pipeline = [
             {"$match": {"roulette_id": {"$regex": "^pragmatic-"}}},
-            {"$group": {"_id": "$roulette_id", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1, "_id": 1}},
+            {
+                "$group": {
+                    "_id": "$roulette_id",
+                    "worker_variants": {"$addToSet": "$worker_variant"},
+                    "last_seen_at_utc": {"$max": "$last_timestamp_utc"},
+                }
+            },
+            {"$sort": {"_id": 1}},
         ]
-        rows = await history_coll.aggregate(pipeline, allowDiskUse=True).to_list(length=None)
+        rows = await terminal_signal_worker_state_coll.aggregate(pipeline).to_list(length=None)
+        if not rows:
+            roulette_ids = await history_coll.distinct(
+                "roulette_id",
+                {"roulette_id": {"$regex": "^pragmatic-"}},
+            )
+            rows = [{"_id": roulette_id} for roulette_id in sorted(roulette_ids)]
         return {
             "engine_version": ENGINE_VERSION,
             "default_attempt_stakes": list(DEFAULT_ATTEMPT_STAKES),
@@ -114,7 +130,9 @@ class TerminalSignalService:
                 {
                     "id": str(row["_id"]),
                     "name": str(row["_id"]).replace("pragmatic-", "").replace("-", " ").title(),
-                    "history_count": int(row.get("count") or 0),
+                    "history_count": None,
+                    "monitored_variants": sorted(row.get("worker_variants") or []),
+                    "last_seen_at_utc": _iso(row.get("last_seen_at_utc")),
                 }
                 for row in rows
             ],

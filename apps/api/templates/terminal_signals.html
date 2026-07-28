@@ -121,7 +121,10 @@ async function loadCatalog(){
   if(!response.ok)throw new Error("Falha ao carregar catálogo");
   catalog=await response.json();
   $("variant").innerHTML=catalog.variants.map(v=>`<option value="${esc(v.slug)}">${esc(v.name)}</option>`).join("");
-  $("roulette").innerHTML='<option value="">Todas as mesas</option>'+catalog.roulettes.map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${r.history_count.toLocaleString("pt-BR")} giros</option>`).join("");
+  $("roulette").innerHTML='<option value="">Todas as mesas</option>'+catalog.roulettes.map(r=>{
+    const coverage=Array.isArray(r.monitored_variants) ? ` · ${r.monitored_variants.length}/${catalog.variants.length} workers` : "";
+    return `<option value="${esc(r.id)}">${esc(r.name)}${coverage}</option>`;
+  }).join("");
 }
 
 function finalAttempt(summary){
