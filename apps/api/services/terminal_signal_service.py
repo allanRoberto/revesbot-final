@@ -25,6 +25,10 @@ from shared.python.roulette.terminal_signals.performance import (
     simulate_profitability,
     summarize_trials,
 )
+from shared.python.roulette.terminal_signals.strategy import (
+    compare_strategy_matrix,
+    simulate_table_strategy,
+)
 
 
 WINDOW_HOURS: dict[str, int | None] = {
@@ -416,6 +420,139 @@ class TerminalSignalService:
             "best_roi_attempts": best_roi["attempts"] if best_roi else None,
             "best_profit_attempts": best_profit["attempts"] if best_profit else None,
             "scenarios": comparison,
+            "generated_at_utc": datetime.now(timezone.utc),
+        }
+
+    async def strategy(
+        self,
+        variant: str,
+        *,
+        roulette_ids: Sequence[str] | None,
+        window: str,
+        selection_mode: str,
+        ranking_lookback: int,
+        tie_break_lookback: int,
+        minimum_samples: int,
+        minimum_assertiveness: Decimal,
+        fixed_roulette_ids: Sequence[str] | None,
+        max_attempts: int,
+        minimum_attempts: int,
+        maximum_attempts: int,
+        comparison_modes: Sequence[str],
+        initial_bank: Decimal,
+        attempt_stakes: Sequence[Decimal],
+        payout_mode: str,
+        maximum_records: int,
+        maximum_chart_points: int,
+    ) -> dict[str, Any]:
+        spec = get_variant(variant)
+        safe_maximum = max(100, min(200_000, int(maximum_records)))
+        safe_attempts = max(2, min(COLLECTION_HORIZON, int(max_attempts)))
+        minimum = max(2, min(COLLECTION_HORIZON, int(minimum_attempts)))
+        maximum = max(minimum, min(COLLECTION_HORIZON, int(maximum_attempts)))
+        query: dict[str, Any] = {"variant": variant}
+        universe = list(dict.fromkeys(map(str, roulette_ids or [])))
+        if universe:
+            query["roulette_id"] = {"$in": universe}
+        rows = await (
+            terminal_signal_trials_coll.find(
+                query,
+                {
+                    "_id": 0,
+                    "event_id": 1,
+                    "roulette_id": 1,
+                    "target_size": 1,
+                    "attempts": 1,
+                    "attempts_observed": 1,
+                    "activation_timestamp_utc": 1,
+                },
+            )
+            .sort([("activation_timestamp_utc", DESCENDING), ("_id", DESCENDING)])
+            .limit(safe_maximum)
+            .to_list(length=safe_maximum)
+        )
+        activation_cutoff = _cutoff(window)
+        common = {
+            "ranking_lookback": int(ranking_lookback),
+            "tie_break_lookback": int(tie_break_lookback),
+            "minimum_samples": int(minimum_samples),
+            "minimum_assertiveness": float(minimum_assertiveness),
+            "initial_bank": initial_bank,
+            "attempt_stakes": attempt_stakes,
+            "payout_mode": payout_mode,
+            "common_cohort_horizon": maximum,
+            "activation_cutoff": activation_cutoff,
+            "fixed_roulette_ids": fixed_roulette_ids,
+            "maximum_chart_points": maximum_chart_points,
+        }
+        modes = tuple(
+            dict.fromkeys(
+                [*map(str, comparison_modes), str(selection_mode)]
+            )
+        )
+        matrix_results = compare_strategy_matrix(
+            rows,
+            max_attempts_values=tuple(range(minimum, maximum + 1)),
+            selection_modes=modes,
+            detailed_selection=(str(selection_mode), safe_attempts),
+            **common,
+        )
+        selected = next(
+            (
+                item
+                for item in matrix_results
+                if item["selection_mode"] == selection_mode
+                and item["max_attempts"] == safe_attempts
+            ),
+            None,
+        )
+        if selected is None:
+            selected = simulate_table_strategy(
+                rows,
+                selection_mode=selection_mode,
+                max_attempts=safe_attempts,
+                **common,
+            )
+        matrix = [
+            {
+                "selection_mode": item["selection_mode"],
+                "attempts": item["max_attempts"],
+                "entries_considered": item["entries_considered"],
+                "selected_signals": item["selected_signals"],
+                "selection_rate": item["selection_rate"],
+                "assertiveness": item["summary"]["assertiveness"],
+                "won": item["summary"]["won"],
+                "lost": item["summary"]["lost"],
+                "net_profit": item["profitability"]["net_profit"],
+                "roi_on_staked": item["profitability"]["roi_on_staked"],
+                "total_staked": item["profitability"]["total_staked"],
+                "max_drawdown": item["profitability"]["max_drawdown"],
+            }
+            for item in matrix_results
+        ]
+        eligible_matrix = [item for item in matrix if item["selected_signals"] > 0]
+        best_roi = max(
+            eligible_matrix,
+            key=lambda item: item["roi_on_staked"],
+            default=None,
+        )
+        best_profit = max(
+            eligible_matrix,
+            key=lambda item: item["net_profit"],
+            default=None,
+        )
+        return {
+            "engine_version": ENGINE_VERSION,
+            "variant": spec.as_payload(),
+            "window": window,
+            "roulette_ids": universe,
+            "records_loaded": len(rows),
+            "records_capped": len(rows) >= safe_maximum,
+            "common_cohort_horizon": maximum,
+            "selected_strategy": selected,
+            "matrix": matrix,
+            "best_roi": best_roi,
+            "best_profit": best_profit,
             "generated_at_utc": datetime.now(timezone.utc),
         }
 

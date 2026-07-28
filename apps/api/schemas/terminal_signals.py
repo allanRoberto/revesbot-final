@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 TerminalSignalWindow = Literal["1h", "3h", "6h", "12h", "24h", "7d", "all"]
 PayoutMode = Literal["source_html", "table_base"]
+TerminalSignalSelectionMode = Literal["all", "top3", "top1", "fixed"]
 
 
 class TerminalSignalProfitabilityRequest(BaseModel):
@@ -72,4 +73,49 @@ class TerminalSignalScenarioRequest(TerminalSignalProfitabilityRequest):
             raise ValueError("a tentativa mínima não pode superar a máxima")
         if len(self.attempt_stakes) < self.maximum_attempts:
             raise ValueError("informe fichas até a tentativa máxima da comparação")
+        return self
+
+
+class TerminalSignalStrategyRequest(TerminalSignalScenarioRequest):
+    selection_mode: TerminalSignalSelectionMode = "top3"
+    ranking_lookback: int = Field(default=10, ge=5, le=200)
+    tie_break_lookback: int = Field(default=30, ge=5, le=500)
+    minimum_samples: int = Field(default=10, ge=3, le=200)
+    minimum_assertiveness: Decimal = Field(default=Decimal("0"), ge=0, le=1)
+    fixed_roulette_ids: Optional[List[str]] = Field(default=None, max_length=40)
+    comparison_modes: List[TerminalSignalSelectionMode] = Field(
+        default_factory=lambda: ["all", "top3", "top1"],
+        min_length=1,
+        max_length=4,
+    )
+
+    @field_validator("fixed_roulette_ids")
+    @classmethod
+    def normalize_fixed_roulette_ids(
+        cls,
+        values: Optional[List[str]],
+    ) -> Optional[List[str]]:
+        if values is None:
+            return None
+        normalized = list(
+            dict.fromkeys(str(value).strip() for value in values if str(value).strip())
+        )
+        return normalized or None
+
+    @field_validator("comparison_modes")
+    @classmethod
+    def normalize_comparison_modes(
+        cls,
+        values: List[TerminalSignalSelectionMode],
+    ) -> List[TerminalSignalSelectionMode]:
+        return list(dict.fromkeys(values))
+
+    @model_validator(mode="after")
+    def validate_ranking_settings(self):
+        if self.minimum_samples > self.ranking_lookback:
+            raise ValueError("a amostra mínima não pode superar a janela do ranking")
+        if self.tie_break_lookback < self.ranking_lookback:
+            raise ValueError("o desempate não pode usar uma janela menor")
+        if self.selection_mode == "fixed" and not self.fixed_roulette_ids:
+            raise ValueError("selecione ao menos uma mesa para o modo fixo")
         return self

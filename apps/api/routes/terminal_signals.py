@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from api.schemas.terminal_signals import (
     TerminalSignalProfitabilityRequest,
     TerminalSignalScenarioRequest,
+    TerminalSignalStrategyRequest,
 )
 from api.services.terminal_signal_service import terminal_signal_service
 
@@ -99,6 +100,33 @@ async def terminal_signal_scenarios(payload: TerminalSignalScenarioRequest):
             attempt_stakes=payload.attempt_stakes,
             minimum_attempts=payload.minimum_attempts,
             maximum_attempts=payload.maximum_attempts,
+            payout_mode=payload.payout_mode,
+            maximum_records=payload.maximum_records,
+            maximum_chart_points=payload.maximum_chart_points,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/strategy")
+async def terminal_signal_strategy(payload: TerminalSignalStrategyRequest):
+    try:
+        return await terminal_signal_service.strategy(
+            payload.variant,
+            roulette_ids=payload.roulette_ids,
+            window=payload.window,
+            selection_mode=payload.selection_mode,
+            ranking_lookback=payload.ranking_lookback,
+            tie_break_lookback=payload.tie_break_lookback,
+            minimum_samples=payload.minimum_samples,
+            minimum_assertiveness=payload.minimum_assertiveness,
+            fixed_roulette_ids=payload.fixed_roulette_ids,
+            max_attempts=payload.max_attempts,
+            minimum_attempts=payload.minimum_attempts,
+            maximum_attempts=payload.maximum_attempts,
+            comparison_modes=payload.comparison_modes,
+            initial_bank=payload.initial_bank,
+            attempt_stakes=payload.attempt_stakes,
             payout_mode=payload.payout_mode,
             maximum_records=payload.maximum_records,
             maximum_chart_points=payload.maximum_chart_points,

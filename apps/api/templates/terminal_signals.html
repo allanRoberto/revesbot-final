@@ -20,14 +20,16 @@
     .stat span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em}.stat strong{display:block;font-size:23px;margin-top:4px;font-variant-numeric:tabular-nums}.stat small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
     .pos{color:var(--green)!important}.neg{color:var(--red)!important}.info{color:var(--blue)!important}.selected-row{background:rgba(209,168,46,.11)}
     .grid2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.85fr);gap:14px}h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px;color:#c8d2cc}
-    #chart{min-height:310px;display:flex;align-items:center;justify-content:center;color:var(--muted)}svg{width:100%;height:310px;display:block}
+    #chart,#strategyChart{min-height:310px;display:flex;align-items:center;justify-content:center;color:var(--muted)}svg{width:100%;height:310px;display:block}
     .scroll{overflow:auto;max-height:430px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.06em}th:first-child,td:first-child{text-align:left}tbody tr{cursor:pointer}tbody tr:hover{background:rgba(209,168,46,.07)}
+    .matrix td{padding:6px}.matrix-button{min-width:94px;padding:7px 8px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:10px;font-weight:700}.matrix-button:hover,.matrix-button.active{background:rgba(209,168,46,.16);border-color:var(--gold);filter:none}.matrix-button small{display:block;color:var(--muted);font-size:9px;font-weight:400;margin-top:2px}
+    .strategy-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:14px}.selected-tables{display:flex;flex-wrap:wrap;gap:7px;min-height:31px;align-items:center}.table-chip{display:inline-flex;align-items:center;border:1px solid rgba(209,168,46,.45);background:rgba(209,168,46,.11);color:#e7c95f;border-radius:999px;padding:6px 10px;font-size:11px}.strategy-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(360px,.9fr);gap:14px}
     .signals{display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:10px}.signal{border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:13px}.signal-head{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
     .pill{border-radius:999px;padding:3px 8px;font-size:10px;font-weight:800;text-transform:uppercase}.pill.won,.pill.complete{background:rgba(49,200,121,.14);color:var(--green)}.pill.lost{background:rgba(220,92,78,.14);color:var(--red)}.pill.collecting,.pill.pending{background:rgba(91,145,255,.14);color:var(--blue)}
     .rid{font-size:11px;color:var(--muted);margin-left:auto}.time{font-size:10px;color:var(--muted)}.line{font-size:12px;color:var(--muted);margin:7px 0}.line b{color:var(--ink)}
     .nums{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}.num-wrap{text-align:center}.num{display:inline-flex;width:27px;height:27px;border-radius:50%;align-items:center;justify-content:center;background:#262b29;color:#fff;font-size:11px;font-weight:800}.num.red{background:#a93831}.num.green{background:#237b50}.num.hit{outline:3px solid var(--gold)}.num-wrap small{display:block;color:var(--muted);font-size:9px}
     .empty{padding:28px;text-align:center;color:var(--muted)}.method{font-size:11px;color:var(--muted);line-height:1.55;margin-top:10px}
-    @media(max-width:1000px){.grid2{grid-template-columns:1fr}.stakes{grid-template-columns:repeat(5,1fr)}}@media(max-width:600px){.wrap{padding:18px 10px}.signals{grid-template-columns:1fr}.stakes{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:1000px){.grid2,.strategy-grid{grid-template-columns:1fr}.stakes{grid-template-columns:repeat(5,1fr)}}@media(max-width:600px){.wrap{padding:18px 10px}.signals{grid-template-columns:1fr}.stakes{grid-template-columns:repeat(2,1fr)}}
   </style>
 </head>
 <body>
@@ -61,6 +63,47 @@
     <div class="method">Clique em uma linha para selecionar o horizonte. Todos os cenários usam exatamente as formações que já coletaram dez giros.</div>
   </section>
 
+  <section class="panel">
+    <h2>Laboratório de estratégias de entrada <span class="shadow">SEM LOOKAHEAD</span></h2>
+    <div class="controls">
+      <label>Seleção de mesas<select id="strategyMode"><option value="top3" selected>Top 3 do momento</option><option value="top1">Top 1 do momento</option><option value="all">Todas as mesas</option><option value="fixed">Mesa fixa</option></select></label>
+      <label>Ranking recente<select id="rankingLookback"><option value="10" selected>Últimos 10</option><option value="20">Últimos 20</option><option value="30">Últimos 30</option><option value="50">Últimos 50</option></select></label>
+      <label>Desempate<select id="tieBreakLookback"><option value="30" selected>Últimos 30</option><option value="50">Últimos 50</option><option value="100">Últimos 100</option><option value="200">Últimos 200</option></select></label>
+      <label>Amostra mínima<input id="minimumSamples" type="number" min="3" max="200" step="1" value="10"></label>
+      <label>Assertividade mínima<input id="minimumAccuracy" type="number" min="0" max="100" step="1" value="0"></label>
+      <label>Mesa fixa<select id="fixedRoulette" disabled><option value="">Selecione uma mesa</option></select></label>
+      <button id="simulateStrategy">Simular estratégia</button>
+    </div>
+    <div class="method">Em cada formação, o ranking usa somente os últimos resultados que já haviam terminado naquele instante. A janela principal é de 10; a janela maior serve apenas para desempate.</div>
+    <div id="strategyStatus" class="status">Aguardando simulação…</div>
+    <div class="strategy-summary" id="strategyStats"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Matriz de resultado · seleção × número de tentativas</h2>
+    <div class="scroll"><table class="matrix">
+      <thead id="strategyMatrixHead"></thead>
+      <tbody id="strategyMatrix"></tbody>
+    </table></div>
+    <div class="method">Cada célula mostra ROI e lucro líquido. Clique para abrir a estratégia correspondente. Todas usam a mesma coorte completa em T10.</div>
+  </section>
+
+  <div class="strategy-grid">
+    <section class="panel">
+      <h2>Evolução da estratégia selecionada</h2>
+      <div id="strategyChart"><div class="empty">Aguardando simulação…</div></div>
+    </section>
+    <section class="panel">
+      <h2>Mesas selecionadas agora</h2>
+      <div id="selectedTables" class="selected-tables"><span class="time">Aguardando ranking…</span></div>
+      <h2 style="margin-top:18px">Ranking atual</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>#</th><th>Mesa</th><th>Amostra</th><th>Acerto</th><th>Limite 95%</th></tr></thead>
+        <tbody id="strategyRanking"></tbody>
+      </table></div>
+    </section>
+  </div>
+
   <div class="grid2">
     <section class="panel">
       <h2>Evolução da lucratividade do cenário selecionado</h2>
@@ -90,8 +133,10 @@ const money=value=>Number(value||0).toLocaleString("pt-BR",{style:"currency",cur
 const date=value=>value?new Date(value).toLocaleString("pt-BR"):"—";
 const badge=(n,extra="")=>`<span class="num ${Number(n)===0?"green":RED.has(Number(n))?"red":""} ${extra}">${n}</span>`;
 let catalog=null,timer=null;
+const MODE_LABELS={all:"Todas",top3:"Top 3",top1:"Top 1",fixed:"Mesa fixa"};
 
 function setStatus(text,error=false){$("statusText").textContent=text;$("statusText").classList.toggle("error",error)}
+function setStrategyStatus(text,error=false){$("strategyStatus").textContent=text;$("strategyStatus").classList.toggle("error",error)}
 function attemptStakes(){return Array.from(document.querySelectorAll("[data-stake]")).map(input=>Number(input.value||0))}
 function queryBase(){
   const variant=$("variant").value,roulette=$("roulette").value,window=$("window").value,maxAttempts=Number($("maxAttempts").value||2);
@@ -105,6 +150,7 @@ async function loadCatalog(){
   catalog=await response.json();
   $("variant").innerHTML=catalog.variants.map(v=>`<option value="${esc(v.slug)}">${esc(v.name)}</option>`).join("");
   $("roulette").innerHTML='<option value="">Todas as mesas</option>'+catalog.roulettes.map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${(r.monitored_variants||[]).length}/${catalog.variants.length} workers</option>`).join("");
+  $("fixedRoulette").innerHTML='<option value="">Selecione uma mesa</option>'+catalog.roulettes.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
   $("maxAttempts").innerHTML=Array.from({length:9},(_,i)=>i+2).map(n=>`<option value="${n}" ${n===2?"selected":""}>T${n}</option>`).join("");
   const defaults=catalog.default_attempt_stakes||[1,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5];
   $("stakes").innerHTML=Array.from({length:10},(_,i)=>`<label>Ficha T${i+1}<input data-stake="${i+1}" type="number" min="0" step=".1" value="${Number(defaults[i]??defaults.at(-1)??1)}"></label>`).join("");
@@ -145,13 +191,81 @@ function renderRanking(rows){
   $("ranking").querySelectorAll("tr[data-rid]").forEach(row=>row.addEventListener("click",()=>{$("roulette").value=row.dataset.rid;loadAll()}));
 }
 
-function renderChart(profit){
-  const points=profit?.chart?.points||[];if(points.length<2){$("chart").innerHTML='<div class="empty">Ainda não há coorte madura para este cenário.</div>';return}
+function renderChart(profit,targetId="chart"){
+  const target=$(targetId),points=profit?.chart?.points||[];if(points.length<2){target.innerHTML='<div class="empty">Ainda não há coorte madura para este cenário.</div>';return}
   const W=1000,H=310,L=65,R=18,T=15,B=30,iw=W-L-R,ih=H-T-B,vals=points.map(p=>Number(p.bank)),min=Math.min(...vals),max=Math.max(...vals),range=max-min||1;
   const x=i=>L+(i/Math.max(1,points.length-1))*iw,y=v=>T+ih-((v-min)/range)*ih;let grid="";
   for(let i=0;i<=4;i++){const value=min+range*i/4,yy=y(value);grid+=`<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#26372e"/><text x="${L-8}" y="${yy+4}" fill="#91a197" font-size="10" text-anchor="end">${money(value)}</text>`}
   const path=points.map((p,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(Number(p.bank)).toFixed(1)}`).join(" "),color=Number(profit.net_profit)>=0?"#31c879":"#dc5c4e",area=`${path} L${x(points.length-1)},${T+ih} L${x(0)},${T+ih} Z`;
-  $("chart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${grid}<path d="${area}" fill="${color}" opacity=".1"/><path d="${path}" fill="none" stroke="${color}" stroke-width="3"/><text x="${L}" y="${H-7}" fill="#91a197" font-size="10">início</text><text x="${W-R}" y="${H-7}" fill="#91a197" font-size="10" text-anchor="end">${profit.cashflow_events} movimentos</text></svg>`;
+  target.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${grid}<path d="${area}" fill="${color}" opacity=".1"/><path d="${path}" fill="none" stroke="${color}" stroke-width="3"/><text x="${L}" y="${H-7}" fill="#91a197" font-size="10">início</text><text x="${W-R}" y="${H-7}" fill="#91a197" font-size="10" text-anchor="end">${profit.cashflow_events} movimentos</text></svg>`;
+}
+
+function strategyPayload(){
+  const mode=$("strategyMode").value,fixed=$("fixedRoulette").value,ranking=Number($("rankingLookback").value||10);
+  const comparisonModes=["all","top3","top1"];if(mode==="fixed")comparisonModes.push("fixed");
+  return {
+    variant:$("variant").value,roulette_ids:null,window:$("window").value,
+    initial_bank:Number($("bank").value||100),attempt_stakes:attemptStakes(),
+    max_attempts:Number($("maxAttempts").value||2),minimum_attempts:2,maximum_attempts:10,
+    payout_mode:$("payout").value,maximum_records:50000,maximum_chart_points:500,
+    selection_mode:mode,ranking_lookback:ranking,
+    tie_break_lookback:Number($("tieBreakLookback").value||30),
+    minimum_samples:Number($("minimumSamples").value||ranking),
+    minimum_assertiveness:Number($("minimumAccuracy").value||0)/100,
+    fixed_roulette_ids:mode==="fixed"&&fixed?[fixed]:null,
+    comparison_modes:[...new Set(comparisonModes)]
+  };
+}
+
+function renderStrategyStats(data){
+  const strategy=data.selected_strategy||{},summary=strategy.summary||{},profit=strategy.profitability||{},net=Number(profit.net_profit||0);
+  const cells=[
+    ["Entradas executadas",strategy.selected_signals||0,`${strategy.entries_considered||0} sinais elegíveis`,""],
+    ["Taxa de seleção",pct(strategy.selection_rate),`${strategy.rejected_no_ranking||0} sem ranking`,"info"],
+    ["Assertividade",pct(summary.assertiveness),`${summary.won||0} ganhos · ${summary.lost||0} perdas`,Number(summary.assertiveness)>=0.5?"pos":"neg"],
+    ["Lucro líquido",money(net),`Banca final ${money(profit.final_bank)}`,net>=0?"pos":"neg"],
+    ["ROI",pct(profit.roi_on_staked),`Apostado ${money(profit.total_staked)}`,Number(profit.roi_on_staked)>=0?"pos":"neg"],
+    ["Drawdown",money(profit.max_drawdown),`T${strategy.max_attempts} · ${MODE_LABELS[strategy.selection_mode]||strategy.selection_mode}`,"neg"]
+  ];
+  $("strategyStats").innerHTML=cells.map(([label,value,small,cls])=>`<div class="stat"><span>${label}</span><strong class="${cls}">${value}</strong><small>${small}</small></div>`).join("");
+}
+
+function renderStrategyMatrix(data){
+  const attempts=Array.from({length:9},(_,i)=>i+2),selected=data.selected_strategy||{},grouped={};
+  (data.matrix||[]).forEach(row=>{(grouped[row.selection_mode]??=[]).push(row)});
+  $("strategyMatrixHead").innerHTML=`<tr><th>Seleção</th>${attempts.map(n=>`<th>T${n}</th>`).join("")}</tr>`;
+  $("strategyMatrix").innerHTML=Object.entries(grouped).map(([mode,rows])=>{
+    const byAttempt=Object.fromEntries(rows.map(row=>[row.attempts,row]));
+    return `<tr><td>${MODE_LABELS[mode]||esc(mode)}</td>${attempts.map(n=>{const row=byAttempt[n];if(!row)return "<td>—</td>";const active=mode===selected.selection_mode&&n===selected.max_attempts;return `<td><button class="matrix-button ${active?"active":""}" data-mode="${mode}" data-attempts="${n}"><span class="${Number(row.roi_on_staked)>=0?"pos":"neg"}">${pct(row.roi_on_staked)}</span><small>${money(row.net_profit)} · ${row.selected_signals} entradas</small></button></td>`}).join("")}</tr>`;
+  }).join("")||'<tr><td colspan="10" class="empty">Ainda não há dados suficientes para comparar.</td></tr>';
+  $("strategyMatrix").querySelectorAll("[data-mode][data-attempts]").forEach(button=>button.addEventListener("click",()=>{
+    $("strategyMode").value=button.dataset.mode;$("maxAttempts").value=button.dataset.attempts;toggleFixedRoulette();loadAll();
+  }));
+}
+
+function rouletteName(id){const row=(catalog?.roulettes||[]).find(item=>item.id===id);return row?.name||String(id||"").replace("pragmatic-","").replaceAll("-"," ")}
+function renderStrategyRanking(strategy){
+  const selected=new Set(strategy.current_selected_tables||[]);
+  $("selectedTables").innerHTML=selected.size?[...selected].map(id=>`<span class="table-chip">${esc(rouletteName(id))}</span>`).join(""):'<span class="time">Nenhuma mesa passou pelos critérios neste momento.</span>';
+  const rows=strategy.current_ranking||[];
+  $("strategyRanking").innerHTML=rows.length?rows.map(row=>`<tr class="${selected.has(row.roulette_id)?"selected-row":""}"><td>${row.rank}</td><td>${esc(rouletteName(row.roulette_id))}</td><td>${row.wins}/${row.sample}</td><td>${pct(row.assertiveness)}</td><td>${pct(row.confidence_lower)}</td></tr>`).join(""):'<tr><td colspan="5" class="empty">As mesas ainda não atingiram a amostra mínima.</td></tr>';
+}
+
+async function loadStrategy(){
+  const payload=strategyPayload();
+  if(payload.selection_mode==="fixed"&&!payload.fixed_roulette_ids)throw new Error("Selecione a mesa do modo fixo");
+  if(payload.minimum_samples>payload.ranking_lookback)throw new Error("A amostra mínima não pode superar a janela do ranking");
+  if(payload.tie_break_lookback<payload.ranking_lookback)throw new Error("O desempate não pode ser menor que a janela do ranking");
+  setStrategyStatus("Simulando decisões históricas, sem usar resultados futuros…");
+  const response=await fetch("/api/terminal-signals/strategy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const data=await response.json();if(!response.ok)throw new Error(data.detail||"Falha ao simular estratégia");
+  renderStrategyStats(data);renderStrategyMatrix(data);renderStrategyRanking(data.selected_strategy||{});renderChart(data.selected_strategy?.profitability,"strategyChart");
+  const best=data.best_roi;
+  setStrategyStatus(`Atualizado ${new Date().toLocaleTimeString("pt-BR")} · ${MODE_LABELS[payload.selection_mode]} · T${payload.max_attempts}${best?` · melhor ROI da matriz: ${MODE_LABELS[best.selection_mode]} T${best.attempts} (${pct(best.roi_on_staked)})`:""}`);
+}
+
+function toggleFixedRoulette(){
+  const fixed=$("strategyMode").value==="fixed";$("fixedRoulette").disabled=!fixed;
 }
 
 function renderSignals(data){
@@ -179,12 +293,16 @@ async function loadAll(){
     if(!summaryRes.ok||!historyRes.ok||!profitRes.ok||!scenarioRes.ok)throw new Error(summary.detail||history.detail||profit.detail||scenarios.detail||"Falha na API");
     renderStats(summary,profit);renderScenarios(scenarios,base.maxAttempts);renderRanking(summary.by_roulette);renderChart(profit);renderSignals(history);
     setStatus(`Atualizado ${new Date().toLocaleTimeString("pt-BR")} · ${summary.variant.name} · T${base.maxAttempts} · ${scenarios.common_cohort_signals} sinais completos em T10`);
-  }catch(error){setStatus(error.message,true)}
+    await loadStrategy();
+  }catch(error){setStatus(error.message,true);setStrategyStatus(error.message,true)}
 }
 
 ["variant","roulette","window","maxAttempts","status","payout","bank"].forEach(id=>$(id).addEventListener("change",loadAll));
+$("strategyMode").addEventListener("change",()=>{toggleFixedRoulette();loadAll()});
+["rankingLookback","tieBreakLookback","minimumSamples","minimumAccuracy","fixedRoulette"].forEach(id=>$(id).addEventListener("change",loadAll));
+$("simulateStrategy").addEventListener("click",loadAll);
 $("reload").addEventListener("click",loadAll);
-(async()=>{try{await loadCatalog();await loadAll();timer=setInterval(loadAll,15000)}catch(error){setStatus(error.message,true)}})();
+(async()=>{try{await loadCatalog();toggleFixedRoulette();await loadAll();timer=setInterval(loadAll,60000)}catch(error){setStatus(error.message,true);setStrategyStatus(error.message,true)}})();
 </script>
 </body>
 </html>
