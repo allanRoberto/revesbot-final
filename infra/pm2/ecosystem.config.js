@@ -18,6 +18,15 @@ const sinaisPort = process.env.SINAIS_PORT || (isDevelop ? "8091" : "8090");
 const nodeEnv = isDevelop ? "development" : "production";
 const orbitShadowEnabled = process.env.ORBIT_SHADOW_ENABLED !== "0";
 const orbitTriggerEnabled = process.env.ORBIT_TRIGGER_ENABLED !== "0";
+const terminalSignalsEnabled = process.env.TERMINAL_SIGNALS_ENABLED !== "0";
+const terminalSignalVariants = [
+  "motor-a-seco",
+  "motor-a-vizinhos",
+  "motor-b-seco",
+  "motor-b-vizinhos",
+  "cruzado",
+  "gemeos",
+];
 
 module.exports = {
   apps: [
@@ -353,6 +362,30 @@ module.exports = {
         MULTI_PIVO_BET_CHIPS: "12",
       },
     },
+    ...(terminalSignalsEnabled
+      ? terminalSignalVariants.map((variant) => ({
+          name: `terminal-${variant}-${suffix}`,
+          cwd: repoRoot,
+          script: "apps/monitoring/scripts/terminal_signal_worker.py",
+          interpreter: pythonBin,
+          autorestart: true,
+          max_restarts: 10,
+          restart_delay: 3000,
+          kill_timeout: 5000,
+          time: true,
+          env: {
+            DEPLOY_STAGE: stage,
+            PYTHONUNBUFFERED: "1",
+            TERMINAL_SIGNAL_VARIANT: variant,
+            TERMINAL_SIGNAL_ROULETTE_IDS: "all",
+            TERMINAL_SIGNAL_HISTORY_LIMIT: "500",
+            TERMINAL_SIGNAL_MAX_ATTEMPTS: "2",
+            TERMINAL_SIGNAL_RECONCILE_SECONDS: "5",
+            TERMINAL_SIGNAL_DISCOVERY_SECONDS: "60",
+            RESULT_CHANNEL: "new_result",
+          },
+        }))
+      : []),
     ...(orbitShadowEnabled
       ? [
           {

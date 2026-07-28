@@ -58,6 +58,8 @@ orbit_trigger_candidates_coll = mongo_db["orbit_trigger_candidates"]
 orbit_model_runs_coll = mongo_db["orbit_model_runs"]
 orbit_backtest_runs_coll = mongo_db["orbit_backtest_runs"]
 orbit_snapshot_manifests_coll = mongo_db["orbit_snapshot_manifests"]
+terminal_signal_trials_coll = mongo_db["terminal_signal_trials"]
+terminal_signal_worker_state_coll = mongo_db["terminal_signal_worker_state"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
