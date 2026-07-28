@@ -5,9 +5,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 
-ENGINE_VERSION = "terminal_signals_v1"
-DEFAULT_MAX_ATTEMPTS = 2
-DEFAULT_ATTEMPT_STAKES = (1.0, 1.5)
+ENGINE_VERSION = "terminal_signals_v2"
+COLLECTION_HORIZON = 10
+DEFAULT_MAX_ATTEMPTS = COLLECTION_HORIZON
+DEFAULT_SIMULATION_ATTEMPTS = 2
+DEFAULT_ATTEMPT_STAKES = (1.0, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5)
 
 
 @dataclass(frozen=True, slots=True)

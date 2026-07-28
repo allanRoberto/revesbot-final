@@ -4,7 +4,10 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from api.schemas.terminal_signals import TerminalSignalProfitabilityRequest
+from api.schemas.terminal_signals import (
+    TerminalSignalProfitabilityRequest,
+    TerminalSignalScenarioRequest,
+)
 from api.services.terminal_signal_service import terminal_signal_service
 
 
@@ -30,6 +33,7 @@ async def terminal_signal_summary(
     variant: str = Query(min_length=1),
     roulette_ids: Optional[str] = Query(default=None),
     window: str = Query(default="24h"),
+    max_attempts: int = Query(default=2, ge=2, le=10),
     maximum_records: int = Query(default=50_000, ge=100, le=200_000),
 ):
     try:
@@ -37,6 +41,7 @@ async def terminal_signal_summary(
             variant,
             roulette_ids=_roulette_ids(roulette_ids),
             window=window,
+            max_attempts=max_attempts,
             maximum_records=maximum_records,
         )
     except ValueError as exc:
@@ -74,6 +79,26 @@ async def terminal_signal_profitability(payload: TerminalSignalProfitabilityRequ
             window=payload.window,
             initial_bank=payload.initial_bank,
             attempt_stakes=payload.attempt_stakes,
+            max_attempts=payload.max_attempts,
+            payout_mode=payload.payout_mode,
+            maximum_records=payload.maximum_records,
+            maximum_chart_points=payload.maximum_chart_points,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/scenarios")
+async def terminal_signal_scenarios(payload: TerminalSignalScenarioRequest):
+    try:
+        return await terminal_signal_service.scenarios(
+            payload.variant,
+            roulette_ids=payload.roulette_ids,
+            window=payload.window,
+            initial_bank=payload.initial_bank,
+            attempt_stakes=payload.attempt_stakes,
+            minimum_attempts=payload.minimum_attempts,
+            maximum_attempts=payload.maximum_attempts,
             payout_mode=payload.payout_mode,
             maximum_records=payload.maximum_records,
             maximum_chart_points=payload.maximum_chart_points,

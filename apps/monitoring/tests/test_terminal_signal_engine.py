@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
+from apps.monitoring.terminal_signals.runtime import (
+    RouletteRuntimeState,
+    TerminalSignalWorker,
+)
 from shared.python.roulette.terminal_signals.engine import (
     analyze_motor_a,
     analyze_motor_b,
@@ -11,6 +16,7 @@ from shared.python.roulette.terminal_signals.engine import (
     detect_variant,
 )
 from shared.python.roulette.terminal_signals.performance import (
+    compare_attempt_horizons,
     simulate_profitability,
     summarize_trials,
 )
@@ -85,7 +91,8 @@ def test_activation_spin_is_never_counted_as_attempt() -> None:
         "targets": [0, 6],
         "attempts": [],
         "attempt_history_ids": [],
-        "max_attempts": 2,
+        "collection_horizon": 10,
+        "collection_status": "collecting",
     }
 
     assert advance_trial(
@@ -104,12 +111,126 @@ def test_activation_spin_is_never_counted_as_attempt() -> None:
     assert update is not None
     assert update["first_hit_attempt"] == 1
     assert update["outcome"] == "won"
+    assert update["collection_status"] == "collecting"
+    assert update["status"] == "pending"
+
+
+def test_hit_does_not_stop_collection_and_first_hit_is_preserved_until_t10() -> None:
+    now = datetime.now(timezone.utc)
+    trial = {
+        "status": "pending",
+        "collection_status": "collecting",
+        "activation_history_id": "activation",
+        "targets": [6],
+        "attempts": [],
+        "attempt_history_ids": [],
+        "collection_horizon": 10,
+        "first_hit_attempt": None,
+    }
+
+    for attempt in range(1, 11):
+        update = advance_trial(
+            trial,
+            number=6 if attempt == 2 else 1,
+            history_id=f"spin-{attempt}",
+            timestamp=now,
+        )
+        assert update is not None
+        trial.update(update)
+
+    assert trial["attempts_observed"] == 10
+    assert trial["first_hit_attempt"] == 2
+    assert trial["outcome"] == "won"
+    assert trial["collection_status"] == "complete"
+    assert trial["status"] == "resolved"
+
+
+def test_same_spin_advances_multiple_overlapping_trials_independently() -> None:
+    now = datetime.now(timezone.utc)
+    base = {
+        "status": "pending",
+        "collection_status": "collecting",
+        "targets": [9],
+        "attempt_history_ids": [],
+        "collection_horizon": 10,
+    }
+    first = {**base, "activation_history_id": "a", "attempts": []}
+    second = {
+        **base,
+        "activation_history_id": "b",
+        "attempts": [{"attempt": 1, "number": 1, "history_id": "older", "hit": False}],
+        "attempt_history_ids": ["older"],
+    }
+
+    update_first = advance_trial(first, number=9, history_id="shared", timestamp=now)
+    update_second = advance_trial(second, number=9, history_id="shared", timestamp=now)
+
+    assert update_first and update_first["first_hit_attempt"] == 1
+    assert update_second and update_second["first_hit_attempt"] == 2
+    first.update(update_first)
+    assert advance_trial(first, number=9, history_id="shared", timestamp=now) is None
+
+
+def test_worker_keeps_overlapping_trials_active_after_hits() -> None:
+    class FakeCollection:
+        def update_one(self, *_args, **_kwargs):
+            return SimpleNamespace(modified_count=1)
+
+        def find_one(self, *_args, **_kwargs):
+            return None
+
+    worker = TerminalSignalWorker.__new__(TerminalSignalWorker)
+    worker.variant = SimpleNamespace(slug="motor-a-seco")
+    worker.trials_coll = FakeCollection()
+    base = {
+        "status": "pending",
+        "collection_status": "collecting",
+        "targets": [9],
+        "attempt_history_ids": [],
+        "collection_horizon": 10,
+        "first_hit_attempt": None,
+    }
+    state = RouletteRuntimeState(
+        roulette_id="pragmatic-auto-roulette",
+        active_trials={
+            "first": {**base, "event_id": "first", "attempts": []},
+            "second": {
+                **base,
+                "event_id": "second",
+                "attempts": [
+                    {"attempt": 1, "number": 1, "history_id": "old", "hit": False}
+                ],
+                "attempt_history_ids": ["old"],
+            },
+        },
+    )
+
+    worker._advance_collecting(
+        state,
+        number=9,
+        history_id="shared",
+        timestamp=datetime.now(timezone.utc),
+    )
+
+    assert set(state.active_trials) == {"first", "second"}
+    assert state.active_trials["first"]["first_hit_attempt"] == 1
+    assert state.active_trials["second"]["first_hit_attempt"] == 2
 
 
 def test_summary_includes_target_size_random_baseline() -> None:
     rows = [
-        {"status": "resolved", "first_hit_attempt": 1, "target_size": 7},
-        {"status": "resolved", "first_hit_attempt": None, "target_size": 4},
+        {
+            "event_id": "one",
+            "attempts_observed": 10,
+            "target_size": 7,
+            "attempts": [{"attempt": 1, "hit": True}],
+        },
+        {
+            "event_id": "two",
+            "attempts_observed": 10,
+            "target_size": 4,
+            "attempts": [{"attempt": attempt, "hit": False} for attempt in range(1, 11)],
+        },
     ]
 
     summary = summarize_trials(rows, max_attempts=2)
@@ -127,11 +248,12 @@ def test_profitability_uses_real_target_count_and_g1_g2_stakes() -> None:
         {
             "event_id": "one",
             "roulette_id": "pragmatic-auto-roulette",
-            "status": "resolved",
+            "attempts_observed": 10,
             "target_size": 7,
             "attempts": [
                 {"attempt": 1, "hit": False, "timestamp_utc": t1},
                 {"attempt": 2, "hit": True, "timestamp_utc": t2},
+                {"attempt": 3, "hit": False, "timestamp_utc": t2},
             ],
         }
     ]
@@ -139,9 +261,49 @@ def test_profitability_uses_real_target_count_and_g1_g2_stakes() -> None:
     result = simulate_profitability(
         rows,
         initial_bank=Decimal("100"),
-        attempt_stakes=[Decimal("1"), Decimal("1.5")],
+        attempt_stakes=[Decimal("1"), Decimal("1.5"), Decimal("9")],
+        max_attempts=3,
     )
 
     # -7 no G1; no G2: -10,50 + retorno 54 = +43,50; líquido total +36,50.
     assert result["net_profit"] == 36.5
     assert result["final_bank"] == 136.5
+    assert result["cashflow_events"] == 2
+
+
+def test_attempt_comparison_uses_same_completed_t10_cohort() -> None:
+    now = datetime.now(timezone.utc)
+    complete = {
+        "event_id": "complete",
+        "roulette_id": "pragmatic-auto-roulette",
+        "attempts_observed": 10,
+        "target_size": 5,
+        "attempts": [
+            {
+                "attempt": attempt,
+                "hit": attempt == 4,
+                "timestamp_utc": now,
+            }
+            for attempt in range(1, 11)
+        ],
+    }
+    incomplete = {
+        **complete,
+        "event_id": "incomplete",
+        "attempts_observed": 9,
+        "attempts": complete["attempts"][:9],
+    }
+
+    scenarios = compare_attempt_horizons(
+        [complete, incomplete],
+        minimum_attempts=2,
+        maximum_attempts=10,
+        common_cohort_horizon=10,
+        initial_bank=Decimal("100"),
+        attempt_stakes=[Decimal("1")] * 10,
+    )
+
+    assert len(scenarios) == 9
+    assert {row["summary"]["resolved"] for row in scenarios} == {1}
+    assert scenarios[0]["summary"]["won"] == 0
+    assert scenarios[2]["summary"]["won"] == 1

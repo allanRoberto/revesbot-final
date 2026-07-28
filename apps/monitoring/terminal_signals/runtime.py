@@ -79,7 +79,7 @@ class TerminalSignalWorker:
         self.reconcile_seconds = max(0.5, float(reconcile_seconds))
         self.discovery_seconds = max(10.0, float(discovery_seconds))
         self.max_batch = max(100, min(20_000, int(max_batch)))
-        self.max_attempts = max(1, min(20, int(max_attempts)))
+        self.collection_horizon = max(2, min(10, int(max_attempts)))
 
         effective_mongo = mongo_url or os.getenv("MONGO_URL") or "mongodb://127.0.0.1:27017/roleta_db"
         self.mongo = MongoClient(
@@ -120,6 +120,32 @@ class TerminalSignalWorker:
             name="terminal_signal_trials_variant_roulette_status_desc",
         )
         self.trials_coll.create_index(
+            [
+                ("variant", ASCENDING),
+                ("roulette_id", ASCENDING),
+                ("collection_status", ASCENDING),
+                ("activation_timestamp_utc", DESCENDING),
+            ],
+            name="terminal_signal_trials_variant_roulette_collection_desc",
+        )
+        self.trials_coll.create_index(
+            [
+                ("variant", ASCENDING),
+                ("attempts_observed", ASCENDING),
+                ("activation_timestamp_utc", DESCENDING),
+            ],
+            name="terminal_signal_trials_variant_attempts_activation_desc",
+        )
+        self.trials_coll.create_index(
+            [
+                ("variant", ASCENDING),
+                ("roulette_id", ASCENDING),
+                ("attempts_observed", ASCENDING),
+                ("activation_timestamp_utc", DESCENDING),
+            ],
+            name="terminal_signal_trials_variant_roulette_attempts_desc",
+        )
+        self.trials_coll.create_index(
             [("roulette_id", ASCENDING), ("activation_history_id", ASCENDING)],
             name="terminal_signal_trials_roulette_history",
         )
@@ -139,12 +165,12 @@ class TerminalSignalWorker:
             if isinstance(value, str) and value.startswith("pragmatic-")
         )
 
-    def _load_pending(self, roulette_id: str) -> dict[str, dict[str, Any]]:
+    def _load_collecting(self, roulette_id: str) -> dict[str, dict[str, Any]]:
         rows = self.trials_coll.find(
             {
                 "variant": self.variant.slug,
                 "roulette_id": roulette_id,
-                "status": "pending",
+                "collection_status": "collecting",
             }
         ).sort([("activation_timestamp_utc", ASCENDING), ("_id", ASCENDING)])
         return {str(row["event_id"]): row for row in rows}
@@ -209,7 +235,7 @@ class TerminalSignalWorker:
             history=self._history_at_offset(roulette_id, last_history_id),
             last_history_id=last_history_id,
             last_timestamp_utc=_utc(last_timestamp) if last_timestamp else None,
-            active_trials=self._load_pending(roulette_id),
+            active_trials=self._load_collecting(roulette_id),
         )
         self.states[roulette_id] = state
         self._persist_offset(state)
@@ -231,7 +257,7 @@ class TerminalSignalWorker:
                 created += 1
         return created
 
-    def _advance_pending(
+    def _advance_collecting(
         self,
         state: RouletteRuntimeState,
         *,
@@ -248,24 +274,24 @@ class TerminalSignalWorker:
                 timestamp=timestamp,
             )
             if update is None:
-                if str(trial.get("status") or "") == "pending":
+                if str(trial.get("collection_status") or "") == "collecting":
                     remaining[event_id] = trial
                 continue
             result = self.trials_coll.update_one(
                 {
                     "event_id": event_id,
-                    "status": "pending",
+                    "collection_status": "collecting",
                     "attempt_history_ids": {"$ne": history_id},
                 },
                 {"$set": update},
             )
             if result.modified_count:
                 trial.update(update)
-                if update["status"] == "pending":
+                if update["collection_status"] == "collecting":
                     remaining[event_id] = trial
                 else:
                     LOGGER.info(
-                        "[%s][%s] resolvido event=%s outcome=%s tentativa=%s",
+                        "[%s][%s] coleta completa event=%s outcome=%s primeiro_acerto=%s",
                         self.variant.slug,
                         state.roulette_id,
                         event_id,
@@ -274,7 +300,7 @@ class TerminalSignalWorker:
                     )
             else:
                 latest = self.trials_coll.find_one({"event_id": event_id})
-                if latest and latest.get("status") == "pending":
+                if latest and latest.get("collection_status") == "collecting":
                     remaining[event_id] = latest
         state.active_trials = remaining
 
@@ -301,11 +327,15 @@ class TerminalSignalWorker:
             "activation_timestamp_utc": timestamp,
             "activation_snapshot": list(state.history[:20]),
             **candidate.as_document(),
-            "max_attempts": self.max_attempts,
+            "max_attempts": self.collection_horizon,
+            "collection_horizon": self.collection_horizon,
             "attempts": [],
             "attempt_history_ids": [],
             "attempts_observed": 0,
             "first_hit_attempt": None,
+            "first_hit_at_utc": None,
+            "collection_status": "collecting",
+            "collection_completed_at_utc": None,
             "status": "pending",
             "outcome": "pending",
             "shadow_only": True,
@@ -333,7 +363,9 @@ class TerminalSignalWorker:
                 document["targets"],
             )
         elif event_id not in state.active_trials:
-            existing = self.trials_coll.find_one({"event_id": event_id, "status": "pending"})
+            existing = self.trials_coll.find_one(
+                {"event_id": event_id, "collection_status": "collecting"}
+            )
             if existing:
                 state.active_trials[event_id] = existing
 
@@ -353,8 +385,9 @@ class TerminalSignalWorker:
         timestamp = _utc(document.get("timestamp"))
         history_id = str(history_object_id)
 
-        # O giro atual resolve sinais anteriores antes de poder formar um novo.
-        self._advance_pending(
+        # O giro atual avança todas as coletas anteriores antes de formar um novo
+        # sinal. Acertos não interrompem a coleta e sinais podem se sobrepor.
+        self._advance_collecting(
             state,
             number=number,
             history_id=history_id,

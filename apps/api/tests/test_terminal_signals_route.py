@@ -8,7 +8,10 @@ import pytest
 from pydantic import ValidationError
 
 from api.routes import terminal_signals
-from api.schemas.terminal_signals import TerminalSignalProfitabilityRequest
+from api.schemas.terminal_signals import (
+    TerminalSignalProfitabilityRequest,
+    TerminalSignalScenarioRequest,
+)
 
 
 def test_profitability_request_normalizes_roulettes_and_defaults() -> None:
@@ -25,13 +28,34 @@ def test_profitability_request_normalizes_roulettes_and_defaults() -> None:
         "pragmatic-auto-roulette",
         "pragmatic-brazilian-roulette",
     ]
-    assert payload.attempt_stakes == [Decimal("1"), Decimal("1.5")]
+    assert payload.attempt_stakes[:2] == [Decimal("1"), Decimal("1.5")]
+    assert len(payload.attempt_stakes) == 10
     assert payload.payout_mode == "source_html"
 
     with pytest.raises(ValidationError):
         TerminalSignalProfitabilityRequest(
             variant="gemeos",
             attempt_stakes=[Decimal("1")],
+        )
+
+    with pytest.raises(ValidationError):
+        TerminalSignalProfitabilityRequest(
+            variant="gemeos",
+            max_attempts=4,
+            attempt_stakes=[Decimal("1"), Decimal("1.5")],
+        )
+
+
+def test_scenario_request_requires_stakes_through_t10() -> None:
+    payload = TerminalSignalScenarioRequest(variant="motor-a-vizinhos")
+    assert payload.minimum_attempts == 2
+    assert payload.maximum_attempts == 10
+    assert len(payload.attempt_stakes) == 10
+
+    with pytest.raises(ValidationError):
+        TerminalSignalScenarioRequest(
+            variant="motor-a-vizinhos",
+            attempt_stakes=[Decimal("1")] * 9,
         )
 
 
@@ -50,6 +74,7 @@ def test_summary_route_passes_individual_roulette_filter(monkeypatch) -> None:
             variant="motor-a-seco",
             roulette_ids="pragmatic-auto-roulette,pragmatic-brazilian-roulette",
             window="24h",
+            max_attempts=4,
             maximum_records=1_000,
         )
     )
@@ -60,6 +85,30 @@ def test_summary_route_passes_individual_roulette_filter(monkeypatch) -> None:
         "pragmatic-auto-roulette",
         "pragmatic-brazilian-roulette",
     )
+    assert captured["max_attempts"] == 4
+
+
+def test_scenarios_route_uses_common_t10_comparison(monkeypatch) -> None:
+    captured = {}
+
+    async def fake_scenarios(variant, **kwargs):
+        captured["variant"] = variant
+        captured.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        terminal_signals.terminal_signal_service,
+        "scenarios",
+        fake_scenarios,
+    )
+    payload = TerminalSignalScenarioRequest(variant="motor-a-vizinhos")
+
+    result = asyncio.run(terminal_signals.terminal_signal_scenarios(payload))
+
+    assert result == {"ok": True}
+    assert captured["minimum_attempts"] == 2
+    assert captured["maximum_attempts"] == 10
+    assert len(captured["attempt_stakes"]) == 10
 
 
 def test_dashboard_contains_variant_and_roulette_selectors() -> None:
@@ -74,3 +123,6 @@ def test_dashboard_contains_variant_and_roulette_selectors() -> None:
     assert 'id="chart"' in template
     assert "/api/terminal-signals/summary" in template
     assert "/api/terminal-signals/profitability" in template
+    assert "/api/terminal-signals/scenarios" in template
+    assert 'id="maxAttempts"' in template
+    assert 'id="scenarios"' in template

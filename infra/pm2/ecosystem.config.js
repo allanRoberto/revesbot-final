@@ -379,7 +379,7 @@ module.exports = {
             TERMINAL_SIGNAL_VARIANT: variant,
             TERMINAL_SIGNAL_ROULETTE_IDS: "all",
             TERMINAL_SIGNAL_HISTORY_LIMIT: "500",
-            TERMINAL_SIGNAL_MAX_ATTEMPTS: "2",
+            TERMINAL_SIGNAL_MAX_ATTEMPTS: "10",
             TERMINAL_SIGNAL_RECONCILE_SECONDS: "5",
             TERMINAL_SIGNAL_DISCOVERY_SECONDS: "60",
             RESULT_CHANNEL: "new_result",

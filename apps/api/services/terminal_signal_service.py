@@ -14,12 +14,14 @@ from api.core.db import (
     terminal_signal_worker_state_coll,
 )
 from shared.python.roulette.terminal_signals.catalog import (
+    COLLECTION_HORIZON,
     DEFAULT_ATTEMPT_STAKES,
     ENGINE_VERSION,
     VARIANTS,
     get_variant,
 )
 from shared.python.roulette.terminal_signals.performance import (
+    compare_attempt_horizons,
     simulate_profitability,
     summarize_trials,
 )
@@ -81,7 +83,10 @@ def serialize_trial(row: Mapping[str, Any]) -> dict[str, Any]:
         "motor_b": _analysis_payload(row.get("motor_b")),
         "targets": [int(value) for value in row.get("targets") or []],
         "target_size": int(row.get("target_size") or 0),
-        "max_attempts": int(row.get("max_attempts") or 2),
+        "max_attempts": int(row.get("max_attempts") or COLLECTION_HORIZON),
+        "collection_horizon": int(
+            row.get("collection_horizon") or row.get("max_attempts") or 10
+        ),
         "attempts": [
             {
                 "attempt": int(attempt.get("attempt") or 0),
@@ -93,7 +98,13 @@ def serialize_trial(row: Mapping[str, Any]) -> dict[str, Any]:
             for attempt in row.get("attempts") or []
         ],
         "first_hit_attempt": row.get("first_hit_attempt"),
+        "first_hit_at_utc": _iso(row.get("first_hit_at_utc")),
         "attempts_observed": int(row.get("attempts_observed") or 0),
+        "collection_status": str(
+            row.get("collection_status")
+            or ("complete" if row.get("status") == "resolved" else "collecting")
+        ),
+        "collection_completed_at_utc": _iso(row.get("collection_completed_at_utc")),
         "status": str(row.get("status") or ""),
         "outcome": str(row.get("outcome") or ""),
         "shadow_only": bool(row.get("shadow_only", True)),
@@ -124,6 +135,7 @@ class TerminalSignalService:
             rows = [{"_id": roulette_id} for roulette_id in sorted(roulette_ids)]
         return {
             "engine_version": ENGINE_VERSION,
+            "collection_horizon": COLLECTION_HORIZON,
             "default_attempt_stakes": list(DEFAULT_ATTEMPT_STAKES),
             "variants": [variant.as_payload() for variant in VARIANTS],
             "roulettes": [
@@ -174,9 +186,13 @@ class TerminalSignalService:
         query = self._query(variant, roulette_ids=roulette_ids, window=window)
         projection = {
             "_id": 0,
+            "event_id": 1,
             "roulette_id": 1,
             "status": 1,
             "first_hit_attempt": 1,
+            "attempts": 1,
+            "attempts_observed": 1,
+            "collection_horizon": 1,
             "target_size": 1,
             "activation_timestamp_utc": 1,
         }
@@ -193,9 +209,11 @@ class TerminalSignalService:
         *,
         roulette_ids: Sequence[str] | None,
         window: str,
+        max_attempts: int = 2,
         maximum_records: int = 50_000,
     ) -> dict[str, Any]:
         spec = get_variant(variant)
+        safe_attempts = max(2, min(COLLECTION_HORIZON, int(max_attempts)))
         safe_maximum = max(100, min(200_000, int(maximum_records)))
         rows = await self._summary_rows(
             variant,
@@ -209,7 +227,7 @@ class TerminalSignalService:
         breakdown = [
             {
                 "roulette_id": roulette_id,
-                **summarize_trials(group_rows, max_attempts=spec.max_attempts),
+                **summarize_trials(group_rows, max_attempts=safe_attempts),
             }
             for roulette_id, group_rows in grouped.items()
             if roulette_id
@@ -221,10 +239,11 @@ class TerminalSignalService:
         return {
             "engine_version": ENGINE_VERSION,
             "variant": spec.as_payload(),
+            "simulation_attempts": safe_attempts,
             "window": window,
             "roulette_ids": list(roulette_ids or []),
             "records_capped": len(rows) >= safe_maximum,
-            "overall": summarize_trials(rows, max_attempts=spec.max_attempts),
+            "overall": summarize_trials(rows, max_attempts=safe_attempts),
             "by_roulette": breakdown,
             "generated_at_utc": datetime.now(timezone.utc),
         }
@@ -270,11 +289,13 @@ class TerminalSignalService:
         window: str,
         initial_bank: Decimal,
         attempt_stakes: Sequence[Decimal],
+        max_attempts: int,
         payout_mode: str,
         maximum_records: int,
         maximum_chart_points: int,
     ) -> dict[str, Any]:
         spec = get_variant(variant)
+        safe_attempts = max(2, min(COLLECTION_HORIZON, int(max_attempts)))
         safe_maximum = max(100, min(200_000, int(maximum_records)))
         query = self._query(
             variant,
@@ -282,7 +303,7 @@ class TerminalSignalService:
             window=window,
             status=None,
         )
-        query["status"] = "resolved"
+        query["attempts_observed"] = {"$gte": safe_attempts}
         rows = await (
             terminal_signal_trials_coll.find(
                 query,
@@ -293,6 +314,7 @@ class TerminalSignalService:
                     "status": 1,
                     "target_size": 1,
                     "attempts": 1,
+                    "attempts_observed": 1,
                     "activation_timestamp_utc": 1,
                 },
             )
@@ -303,17 +325,97 @@ class TerminalSignalService:
         result = simulate_profitability(
             rows,
             initial_bank=initial_bank,
-            attempt_stakes=attempt_stakes[: spec.max_attempts],
+            attempt_stakes=attempt_stakes,
+            max_attempts=safe_attempts,
             payout_mode=payout_mode,
             maximum_chart_points=maximum_chart_points,
         )
         return {
             "engine_version": ENGINE_VERSION,
             "variant": spec.as_payload(),
+            "simulation_attempts": safe_attempts,
             "window": window,
             "roulette_ids": list(roulette_ids or []),
             "records_capped": len(rows) >= safe_maximum,
             **result,
+            "generated_at_utc": datetime.now(timezone.utc),
+        }
+
+    async def scenarios(
+        self,
+        variant: str,
+        *,
+        roulette_ids: Sequence[str] | None,
+        window: str,
+        initial_bank: Decimal,
+        attempt_stakes: Sequence[Decimal],
+        minimum_attempts: int,
+        maximum_attempts: int,
+        payout_mode: str,
+        maximum_records: int,
+        maximum_chart_points: int,
+    ) -> dict[str, Any]:
+        spec = get_variant(variant)
+        minimum = max(2, min(COLLECTION_HORIZON, int(minimum_attempts)))
+        maximum = max(minimum, min(COLLECTION_HORIZON, int(maximum_attempts)))
+        if len(attempt_stakes) < maximum:
+            raise ValueError("faltam fichas para a comparação solicitada")
+        safe_maximum = max(100, min(200_000, int(maximum_records)))
+        query = self._query(
+            variant,
+            roulette_ids=roulette_ids,
+            window=window,
+            status=None,
+        )
+        query["attempts_observed"] = {"$gte": maximum}
+        rows = await (
+            terminal_signal_trials_coll.find(
+                query,
+                {
+                    "_id": 0,
+                    "event_id": 1,
+                    "roulette_id": 1,
+                    "target_size": 1,
+                    "attempts": 1,
+                    "attempts_observed": 1,
+                    "activation_timestamp_utc": 1,
+                },
+            )
+            .sort([("activation_timestamp_utc", DESCENDING), ("_id", DESCENDING)])
+            .limit(safe_maximum)
+            .to_list(length=safe_maximum)
+        )
+        comparison = compare_attempt_horizons(
+            rows,
+            minimum_attempts=minimum,
+            maximum_attempts=maximum,
+            common_cohort_horizon=maximum,
+            initial_bank=initial_bank,
+            attempt_stakes=attempt_stakes,
+            payout_mode=payout_mode,
+            maximum_chart_points=maximum_chart_points,
+        )
+        best_roi = max(
+            comparison,
+            key=lambda item: item["profitability"]["roi_on_staked"],
+            default=None,
+        )
+        best_profit = max(
+            comparison,
+            key=lambda item: item["profitability"]["net_profit"],
+            default=None,
+        )
+        return {
+            "engine_version": ENGINE_VERSION,
+            "variant": spec.as_payload(),
+            "window": window,
+            "roulette_ids": list(roulette_ids or []),
+            "common_cohort_horizon": maximum,
+            "common_cohort_signals": len(rows),
+            "records_capped": len(rows) >= safe_maximum,
+            "best_roi_attempts": best_roi["attempts"] if best_roi else None,
+            "best_profit_attempts": best_profit["attempts"] if best_profit else None,
+            "scenarios": comparison,
             "generated_at_utc": datetime.now(timezone.utc),
         }
 

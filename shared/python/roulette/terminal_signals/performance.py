@@ -49,22 +49,69 @@ def random_hit_baseline(target_size: int, attempts: int) -> float:
     return 1.0 - ((37 - size) / 37) ** max(1, int(attempts))
 
 
-def summarize_trials(trials: Iterable[Mapping[str, Any]], *, max_attempts: int = 2) -> dict[str, Any]:
+def _observed_attempts(row: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    return sorted(
+        (
+            attempt
+            for attempt in row.get("attempts") or []
+            if int(attempt.get("attempt") or 0) >= 1
+        ),
+        key=lambda attempt: int(attempt.get("attempt") or 0),
+    )
+
+
+def _is_mature(row: Mapping[str, Any], horizon: int) -> bool:
+    observed = int(row.get("attempts_observed") or len(_observed_attempts(row)))
+    return observed >= int(horizon)
+
+
+def _first_hit_attempt(row: Mapping[str, Any], horizon: int) -> int | None:
+    for attempt in _observed_attempts(row):
+        number = int(attempt.get("attempt") or 0)
+        if number > horizon:
+            break
+        if bool(attempt.get("hit")):
+            return number
+    return None
+
+
+def summarize_trials(
+    trials: Iterable[Mapping[str, Any]],
+    *,
+    max_attempts: int = 2,
+    cohort_horizon: int | None = None,
+) -> dict[str, Any]:
+    if not 1 <= int(max_attempts) <= 10:
+        raise ValueError("o horizonte precisa estar entre 1 e 10 tentativas")
+    required_horizon = int(cohort_horizon or max_attempts)
+    if required_horizon < int(max_attempts):
+        raise ValueError("a coorte não pode terminar antes do horizonte simulado")
     rows = list(trials)
-    resolved = [row for row in rows if str(row.get("status")) == "resolved"]
-    wins = [row for row in resolved if row.get("first_hit_attempt") is not None]
+    resolved = [row for row in rows if _is_mature(row, required_horizon)]
+    first_hits = {
+        str(row.get("event_id") or index): _first_hit_attempt(row, int(max_attempts))
+        for index, row in enumerate(resolved)
+    }
+    wins = [
+        row
+        for index, row in enumerate(resolved)
+        if first_hits[str(row.get("event_id") or index)] is not None
+    ]
     losses = len(resolved) - len(wins)
     exact_hits = {
-        str(attempt): sum(int(row.get("first_hit_attempt") or 0) == attempt for row in resolved)
+        str(attempt): sum(
+            first_hits[str(row.get("event_id") or index)] == attempt
+            for index, row in enumerate(resolved)
+        )
         for attempt in range(1, max_attempts + 1)
     }
     cumulative = []
     for attempt in range(1, max_attempts + 1):
         hits = sum(
             1
-            for row in resolved
-            if row.get("first_hit_attempt") is not None
-            and int(row["first_hit_attempt"]) <= attempt
+            for index, row in enumerate(resolved)
+            if first_hits[str(row.get("event_id") or index)] is not None
+            and int(first_hits[str(row.get("event_id") or index)] or 0) <= attempt
         )
         lower, upper = wilson_interval(hits, len(resolved))
         baseline = (
@@ -98,6 +145,8 @@ def summarize_trials(trials: Iterable[Mapping[str, Any]], *, max_attempts: int =
         "lost": losses,
         "assertiveness": round(len(wins) / len(resolved), 6) if resolved else 0.0,
         "average_target_size": round(average_target_size, 3),
+        "simulation_attempts": int(max_attempts),
+        "cohort_horizon": required_horizon,
         "exact_hits_by_attempt": exact_hits,
         "attempts": cumulative,
     }
@@ -114,6 +163,8 @@ def simulate_profitability(
     *,
     initial_bank: Decimal,
     attempt_stakes: Sequence[Decimal],
+    max_attempts: int | None = None,
+    cohort_horizon: int | None = None,
     payout_mode: str = "source_html",
     maximum_chart_points: int = 500,
 ) -> dict[str, Any]:
@@ -121,7 +172,15 @@ def simulate_profitability(
         raise ValueError("a banca inicial precisa ser positiva")
     if not attempt_stakes or any(stake < 0 for stake in attempt_stakes):
         raise ValueError("as fichas das tentativas precisam ser não negativas")
-    rows = [row for row in trials if str(row.get("status")) == "resolved"]
+    simulation_horizon = int(max_attempts or len(attempt_stakes))
+    if not 1 <= simulation_horizon <= 10:
+        raise ValueError("o horizonte precisa estar entre 1 e 10 tentativas")
+    if len(attempt_stakes) < simulation_horizon:
+        raise ValueError("faltam fichas para o horizonte solicitado")
+    required_horizon = int(cohort_horizon or simulation_horizon)
+    if required_horizon < simulation_horizon:
+        raise ValueError("a coorte não pode terminar antes do horizonte simulado")
+    rows = [row for row in trials if _is_mature(row, required_horizon)]
     cashflows: list[dict[str, Any]] = []
     for row in rows:
         target_size = int(row.get("target_size") or 0)
@@ -129,9 +188,9 @@ def simulate_profitability(
             continue
         roulette_id = str(row.get("roulette_id") or "")
         event_id = str(row.get("event_id") or "")
-        for attempt in row.get("attempts") or []:
+        for attempt in _observed_attempts(row):
             attempt_number = int(attempt.get("attempt") or 0)
-            if not 1 <= attempt_number <= len(attempt_stakes):
+            if not 1 <= attempt_number <= simulation_horizon:
                 continue
             stake = Decimal(attempt_stakes[attempt_number - 1])
             cost = stake * Decimal(target_size)
@@ -150,6 +209,8 @@ def simulate_profitability(
                     "returned": returned,
                 }
             )
+            if bool(attempt.get("hit")):
+                break
     cashflows.sort(key=lambda row: (row["timestamp"], row["event_id"], row["attempt"]))
 
     bank = Decimal(initial_bank)
@@ -200,10 +261,50 @@ def simulate_profitability(
         "resolved_signals": len(rows),
         "cashflow_events": len(cashflows),
         "payout_mode": payout_mode,
-        "attempt_stakes": [float(value) for value in attempt_stakes],
+        "simulation_attempts": simulation_horizon,
+        "cohort_horizon": required_horizon,
+        "attempt_stakes": [
+            float(value) for value in attempt_stakes[:simulation_horizon]
+        ],
         "chart": {
             "points": chart_points,
             "points_total": len(points),
             "points_capped": len(chart_points) < len(points),
         },
     }
+
+
+def compare_attempt_horizons(
+    trials: Iterable[Mapping[str, Any]],
+    *,
+    minimum_attempts: int,
+    maximum_attempts: int,
+    common_cohort_horizon: int,
+    initial_bank: Decimal,
+    attempt_stakes: Sequence[Decimal],
+    payout_mode: str = "source_html",
+    maximum_chart_points: int = 500,
+) -> list[dict[str, Any]]:
+    rows = list(trials)
+    if not 1 <= minimum_attempts <= maximum_attempts <= 10:
+        raise ValueError("a comparação precisa estar entre 1 e 10 tentativas")
+    return [
+        {
+            "attempts": horizon,
+            "summary": summarize_trials(
+                rows,
+                max_attempts=horizon,
+                cohort_horizon=common_cohort_horizon,
+            ),
+            "profitability": simulate_profitability(
+                rows,
+                initial_bank=initial_bank,
+                attempt_stakes=attempt_stakes,
+                max_attempts=horizon,
+                cohort_horizon=common_cohort_horizon,
+                payout_mode=payout_mode,
+                maximum_chart_points=maximum_chart_points,
+            ),
+        }
+        for horizon in range(minimum_attempts, maximum_attempts + 1)
+    ]

@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 TerminalSignalWindow = Literal["1h", "3h", "6h", "12h", "24h", "7d", "all"]
@@ -16,10 +16,22 @@ class TerminalSignalProfitabilityRequest(BaseModel):
     window: TerminalSignalWindow = "24h"
     initial_bank: Decimal = Field(default=Decimal("100"), gt=0, le=Decimal("1000000000"))
     attempt_stakes: List[Decimal] = Field(
-        default_factory=lambda: [Decimal("1"), Decimal("1.5")],
+        default_factory=lambda: [
+            Decimal("1"),
+            Decimal("1.5"),
+            Decimal("1.5"),
+            Decimal("1.5"),
+            Decimal("1.5"),
+            Decimal("1.5"),
+            Decimal("1.5"),
+            Decimal("1.5"),
+            Decimal("1.5"),
+            Decimal("1.5"),
+        ],
         min_length=2,
-        max_length=2,
+        max_length=10,
     )
+    max_attempts: int = Field(default=2, ge=2, le=10)
     payout_mode: PayoutMode = "source_html"
     maximum_records: int = Field(default=50_000, ge=100, le=200_000)
     maximum_chart_points: int = Field(default=500, ge=50, le=1_000)
@@ -42,3 +54,22 @@ class TerminalSignalProfitabilityRequest(BaseModel):
         if any(value > Decimal("100000000") for value in values):
             raise ValueError("valor de ficha acima do limite")
         return values
+
+    @model_validator(mode="after")
+    def validate_horizon_stakes(self):
+        if len(self.attempt_stakes) < self.max_attempts:
+            raise ValueError("informe uma ficha para cada tentativa simulada")
+        return self
+
+
+class TerminalSignalScenarioRequest(TerminalSignalProfitabilityRequest):
+    minimum_attempts: int = Field(default=2, ge=2, le=10)
+    maximum_attempts: int = Field(default=10, ge=2, le=10)
+
+    @model_validator(mode="after")
+    def validate_comparison_range(self):
+        if self.minimum_attempts > self.maximum_attempts:
+            raise ValueError("a tentativa mínima não pode superar a máxima")
+        if len(self.attempt_stakes) < self.maximum_attempts:
+            raise ValueError("informe fichas até a tentativa máxima da comparação")
+        return self

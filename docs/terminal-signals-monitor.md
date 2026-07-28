@@ -12,7 +12,9 @@ arquivo `TERMINAIS CRUZADO + GEMEOS`:
 - `cruzado`
 - `gemeos`
 
-O giro que forma o sinal é apenas a ativação. G1 começa no giro seguinte.
+O giro que forma o sinal é apenas a ativação. T1 começa no giro seguinte. Cada
+formação coleta sempre T1–T10, mesmo que haja acerto antes, para permitir
+simulações posteriores sem perder observações.
 
 ## Runtime
 
@@ -31,7 +33,7 @@ Variáveis:
 | `TERMINAL_SIGNAL_VARIANT` | obrigatório | Uma das seis variações |
 | `TERMINAL_SIGNAL_ROULETTE_IDS` | `all` | `all` ou slugs separados por vírgula |
 | `TERMINAL_SIGNAL_HISTORY_LIMIT` | `500` | Histórico em memória por mesa |
-| `TERMINAL_SIGNAL_MAX_ATTEMPTS` | `2` | Horizonte prospectivo |
+| `TERMINAL_SIGNAL_MAX_ATTEMPTS` | `10` | Horizonte de coleta prospectiva |
 | `TERMINAL_SIGNAL_RECONCILE_SECONDS` | `5` | Reconciliação do Mongo |
 | `TERMINAL_SIGNAL_DISCOVERY_SECONDS` | `60` | Descoberta de novas mesas |
 | `RESULT_CHANNEL` | `new_result` | Canal Redis usado como acelerador |
@@ -48,7 +50,11 @@ cada worker/mesa fica em `terminal_signal_worker_state`, e os resultados ficam e
 - O offset só avança depois que o giro foi aplicado.
 - No primeiro start, o worker começa no giro mais recente e não mistura replay
   retroativo com a coorte prospectiva.
-- Depois de restart, sinais `pending` e giros posteriores ao offset são retomados.
+- Depois de restart, coletas `collecting` e giros posteriores ao offset são retomados.
+- Um acerto não encerra a coleta bruta; apenas define `first_hit_attempt`.
+- Cada giro avança todas as formações abertas da mesa antes de detectar uma nova.
+- Novas formações nunca aguardam as anteriores terminarem, portanto os sinais se
+  sobrepõem sem perder a relação número a número.
 
 ## API e dashboard
 
@@ -65,23 +71,31 @@ GET  /api/terminal-signals/catalog
 GET  /api/terminal-signals/summary
 GET  /api/terminal-signals/history
 POST /api/terminal-signals/profitability
+POST /api/terminal-signals/scenarios
 ```
 
 O seletor de mesa usa todas as entradas `pragmatic-*` existentes em `history`.
 A resposta de assertividade inclui a expectativa aleatória calculada pela
 quantidade de alvos de cada formação.
 
-## Lucratividade
+## Simulação T2–T10 e lucratividade
 
 O padrão do HTML usa ficha por número:
 
-- G1: `1`
-- G2: `1.5`
+- T1: `1`
+- T2: `1.5`
+- T3–T10: `1.5` por padrão, editáveis no painel
 - retorno bruto: `36x`
 
-O endpoint também aceita `payout_mode=table_base`, que usa `30x` para as mesas
-Mega conhecidas e `36x` para as demais. O cálculo usa a quantidade real de alvos
-e ordena os fluxos de caixa pelo horário das tentativas, incluindo simultaneidade.
+O endpoint `/scenarios` compara os horizontes T2, T3, ... T10 usando a mesma
+coorte de formações completas em T10. Isso impede que cenários longos usem uma
+amostra menor que os curtos. A simulação para de apostar no primeiro acerto,
+embora a coleta bruta continue até T10.
+
+Os endpoints aceitam `payout_mode=table_base`, que usa `30x` para as mesas Mega
+conhecidas e `36x` para as demais. O cálculo usa a quantidade real de alvos e
+ordena os fluxos de caixa pelo horário das tentativas, incluindo exposições
+simultâneas de formações sobrepostas.
 
 ## Operação PM2
 

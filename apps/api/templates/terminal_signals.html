@@ -1,100 +1,83 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitor · Motores A, B, Cruzado e Gêmeos</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Terminais · Simulador T2–T10</title>
   <style>
-    :root {
-      color-scheme: dark;
-      --bg:#09110d; --panel:#101a15; --panel2:#14221b; --line:#26372e;
-      --ink:#eee9dc; --muted:#91a197; --gold:#d1a82e; --green:#31c879;
-      --red:#dc5c4e; --blue:#5b91ff; --purple:#bd8bee;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;background:radial-gradient(circle at 12% -10%,#183224 0,transparent 35%),var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
-    .wrap{max-width:1440px;margin:auto;padding:26px 18px 50px}
-    h1{margin:0;font-size:clamp(25px,4vw,42px);letter-spacing:-.03em}
-    .sub{color:var(--muted);margin:7px 0 22px;line-height:1.55}
-    .shadow{display:inline-flex;background:rgba(91,145,255,.13);color:#8bb2ff;border:1px solid rgba(91,145,255,.35);border-radius:999px;padding:3px 9px;font-size:11px;font-weight:750;vertical-align:middle}
-    .panel{background:rgba(16,26,21,.94);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 14px 35px rgba(0,0,0,.16)}
-    .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;align-items:end}
-    label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+    :root{--bg:#08110d;--panel:#101a15;--panel2:#16221c;--line:#26372e;--ink:#e8eee9;--muted:#91a197;--gold:#d1a82e;--green:#31c879;--red:#dc5c4e;--blue:#5b91ff}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#1b3326 0,var(--bg) 45%);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+    .wrap{max-width:1500px;margin:auto;padding:28px 18px 60px}h1{margin:0;font-size:clamp(25px,3vw,42px);letter-spacing:-.03em}
+    .sub{color:var(--muted);margin:7px 0 22px;line-height:1.55}.shadow{display:inline-flex;background:rgba(91,145,255,.13);color:#8bb2ff;border:1px solid rgba(91,145,255,.35);border-radius:999px;padding:3px 9px;font-size:11px;font-weight:750;vertical-align:middle}
+    .panel{background:rgba(16,26,21,.95);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 14px 35px rgba(0,0,0,.16)}
+    .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end}
+    label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em}
     select,input,button{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);padding:10px 11px;font:inherit}
-    button{cursor:pointer;background:var(--gold);color:#151207;border:0;font-weight:800}
-    button:hover{filter:brightness(1.08)}
+    button{cursor:pointer;background:var(--gold);color:#151207;border:0;font-weight:800}button:hover{filter:brightness(1.08)}
+    .stakes{display:grid;grid-template-columns:repeat(10,minmax(72px,1fr));gap:8px;margin-top:14px}.stakes input{padding:8px}
     .status{font-size:12px;color:var(--muted);margin-top:10px}.status.error{color:var(--red)}
-    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
-    .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
-    .stat span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em}
-    .stat strong{display:block;font-size:23px;margin-top:4px;font-variant-numeric:tabular-nums}
-    .stat small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
-    .pos{color:var(--green)!important}.neg{color:var(--red)!important}.info{color:var(--blue)!important}
-    .grid2{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.8fr);gap:14px}
-    h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px;color:#c8d2cc}
-    #chart{min-height:310px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
-    svg{width:100%;height:310px;display:block}
-    table{width:100%;border-collapse:collapse;font-size:12px}
-    th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right}
-    th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.06em}
-    th:first-child,td:first-child{text-align:left}
-    tbody tr{cursor:pointer}tbody tr:hover{background:rgba(209,168,46,.07)}
-    .signals{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px}
-    .signal{border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:13px}
-    .signal-head{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
-    .pill{border-radius:999px;padding:3px 8px;font-size:10px;font-weight:800;text-transform:uppercase}
-    .pill.won{background:rgba(49,200,121,.14);color:var(--green)}
-    .pill.lost{background:rgba(220,92,78,.14);color:var(--red)}
-    .pill.pending{background:rgba(91,145,255,.14);color:var(--blue)}
-    .rid{font-size:11px;color:var(--muted);margin-left:auto}.time{font-size:10px;color:var(--muted)}
-    .line{font-size:12px;color:var(--muted);margin:7px 0}.line b{color:var(--ink)}
-    .nums{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
-    .num{display:inline-flex;width:27px;height:27px;border-radius:50%;align-items:center;justify-content:center;background:#262b29;color:#fff;font-size:11px;font-weight:800}
-    .num.red{background:#a93831}.num.green{background:#237b50}.num.hit{outline:3px solid var(--gold)}
-    .empty{padding:28px;text-align:center;color:var(--muted)}
-    .method{font-size:11px;color:var(--muted);line-height:1.55;margin-top:10px}
-    @media(max-width:900px){.grid2{grid-template-columns:1fr}.wrap{padding:18px 10px}.signals{grid-template-columns:1fr}}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+    .stat span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em}.stat strong{display:block;font-size:23px;margin-top:4px;font-variant-numeric:tabular-nums}.stat small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+    .pos{color:var(--green)!important}.neg{color:var(--red)!important}.info{color:var(--blue)!important}.selected-row{background:rgba(209,168,46,.11)}
+    .grid2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.85fr);gap:14px}h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px;color:#c8d2cc}
+    #chart{min-height:310px;display:flex;align-items:center;justify-content:center;color:var(--muted)}svg{width:100%;height:310px;display:block}
+    .scroll{overflow:auto;max-height:430px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.06em}th:first-child,td:first-child{text-align:left}tbody tr{cursor:pointer}tbody tr:hover{background:rgba(209,168,46,.07)}
+    .signals{display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:10px}.signal{border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:13px}.signal-head{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
+    .pill{border-radius:999px;padding:3px 8px;font-size:10px;font-weight:800;text-transform:uppercase}.pill.won,.pill.complete{background:rgba(49,200,121,.14);color:var(--green)}.pill.lost{background:rgba(220,92,78,.14);color:var(--red)}.pill.collecting,.pill.pending{background:rgba(91,145,255,.14);color:var(--blue)}
+    .rid{font-size:11px;color:var(--muted);margin-left:auto}.time{font-size:10px;color:var(--muted)}.line{font-size:12px;color:var(--muted);margin:7px 0}.line b{color:var(--ink)}
+    .nums{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}.num-wrap{text-align:center}.num{display:inline-flex;width:27px;height:27px;border-radius:50%;align-items:center;justify-content:center;background:#262b29;color:#fff;font-size:11px;font-weight:800}.num.red{background:#a93831}.num.green{background:#237b50}.num.hit{outline:3px solid var(--gold)}.num-wrap small{display:block;color:var(--muted);font-size:9px}
+    .empty{padding:28px;text-align:center;color:var(--muted)}.method{font-size:11px;color:var(--muted);line-height:1.55;margin-top:10px}
+    @media(max-width:1000px){.grid2{grid-template-columns:1fr}.stakes{grid-template-columns:repeat(5,1fr)}}@media(max-width:600px){.wrap{padding:18px 10px}.signals{grid-template-columns:1fr}.stakes{grid-template-columns:repeat(2,1fr)}}
   </style>
 </head>
 <body>
 <main class="wrap">
-  <h1>Terminais · A, B, Cruzado e Gêmeos <span class="shadow">SHADOW</span></h1>
-  <p class="sub">Monitor prospectivo em todas as mesas Pragmatic. Mede cada formação sem enviar apostas.</p>
+  <h1>Terminais · Simulador T2–T10 <span class="shadow">SHADOW</span></h1>
+  <p class="sub">Cada formação coleta os dez giros seguintes sem bloquear novas formações. A simulação encerra financeiramente no primeiro acerto.</p>
 
   <section class="panel">
     <div class="controls">
       <label>Variação<select id="variant"></select></label>
       <label>Mesa<select id="roulette"><option value="">Todas as mesas</option></select></label>
       <label>Período<select id="window"><option value="1h">1 hora</option><option value="3h">3 horas</option><option value="6h">6 horas</option><option value="12h">12 horas</option><option value="24h" selected>24 horas</option><option value="7d">7 dias</option><option value="all">Completo</option></select></label>
-      <label>Status<select id="status"><option value="">Todos</option><option value="pending">Pendente</option><option value="won">Acerto</option><option value="lost">Erro</option></select></label>
+      <label>Simular até<select id="maxAttempts"></select></label>
+      <label>Status da coleta<select id="status"><option value="">Todos</option><option value="pending">Coletando</option><option value="won">Teve acerto</option><option value="lost">Sem acerto em T10</option></select></label>
       <label>Banca inicial<input id="bank" type="number" min="1" step="1" value="100"></label>
-      <label>Ficha G1<input id="stake1" type="number" min="0" step=".1" value="1"></label>
-      <label>Ficha G2<input id="stake2" type="number" min="0" step=".1" value="1.5"></label>
       <label>Pagamento<select id="payout"><option value="source_html">HTML · bruto 36x</option><option value="table_base">Base da mesa</option></select></label>
       <button id="reload">Atualizar</button>
     </div>
+    <div id="stakes" class="stakes"></div>
     <div id="statusText" class="status">Inicializando…</div>
   </section>
 
   <section class="panel"><div class="stats" id="stats"></div></section>
 
+  <section class="panel">
+    <h2>Comparação justa · mesma coorte completa em T10</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Cenário</th><th>Sinais</th><th>Vitórias</th><th>Assertividade</th><th>Baseline</th><th>Lucro</th><th>ROI</th><th>Drawdown</th></tr></thead>
+      <tbody id="scenarios"></tbody>
+    </table></div>
+    <div class="method">Clique em uma linha para selecionar o horizonte. Todos os cenários usam exatamente as formações que já coletaram dez giros.</div>
+  </section>
+
   <div class="grid2">
     <section class="panel">
-      <h2>Evolução da lucratividade</h2>
+      <h2>Evolução da lucratividade do cenário selecionado</h2>
       <div id="chart"><div class="empty">Aguardando dados…</div></div>
-      <div class="method">O gráfico aplica os custos na ordem real das tentativas, inclusive quando existem sinais simultâneos.</div>
+      <div class="method">Fluxos ordenados pelos horários reais. Sinais simultâneos permanecem independentes e podem sobrepor exposição.</div>
     </section>
     <section class="panel">
       <h2>Assertividade por mesa</h2>
-      <div style="overflow:auto;max-height:390px"><table>
-        <thead><tr><th>Mesa</th><th>Sinais</th><th>Resolvidos</th><th>Acerto</th><th>Δ aleatório</th></tr></thead>
+      <div class="scroll"><table>
+        <thead><tr><th>Mesa</th><th>Sinais</th><th>Maduros</th><th>Acerto</th><th>Δ aleatório</th></tr></thead>
         <tbody id="ranking"></tbody>
       </table></div>
     </section>
   </div>
 
   <section class="panel">
-    <h2>Formações recentes</h2>
+    <h2>Formações e observações recentes</h2>
     <div class="signals" id="signals"></div>
   </section>
 </main>
@@ -105,38 +88,37 @@ const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;
 const pct=value=>(Number(value||0)*100).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:2})+"%";
 const money=value=>Number(value||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const date=value=>value?new Date(value).toLocaleString("pt-BR"):"—";
-const badge=(n,extra="")=>`<span class="num ${n===0?"green":RED.has(Number(n))?"red":""} ${extra}">${n}</span>`;
-let catalog=null, timer=null;
+const badge=(n,extra="")=>`<span class="num ${Number(n)===0?"green":RED.has(Number(n))?"red":""} ${extra}">${n}</span>`;
+let catalog=null,timer=null;
 
-function queryBase(){
-  const variant=$("variant").value, roulette=$("roulette").value, window=$("window").value;
-  const params=new URLSearchParams({variant,window});
-  if(roulette)params.set("roulette_ids",roulette);
-  return {variant,roulette,window,params};
-}
 function setStatus(text,error=false){$("statusText").textContent=text;$("statusText").classList.toggle("error",error)}
+function attemptStakes(){return Array.from(document.querySelectorAll("[data-stake]")).map(input=>Number(input.value||0))}
+function queryBase(){
+  const variant=$("variant").value,roulette=$("roulette").value,window=$("window").value,maxAttempts=Number($("maxAttempts").value||2);
+  const params=new URLSearchParams({variant,window,max_attempts:String(maxAttempts)});
+  if(roulette)params.set("roulette_ids",roulette);
+  return {variant,roulette,window,maxAttempts,params};
+}
 
 async function loadCatalog(){
-  const response=await fetch("/api/terminal-signals/catalog");
-  if(!response.ok)throw new Error("Falha ao carregar catálogo");
+  const response=await fetch("/api/terminal-signals/catalog");if(!response.ok)throw new Error("Falha ao carregar catálogo");
   catalog=await response.json();
   $("variant").innerHTML=catalog.variants.map(v=>`<option value="${esc(v.slug)}">${esc(v.name)}</option>`).join("");
-  $("roulette").innerHTML='<option value="">Todas as mesas</option>'+catalog.roulettes.map(r=>{
-    const coverage=Array.isArray(r.monitored_variants) ? ` · ${r.monitored_variants.length}/${catalog.variants.length} workers` : "";
-    return `<option value="${esc(r.id)}">${esc(r.name)}${coverage}</option>`;
-  }).join("");
+  $("roulette").innerHTML='<option value="">Todas as mesas</option>'+catalog.roulettes.map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${(r.monitored_variants||[]).length}/${catalog.variants.length} workers</option>`).join("");
+  $("maxAttempts").innerHTML=Array.from({length:9},(_,i)=>i+2).map(n=>`<option value="${n}" ${n===2?"selected":""}>T${n}</option>`).join("");
+  const defaults=catalog.default_attempt_stakes||[1,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5];
+  $("stakes").innerHTML=Array.from({length:10},(_,i)=>`<label>Ficha T${i+1}<input data-stake="${i+1}" type="number" min="0" step=".1" value="${Number(defaults[i]??defaults.at(-1)??1)}"></label>`).join("");
+  document.querySelectorAll("[data-stake]").forEach(input=>input.addEventListener("change",loadAll));
 }
 
-function finalAttempt(summary){
-  const attempts=summary?.attempts||[];
-  return attempts[attempts.length-1]||{};
-}
+function finalAttempt(summary){const attempts=summary?.attempts||[];return attempts[attempts.length-1]||{}}
+function exactHits(summary){return Object.entries(summary?.exact_hits_by_attempt||{}).filter(([,v])=>Number(v)>0).map(([k,v])=>`T${k}: ${v}`).join(" · ")||"nenhum acerto"}
 function renderStats(summary,profit){
-  const o=summary.overall||{}, last=finalAttempt(o), net=Number(profit.net_profit||0);
+  const o=summary.overall||{},last=finalAttempt(o),net=Number(profit.net_profit||0),h=Number(profit.simulation_attempts||2);
   const cells=[
-    ["Formações",o.total||0,"inclui pendentes",""],
-    ["Pendentes",o.pending||0,"aguardando G1/G2","info"],
-    ["Resolvidos",o.resolved||0,`G1: ${o.exact_hits_by_attempt?.["1"]||0} · G2: ${o.exact_hits_by_attempt?.["2"]||0}`,""],
+    ["Formações",o.total||0,"inclui coletas em andamento",""],
+    [`Maduras em T${h}`,o.resolved||0,`${o.pending||0} ainda sem T${h}`,"info"],
+    ["Vitórias",o.won||0,exactHits(o),""],
     ["Assertividade",pct(o.assertiveness),`IC 95% ${pct(last.confidence_lower)}–${pct(last.confidence_upper)}`,Number(o.assertiveness)>=Number(last.random_baseline)?"pos":"neg"],
     ["Baseline aleatório",pct(last.random_baseline),`Δ ${(Number(last.delta_percentage_points||0)>=0?"+":"")}${Number(last.delta_percentage_points||0).toFixed(2)} p.p.`,""],
     ["Alvos médios",Number(o.average_target_size||0).toFixed(2),"números por formação",""],
@@ -147,63 +129,60 @@ function renderStats(summary,profit){
   $("stats").innerHTML=cells.map(([label,value,small,cls])=>`<div class="stat"><span>${label}</span><strong class="${cls}">${value}</strong><small>${small}</small></div>`).join("");
 }
 
-function renderRanking(rows){
-  if(!rows?.length){$("ranking").innerHTML='<tr><td colspan="5" class="empty">Sem dados no período.</td></tr>';return}
-  $("ranking").innerHTML=rows.map(row=>{
-    const last=finalAttempt(row), delta=Number(last.delta_percentage_points||0);
-    return `<tr data-rid="${esc(row.roulette_id)}"><td>${esc(row.roulette_id.replace("pragmatic-",""))}</td><td>${row.total}</td><td>${row.resolved}</td><td class="${delta>=0?"pos":"neg"}">${pct(row.assertiveness)}</td><td class="${delta>=0?"pos":"neg"}">${delta>=0?"+":""}${delta.toFixed(2)}</td></tr>`;
+function renderScenarios(data,selected){
+  const rows=data?.scenarios||[];
+  if(!rows.length){$("scenarios").innerHTML='<tr><td colspan="8" class="empty">Aguardando formações com dez observações.</td></tr>';return}
+  $("scenarios").innerHTML=rows.map(row=>{
+    const s=row.summary||{},p=row.profitability||{},last=finalAttempt(s),active=Number(row.attempts)===Number(selected);
+    return `<tr data-attempts="${row.attempts}" class="${active?"selected-row":""}"><td>T${row.attempts}${row.attempts===data.best_roi_attempts?" · melhor ROI":""}</td><td>${s.resolved}</td><td>${s.won}</td><td>${pct(s.assertiveness)}</td><td>${pct(last.random_baseline)}</td><td class="${Number(p.net_profit)>=0?"pos":"neg"}">${money(p.net_profit)}</td><td class="${Number(p.roi_on_staked)>=0?"pos":"neg"}">${pct(p.roi_on_staked)}</td><td>${money(p.max_drawdown)}</td></tr>`;
   }).join("");
+  $("scenarios").querySelectorAll("tr[data-attempts]").forEach(row=>row.addEventListener("click",()=>{$("maxAttempts").value=row.dataset.attempts;loadAll()}));
+}
+
+function renderRanking(rows){
+  if(!rows?.length){$("ranking").innerHTML='<tr><td colspan="5" class="empty">Sem dados maduros no período.</td></tr>';return}
+  $("ranking").innerHTML=rows.map(row=>{const last=finalAttempt(row),delta=Number(last.delta_percentage_points||0);return `<tr data-rid="${esc(row.roulette_id)}"><td>${esc(row.roulette_id.replace("pragmatic-",""))}</td><td>${row.total}</td><td>${row.resolved}</td><td class="${delta>=0?"pos":"neg"}">${pct(row.assertiveness)}</td><td class="${delta>=0?"pos":"neg"}">${delta>=0?"+":""}${delta.toFixed(2)}</td></tr>`}).join("");
   $("ranking").querySelectorAll("tr[data-rid]").forEach(row=>row.addEventListener("click",()=>{$("roulette").value=row.dataset.rid;loadAll()}));
 }
 
 function renderChart(profit){
-  const points=profit?.chart?.points||[];
-  if(points.length<2){$("chart").innerHTML='<div class="empty">Ainda não há sinais resolvidos para desenhar a curva.</div>';return}
-  const W=1000,H=310,L=65,R=18,T=15,B=30,iw=W-L-R,ih=H-T-B;
-  const vals=points.map(p=>Number(p.bank)), min=Math.min(...vals),max=Math.max(...vals),range=max-min||1;
-  const x=i=>L+(i/Math.max(1,points.length-1))*iw, y=v=>T+ih-((v-min)/range)*ih;
-  let grid="";
+  const points=profit?.chart?.points||[];if(points.length<2){$("chart").innerHTML='<div class="empty">Ainda não há coorte madura para este cenário.</div>';return}
+  const W=1000,H=310,L=65,R=18,T=15,B=30,iw=W-L-R,ih=H-T-B,vals=points.map(p=>Number(p.bank)),min=Math.min(...vals),max=Math.max(...vals),range=max-min||1;
+  const x=i=>L+(i/Math.max(1,points.length-1))*iw,y=v=>T+ih-((v-min)/range)*ih;let grid="";
   for(let i=0;i<=4;i++){const value=min+range*i/4,yy=y(value);grid+=`<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#26372e"/><text x="${L-8}" y="${yy+4}" fill="#91a197" font-size="10" text-anchor="end">${money(value)}</text>`}
-  const path=points.map((p,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(Number(p.bank)).toFixed(1)}`).join(" ");
-  const color=Number(profit.net_profit)>=0?"#31c879":"#dc5c4e";
-  const area=`${path} L${x(points.length-1)},${T+ih} L${x(0)},${T+ih} Z`;
+  const path=points.map((p,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(Number(p.bank)).toFixed(1)}`).join(" "),color=Number(profit.net_profit)>=0?"#31c879":"#dc5c4e",area=`${path} L${x(points.length-1)},${T+ih} L${x(0)},${T+ih} Z`;
   $("chart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${grid}<path d="${area}" fill="${color}" opacity=".1"/><path d="${path}" fill="none" stroke="${color}" stroke-width="3"/><text x="${L}" y="${H-7}" fill="#91a197" font-size="10">início</text><text x="${W-R}" y="${H-7}" fill="#91a197" font-size="10" text-anchor="end">${profit.cashflow_events} movimentos</text></svg>`;
 }
 
 function renderSignals(data){
-  const rows=data.trials||[];
-  if(!rows.length){$("signals").innerHTML='<div class="empty">Nenhuma formação encontrada.</div>';return}
+  const rows=data.trials||[];if(!rows.length){$("signals").innerHTML='<div class="empty">Nenhuma formação encontrada.</div>';return}
   $("signals").innerHTML=rows.map(s=>{
-    const outcome=s.status==="pending"?"pending":s.outcome;
-    const terminal=s.terminal_b==null?`Terminal ${s.terminal_a??s.terminal_b}`:`A ${s.terminal_a} · B ${s.terminal_b}`;
-    const gatA=s.motor_a?`${s.motor_a.idx0}/${s.motor_a.idx1}`:"—", gatB=s.motor_b?`${s.motor_b.idx0}/${s.motor_b.idx1}`:"—";
-    const attempts=(s.attempts||[]).map(a=>`<div>${badge(a.number,a.hit?"hit":"")}<small style="display:block;text-align:center;color:var(--muted)">G${a.attempt}</small></div>`).join("");
-    return `<article class="signal"><div class="signal-head"><span class="pill ${outcome}">${outcome}</span><span class="time">${date(s.activation_timestamp_utc)}</span><span class="rid">${esc(s.roulette_id)}</span></div><div class="line"><b>${terminal}</b> · gatilho A ${gatA} · gatilho B ${gatB}</div><div class="line">Alvos (${s.target_size})</div><div class="nums">${s.targets.map(n=>badge(n)).join("")}</div><div class="line">Tentativas</div><div class="nums">${attempts||'<span class="time">aguardando próximo giro</span>'}</div></article>`;
+    const collection=s.collection_status||"collecting",outcome=s.outcome==="won"?"won":collection,terminal=s.terminal_b==null?`Terminal ${s.terminal_a??s.terminal_b}`:`A ${s.terminal_a} · B ${s.terminal_b}`;
+    const attempts=(s.attempts||[]).map(a=>`<div class="num-wrap">${badge(a.number,a.hit?"hit":"")}<small>T${a.attempt}</small></div>`).join("");
+    return `<article class="signal"><div class="signal-head"><span class="pill ${outcome}">${outcome==="won"?"acertou · coletando":collection}</span><span class="time">${date(s.activation_timestamp_utc)}</span><span class="rid">${esc(s.roulette_id)}</span></div><div class="line"><b>${terminal}</b> · ${s.attempts_observed}/10 observações · primeiro acerto ${s.first_hit_attempt?`T${s.first_hit_attempt}`:"—"}</div><div class="line">Alvos (${s.target_size})</div><div class="nums">${s.targets.map(n=>badge(n)).join("")}</div><div class="line">Observações posteriores</div><div class="nums">${attempts||'<span class="time">aguardando próximo giro</span>'}</div></article>`;
   }).join("");
 }
 
 async function loadAll(){
-  const base=queryBase();
-  if(!base.variant)return;
-  setStatus("Atualizando métricas…");
-  const historyParams=new URLSearchParams(base.params);
-  const status=$("status").value;if(status)historyParams.set("status",status);historyParams.set("limit","60");
-  const payload={variant:base.variant,roulette_ids:base.roulette?[base.roulette]:null,window:base.window,initial_bank:Number($("bank").value||100),attempt_stakes:[Number($("stake1").value||0),Number($("stake2").value||0)],payout_mode:$("payout").value,maximum_records:50000,maximum_chart_points:500};
+  const base=queryBase();if(!base.variant)return;setStatus("Atualizando métricas e cenários…");
+  const historyParams=new URLSearchParams({variant:base.variant,window:base.window,limit:"60"});if(base.roulette)historyParams.set("roulette_ids",base.roulette);const status=$("status").value;if(status)historyParams.set("status",status);
+  const payload={variant:base.variant,roulette_ids:base.roulette?[base.roulette]:null,window:base.window,initial_bank:Number($("bank").value||100),attempt_stakes:attemptStakes(),max_attempts:base.maxAttempts,payout_mode:$("payout").value,maximum_records:50000,maximum_chart_points:500};
+  const scenarioPayload={...payload,minimum_attempts:2,maximum_attempts:10};
   try{
-    const [summaryRes,historyRes,profitRes]=await Promise.all([
+    const [summaryRes,historyRes,profitRes,scenarioRes]=await Promise.all([
       fetch(`/api/terminal-signals/summary?${base.params}`),
       fetch(`/api/terminal-signals/history?${historyParams}`),
-      fetch("/api/terminal-signals/profitability",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+      fetch("/api/terminal-signals/profitability",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),
+      fetch("/api/terminal-signals/scenarios",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(scenarioPayload)})
     ]);
-    const [summary,history,profit]=await Promise.all([summaryRes.json(),historyRes.json(),profitRes.json()]);
-    if(!summaryRes.ok||!historyRes.ok||!profitRes.ok)throw new Error(summary.detail||history.detail||profit.detail||"Falha na API");
-    renderStats(summary,profit);renderRanking(summary.by_roulette);renderChart(profit);renderSignals(history);
-    setStatus(`Atualizado em ${new Date().toLocaleTimeString("pt-BR")} · ${summary.variant.name} · ${base.roulette||"todas as mesas"}`);
+    const [summary,history,profit,scenarios]=await Promise.all([summaryRes.json(),historyRes.json(),profitRes.json(),scenarioRes.json()]);
+    if(!summaryRes.ok||!historyRes.ok||!profitRes.ok||!scenarioRes.ok)throw new Error(summary.detail||history.detail||profit.detail||scenarios.detail||"Falha na API");
+    renderStats(summary,profit);renderScenarios(scenarios,base.maxAttempts);renderRanking(summary.by_roulette);renderChart(profit);renderSignals(history);
+    setStatus(`Atualizado ${new Date().toLocaleTimeString("pt-BR")} · ${summary.variant.name} · T${base.maxAttempts} · ${scenarios.common_cohort_signals} sinais completos em T10`);
   }catch(error){setStatus(error.message,true)}
 }
 
-["variant","roulette","window","status","payout"].forEach(id=>$(id).addEventListener("change",loadAll));
-["bank","stake1","stake2"].forEach(id=>$(id).addEventListener("change",loadAll));
+["variant","roulette","window","maxAttempts","status","payout","bank"].forEach(id=>$(id).addEventListener("change",loadAll));
 $("reload").addEventListener("click",loadAll);
 (async()=>{try{await loadCatalog();await loadAll();timer=setInterval(loadAll,15000)}catch(error){setStatus(error.message,true)}})();
 </script>

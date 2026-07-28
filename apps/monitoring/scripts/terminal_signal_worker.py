@@ -32,7 +32,7 @@ def main() -> None:
         reconcile_seconds=float(os.getenv("TERMINAL_SIGNAL_RECONCILE_SECONDS", "5")),
         discovery_seconds=float(os.getenv("TERMINAL_SIGNAL_DISCOVERY_SECONDS", "60")),
         max_batch=int(os.getenv("TERMINAL_SIGNAL_MAX_BATCH", "2000")),
-        max_attempts=int(os.getenv("TERMINAL_SIGNAL_MAX_ATTEMPTS", "2")),
+        max_attempts=int(os.getenv("TERMINAL_SIGNAL_MAX_ATTEMPTS", "10")),
     )
     worker.run_forever()
 
