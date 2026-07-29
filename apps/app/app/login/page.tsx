@@ -28,7 +28,7 @@ export default function LoginPage() {
         setError(data.error ?? 'Não foi possível entrar.');
         return;
       }
-      router.replace('/dashboard');
+      router.replace('/automatico');
       router.refresh();
     } catch {
       setError('Erro de conexão. Tente novamente.');

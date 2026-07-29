@@ -4,6 +4,7 @@ import { getUsers } from '@/lib/mongo';
 import { encrypt } from '@/lib/crypto';
 import { createSession } from '@/lib/session';
 import { findHouse, DEFAULT_HOUSE, houseMode } from '@/lib/houses';
+import { ensureActivationInvoice } from '@/lib/invoices';
 
 export async function POST(req: Request) {
   let body: {
@@ -70,6 +71,10 @@ export async function POST(req: Request) {
     },
     { upsert: true },
   );
+
+  // Toda conta possui uma única fatura interna de ativação do automático.
+  // A criação é idempotente e não chama a PixGo neste momento.
+  await ensureActivationInvoice(email);
 
   // 3) Emite a nossa sessão (cookie httpOnly), guardando a casa escolhida.
   await createSession(email, house);

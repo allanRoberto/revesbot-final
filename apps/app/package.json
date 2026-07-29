@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:activation-invoices": "node scripts/seed-activation-invoices.mjs"
   },
   "dependencies": {
     "hls.js": "^1.6.16",

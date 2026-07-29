@@ -9,6 +9,9 @@ try:
         bot_api_url: str = "http://localhost:3000/api/bet"
         bot_health_url: str = "http://localhost:3000/health"
         pattern_metrics_enabled: bool = False
+        pixgo_api_key: str | None = None
+        pixgo_webhook_secret: str | None = None
+        pixgo_base_url: str = "https://pixgo.org/api/v1"
 
         model_config = SettingsConfigDict(
             env_file=".env",
@@ -26,6 +29,9 @@ except Exception:  # pragma: no cover - fallback for older envs
         bot_api_url: str = "http://localhost:3000/api/bet"
         bot_health_url: str = "http://localhost:3000/health"
         pattern_metrics_enabled: bool = False
+        pixgo_api_key: str | None = None
+        pixgo_webhook_secret: str | None = None
+        pixgo_base_url: str = "https://pixgo.org/api/v1"
 
         class Config:
             env_file = ".env"

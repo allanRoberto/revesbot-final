@@ -93,6 +93,211 @@ export async function getSubscriptions(): Promise<Collection<AppSubscription>> {
   return db.collection<AppSubscription>('app_subscriptions');
 }
 
+export type AutomationRunStatus =
+  | 'starting'
+  | 'waiting_signal'
+  | 'running'
+  | 'payment_due'
+  | 'completed'
+  | 'error';
+
+/** Uma execução do piloto automático vinculada ao usuário e à casa ativa. */
+export interface AutomationRun {
+  runId: string;
+  email: string;
+  house: string;
+  /** Preenchidos quando a central despachar um sinal para uma mesa. */
+  gameId?: string;
+  rouletteId?: string;
+  betSessionId?: string;
+  status: AutomationRunStatus;
+  stopReason?: 'target_reached' | 'max_loss' | 'time_limit' | 'user_stop' | 'error';
+  errorMessage?: string;
+  bankrollStartCents: number;
+  targetRateBps: number;
+  targetProfitCents: number;
+  maxLossCents: number;
+  chipValueCents: number;
+  commissionBps: number;
+  netProfitCents: number;
+  totalStakeCents: number;
+  totalPayoutCents: number;
+  roundsSettled: number;
+  commissionCents?: number;
+  amountDueCents?: number;
+  billingFinalizedAt?: Date;
+  startedAt: Date;
+  expiresAt?: Date;
+  stoppedAt?: Date;
+  criadoEm: Date;
+  atualizadoEm: Date;
+}
+
+export interface AutomationBet {
+  runId: string;
+  source?: 'automatic';
+  signalId?: string;
+  executionId?: string;
+  house?: string;
+  rouletteId?: string;
+  roundId: string;
+  betsCents: Record<string, number>;
+  totalStakeCents: number;
+  winningNumber: number;
+  payoutCents: number;
+  netProfitCents: number;
+  balanceBeforeCents?: number;
+  balanceAfterCents?: number;
+  settledAt: Date;
+  criadoEm: Date;
+}
+
+export interface AutomationBillingAccount {
+  email: string;
+  status: 'clear' | 'payment_due' | 'awaiting_payment';
+  outstandingCents: number;
+  activeRunId?: string;
+  atualizadoEm: Date;
+  criadoEm: Date;
+}
+
+export interface CommissionPaymentOrder {
+  orderId: string;
+  email: string;
+  /** A fatura é nossa; a PixGo representa apenas uma tentativa de pagamento. */
+  invoiceId?: string;
+  runId?: string;
+  provider: 'pixgo';
+  providerPaymentId: string;
+  externalId: string;
+  amountCents: number;
+  status: 'pending' | 'completed' | 'expired' | 'refunded';
+  qrCode?: string;
+  qrImageUrl?: string;
+  expiresAt?: Date;
+  paidAt?: Date;
+  criadoEm: Date;
+  atualizadoEm: Date;
+}
+
+export type AutomationInvoiceStatus =
+  | 'pending'
+  | 'awaiting_payment'
+  | 'paid'
+  | 'canceled';
+
+export interface AutomationInvoice {
+  invoiceId: string;
+  email: string;
+  type: 'activation' | 'commission';
+  description: string;
+  amountCents: number;
+  status: AutomationInvoiceStatus;
+  runId?: string;
+  netProfitCents?: number;
+  commissionBps?: number;
+  dueAt?: Date;
+  paidAt?: Date;
+  criadoEm: Date;
+  atualizadoEm: Date;
+}
+
+export interface PaymentWebhookEvent {
+  eventKey: string;
+  provider: 'pixgo';
+  event: string;
+  providerPaymentId: string;
+  externalId?: string;
+  payload: Record<string, unknown>;
+  recebidoEm: Date;
+}
+
+export async function getAutomationRuns(): Promise<Collection<AutomationRun>> {
+  const db = await getDb();
+  return db.collection<AutomationRun>('automation_runs');
+}
+
+export async function getAutomationBets(): Promise<Collection<AutomationBet>> {
+  const db = await getDb();
+  return db.collection<AutomationBet>('automation_bets');
+}
+
+export async function getAutomationBillingAccounts(): Promise<
+  Collection<AutomationBillingAccount>
+> {
+  const db = await getDb();
+  return db.collection<AutomationBillingAccount>('automation_billing_accounts');
+}
+
+export async function getCommissionPaymentOrders(): Promise<
+  Collection<CommissionPaymentOrder>
+> {
+  const db = await getDb();
+  return db.collection<CommissionPaymentOrder>('commission_payment_orders');
+}
+
+export async function getAutomationInvoices(): Promise<
+  Collection<AutomationInvoice>
+> {
+  const db = await getDb();
+  return db.collection<AutomationInvoice>('automation_invoices');
+}
+
+export async function getPaymentWebhookEvents(): Promise<
+  Collection<PaymentWebhookEvent>
+> {
+  const db = await getDb();
+  return db.collection<PaymentWebhookEvent>('payment_webhook_events');
+}
+
+let automationIndexesPromise: Promise<void> | null = null;
+
+/** Índices idempotentes para impedir rodadas, cobranças e webhooks duplicados. */
+export function ensureAutomationIndexes(): Promise<void> {
+  if (!automationIndexesPromise) {
+    automationIndexesPromise = (async () => {
+      const [runs, bets, billing, invoices, orders, events] = await Promise.all([
+        getAutomationRuns(),
+        getAutomationBets(),
+        getAutomationBillingAccounts(),
+        getAutomationInvoices(),
+        getCommissionPaymentOrders(),
+        getPaymentWebhookEvents(),
+      ]);
+      await Promise.all([
+        runs.createIndex({ runId: 1 }, { unique: true }),
+        runs.createIndex({ email: 1, house: 1, status: 1 }),
+        bets.createIndex({ runId: 1, roundId: 1 }, { unique: true }),
+        bets.createIndex(
+          { runId: 1, signalId: 1 },
+          {
+            unique: true,
+            partialFilterExpression: { signalId: { $type: 'string' } },
+          },
+        ),
+        billing.createIndex({ email: 1 }, { unique: true }),
+        invoices.createIndex({ invoiceId: 1 }, { unique: true }),
+        invoices.createIndex({ email: 1, status: 1, criadoEm: -1 }),
+        invoices.createIndex(
+          { email: 1, type: 1 },
+          {
+            unique: true,
+            partialFilterExpression: { type: 'activation' },
+          },
+        ),
+        orders.createIndex({ orderId: 1 }, { unique: true }),
+        orders.createIndex({ providerPaymentId: 1 }, { unique: true }),
+        orders.createIndex({ externalId: 1 }, { unique: true }),
+        events.createIndex({ eventKey: 1 }, { unique: true }),
+      ]);
+    })().catch((error) => {
+      automationIndexesPromise = null;
+      throw error;
+    });
+  }
+  return automationIndexesPromise;
+}
+
 /**
  * Últimos `limit` números de uma mesa (history), MAIS RECENTE PRIMEIRO.
  * `rouletteId` ex.: "pragmatic-auto-roulette".
