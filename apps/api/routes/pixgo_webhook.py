@@ -38,7 +38,6 @@ async def _ensure_indexes() -> None:
         return
     await webhook_events_coll.create_index(
         [("eventKey", 1)],
-        name="pixgo_event_key_unique",
         unique=True,
     )
     _indexes_ready = True
