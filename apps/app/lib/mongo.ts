@@ -176,6 +176,8 @@ export interface CommissionPaymentOrder {
   qrImageUrl?: string;
   expiresAt?: Date;
   paidAt?: Date;
+  lastProviderCheckAt?: Date;
+  providerChecks?: number;
   criadoEm: Date;
   atualizadoEm: Date;
 }

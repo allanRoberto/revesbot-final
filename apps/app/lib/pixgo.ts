@@ -3,11 +3,27 @@ import crypto from 'crypto';
 const PIXGO_BASE_URL = (
   process.env.PIXGO_BASE_URL || 'https://pixgo.org/api/v1'
 ).replace(/\/$/, '');
+const PIXGO_WEBHOOK_TOLERANCE_SECONDS = 24 * 60 * 60;
 
 function apiKey(): string {
   const value = process.env.PIXGO_API_KEY;
   if (!value) throw new Error('PIXGO_API_KEY não configurada.');
   return value;
+}
+
+/**
+ * A PixGo pode devolver datas sem fuso, usando o horário de Brasília.
+ * Sem essa normalização, servidores em UTC interpretam a expiração três horas
+ * antes e podem oferecer uma segunda cobrança enquanto a primeira ainda vale.
+ */
+function parsePixGoDate(value: unknown): Date | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const normalized = value.trim().replace(' ', 'T');
+  const withTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(normalized)
+    ? normalized
+    : `${normalized}-03:00`;
+  const parsed = new Date(withTimezone);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 export interface PixGoPayment {
   paymentId: string;
@@ -59,7 +75,7 @@ export async function createPixGoPayment(input: {
     status: String(data.status || 'pending'),
     qrCode: String(data.qr_code),
     qrImageUrl: data.qr_image_url ? String(data.qr_image_url) : undefined,
-    expiresAt: data.expires_at ? new Date(data.expires_at) : undefined,
+    expiresAt: parsePixGoDate(data.expires_at),
   };
 }
 
@@ -72,7 +88,7 @@ export async function getPixGoPaymentStatus(paymentId: string) {
     },
   );
   const body = await res.json().catch(() => ({}));
-  if (!res.ok || !body?.success || !body?.data) {
+  if ((!res.ok && res.status !== 410) || !body?.success || !body?.data) {
     throw new Error(body?.message || body?.error || `PixGo respondeu ${res.status}`);
   }
   return {
@@ -80,7 +96,7 @@ export async function getPixGoPaymentStatus(paymentId: string) {
     externalId: String(body.data.external_id || ''),
     amountCents: Math.round(Number(body.data.amount) * 100),
     status: String(body.data.status || ''),
-    updatedAt: body.data.updated_at ? new Date(body.data.updated_at) : new Date(),
+    updatedAt: parsePixGoDate(body.data.updated_at) || new Date(),
   };
 }
 
@@ -92,7 +108,10 @@ export function verifyPixGoWebhook(
   const secret = process.env.PIXGO_WEBHOOK_SECRET;
   if (!secret || !timestamp || !/^[a-f0-9]{64}$/i.test(signature)) return false;
   const unix = Number(timestamp);
-  if (!Number.isFinite(unix) || Math.abs(Date.now() / 1000 - unix) > 300) {
+  if (
+    !Number.isFinite(unix) ||
+    Math.abs(Date.now() / 1000 - unix) > PIXGO_WEBHOOK_TOLERANCE_SECONDS
+  ) {
     return false;
   }
   const expected = crypto

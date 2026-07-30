@@ -65,8 +65,23 @@ def test_verify_signature_rejects_replay() -> None:
         timestamp,
         signature,
         secret,
-        now=1301,
+        now=1000 + pixgo_webhook.WEBHOOK_TOLERANCE_SECONDS + 1,
     ) is False
+
+
+def test_verify_signature_accepts_delayed_retry() -> None:
+    raw = b'{"event":"payment.completed"}'
+    secret = "whsec_test"
+    timestamp = "1000"
+    signature = _signature(secret, timestamp, raw)
+
+    assert pixgo_webhook._verify_signature(
+        raw,
+        timestamp,
+        signature,
+        secret,
+        now=1000 + (75 * 60),
+    ) is True
 
 
 def test_completed_payment_clears_billing(monkeypatch) -> None:

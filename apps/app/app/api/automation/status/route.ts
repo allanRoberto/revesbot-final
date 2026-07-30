@@ -6,7 +6,10 @@ import {
 } from '@/lib/automation';
 import { findAppUser } from '@/lib/mongo';
 import { getBookmakerUser } from '@/lib/bookmaker';
-import { automationIsActivated } from '@/lib/invoices';
+import {
+  automationIsActivated,
+  reconcilePendingPixGoPayments,
+} from '@/lib/invoices';
 import { houseName } from '@/lib/houses';
 
 export async function GET() {
@@ -15,6 +18,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
   }
 
+  await reconcilePendingPixGoPayments(session.email);
   let view = await getAutomationView(session.email);
   if (
     view.run?.expiresAt &&

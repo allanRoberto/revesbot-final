@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -16,6 +17,11 @@ from api.core.db import mongo_db
 
 
 router = APIRouter(prefix="/webhooks", tags=["pixgo"])
+logger = logging.getLogger(__name__)
+
+# A PixGo pode reenviar o mesmo evento horas depois da confirmação. A
+# assinatura HMAC continua obrigatória e a coleção de eventos impede replay.
+WEBHOOK_TOLERANCE_SECONDS = 24 * 60 * 60
 
 payment_orders_coll = mongo_db["commission_payment_orders"]
 automation_invoices_coll = mongo_db["automation_invoices"]
@@ -38,6 +44,37 @@ async def _ensure_indexes() -> None:
     _indexes_ready = True
 
 
+def _signature_error(
+    raw_body: bytes,
+    timestamp: str,
+    signature: str,
+    secret: str,
+    *,
+    now: float | None = None,
+) -> str | None:
+    if not timestamp or not signature or not secret:
+        return "missing_signature_data"
+    if len(signature) != 64:
+        return "invalid_signature_format"
+    try:
+        event_time = int(timestamp)
+        int(signature, 16)
+    except (TypeError, ValueError):
+        return "invalid_signature_format"
+    current_time = time.time() if now is None else now
+    if abs(current_time - event_time) > WEBHOOK_TOLERANCE_SECONDS:
+        return "timestamp_outside_tolerance"
+    message = timestamp.encode("utf-8") + b"." + raw_body
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        message,
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, signature.lower()):
+        return "signature_mismatch"
+    return None
+
+
 def _verify_signature(
     raw_body: bytes,
     timestamp: str,
@@ -46,25 +83,13 @@ def _verify_signature(
     *,
     now: float | None = None,
 ) -> bool:
-    if not timestamp or not signature or not secret:
-        return False
-    if len(signature) != 64:
-        return False
-    try:
-        event_time = int(timestamp)
-        int(signature, 16)
-    except (TypeError, ValueError):
-        return False
-    current_time = time.time() if now is None else now
-    if abs(current_time - event_time) > 300:
-        return False
-    message = timestamp.encode("utf-8") + b"." + raw_body
-    expected = hmac.new(
-        secret.encode("utf-8"),
-        message,
-        hashlib.sha256,
-    ).hexdigest()
-    return hmac.compare_digest(expected, signature.lower())
+    return _signature_error(
+        raw_body,
+        timestamp,
+        signature,
+        secret,
+        now=now,
+    ) is None
 
 
 async def _get_pixgo_status(payment_id: str) -> dict[str, Any]:
@@ -108,7 +133,17 @@ async def pixgo_webhook(request: Request) -> dict[str, Any]:
     timestamp = request.headers.get("x-webhook-timestamp", "")
     signature = request.headers.get("x-webhook-signature", "")
     secret = settings.pixgo_webhook_secret or ""
-    if not _verify_signature(raw_body, timestamp, signature, secret):
+    signature_error = _signature_error(
+        raw_body,
+        timestamp,
+        signature,
+        secret,
+    )
+    if signature_error:
+        logger.warning(
+            "PixGo webhook rejeitado | motivo=%s",
+            signature_error,
+        )
         raise HTTPException(status_code=401, detail="Assinatura inválida.")
 
     try:

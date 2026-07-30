@@ -8,6 +8,7 @@ import {
   getCommissionPaymentOrders,
 } from '@/lib/mongo';
 import { createPixGoPayment } from '@/lib/pixgo';
+import { reconcilePendingPixGoPayments } from '@/lib/invoices';
 
 function digits(value: string): string {
   return value.replace(/\D/g, '');
@@ -51,6 +52,7 @@ export async function POST(
 
   const { invoiceId } = await params;
   await ensureAutomationIndexes();
+  await reconcilePendingPixGoPayments(session.email);
   const [invoices, orders] = await Promise.all([
     getAutomationInvoices(),
     getCommissionPaymentOrders(),
