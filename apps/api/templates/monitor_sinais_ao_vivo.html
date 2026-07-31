@@ -45,7 +45,12 @@
     .box h3 { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; margin-bottom:10px; }
     .attempt { min-width:76px; border:1px solid var(--line); border-radius:10px; padding:8px; text-align:center; background:#111f29; }
     .attempt.hit { border-color:var(--green); box-shadow:inset 0 0 0 1px rgba(54,212,119,.35); }
+    .attempt.alt-hit { border-color:var(--amber); box-shadow:inset 0 0 0 1px rgba(255,191,69,.38); }
     .attempt small { display:block; color:var(--muted); margin-top:4px; }
+    .alternative-box { border-color:rgba(255,191,69,.45); background:rgba(61,43,14,.28); }
+    .alternative-flow { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:12px; }
+    .alternative-flow strong { color:var(--amber); }
+    .alternative-score { margin-left:auto; color:var(--amber); font-size:18px; font-weight:800; }
     .notice { padding:28px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:14px; }
     @media (max-width:1050px) { .stats{grid-template-columns:repeat(3,1fr)} summary{grid-template-columns:150px 1fr 100px}.payments{display:none}.body{grid-template-columns:1fr} }
     @media (max-width:650px) { main{width:94%} header{display:block}.actions{margin-top:14px}.stats{grid-template-columns:repeat(2,1fr)} summary{grid-template-columns:1fr 100px}.centers{grid-column:1/-1;grid-row:2}.toolbar{align-items:flex-start;flex-direction:column} }
@@ -88,7 +93,26 @@
     const progress = Math.min(100, (Number(signal.attempt_count || 0) / maxAttempts) * 100);
     const previous = (signal.previous_results || []).map(item => ball(item)).join('');
     const region = (signal.bet_numbers || []).map(item => ball(item)).join('');
-    const attempts = (signal.attempts || []).map(item => `<div class="attempt ${item.is_payment?'hit':''}">${ball(item)}<small>${escapeHtml(item.attempt_number)}ª · ${escapeHtml((item.formatted||'').slice(11))}</small></div>`).join('') || '<span class="muted">Aguardando o próximo resultado.</span>';
+    const attempts = (signal.attempts || []).map(item => {
+      const labels = [item.is_payment?'oficial':'', item.is_alternative_payment?'alternativa':''].filter(Boolean);
+      return `<div class="attempt ${item.is_payment?'hit':''} ${item.is_alternative_payment?'alt-hit':''}">${ball(item)}<small>${escapeHtml(item.attempt_number)}ª · ${escapeHtml((item.formatted||'').slice(11))}${labels.length?` · ${escapeHtml(labels.join(' + '))}`:''}</small></div>`;
+    }).join('') || '<span class="muted">Aguardando o próximo resultado.</span>';
+    const alternative = signal.alternative_analysis || {};
+    let alternativeBox = '';
+    if (alternative.triggered) {
+      if (alternative.alternative_center) {
+        const closeCenters = (alternative.close_centers || []).map(item => ball(item)).join('');
+        const alternativeRegion = (alternative.alternative_bet_numbers || []).map(item => ball(item)).join('');
+        alternativeBox = `<div class="box alternative-box" style="grid-column:1/-1">
+          <h3>Simulação afastada · não altera a aposta oficial</h3>
+          <div class="alternative-flow"><span class="muted">Centro principal</span>${ball(alternative.primary_center,true)}<span class="muted">próximo de</span>${closeCenters}<span>→</span><strong>alternativa</strong>${ball(alternative.alternative_center,true)}<span class="muted">distância ${escapeHtml(alternative.alternative_center.wheel_distance_from_primary)} posições</span><span class="alternative-score">${escapeHtml(signal.alternative_payment_count || 0)} acerto(s)</span></div>
+          <div class="numbers">${alternativeRegion}</div>
+          <p class="muted" style="margin:10px 0 0">Esta região é apenas conferida nas mesmas 10 tentativas e não entra nos pagamentos oficiais.</p>
+        </div>`;
+      } else {
+        alternativeBox = `<div class="box alternative-box" style="grid-column:1/-1"><h3>Simulação afastada</h3><p class="muted" style="margin:0">${escapeHtml(alternative.reason || 'Nenhuma região afastada disponível.')}</p></div>`;
+      }
+    }
     const previousText = signal.previous_region_hit
       ? `${signal.previous_region_hit_count} dos 5 anteriores estavam na região — apenas registrado, sem cancelar.`
       : 'Nenhum dos 5 anteriores estava na região.';
@@ -102,6 +126,7 @@
       <div class="body">
         <div class="box"><h3>Região apostada · ${escapeHtml(signal.coverage)} números</h3><div class="numbers">${region}</div></div>
         <div class="box"><h3>5 números antes do sinal</h3><div class="numbers">${previous}</div><p class="muted" style="margin:10px 0 0">${escapeHtml(previousText)}</p></div>
+        ${alternativeBox}
         <div class="box" style="grid-column:1/-1"><h3>Tentativas e pagamentos</h3><div class="attempts">${attempts}</div></div>
       </div>
     </details>`;

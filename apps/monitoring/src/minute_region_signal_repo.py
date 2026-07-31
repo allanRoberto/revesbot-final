@@ -193,6 +193,8 @@ class MinuteRegionSignalRepository:
             "attempts": updated["attempts"],
             "attempt_count": updated["attempt_count"],
             "payment_count": updated["payment_count"],
+            "alternative_payment_count": updated.get("alternative_payment_count", 0),
+            "alternative_hit": updated.get("alternative_hit", False),
             "status": updated["status"],
             "completed_at_utc": updated["completed_at_utc"],
             "updated_at_utc": updated["updated_at_utc"],

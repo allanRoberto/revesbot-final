@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from apps.monitoring.src.minute_region_signal_runtime import (
     apply_result_to_signal,
+    build_alternative_analysis,
     build_signal_document,
     region_numbers,
 )
@@ -96,3 +97,53 @@ def test_overlapping_signals_receive_same_result_independently():
 
 def test_region_uses_real_roulette_wheel_order():
     assert region_numbers(0, 3) == [35, 3, 26, 0, 32, 15, 19]
+
+
+def test_close_official_centers_create_disjoint_informative_alternative():
+    signal = _signal()
+    analysis = signal["alternative_analysis"]
+
+    assert [item["value"] for item in signal["selected_centers"]] == [1, 5]
+    assert analysis["triggered"] is True
+    assert analysis["primary_center"]["value"] == 1
+    assert [item["value"] for item in analysis["close_centers"]] == [5]
+    assert analysis["alternative_center"] is not None
+    assert set(region_numbers(1, 3)).isdisjoint(
+        analysis["alternative_bet_values"]
+    )
+
+
+def test_alternative_hit_is_counted_without_changing_official_payment():
+    signal = _signal()
+    alternative_value = signal["alternative_analysis"]["alternative_bet_values"][0]
+    assert alternative_value not in signal["bet_values"]
+
+    signal = apply_result_to_signal(signal, _history_result(1, alternative_value))
+
+    assert signal["payment_count"] == 0
+    assert signal["alternative_payment_count"] == 1
+    assert signal["alternative_hit"] is True
+    assert signal["attempts"][0]["is_payment"] is False
+    assert signal["attempts"][0]["is_alternative_payment"] is True
+    assert signal["status"] == "active"
+
+
+def test_separated_official_centers_do_not_trigger_alternative():
+    def ranking(center, strength):
+        return {
+            "center": center,
+            "hit_days": strength,
+            "total_days": 10,
+            "hit_rate": strength / 10,
+            "total_matches": strength,
+        }
+
+    rankings = [ranking(0, 10), ranking(1, 9), ranking(5, 8)]
+    analysis = build_alternative_analysis(
+        rankings,
+        rankings[:2],
+        bet_neighbors=3,
+    )
+
+    assert analysis["triggered"] is False
+    assert "não se sobrepõem" in analysis["reason"]

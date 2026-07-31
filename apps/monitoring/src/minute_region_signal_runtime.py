@@ -92,6 +92,98 @@ def _ordered_region_values(centers: Iterable[int], neighbors_side: int) -> List[
     return [value for value in WHEEL_ORDER if value in values]
 
 
+def wheel_distance(first: int, second: int) -> int:
+    direct = abs(WHEEL_INDEX[int(first)] - WHEEL_INDEX[int(second)])
+    return min(direct, len(WHEEL_ORDER) - direct)
+
+
+def _ranking_payload(item: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        **serialize_number(int(item["center"])),
+        "hit_days": int(item["hit_days"]),
+        "total_days": int(item["total_days"]),
+        "hit_rate": float(item["hit_rate"]),
+        "total_matches": int(item["total_matches"]),
+    }
+
+
+def build_alternative_analysis(
+    rankings: Sequence[Mapping[str, Any]],
+    selected_rankings: Sequence[Mapping[str, Any]],
+    *,
+    bet_neighbors: int,
+) -> Dict[str, Any]:
+    if len(selected_rankings) < 2:
+        return {"triggered": False, "reason": "O sinal possui menos de dois centros."}
+
+    primary = selected_rankings[0]
+    primary_value = int(primary["center"])
+    primary_region = set(region_numbers(primary_value, bet_neighbors))
+    close_rankings = [
+        item
+        for item in selected_rankings[1:]
+        if primary_region.intersection(region_numbers(int(item["center"]), bet_neighbors))
+    ]
+    if not close_rankings:
+        return {
+            "triggered": False,
+            "reason": "As regiões dos centros oficiais não se sobrepõem.",
+        }
+
+    selected_values = {int(item["center"]) for item in selected_rankings}
+    alternative = next(
+        (
+            item
+            for item in rankings
+            if int(item["center"]) not in selected_values
+            and primary_region.isdisjoint(
+                region_numbers(int(item["center"]), bet_neighbors)
+            )
+        ),
+        None,
+    )
+    close_payload = [
+        {
+            **_ranking_payload(item),
+            "wheel_distance_from_primary": wheel_distance(
+                primary_value, int(item["center"])
+            ),
+        }
+        for item in close_rankings
+    ]
+    if alternative is None:
+        return {
+            "triggered": True,
+            "reason": "Não existe uma região totalmente afastada com a configuração atual.",
+            "primary_center": _ranking_payload(primary),
+            "close_centers": close_payload,
+            "alternative_center": None,
+            "alternative_bet_numbers": [],
+            "alternative_bet_values": [],
+            "alternative_coverage": 0,
+        }
+
+    alternative_value = int(alternative["center"])
+    alternative_values = region_numbers(alternative_value, bet_neighbors)
+    return {
+        "triggered": True,
+        "reason": "As regiões oficiais se sobrepõem; alternativa apenas informativa.",
+        "primary_center": _ranking_payload(primary),
+        "close_centers": close_payload,
+        "alternative_center": {
+            **_ranking_payload(alternative),
+            "wheel_distance_from_primary": wheel_distance(
+                primary_value, alternative_value
+            ),
+        },
+        "alternative_bet_numbers": [
+            serialize_number(value) for value in alternative_values
+        ],
+        "alternative_bet_values": alternative_values,
+        "alternative_coverage": len(alternative_values),
+    }
+
+
 def build_signal_document(
     *,
     roulette_id: str,
@@ -117,6 +209,11 @@ def build_signal_document(
     selected_center_values = [int(item["center"]) for item in selected_rankings]
     bet_values = _ordered_region_values(selected_center_values, bet_neighbors)
     bet_value_set = set(bet_values)
+    alternative_analysis = build_alternative_analysis(
+        rankings,
+        selected_rankings,
+        bet_neighbors=bet_neighbors,
+    )
 
     serialized_previous = [dict(item) for item in previous_results]
     previous_region_matches = [
@@ -139,16 +236,7 @@ def build_signal_document(
             "previous_results_count": int(previous_results_count),
         },
         "training_days_found": len(training_days_source),
-        "selected_centers": [
-            {
-                **serialize_number(int(item["center"])),
-                "hit_days": int(item["hit_days"]),
-                "total_days": int(item["total_days"]),
-                "hit_rate": float(item["hit_rate"]),
-                "total_matches": int(item["total_matches"]),
-            }
-            for item in selected_rankings
-        ],
+        "selected_centers": [_ranking_payload(item) for item in selected_rankings],
         "bet_numbers": [serialize_number(value) for value in bet_values],
         "bet_values": bet_values,
         "coverage": len(bet_values),
@@ -156,6 +244,9 @@ def build_signal_document(
         "previous_region_matches": previous_region_matches,
         "previous_region_hit": bool(previous_region_matches),
         "previous_region_hit_count": len(previous_region_matches),
+        "alternative_analysis": alternative_analysis,
+        "alternative_payment_count": 0,
+        "alternative_hit": False,
         "status": "active",
         "attempt_count": 0,
         "payment_count": 0,
@@ -171,6 +262,12 @@ def build_attempt(
 ) -> Dict[str, Any]:
     attempt_number = int(signal.get("attempt_count", 0)) + 1
     value = int(history_result["value"])
+    alternative_values = {
+        int(item)
+        for item in signal.get("alternative_analysis", {}).get(
+            "alternative_bet_values", []
+        )
+    }
     return {
         "attempt_number": attempt_number,
         "result_history_id": str(history_result["history_id"]),
@@ -180,6 +277,7 @@ def build_attempt(
         "timestamp_br": history_result["timestamp_br"],
         "formatted": str(history_result["formatted"]),
         "is_payment": value in {int(item) for item in signal.get("bet_values", [])},
+        "is_alternative_payment": value in alternative_values,
     }
 
 
@@ -211,6 +309,10 @@ def apply_result_to_signal(
     current["attempts"] = attempts
     current["attempt_count"] = len(attempts)
     current["payment_count"] = sum(1 for item in attempts if item.get("is_payment"))
+    current["alternative_payment_count"] = sum(
+        1 for item in attempts if item.get("is_alternative_payment")
+    )
+    current["alternative_hit"] = current["alternative_payment_count"] > 0
     current["status"] = "completed" if completed else "active"
     current["completed_at_utc"] = updated_at if completed else None
     current["updated_at_utc"] = updated_at
