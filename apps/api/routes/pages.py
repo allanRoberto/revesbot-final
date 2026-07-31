@@ -48,6 +48,18 @@ async def occurrences_lab_page():
         return f.read()
 
 
+@router.get("/comparador-dias", response_class=HTMLResponse)
+async def comparador_dias_page():
+    with open(os.path.join(templates_dir, "comparador_dias_numero.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/monitor-sinais-ao-vivo", response_class=HTMLResponse)
+async def monitor_sinais_ao_vivo_page():
+    with open(os.path.join(templates_dir, "monitor_sinais_ao_vivo.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @router.get("/next-number-rankings", response_class=HTMLResponse)
 async def next_number_rankings_page():
     with open(os.path.join(templates_dir, "next_number_rankings.html"), "r", encoding="utf-8") as f:

@@ -61,6 +61,7 @@ from api.core.db import (
     ensure_gatilhos_indexes,
     ensure_sinais_indexes,
     ensure_orbit_indexes,
+    ensure_minute_region_signal_indexes,
 )
 from fastapi.responses import HTMLResponse
 
@@ -125,6 +126,8 @@ from api.routes.multi_pivo import router as multi_pivo_router
 from api.routes.multi_pivo_signals import router as multi_pivo_signals_router
 from api.routes.orbit import router as orbit_router
 from api.routes.orbit_triggers import router as orbit_triggers_router
+from api.routes.number_day_comparison import router as number_day_comparison_router
+from api.routes.minute_region_signals import router as minute_region_signals_router
 from api.routes.pixgo_webhook import router as pixgo_webhook_router
 
 
@@ -266,6 +269,8 @@ app.include_router(multi_pivo_router)
 app.include_router(multi_pivo_signals_router)
 app.include_router(orbit_router)
 app.include_router(orbit_triggers_router)
+app.include_router(number_day_comparison_router)
+app.include_router(minute_region_signals_router)
 app.include_router(pixgo_webhook_router)
 
 
@@ -324,6 +329,10 @@ async def _warm_api_runtime() -> None:
         await ensure_orbit_indexes()
     except Exception as exc:
         logging.error(f"Warmup de índices do motor orbital falhou: {exc}")
+    try:
+        await ensure_minute_region_signal_indexes()
+    except Exception as exc:
+        logging.error(f"Warmup de índices dos sinais por minuto falhou: {exc}")
     try:
         await get_roulettes_list()
     except Exception as exc:

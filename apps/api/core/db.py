@@ -60,6 +60,7 @@ orbit_backtest_runs_coll = mongo_db["orbit_backtest_runs"]
 orbit_snapshot_manifests_coll = mongo_db["orbit_snapshot_manifests"]
 terminal_signal_trials_coll = mongo_db["terminal_signal_trials"]
 terminal_signal_worker_state_coll = mongo_db["terminal_signal_worker_state"]
+minute_region_signals_coll = mongo_db["minute_region_signals"]
 
 _suggestion_monitor_indexes_ready = False
 _suggestion_monitor_indexes_lock = asyncio.Lock()
@@ -85,6 +86,8 @@ _sinais_indexes_ready = False
 _sinais_indexes_lock = asyncio.Lock()
 _orbit_indexes_ready = False
 _orbit_indexes_lock = asyncio.Lock()
+_minute_region_signal_indexes_ready = False
+_minute_region_signal_indexes_lock = asyncio.Lock()
 
 
 async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> None:
@@ -104,6 +107,33 @@ async def _create_index_if_missing(collection, keys, name: str, **kwargs) -> Non
         if "Index already exists with a different name" in message or "IndexOptionsConflict" in message:
             return
         raise
+
+
+async def ensure_minute_region_signal_indexes() -> None:
+    global _minute_region_signal_indexes_ready
+    if _minute_region_signal_indexes_ready:
+        return
+    async with _minute_region_signal_indexes_lock:
+        if _minute_region_signal_indexes_ready:
+            return
+
+        await _create_index_if_missing(
+            minute_region_signals_coll,
+            [("roulette_id", ASCENDING), ("signal_minute_utc", DESCENDING)],
+            name="minute_region_roulette_minute_desc",
+            unique=True,
+        )
+        await _create_index_if_missing(
+            minute_region_signals_coll,
+            [("roulette_id", ASCENDING), ("status", ASCENDING), ("signal_minute_utc", DESCENDING)],
+            name="minute_region_roulette_status_minute_desc",
+        )
+        await _create_index_if_missing(
+            minute_region_signals_coll,
+            [("status", ASCENDING), ("updated_at_utc", DESCENDING)],
+            name="minute_region_status_updated_desc",
+        )
+        _minute_region_signal_indexes_ready = True
 
 
 async def ensure_suggestion_monitor_indexes() -> None:

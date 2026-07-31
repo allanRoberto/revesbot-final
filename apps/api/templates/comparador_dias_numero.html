@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comparador por Dias</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --soft: #f3f4f6;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --success: #15803d;
+      --success-bg: #dcfce7;
+      --warn: #b45309;
+      --warn-bg: #ffedd5;
+      --red: #dc2626;
+      --black: #111827;
+      --green: #16a34a;
+      --shadow: 0 12px 32px rgba(17, 24, 39, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 18px 44px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 7px;
+      font-size: clamp(26px, 4vw, 42px);
+      line-height: 1.05;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(260px, 2fr) repeat(5, minmax(120px, 1fr)) auto;
+      gap: 12px;
+      align-items: end;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .tabs {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      margin-bottom: 12px;
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .tab {
+      height: 36px;
+      border-radius: 7px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 0 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: #fff;
+      color: var(--text);
+      box-shadow: 0 1px 4px rgba(17, 24, 39, 0.08);
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    input,
+    select,
+    button {
+      height: 42px;
+      border-radius: 8px;
+      font: inherit;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      padding: 0 11px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      padding: 0 18px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--accent-dark);
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      padding: 14px 16px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 24px;
+    }
+
+    .state {
+      padding: 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .error {
+      color: #991b1b;
+      background: #fee2e2;
+      border-color: #fecaca;
+    }
+
+    .results {
+      display: grid;
+      gap: 14px;
+    }
+
+    .results-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 8px;
+      padding: 0 2px;
+    }
+
+    .results-heading h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .heat-panel {
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .heat-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .heat-title h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .heat-strip {
+      display: flex;
+      gap: 6px;
+      padding-bottom: 5px;
+      overflow-x: auto;
+    }
+
+    .heat-cell {
+      display: grid;
+      flex: 0 0 54px;
+      place-items: center;
+      gap: 5px;
+      min-height: 73px;
+      padding: 7px 5px;
+      border: 1px solid rgba(194, 65, 12, 0.18);
+      border-radius: 9px;
+    }
+
+    .heat-cell strong {
+      font-size: 12px;
+    }
+
+    .heat-legend {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .heat-gradient {
+      width: 84px;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #fff7ed, #fb923c, #c2410c);
+    }
+
+    .hot-sector {
+      border-left: 4px solid #f97316;
+    }
+
+    .hot-sector .comparison-header {
+      background: #fffaf5;
+    }
+
+    .sector-detail {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .sector-detail-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .sector-detail-item strong,
+    .sector-detail-item .chips {
+      display: flex;
+      align-items: center;
+      min-height: 31px;
+      margin-top: 5px;
+    }
+
+    .comparison {
+      overflow: hidden;
+    }
+
+    .accordion {
+      overflow: hidden;
+    }
+
+    .accordion summary {
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .accordion summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .accordion .comparison-header::after {
+      content: "Abrir";
+      flex: 0 0 auto;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .accordion[open] .comparison-header::after {
+      content: "Fechar";
+    }
+
+    .comparison-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #fbfbfd;
+    }
+
+    .base {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .days {
+      display: grid;
+    }
+
+    .day-row {
+      display: grid;
+      grid-template-columns: 74px 168px 116px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .day-row:last-child {
+      border-bottom: 0;
+    }
+
+    .status {
+      width: max-content;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .hit {
+      color: var(--success);
+      background: var(--success-bg);
+    }
+
+    .miss {
+      color: var(--warn);
+      background: var(--warn-bg);
+    }
+
+    .no-data {
+      color: var(--muted);
+      background: var(--soft);
+    }
+
+    .skipped {
+      color: #475569;
+      background: #e2e8f0;
+    }
+
+    .timeline-skip {
+      box-shadow: none;
+      border-style: dashed;
+    }
+
+    .timeline-skip .comparison-header {
+      border-bottom: 0;
+      background: #f8fafc;
+    }
+
+    .live-signal {
+      padding: 20px;
+      border-width: 2px;
+    }
+
+    .live-signal.live-enter {
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+
+    .live-signal.live-cancel {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+
+    .live-signal.live-wait {
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+
+    .live-status-label {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 4vw, 38px);
+      line-height: 1;
+    }
+
+    .live-signal p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .profit-positive {
+      color: var(--success);
+    }
+
+    .profit-negative {
+      color: #b91c1c;
+    }
+
+    .validation-config {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 12px;
+      padding: 14px 16px;
+    }
+
+    .validation-config .sector-detail-item {
+      min-width: 0;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .ball {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .ball.red { background: var(--red); }
+    .ball.black { background: var(--black); }
+    .ball.green { background: var(--green); }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .is-hidden {
+      display: none;
+    }
+
+    @media (max-width: 980px) {
+      .controls,
+      .summary {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .controls button {
+        grid-column: 1 / -1;
+      }
+
+      .day-row {
+        grid-template-columns: 64px 1fr;
+      }
+
+      .sector-detail {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .validation-config {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
+      .day-row .status,
+      .day-row .chips {
+        grid-column: 2;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .topbar {
+        display: block;
+      }
+
+      .controls,
+      .summary {
+        grid-template-columns: 1fr;
+      }
+
+      .comparison-header {
+        display: grid;
+      }
+
+      .results-heading,
+      .heat-title {
+        display: grid;
+      }
+
+      .sector-detail {
+        grid-template-columns: 1fr;
+      }
+
+      .validation-config {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <div>
+        <h1>Comparador por Dias</h1>
+        <p class="lead">Analise quando um número repetiu no mesmo horário dos dias anteriores e veja quais números apareceram quando ele não veio.</p>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Modo de análise">
+      <button id="tabNumero" class="tab active" type="button" data-mode="numero">Número exato</button>
+      <button id="tabRegiao" class="tab" type="button" data-mode="regiao">Região</button>
+      <button id="tabReversa" class="tab" type="button" data-mode="reversa">Engenharia reversa</button>
+      <button id="tabValidacao" class="tab" type="button" data-mode="validacao">Validação</button>
+      <button id="tabPeriodo" class="tab" type="button" data-mode="validacao_periodo">Validação por período</button>
+      <button id="tabLive" class="tab" type="button" data-mode="ao_vivo">Ao vivo</button>
+      <a class="tab" href="/monitor-sinais-ao-vivo">Monitor contínuo</a>
+    </div>
+
+    <form id="form" class="panel controls">
+      <input id="modo" name="modo" type="hidden" value="numero">
+      <label>
+        Mesa
+        <select id="rouletteId" name="roulette_id" required>
+          <option value="">Carregando mesas...</option>
+        </select>
+      </label>
+      <label id="numberField">
+        Número
+        <input id="numero" name="numero" type="number" min="0" max="36" value="1" required>
+      </label>
+      <label id="reverseTimeField" class="is-hidden">
+        Horário base
+        <input id="horario" name="horario" type="time" value="19:56">
+      </label>
+      <label>
+        Janela
+        <input id="janelaMinutos" name="janela_minutos" type="number" min="1" max="15" value="3" required>
+      </label>
+      <label>
+        <span id="daysLabel">Dias anteriores</span>
+        <input id="diasAnteriores" name="dias_anteriores" type="number" min="1" max="60" value="20" required>
+      </label>
+      <label id="baseLimitField">
+        Bases
+        <input id="limit" name="limit" type="number" min="1" max="50" value="10" required>
+      </label>
+      <label id="topField" class="is-hidden">
+        Top regiões
+        <input id="top" name="top" type="number" min="1" max="37" value="10">
+      </label>
+      <label id="regionField" class="is-hidden">
+        <span id="regionLabel">Vizinhos por lado</span>
+        <input id="vizinhosLado" name="vizinhos_lado" type="number" min="0" max="8" value="2" required>
+      </label>
+      <label id="validationDaysField" class="is-hidden">
+        Dias testados
+        <input id="diasTeste" name="dias_teste" type="number" min="1" max="365" value="90">
+      </label>
+      <label id="periodDateField" class="is-hidden">
+        Dia testado
+        <input id="dataTeste" name="data_teste" type="date">
+      </label>
+      <label id="periodMinutesField" class="is-hidden">
+        Minutos do período
+        <input id="minutosTeste" name="minutos_teste" type="number" min="1" max="720" value="60">
+      </label>
+      <label id="betCentersField" class="is-hidden">
+        Centros na aposta
+        <input id="centrosAposta" name="centros_aposta" type="number" min="1" max="37" value="2">
+      </label>
+      <label id="betNeighborsField" class="is-hidden">
+        Vizinhos da aposta
+        <input id="vizinhosAposta" name="vizinhos_aposta" type="number" min="0" max="8" value="3">
+      </label>
+      <label id="attemptsField" class="is-hidden">
+        Tentativas
+        <input id="tentativas" name="tentativas" type="number" min="1" max="5" value="5">
+      </label>
+      <label id="liveBlockField" class="is-hidden">
+        Bloqueio recente
+        <input id="bloqueioMinutos" name="bloqueio_minutos" type="number" min="1" max="30" value="5">
+      </label>
+      <button id="submitButton" type="submit">Analisar</button>
+    </form>
+
+    <section id="summary" class="summary" hidden></section>
+    <section id="message" class="panel state">Selecione a mesa e rode a análise.</section>
+    <section id="results" class="results"></section>
+  </main>
+
+  <script>
+    const form = document.getElementById('form');
+    const submitButton = document.getElementById('submitButton');
+    const rouletteSelect = document.getElementById('rouletteId');
+    const summary = document.getElementById('summary');
+    const message = document.getElementById('message');
+    const results = document.getElementById('results');
+    const modeInput = document.getElementById('modo');
+    const regionField = document.getElementById('regionField');
+    const numberField = document.getElementById('numberField');
+    const reverseTimeField = document.getElementById('reverseTimeField');
+    const baseLimitField = document.getElementById('baseLimitField');
+    const topField = document.getElementById('topField');
+    const validationDaysField = document.getElementById('validationDaysField');
+    const periodDateField = document.getElementById('periodDateField');
+    const periodMinutesField = document.getElementById('periodMinutesField');
+    const betCentersField = document.getElementById('betCentersField');
+    const betNeighborsField = document.getElementById('betNeighborsField');
+    const attemptsField = document.getElementById('attemptsField');
+    const liveBlockField = document.getElementById('liveBlockField');
+    const daysLabel = document.getElementById('daysLabel');
+    const regionLabel = document.getElementById('regionLabel');
+    const numeroInput = document.getElementById('numero');
+    const horarioInput = document.getElementById('horario');
+    const limitInput = document.getElementById('limit');
+    const topInput = document.getElementById('top');
+    const diasTesteInput = document.getElementById('diasTeste');
+    const dataTesteInput = document.getElementById('dataTeste');
+    const minutosTesteInput = document.getElementById('minutosTeste');
+    const centrosApostaInput = document.getElementById('centrosAposta');
+    const vizinhosApostaInput = document.getElementById('vizinhosAposta');
+    const tentativasInput = document.getElementById('tentativas');
+    const bloqueioMinutosInput = document.getElementById('bloqueioMinutos');
+    const tabNumero = document.getElementById('tabNumero');
+    const tabRegiao = document.getElementById('tabRegiao');
+    const tabReversa = document.getElementById('tabReversa');
+    const tabValidacao = document.getElementById('tabValidacao');
+    const tabPeriodo = document.getElementById('tabPeriodo');
+    const tabLive = document.getElementById('tabLive');
+    let liveRefreshTimer = null;
+
+    const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function colorFor(value) {
+      const number = Number(value);
+      if (number === 0) return 'green';
+      return RED_NUMBERS.has(number) ? 'red' : 'black';
+    }
+
+    function ball(value, color) {
+      const safeValue = escapeHtml(value);
+      const safeColor = escapeHtml(color || colorFor(value));
+      return `<span class="ball ${safeColor}">${safeValue}</span>`;
+    }
+
+    function chip(item) {
+      return `
+        <span class="chip">
+          ${ball(item.value, item.color)}
+          <span>${escapeHtml(item.time)}</span>
+          <span class="muted">${escapeHtml(item.diff_label)}</span>
+        </span>
+      `;
+    }
+
+    function numberChips(items) {
+      return (items || []).map(item => `
+        <span class="chip">
+          ${ball(item.value, item.color)}
+        </span>
+      `).join('');
+    }
+
+    function setMessage(text, isError = false) {
+      message.hidden = false;
+      message.textContent = text;
+      message.className = `panel state${isError ? ' error' : ''}`;
+    }
+
+    function clearMessage() {
+      message.hidden = true;
+      message.textContent = '';
+      message.className = 'panel state';
+    }
+
+    function renderSummary(data) {
+      const modeLabel = data.modo === 'regiao' ? 'Região' : 'Número exato';
+      const targetLabel = data.modo === 'regiao' ? 'Região analisada' : 'Número';
+      const targetContent = data.modo === 'regiao'
+        ? `<div class="chips">${numberChips(data.target_numbers)}</div>`
+        : ball(data.numero, colorFor(data.numero));
+
+      summary.hidden = false;
+      summary.innerHTML = `
+        <article class="panel metric"><span>Mesa</span><strong>${escapeHtml(data.roulette_id)}</strong></article>
+        <article class="panel metric"><span>Modo</span><strong>${escapeHtml(modeLabel)}</strong></article>
+        <article class="panel metric"><span>${escapeHtml(targetLabel)}</span><strong>${targetContent}</strong></article>
+        <article class="panel metric"><span>Bases</span><strong>${escapeHtml(data.total_occurrences)}</strong></article>
+        <article class="panel metric"><span>Janela</span><strong>±${escapeHtml(data.janela_minutos)} min</strong></article>
+        <article class="panel metric"><span>Dias</span><strong>${escapeHtml(data.dias_anteriores)}</strong></article>
+      `;
+    }
+
+    function renderDay(day, data) {
+      const missLabel = data.modo === 'regiao' ? 'sem região' : `sem ${data.numero}`;
+      const hitLabel = data.modo === 'regiao' ? 'veio região' : 'veio';
+
+      if (day.status === 'hit') {
+        const matches = day.matches.map(chip).join('');
+        return `
+          <div class="day-row">
+            <strong>D-${escapeHtml(day.day_offset)}</strong>
+            <span>${escapeHtml(day.target.formatted)}</span>
+            <span class="status hit">${escapeHtml(hitLabel)}</span>
+            <div class="chips">${matches}</div>
+          </div>
+        `;
+      }
+
+      const alternatives = day.alternatives.length
+        ? day.alternatives.map(chip).join('')
+        : '<span class="empty">Nenhum resultado encontrado na janela.</span>';
+
+      return `
+        <div class="day-row">
+          <strong>D-${escapeHtml(day.day_offset)}</strong>
+          <span>${escapeHtml(day.target.formatted)}</span>
+          <span class="status miss">${escapeHtml(missLabel)}</span>
+          <div class="chips">${alternatives}</div>
+        </div>
+      `;
+    }
+
+    function renderResults(data) {
+      results.innerHTML = '';
+      if (!data.comparisons.length) {
+        setMessage('Nenhuma ocorrência base encontrada para esse número nessa mesa.');
+        return;
+      }
+
+      clearMessage();
+      results.innerHTML = data.comparisons.map((comparison, index) => `
+        <article class="panel comparison">
+          <header class="comparison-header">
+            <div class="base">
+              <span>Base ${index + 1}</span>
+              ${ball(comparison.base.value, comparison.base.color)}
+              <span>${escapeHtml(comparison.base.formatted)}</span>
+            </div>
+            <span class="muted">${escapeHtml(comparison.days.length)} dias comparados</span>
+          </header>
+          <div class="days">
+            ${comparison.days.map(day => renderDay(day, data)).join('')}
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function renderReverseSummary(data) {
+      summary.hidden = false;
+      summary.innerHTML = `
+        <article class="panel metric"><span>Mesa</span><strong>${escapeHtml(data.roulette_id)}</strong></article>
+        <article class="panel metric"><span>Modo</span><strong>Engenharia reversa</strong></article>
+        <article class="panel metric"><span>Horário</span><strong>${escapeHtml(data.horario)}</strong></article>
+        <article class="panel metric"><span>Vizinhos</span><strong>${escapeHtml(data.vizinhos_lado)} por lado</strong></article>
+        <article class="panel metric"><span>Janela</span><strong>±${escapeHtml(data.janela_minutos)} min</strong></article>
+        <article class="panel metric"><span>Dias</span><strong>${escapeHtml(data.dias_anteriores)}</strong></article>
+      `;
+    }
+
+    function renderReverseDay(day) {
+      if (day.status === 'hit') {
+        return `
+          <div class="day-row">
+            <strong>D-${escapeHtml(day.day_offset)}</strong>
+            <span>${escapeHtml(day.target.formatted)}</span>
+            <span class="status hit">veio região</span>
+            <div class="chips">${day.matches.map(chip).join('')}</div>
+          </div>
+        `;
+      }
+
+      const alternatives = day.alternatives.length
+        ? day.alternatives.map(chip).join('')
+        : '<span class="empty">Nenhum resultado encontrado na janela.</span>';
+
+      return `
+        <div class="day-row">
+          <strong>D-${escapeHtml(day.day_offset)}</strong>
+          <span>${escapeHtml(day.target.formatted)}</span>
+          <span class="status miss">sem região</span>
+          <div class="chips">${alternatives}</div>
+        </div>
+      `;
+    }
+
+    function renderHotSectorDay(day) {
+      return `
+        <div class="day-row">
+          <strong>D-${escapeHtml(day.day_offset)}</strong>
+          <span>${escapeHtml(day.target.formatted)}</span>
+          <span class="status hit">interseção</span>
+          <div class="chips">${day.matches.map(chip).join('')}</div>
+        </div>
+      `;
+    }
+
+    function renderWheelHeat(data) {
+      const cells = (data.wheel_heat || []).map(item => {
+        const score = Math.max(0, Math.min(100, Number(item.score || 0)));
+        const opacity = (0.06 + (score / 100) * 0.68).toFixed(2);
+        const centers = (item.contributing_centers || []).join(', ');
+        const title = centers
+          ? `Reforçado pelos centros: ${centers}`
+          : 'Sem centro reforçando esta posição';
+
+        return `
+          <div
+            class="heat-cell"
+            style="background: rgba(249, 115, 22, ${opacity})"
+            title="${escapeHtml(title)}"
+          >
+            ${ball(item.number.value, item.number.color)}
+            <strong>${escapeHtml(score)}%</strong>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <section class="panel heat-panel">
+          <div class="heat-title">
+            <div>
+              <h2>Mapa de calor da roda</h2>
+              <span class="muted">As regiões dos centros próximos se reforçam na ordem real da roleta.</span>
+            </div>
+            <div class="heat-legend">
+              <span>frio</span>
+              <span class="heat-gradient"></span>
+              <span>quente</span>
+            </div>
+          </div>
+          <div class="heat-strip">${cells}</div>
+        </section>
+      `;
+    }
+
+    function renderHotSectors(data) {
+      const sectors = data.hot_sectors || [];
+      if (!sectors.length) {
+        return `
+          <div class="results-heading">
+            <h2>Setores quentes por interseção</h2>
+          </div>
+          <section class="panel state">
+            Nenhuma interseção com ocorrência foi encontrada entre os centros do ranking.
+          </section>
+        `;
+      }
+
+      const accordions = sectors.map((sector, index) => {
+        const centers = sector.centers
+          .map(center => ball(center.value, center.color))
+          .join('');
+        const overlapPercent = Math.round(Number(sector.overlap_rate || 0) * 100);
+
+        return `
+          <details class="panel comparison accordion hot-sector">
+            <summary class="comparison-header">
+              <div class="base">
+                <span>🔥 #${index + 1}</span>
+                <span>Centros</span>
+                ${centers}
+                <span>${escapeHtml(sector.intersection_count)}/${escapeHtml(sector.region_size)} números em comum</span>
+              </div>
+              <span class="muted">${escapeHtml(sector.hit_days)}/${escapeHtml(sector.total_days)} dias · calor ${escapeHtml(sector.heat_score)}/100</span>
+            </summary>
+            <div class="sector-detail">
+              <div class="sector-detail-item">
+                <span>Área em comum</span>
+                <div class="chips">${numberChips(sector.intersection_numbers)}</div>
+              </div>
+              <div class="sector-detail-item">
+                <span>Sobreposição</span>
+                <strong>${escapeHtml(overlapPercent)}%</strong>
+              </div>
+              <div class="sector-detail-item">
+                <span>Distância dos centros</span>
+                <strong>${escapeHtml(sector.wheel_distance)} casa(s)</strong>
+              </div>
+              <div class="sector-detail-item">
+                <span>Resultados na área</span>
+                <strong>${escapeHtml(sector.total_matches)}</strong>
+              </div>
+            </div>
+            <div class="days">
+              ${sector.days.map(renderHotSectorDay).join('')}
+            </div>
+          </details>
+        `;
+      }).join('');
+
+      return `
+        <div class="results-heading">
+          <div>
+            <h2>Setores quentes por interseção</h2>
+            <span class="muted">O mesmo resultado é contado uma única vez por setor e por dia.</span>
+          </div>
+          <span class="muted">${escapeHtml(sectors.length)} setores encontrados</span>
+        </div>
+        ${accordions}
+      `;
+    }
+
+    function renderReverseResults(data) {
+      results.innerHTML = '';
+      if (!data.rankings.length) {
+        setMessage('Nenhuma região encontrada para os parâmetros informados.');
+        return;
+      }
+
+      clearMessage();
+      const rankings = data.rankings.map((ranking, index) => {
+        const percent = Math.round(Number(ranking.hit_rate || 0) * 100);
+        return `
+          <details class="panel comparison accordion">
+            <summary class="comparison-header">
+              <div>
+                <div class="base">
+                  <span>#${index + 1}</span>
+                  <span>Centro</span>
+                  ${ball(ranking.center, ranking.center_number.color)}
+                  <span>+ ${escapeHtml(data.vizinhos_lado)} vizinhos por lado</span>
+                </div>
+              </div>
+              <span class="muted">${escapeHtml(ranking.hit_days)}/${escapeHtml(ranking.total_days)} dias · ${escapeHtml(percent)}%</span>
+            </summary>
+            <div class="days">
+              ${ranking.days.map(renderReverseDay).join('')}
+            </div>
+          </details>
+        `;
+      }).join('');
+
+      results.innerHTML = `
+        ${renderWheelHeat(data)}
+        ${renderHotSectors(data)}
+        <div class="results-heading">
+          <h2>Ranking dos centros</h2>
+          <span class="muted">${escapeHtml(data.rankings.length)} centros analisados</span>
+        </div>
+        ${rankings}
+      `;
+    }
+
+    function percentLabel(value) {
+      return `${Math.round(Number(value || 0) * 1000) / 10}%`;
+    }
+
+    function signedUnits(value) {
+      const number = Number(value || 0);
+      return `${number > 0 ? '+' : ''}${Math.round(number * 100) / 100} un.`;
+    }
+
+    function renderBacktestSummary(data) {
+      const metrics = data.metrics;
+      const roiClass = Number(metrics.roi) >= 0 ? 'profit-positive' : 'profit-negative';
+
+      summary.hidden = false;
+      summary.innerHTML = `
+        <article class="panel metric"><span>Mesa</span><strong>${escapeHtml(data.roulette_id)}</strong></article>
+        <article class="panel metric"><span>Previsões válidas</span><strong>${escapeHtml(metrics.predictions)}</strong></article>
+        <article class="panel metric"><span>Assertividade</span><strong>${escapeHtml(percentLabel(metrics.hit_rate))}</strong></article>
+        <article class="panel metric"><span>Esperado ao acaso</span><strong>${escapeHtml(percentLabel(metrics.baseline_hit_rate))}</strong></article>
+        <article class="panel metric"><span>Lift</span><strong>${escapeHtml(Number(metrics.lift || 0).toFixed(2))}x</strong></article>
+        <article class="panel metric"><span>ROI simulado</span><strong class="${roiClass}">${escapeHtml(percentLabel(metrics.roi))}</strong></article>
+      `;
+    }
+
+    function renderBacktestAttempt(item) {
+      const isHit = item.status === 'hit';
+      return `
+        <div class="day-row">
+          <strong>T${escapeHtml(item.attempt)}</strong>
+          <span>${escapeHtml(item.formatted)}</span>
+          <span class="status ${isHit ? 'hit' : 'miss'}">${isHit ? 'acerto' : 'erro'}</span>
+          <div class="chips">${chip(item)}</div>
+        </div>
+      `;
+    }
+
+    function renderBacktestDay(day) {
+      const isHit = day.status === 'hit';
+      const isNoData = day.status === 'no_data';
+      const statusClass = isHit ? 'hit' : (isNoData ? 'no-data' : 'miss');
+      const statusLabel = isHit
+        ? `acerto na T${day.hit_attempt}`
+        : (isNoData ? 'sem dados' : 'não acertou');
+      const profitClass = Number(day.profit_units) >= 0 ? 'profit-positive' : 'profit-negative';
+      const centers = day.selected_centers
+        .map(center => ball(center.value, center.color))
+        .join('');
+      const centerDetails = day.selected_centers.map(center => `
+        <span class="chip">
+          ${ball(center.value, center.color)}
+          <span>${escapeHtml(percentLabel(center.hit_rate))}</span>
+        </span>
+      `).join('');
+      const attempts = day.attempts.length
+        ? day.attempts.map(renderBacktestAttempt).join('')
+        : '<div class="state">Nenhum giro encontrado após o horário nesse dia.</div>';
+
+      return `
+        <details class="panel comparison accordion">
+          <summary class="comparison-header">
+            <div class="base">
+              <span>D-${escapeHtml(day.day_offset)}</span>
+              <span>${escapeHtml(day.target.formatted)}</span>
+              <span>Centros</span>
+              ${centers}
+              <span>${escapeHtml(day.coverage)} números apostados</span>
+            </div>
+            <div>
+              <span class="status ${statusClass}">${escapeHtml(statusLabel)}</span>
+              <span class="muted ${profitClass}" style="margin-left: 8px;">${escapeHtml(signedUnits(day.profit_units))}</span>
+            </div>
+          </summary>
+          <div class="sector-detail">
+            <div class="sector-detail-item">
+              <span>Período usado na análise</span>
+              <strong>${escapeHtml(day.training_period.start.formatted)} até ${escapeHtml(day.training_period.end.formatted)}</strong>
+            </div>
+            <div class="sector-detail-item">
+              <span>Força dos centros</span>
+              <div class="chips">${centerDetails}</div>
+            </div>
+            <div class="sector-detail-item">
+              <span>Chance aleatória equivalente</span>
+              <strong>${day.baseline_probability === null ? '—' : escapeHtml(percentLabel(day.baseline_probability))}</strong>
+            </div>
+            <div class="sector-detail-item">
+              <span>Tentativas usadas</span>
+              <strong>${escapeHtml(day.attempts_used)}/${escapeHtml(day.available_attempts)}</strong>
+            </div>
+          </div>
+          <div class="sector-detail">
+            <div class="sector-detail-item" style="grid-column: 1 / -1;">
+              <span>Números apostados</span>
+              <div class="chips">${numberChips(day.bet_numbers)}</div>
+            </div>
+          </div>
+          <div class="days">${attempts}</div>
+        </details>
+      `;
+    }
+
+    function renderBacktestResults(data) {
+      const metrics = data.metrics;
+      const profitClass = Number(metrics.total_profit_units) >= 0 ? 'profit-positive' : 'profit-negative';
+      const hitsByAttempt = metrics.hits_by_attempt.map(item => `
+        <span class="chip"><strong>T${escapeHtml(item.attempt)}</strong><span>${escapeHtml(item.hits)} acertos</span></span>
+      `).join('');
+
+      clearMessage();
+      results.innerHTML = `
+        <section class="panel validation-config">
+          <div class="sector-detail-item"><span>Dias para formar análise</span><strong>${escapeHtml(data.dias_anteriores)}</strong></div>
+          <div class="sector-detail-item"><span>Dias testados</span><strong>${escapeHtml(data.dias_teste)}</strong></div>
+          <div class="sector-detail-item"><span>Vizinhos na análise</span><strong>${escapeHtml(data.vizinhos_lado)} por lado</strong></div>
+          <div class="sector-detail-item"><span>Centros apostados</span><strong>${escapeHtml(data.centros_aposta)}</strong></div>
+          <div class="sector-detail-item"><span>Vizinhos na aposta</span><strong>${escapeHtml(data.vizinhos_aposta)} por lado</strong></div>
+          <div class="sector-detail-item"><span>Tentativas máximas</span><strong>${escapeHtml(data.tentativas)}</strong></div>
+        </section>
+        <section class="panel validation-config">
+          <div class="sector-detail-item"><span>Acertos / erros</span><strong>${escapeHtml(metrics.hits)} / ${escapeHtml(metrics.misses)}</strong></div>
+          <div class="sector-detail-item"><span>Cobertura média</span><strong>${escapeHtml(metrics.average_coverage)} números</strong></div>
+          <div class="sector-detail-item"><span>Faixa de cobertura</span><strong>${escapeHtml(metrics.min_coverage)}–${escapeHtml(metrics.max_coverage)}</strong></div>
+          <div class="sector-detail-item"><span>Maior sequência de erros</span><strong>${escapeHtml(metrics.max_loss_streak)}</strong></div>
+          <div class="sector-detail-item"><span>Saldo simulado</span><strong class="${profitClass}">${escapeHtml(signedUnits(metrics.total_profit_units))}</strong></div>
+          <div class="sector-detail-item"><span>Dias sem dados</span><strong>${escapeHtml(metrics.days_without_data)}</strong></div>
+          <div class="sector-detail-item" style="grid-column: 1 / -1;"><span>Acertos por tentativa</span><div class="chips">${hitsByAttempt}</div></div>
+        </section>
+        <div class="results-heading">
+          <div>
+            <h2>Conferência walk-forward</h2>
+            <span class="muted">Cada dia usa somente os dias anteriores para definir os centros.</span>
+          </div>
+          <span class="muted">A simulação encerra no primeiro acerto.</span>
+        </div>
+        ${data.days.map(renderBacktestDay).join('')}
+      `;
+    }
+
+    function renderPeriodSummary(data) {
+      const metrics = data.metrics;
+      const roiClass = Number(metrics.roi) >= 0 ? 'profit-positive' : 'profit-negative';
+
+      summary.hidden = false;
+      summary.innerHTML = `
+        <article class="panel metric"><span>Dia</span><strong>${escapeHtml(data.data_teste_formatada)}</strong></article>
+        <article class="panel metric"><span>Período</span><strong>${escapeHtml(data.horario)} · ${escapeHtml(data.minutos_teste)} min</strong></article>
+        <article class="panel metric"><span>Entradas válidas</span><strong>${escapeHtml(metrics.predictions)}</strong></article>
+        <article class="panel metric"><span>Assertividade</span><strong>${escapeHtml(percentLabel(metrics.hit_rate))}</strong></article>
+        <article class="panel metric"><span>Lift</span><strong>${escapeHtml(Number(metrics.lift || 0).toFixed(2))}x</strong></article>
+        <article class="panel metric"><span>ROI simulado</span><strong class="${roiClass}">${escapeHtml(percentLabel(metrics.roi))}</strong></article>
+      `;
+    }
+
+    function renderPeriodEntry(entry) {
+      const isHit = entry.status === 'hit';
+      const isNoData = entry.status === 'no_data';
+      const statusClass = isHit ? 'hit' : (isNoData ? 'no-data' : 'miss');
+      const statusLabel = isHit
+        ? `acerto na T${entry.hit_attempt}`
+        : (isNoData ? 'sem dados' : 'não acertou');
+      const profitClass = Number(entry.profit_units) >= 0 ? 'profit-positive' : 'profit-negative';
+      const centers = entry.selected_centers
+        .map(center => ball(center.value, center.color))
+        .join('');
+      const centerDetails = entry.selected_centers.map(center => `
+        <span class="chip">
+          ${ball(center.value, center.color)}
+          <span>${escapeHtml(percentLabel(center.hit_rate))}</span>
+        </span>
+      `).join('');
+      const attempts = entry.attempts.length
+        ? entry.attempts.map(renderBacktestAttempt).join('')
+        : '<div class="state">Nenhum giro encontrado após esse horário.</div>';
+
+      return `
+        <details class="panel comparison accordion period-entry">
+          <summary class="comparison-header">
+            <div class="base">
+              <span>${escapeHtml(entry.target.formatted)}</span>
+              <span>Centros</span>
+              ${centers}
+              <span>${escapeHtml(entry.coverage)} números apostados</span>
+            </div>
+            <div>
+              <span class="status ${statusClass}">${escapeHtml(statusLabel)}</span>
+              <span class="muted ${profitClass}" style="margin-left: 8px;">${escapeHtml(signedUnits(entry.profit_units))}</span>
+            </div>
+          </summary>
+          <div class="sector-detail">
+            <div class="sector-detail-item">
+              <span>Período usado na análise</span>
+              <strong>${escapeHtml(entry.training_period.start.formatted)} até ${escapeHtml(entry.training_period.end.formatted)}</strong>
+            </div>
+            <div class="sector-detail-item">
+              <span>Força dos centros</span>
+              <div class="chips">${centerDetails}</div>
+            </div>
+            <div class="sector-detail-item">
+              <span>Entrada reservada até</span>
+              <strong>${escapeHtml(entry.reserved_until.time)}</strong>
+            </div>
+            <div class="sector-detail-item">
+              <span>Tentativas usadas</span>
+              <strong>${escapeHtml(entry.attempts_used)}/${escapeHtml(entry.available_attempts)}</strong>
+            </div>
+          </div>
+          <div class="sector-detail">
+            <div class="sector-detail-item" style="grid-column: 1 / -1;">
+              <span>Números apostados</span>
+              <div class="chips">${numberChips(entry.bet_numbers)}</div>
+            </div>
+          </div>
+          <div class="days">${attempts}</div>
+        </details>
+      `;
+    }
+
+    function renderPeriodTimelineItem(item) {
+      if (item.status !== 'skipped_overlap') {
+        return renderPeriodEntry(item);
+      }
+
+      return `
+        <article class="panel comparison timeline-skip">
+          <div class="comparison-header">
+            <div class="base">
+              <span>${escapeHtml(item.target.formatted)}</span>
+              <span class="status skipped">ignorado por sobreposição</span>
+            </div>
+            <span class="muted">Entrada de ${escapeHtml(item.blocked_by.time)} reservada até ${escapeHtml(item.blocked_until.time)}</span>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderPeriodResults(data) {
+      const metrics = data.metrics;
+      const profitClass = Number(metrics.total_profit_units) >= 0 ? 'profit-positive' : 'profit-negative';
+      const hitsByAttempt = metrics.hits_by_attempt.map(item => `
+        <span class="chip"><strong>T${escapeHtml(item.attempt)}</strong><span>${escapeHtml(item.hits)} acertos</span></span>
+      `).join('');
+
+      clearMessage();
+      results.innerHTML = `
+        <section class="panel validation-config">
+          <div class="sector-detail-item"><span>Dias para formar análise</span><strong>${escapeHtml(data.dias_anteriores)}</strong></div>
+          <div class="sector-detail-item"><span>Vizinhos na análise</span><strong>${escapeHtml(data.vizinhos_lado)} por lado</strong></div>
+          <div class="sector-detail-item"><span>Centros apostados</span><strong>${escapeHtml(data.centros_aposta)}</strong></div>
+          <div class="sector-detail-item"><span>Vizinhos na aposta</span><strong>${escapeHtml(data.vizinhos_aposta)} por lado</strong></div>
+          <div class="sector-detail-item"><span>Tentativas máximas</span><strong>${escapeHtml(data.tentativas)}</strong></div>
+          <div class="sector-detail-item"><span>Reserva mínima</span><strong>${escapeHtml(metrics.minimum_spacing_minutes)} min (${escapeHtml(metrics.reserved_seconds_per_entry)}s)</strong></div>
+        </section>
+        <section class="panel validation-config">
+          <div class="sector-detail-item"><span>Minutos candidatos</span><strong>${escapeHtml(metrics.candidate_minutes)}</strong></div>
+          <div class="sector-detail-item"><span>Entradas avaliadas</span><strong>${escapeHtml(metrics.evaluated_entries)}</strong></div>
+          <div class="sector-detail-item"><span>Ignorados por sobreposição</span><strong>${escapeHtml(metrics.skipped_overlap)}</strong></div>
+          <div class="sector-detail-item"><span>Acertos / erros</span><strong>${escapeHtml(metrics.hits)} / ${escapeHtml(metrics.misses)}</strong></div>
+          <div class="sector-detail-item"><span>Esperado ao acaso</span><strong>${escapeHtml(percentLabel(metrics.baseline_hit_rate))}</strong></div>
+          <div class="sector-detail-item"><span>Saldo simulado</span><strong class="${profitClass}">${escapeHtml(signedUnits(metrics.total_profit_units))}</strong></div>
+          <div class="sector-detail-item" style="grid-column: 1 / -1;"><span>Acertos por tentativa</span><div class="chips">${hitsByAttempt}</div></div>
+        </section>
+        <div class="results-heading">
+          <div>
+            <h2>Linha do tempo minuto a minuto</h2>
+            <span class="muted">Os minutos bloqueados aparecem na sequência, mas não entram na assertividade.</span>
+          </div>
+          <span class="muted">Nenhuma tentativa é compartilhada por duas entradas.</span>
+        </div>
+        ${data.timeline.map(renderPeriodTimelineItem).join('')}
+      `;
+    }
+
+    function liveStatusInfo(status) {
+      if (status === 'enter') {
+        return { label: 'ENTRADA LIBERADA', className: 'live-enter' };
+      }
+      if (status === 'cancel') {
+        return { label: 'ENTRADA CANCELADA', className: 'live-cancel' };
+      }
+      return { label: 'AGUARDAR', className: 'live-wait' };
+    }
+
+    function renderLiveSummary(data) {
+      const statusInfo = liveStatusInfo(data.status);
+      summary.hidden = false;
+      summary.innerHTML = `
+        <article class="panel metric"><span>Status</span><strong>${escapeHtml(statusInfo.label)}</strong></article>
+        <article class="panel metric"><span>Gerado às</span><strong>${escapeHtml(data.generated_at_formatted.split(' ').pop())}</strong></article>
+        <article class="panel metric"><span>Horário analisado</span><strong>${escapeHtml(data.analysis_time)}</strong></article>
+        <article class="panel metric"><span>Centros</span><strong>${escapeHtml(data.selected_centers.length)}</strong></article>
+        <article class="panel metric"><span>Cobertura</span><strong>${escapeHtml(data.coverage)} números</strong></article>
+        <article class="panel metric"><span>Próxima atualização</span><strong>${escapeHtml(data.next_update_at_formatted)}</strong></article>
+      `;
+    }
+
+    function renderLiveResults(data) {
+      const statusInfo = liveStatusInfo(data.status);
+      const centers = data.selected_centers.map(center => `
+        <span class="chip">
+          ${ball(center.value, center.color)}
+          <span>${escapeHtml(center.hit_days)}/${escapeHtml(data.dias_anteriores)} dias</span>
+          <span class="muted">${escapeHtml(percentLabel(center.hit_rate))}</span>
+        </span>
+      `).join('');
+      const recentItems = data.recent_items.length
+        ? data.recent_items.map(chip).join('')
+        : '<span class="empty">Nenhum resultado recente recebido.</span>';
+      const paidMatches = data.paid_matches.length
+        ? data.paid_matches.map(chip).join('')
+        : '<span class="empty">A região prevista não apareceu no período de bloqueio.</span>';
+      const latestAge = data.latest_age_seconds === null
+        ? 'sem resultado'
+        : `${escapeHtml(data.latest_age_seconds)}s atrás`;
+
+      clearMessage();
+      results.innerHTML = `
+        <section class="panel live-signal ${statusInfo.className}">
+          <h2 class="live-status-label">${escapeHtml(statusInfo.label)}</h2>
+          <p>${escapeHtml(data.reason)}</p>
+        </section>
+        <section class="panel validation-config">
+          <div class="sector-detail-item"><span>Mesa</span><strong>${escapeHtml(data.roulette_id)}</strong></div>
+          <div class="sector-detail-item"><span>Dias analisados</span><strong>${escapeHtml(data.dias_anteriores)}</strong></div>
+          <div class="sector-detail-item"><span>Vizinhos na análise</span><strong>${escapeHtml(data.vizinhos_lado)} por lado</strong></div>
+          <div class="sector-detail-item"><span>Vizinhos na entrada</span><strong>${escapeHtml(data.vizinhos_aposta)} por lado</strong></div>
+          <div class="sector-detail-item"><span>Bloqueio recente</span><strong>${escapeHtml(data.bloqueio_minutos)} min</strong></div>
+          <div class="sector-detail-item"><span>Último resultado</span><strong>${latestAge}</strong></div>
+        </section>
+        <section class="panel sector-detail">
+          <div class="sector-detail-item" style="grid-column: 1 / -1;">
+            <span>Centros escolhidos</span>
+            <div class="chips">${centers}</div>
+          </div>
+          <div class="sector-detail-item" style="grid-column: 1 / -1;">
+            <span>Região indicada para entrada</span>
+            <div class="chips">${numberChips(data.bet_numbers)}</div>
+          </div>
+          <div class="sector-detail-item" style="grid-column: 1 / -1;">
+            <span>Números da região pagos recentemente</span>
+            <div class="chips">${paidMatches}</div>
+          </div>
+        </section>
+        <div class="results-heading">
+          <div>
+            <h2>Resultados recentes</h2>
+            <span class="muted">Usados somente para cancelar ou aguardar; eles não formam os centros.</span>
+          </div>
+          <span class="muted">Atualização automática a cada ${escapeHtml(data.refresh_seconds)}s</span>
+        </div>
+        <section class="panel heat-panel">
+          <div class="chips">${recentItems}</div>
+        </section>
+      `;
+    }
+
+    function populateRoulettes(items, sourceLabel = '') {
+      const saved = localStorage.getItem('comparadorDias.rouletteId') || '';
+
+      rouletteSelect.innerHTML = '<option value="">Selecione uma mesa</option>';
+      for (const item of items) {
+        const option = document.createElement('option');
+        option.value = item.id;
+        const countLabel = Number.isFinite(Number(item.count)) ? ` (${item.count})` : '';
+        option.textContent = `${item.name || item.id}${countLabel}`;
+        if (item.id === saved) option.selected = true;
+        rouletteSelect.appendChild(option);
+      }
+
+      if (sourceLabel) {
+        setMessage(sourceLabel);
+      }
+    }
+
+    async function loadRoulettes() {
+      try {
+        const response = await fetch('/api/roulettes-list');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const items = await response.json();
+        populateRoulettes(items);
+      } catch (error) {
+        try {
+          const fallbackResponse = await fetch('/api/number-day-comparison/roulettes');
+          if (!fallbackResponse.ok) throw new Error(`HTTP ${fallbackResponse.status}`);
+          const fallbackItems = await fallbackResponse.json();
+          populateRoulettes(
+            fallbackItems,
+            'Mesas carregadas pela lista local. Para analisar, o Mongo/túnel ainda precisa estar acessível.'
+          );
+        } catch (fallbackError) {
+          rouletteSelect.innerHTML = '<option value="">Erro ao carregar mesas</option>';
+          setMessage(`Não foi possível carregar as mesas: ${fallbackError.message}`, true);
+        }
+      }
+    }
+
+    function setMode(mode) {
+      const safeMode = ['numero', 'regiao', 'reversa', 'validacao', 'validacao_periodo', 'ao_vivo'].includes(mode) ? mode : 'numero';
+      const isReverse = safeMode === 'reversa';
+      const isValidation = safeMode === 'validacao';
+      const isPeriodValidation = safeMode === 'validacao_periodo';
+      const isLive = safeMode === 'ao_vivo';
+      const isAnyValidation = isValidation || isPeriodValidation;
+      const usesConfiguredTime = isReverse || isAnyValidation;
+      const usesAnalysisMode = usesConfiguredTime || isLive;
+      const usesBetConfiguration = isAnyValidation || isLive;
+      const usesRegion = safeMode === 'regiao' || usesAnalysisMode;
+
+      if (!isLive && liveRefreshTimer !== null) {
+        clearTimeout(liveRefreshTimer);
+        liveRefreshTimer = null;
+      }
+
+      modeInput.value = safeMode;
+      regionField.classList.toggle('is-hidden', !usesRegion);
+      numberField.classList.toggle('is-hidden', usesAnalysisMode);
+      reverseTimeField.classList.toggle('is-hidden', !usesConfiguredTime);
+      baseLimitField.classList.toggle('is-hidden', usesAnalysisMode);
+      topField.classList.toggle('is-hidden', !isReverse);
+      validationDaysField.classList.toggle('is-hidden', !isValidation);
+      periodDateField.classList.toggle('is-hidden', !isPeriodValidation);
+      periodMinutesField.classList.toggle('is-hidden', !isPeriodValidation);
+      betCentersField.classList.toggle('is-hidden', !usesBetConfiguration);
+      betNeighborsField.classList.toggle('is-hidden', !usesBetConfiguration);
+      attemptsField.classList.toggle('is-hidden', !isAnyValidation);
+      liveBlockField.classList.toggle('is-hidden', !isLive);
+      daysLabel.textContent = (isAnyValidation || isLive) ? 'Dias para formar análise' : 'Dias anteriores';
+      regionLabel.textContent = (isAnyValidation || isLive) ? 'Vizinhos na análise' : 'Vizinhos por lado';
+
+      numeroInput.disabled = usesAnalysisMode;
+      numeroInput.required = !usesAnalysisMode;
+      horarioInput.disabled = !usesConfiguredTime;
+      horarioInput.required = usesConfiguredTime;
+      limitInput.disabled = usesAnalysisMode;
+      limitInput.required = !usesAnalysisMode;
+      topInput.disabled = !isReverse;
+      topInput.required = isReverse;
+      diasTesteInput.disabled = !isValidation;
+      diasTesteInput.required = isValidation;
+      dataTesteInput.disabled = !isPeriodValidation;
+      dataTesteInput.required = isPeriodValidation;
+      minutosTesteInput.disabled = !isPeriodValidation;
+      minutosTesteInput.required = isPeriodValidation;
+      for (const input of [centrosApostaInput, vizinhosApostaInput, tentativasInput]) {
+        const isAttemptInput = input === tentativasInput;
+        const enabled = isAttemptInput ? isAnyValidation : usesBetConfiguration;
+        input.disabled = !enabled;
+        input.required = enabled;
+      }
+      bloqueioMinutosInput.disabled = !isLive;
+      bloqueioMinutosInput.required = isLive;
+
+      tabNumero.classList.toggle('active', safeMode === 'numero');
+      tabRegiao.classList.toggle('active', safeMode === 'regiao');
+      tabReversa.classList.toggle('active', safeMode === 'reversa');
+      tabValidacao.classList.toggle('active', safeMode === 'validacao');
+      tabPeriodo.classList.toggle('active', safeMode === 'validacao_periodo');
+      tabLive.classList.toggle('active', safeMode === 'ao_vivo');
+      submitButton.textContent = isLive ? 'Atualizar agora' : 'Analisar';
+      localStorage.setItem('comparadorDias.mode', safeMode);
+    }
+
+    function scheduleLiveRefresh(seconds = 60) {
+      if (liveRefreshTimer !== null) clearTimeout(liveRefreshTimer);
+      if (modeInput.value !== 'ao_vivo') return;
+      liveRefreshTimer = setTimeout(() => {
+        liveRefreshTimer = null;
+        runComparison(true);
+      }, Math.max(1, Number(seconds || 60)) * 1000);
+    }
+
+    async function runComparison(isAutomatic = false) {
+      if (liveRefreshTimer !== null) {
+        clearTimeout(liveRefreshTimer);
+        liveRefreshTimer = null;
+      }
+      const params = new URLSearchParams(new FormData(form));
+      localStorage.setItem('comparadorDias.rouletteId', params.get('roulette_id') || '');
+      localStorage.setItem('comparadorDias.neighborsSide', params.get('vizinhos_lado') || '2');
+      localStorage.setItem('comparadorDias.baseTime', params.get('horario') || '19:56');
+      localStorage.setItem('comparadorDias.top', params.get('top') || '10');
+      localStorage.setItem('comparadorDias.validationDays', params.get('dias_teste') || '90');
+      localStorage.setItem('comparadorDias.betCenters', params.get('centros_aposta') || '2');
+      localStorage.setItem('comparadorDias.betNeighbors', params.get('vizinhos_aposta') || '3');
+      localStorage.setItem('comparadorDias.attempts', params.get('tentativas') || '5');
+      localStorage.setItem('comparadorDias.periodDate', params.get('data_teste') || '');
+      localStorage.setItem('comparadorDias.periodMinutes', params.get('minutos_teste') || '60');
+      localStorage.setItem('comparadorDias.liveBlockMinutes', params.get('bloqueio_minutos') || '5');
+
+      submitButton.disabled = true;
+      submitButton.textContent = 'Analisando...';
+      summary.hidden = true;
+      results.innerHTML = '';
+      setMessage(modeInput.value === 'validacao'
+        ? 'Executando conferência walk-forward...'
+        : (modeInput.value === 'validacao_periodo'
+          ? 'Testando as entradas do período sem sobreposição...'
+          : (modeInput.value === 'ao_vivo'
+            ? (isAutomatic ? 'Atualizando sinal ao vivo...' : 'Calculando sinal ao vivo...')
+            : 'Consultando histórico...')));
+
+      try {
+        let endpoint = '/api/number-day-comparison';
+        if (modeInput.value === 'reversa') endpoint = '/api/number-day-comparison/reverse';
+        if (modeInput.value === 'validacao') endpoint = '/api/number-day-comparison/backtest';
+        if (modeInput.value === 'validacao_periodo') endpoint = '/api/number-day-comparison/backtest-period';
+        if (modeInput.value === 'ao_vivo') endpoint = '/api/number-day-comparison/live';
+        const response = await fetch(`${endpoint}?${params.toString()}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+        if (modeInput.value === 'reversa') {
+          renderReverseSummary(data);
+          renderReverseResults(data);
+        } else if (modeInput.value === 'validacao') {
+          renderBacktestSummary(data);
+          renderBacktestResults(data);
+        } else if (modeInput.value === 'validacao_periodo') {
+          renderPeriodSummary(data);
+          renderPeriodResults(data);
+        } else if (modeInput.value === 'ao_vivo') {
+          renderLiveSummary(data);
+          renderLiveResults(data);
+          scheduleLiveRefresh(data.refresh_seconds);
+        } else {
+          renderSummary(data);
+          renderResults(data);
+        }
+      } catch (error) {
+        summary.hidden = true;
+        results.innerHTML = '';
+        setMessage(`Erro na análise: ${error.message}`, true);
+        if (modeInput.value === 'ao_vivo') scheduleLiveRefresh(60);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = modeInput.value === 'ao_vivo' ? 'Atualizar agora' : 'Analisar';
+      }
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      runComparison();
+    });
+
+    tabNumero.addEventListener('click', () => setMode('numero'));
+    tabRegiao.addEventListener('click', () => setMode('regiao'));
+    tabReversa.addEventListener('click', () => setMode('reversa'));
+    tabValidacao.addEventListener('click', () => setMode('validacao'));
+    tabPeriodo.addEventListener('click', () => setMode('validacao_periodo'));
+    tabLive.addEventListener('click', () => setMode('ao_vivo'));
+
+    const savedMode = localStorage.getItem('comparadorDias.mode') || 'numero';
+    const savedNeighbors = localStorage.getItem('comparadorDias.neighborsSide');
+    const savedTime = localStorage.getItem('comparadorDias.baseTime');
+    const savedTop = localStorage.getItem('comparadorDias.top');
+    const savedValidationDays = localStorage.getItem('comparadorDias.validationDays');
+    const savedBetCenters = localStorage.getItem('comparadorDias.betCenters');
+    const savedBetNeighbors = localStorage.getItem('comparadorDias.betNeighbors');
+    const savedAttempts = localStorage.getItem('comparadorDias.attempts');
+    const savedPeriodDate = localStorage.getItem('comparadorDias.periodDate');
+    const savedPeriodMinutes = localStorage.getItem('comparadorDias.periodMinutes');
+    const savedLiveBlockMinutes = localStorage.getItem('comparadorDias.liveBlockMinutes');
+    if (savedNeighbors) {
+      document.getElementById('vizinhosLado').value = savedNeighbors;
+    }
+    if (savedTime) {
+      horarioInput.value = savedTime;
+    }
+    if (savedTop) {
+      topInput.value = savedTop;
+    }
+    if (savedValidationDays) diasTesteInput.value = savedValidationDays;
+    if (savedBetCenters) centrosApostaInput.value = savedBetCenters;
+    if (savedBetNeighbors) vizinhosApostaInput.value = savedBetNeighbors;
+    if (savedAttempts) tentativasInput.value = savedAttempts;
+    if (savedPeriodMinutes) minutosTesteInput.value = savedPeriodMinutes;
+    if (savedLiveBlockMinutes) bloqueioMinutosInput.value = savedLiveBlockMinutes;
+    if (savedPeriodDate) {
+      dataTesteInput.value = savedPeriodDate;
+    } else {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const year = yesterday.getFullYear();
+      const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+      const day = String(yesterday.getDate()).padStart(2, '0');
+      dataTesteInput.value = `${year}-${month}-${day}`;
+    }
+    setMode(savedMode);
+    loadRoulettes();
+  </script>
+</body>
+</html>
