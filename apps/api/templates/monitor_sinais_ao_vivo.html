@@ -23,6 +23,15 @@
     .stat strong { display:block; font-size:25px; margin-top:4px; }
     .online { color:var(--green); } .offline { color:var(--red); }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--line); background:rgba(16,29,39,.75); border-radius:14px; margin-bottom:12px; }
+    .filters { display:grid; grid-template-columns:repeat(4,minmax(150px,1fr)); gap:12px; padding:16px; margin-bottom:12px; background:rgba(16,29,39,.9); border:1px solid var(--line); border-radius:14px; }
+    .filters label { display:grid; gap:6px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+    .filters select { width:100%; text-transform:none; letter-spacing:normal; }
+    .filters .button { align-self:end; height:42px; border-color:var(--cyan); background:rgba(41,211,194,.12); }
+    .evaluation-stats { display:grid; grid-template-columns:repeat(4,minmax(130px,1fr)); gap:10px; margin-bottom:12px; }
+    .evaluation-note { grid-column:1/-1; color:var(--muted); padding:0 4px; }
+    .coverage-breakdown { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px; }
+    .coverage-pill { border:1px solid var(--line); background:#101d27; color:var(--text); padding:8px 11px; border-radius:999px; cursor:pointer; }
+    .coverage-pill:hover,.coverage-pill.selected { border-color:var(--cyan); color:var(--cyan); }
     #signals { display:grid; gap:10px; }
     details { background:rgba(16,29,39,.94); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
     details[open] { border-color:#38566b; }
@@ -39,6 +48,9 @@
     .badge { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:800; text-transform:uppercase; }
     .badge.active { background:rgba(41,211,194,.13); color:var(--cyan); }
     .badge.completed { background:rgba(141,164,179,.15); color:#c4d4dd; }
+    .result-badge { display:inline-flex; border-radius:999px; padding:5px 8px; margin-top:6px; font-size:11px; font-weight:900; }
+    .result-badge.hit { background:rgba(54,212,119,.14); color:var(--green); }
+    .result-badge.miss { background:rgba(255,93,108,.13); color:var(--red); }
     .payments { color:var(--green); font-size:17px; font-weight:800; text-align:right; }
     .body { border-top:1px solid var(--line); padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:18px; }
     .box { background:#0b161e; border:1px solid #1c2c38; padding:14px; border-radius:12px; }
@@ -52,8 +64,8 @@
     .alternative-flow strong { color:var(--amber); }
     .alternative-score { margin-left:auto; color:var(--amber); font-size:18px; font-weight:800; }
     .notice { padding:28px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:14px; }
-    @media (max-width:1050px) { .stats{grid-template-columns:repeat(3,1fr)} summary{grid-template-columns:150px 1fr 100px}.payments{display:none}.body{grid-template-columns:1fr} }
-    @media (max-width:650px) { main{width:94%} header{display:block}.actions{margin-top:14px}.stats{grid-template-columns:repeat(2,1fr)} summary{grid-template-columns:1fr 100px}.centers{grid-column:1/-1;grid-row:2}.toolbar{align-items:flex-start;flex-direction:column} }
+    @media (max-width:1050px) { .stats{grid-template-columns:repeat(3,1fr)} .filters{grid-template-columns:repeat(2,1fr)} summary{grid-template-columns:150px 1fr 100px}.payments{display:none}.body{grid-template-columns:1fr} }
+    @media (max-width:650px) { main{width:94%} header{display:block}.actions{margin-top:14px}.stats,.evaluation-stats{grid-template-columns:repeat(2,1fr)} .filters{grid-template-columns:1fr} summary{grid-template-columns:1fr 100px}.centers{grid-column:1/-1;grid-row:2}.toolbar{align-items:flex-start;flex-direction:column} }
   </style>
 </head>
 <body>
@@ -75,20 +87,51 @@
     <div class="stat"><span>Pagamentos</span><strong id="payments">—</strong></div>
   </section>
 
+  <section class="filters">
+    <label>Número de fichas
+      <select id="coverageFilter"><option value="">Todas as coberturas</option></select>
+    </label>
+    <label>Até quantas tentativas
+      <select id="attemptHorizon">
+        <option value="1">1 tentativa</option><option value="2">2 tentativas</option><option value="3">3 tentativas</option>
+        <option value="4">4 tentativas</option><option value="5">5 tentativas</option><option value="6">6 tentativas</option>
+        <option value="7" selected>7 tentativas</option><option value="8">8 tentativas</option><option value="9">9 tentativas</option>
+        <option value="10">10 tentativas</option>
+      </select>
+    </label>
+    <label>Centros alternativos
+      <select id="includeAlternative"><option value="false">Não considerar</option><option value="true">Considerar nos acertos</option></select>
+    </label>
+    <button class="button" id="applyFilters" type="button">Aplicar filtros</button>
+  </section>
+
+  <section class="evaluation-stats">
+    <div class="stat"><span>Sinais avaliados</span><strong id="evaluatedSignals">—</strong></div>
+    <div class="stat"><span>Acertos</span><strong class="online" id="evaluationHits">—</strong></div>
+    <div class="stat"><span>Erros</span><strong class="offline" id="evaluationMisses">—</strong></div>
+    <div class="stat"><span>Assertividade</span><strong id="evaluationAccuracy">—</strong></div>
+    <div class="evaluation-note" id="evaluationNote">Aguardando os filtros…</div>
+  </section>
+  <div class="coverage-breakdown" id="coverageBreakdown"></div>
+
   <div class="toolbar">
-    <div><strong>Pragmatic Auto Roulette</strong><div class="muted" id="lastUpdate">Carregando…</div></div>
+    <div><strong>Pragmatic Auto Roulette</strong><div class="muted" id="lastUpdate">Carregando…</div><div class="muted" id="listCount"></div></div>
     <label>Status <select id="status"><option value="all">Todos</option><option value="active">Ativos</option><option value="completed">Concluídos</option></select></label>
   </div>
   <section id="signals"><div class="notice">Carregando sinais…</div></section>
 </main>
 <script>
   const rouletteId = 'pragmatic-auto-roulette';
+  const openSignalIds = new Set();
+  let latestLoadSequence = 0;
+  let loadInProgress = false;
   const el = id => document.getElementById(id);
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const fmt = value => value ? new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(value)) : '—';
   const ball = (item, center=false) => `<span class="ball ${escapeHtml(item.color)} ${center?'center-ball':''}">${escapeHtml(item.value)}</span>`;
 
   function renderSignal(signal) {
+    const signalId = String(signal._id || signal.signal_key || '');
     const maxAttempts = Number(signal.config?.max_attempts || 10);
     const progress = Math.min(100, (Number(signal.attempt_count || 0) / maxAttempts) * 100);
     const previous = (signal.previous_results || []).map(item => ball(item)).join('');
@@ -116,11 +159,15 @@
     const previousText = signal.previous_region_hit
       ? `${signal.previous_region_hit_count} dos 5 anteriores estavam na região — apenas registrado, sem cancelar.`
       : 'Nenhum dos 5 anteriores estava na região.';
-    return `<details ${signal.status==='active'?'open':''}>
+    const evaluation = signal.evaluation || {};
+    const evaluationBadge = evaluation.eligible
+      ? `<span class="result-badge ${evaluation.hit?'hit':'miss'}">${evaluation.hit?'ACERTO':'ERRO'} ATÉ ${escapeHtml(evaluation.attempt_horizon)}ª${evaluation.first_hit_attempt?` · G${escapeHtml(evaluation.first_hit_attempt)}`:''}</span>`
+      : '';
+    return `<details data-signal-id="${escapeHtml(signalId)}" ${openSignalIds.has(signalId)?'open':''}>
       <summary>
         <div class="signal-time"><strong>${fmt(signal.signal_minute_utc)}</strong><small>${escapeHtml(signal.attempt_count)}/${maxAttempts} tentativas</small><div class="progress"><i style="width:${progress}%"></i></div></div>
         <div class="centers"><span class="muted">Centros</span> ${(signal.selected_centers||[]).map(item=>ball(item,true)).join('')}</div>
-        <span class="badge ${escapeHtml(signal.status)}">${signal.status==='active'?'Monitorando':'Concluído'}</span>
+        <div><span class="badge ${escapeHtml(signal.status)}">${signal.status==='active'?'Monitorando':'Concluído'}</span>${evaluationBadge}</div>
         <div class="payments">${escapeHtml(signal.payment_count || 0)} acerto(s)</div>
       </summary>
       <div class="body">
@@ -132,27 +179,81 @@
     </details>`;
   }
 
-  async function load() {
+  function bindAccordionState() {
+    document.querySelectorAll('#signals details[data-signal-id]').forEach(details => {
+      details.addEventListener('toggle', () => {
+        const signalId = details.dataset.signalId;
+        if (details.open) openSignalIds.add(signalId);
+        else openSignalIds.delete(signalId);
+      });
+    });
+  }
+
+  function populateCoverages(values) {
+    const select = el('coverageFilter');
+    const current = select.value;
+    select.innerHTML = ['<option value="">Todas as coberturas</option>']
+      .concat((values || []).map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)} fichas</option>`))
+      .join('');
+    if ([...select.options].some(option => option.value === current)) select.value = current;
+  }
+
+  function renderCoverageBreakdown(items) {
+    const selected = el('coverageFilter').value;
+    el('coverageBreakdown').innerHTML = (items || []).map(item =>
+      `<button type="button" class="coverage-pill ${String(item.coverage)===selected?'selected':''}" data-coverage="${escapeHtml(item.coverage)}">${escapeHtml(item.coverage)} fichas · ${escapeHtml(Number(item.accuracy || 0).toFixed(2))}% (${escapeHtml(item.evaluated)})</button>`
+    ).join('');
+    document.querySelectorAll('[data-coverage]').forEach(button => button.addEventListener('click', () => {
+      el('coverageFilter').value = button.dataset.coverage;
+      openSignalIds.clear();
+      load(true);
+    }));
+  }
+
+  async function load(force=false) {
+    if (loadInProgress && !force) return;
+    const loadSequence = ++latestLoadSequence;
+    loadInProgress = true;
     try {
       const status = el('status').value;
-      const query = new URLSearchParams({roulette_id:rouletteId,status,limit:'200'});
-      const statsQuery = new URLSearchParams({roulette_id:rouletteId});
+      const coverage = el('coverageFilter').value;
+      const attemptHorizon = el('attemptHorizon').value;
+      const includeAlternative = el('includeAlternative').value;
+      const query = new URLSearchParams({roulette_id:rouletteId,status,attempt_horizon:attemptHorizon,include_alternative:includeAlternative,limit:'200'});
+      const statsQuery = new URLSearchParams({roulette_id:rouletteId,status,attempt_horizon:attemptHorizon,include_alternative:includeAlternative});
+      if (coverage) { query.set('coverage', coverage); statsQuery.set('coverage', coverage); }
       const [itemsResponse,statsResponse] = await Promise.all([
         fetch(`/api/minute-region-signals?${query}`), fetch(`/api/minute-region-signals/stats?${statsQuery}`)
       ]);
       if (!itemsResponse.ok || !statsResponse.ok) throw new Error('A API não respondeu corretamente.');
       const data = await itemsResponse.json(); const stats = await statsResponse.json();
+      if (loadSequence !== latestLoadSequence) return;
       el('worker').textContent = stats.worker_status==='online'?'ONLINE':'OFFLINE';
       el('worker').className = stats.worker_status==='online'?'online':'offline';
       el('active').textContent = stats.active; el('completed').textContent = stats.completed;
       el('total').textContent = stats.signals; el('attempts').textContent = stats.attempts; el('payments').textContent = stats.payments;
+      const evaluation = stats.evaluation || {};
+      el('evaluatedSignals').textContent = evaluation.evaluated ?? 0;
+      el('evaluationHits').textContent = evaluation.hits ?? 0;
+      el('evaluationMisses').textContent = evaluation.misses ?? 0;
+      el('evaluationAccuracy').textContent = `${Number(evaluation.accuracy || 0).toFixed(2)}%`;
+      el('evaluationNote').textContent = `${coverage || 'Todas as'} fichas · até ${attemptHorizon} tentativa(s) · centros alternativos ${includeAlternative==='true'?'incluídos':'ignorados'}. Sinais com menos tentativas permanecem fora do cálculo.`;
       el('lastUpdate').textContent = `Atualizado ${new Date().toLocaleTimeString('pt-BR')} · último sinal ${fmt(stats.latest_signal_minute_utc)}`;
-      el('signals').innerHTML = data.items.length ? data.items.map(renderSignal).join('') : '<div class="notice">Nenhum sinal encontrado neste filtro.</div>';
+      el('listCount').textContent = `${data.total ?? data.count} sinal(is) elegível(is) no filtro; exibindo ${data.count}.`;
+      populateCoverages(stats.available_coverages || []);
+      renderCoverageBreakdown(stats.coverage_breakdown || []);
+      el('signals').innerHTML = data.items.length ? data.items.map(renderSignal).join('') : '<div class="notice">Nenhum sinal com tentativas suficientes para este filtro.</div>';
+      bindAccordionState();
     } catch (error) {
+      if (loadSequence !== latestLoadSequence) return;
       el('signals').innerHTML = `<div class="notice">Erro ao carregar: ${escapeHtml(error.message)}</div>`;
+    } finally {
+      if (loadSequence === latestLoadSequence) loadInProgress = false;
     }
   }
-  el('refresh').addEventListener('click', load); el('status').addEventListener('change', load);
+  el('refresh').addEventListener('click', () => load(true));
+  el('applyFilters').addEventListener('click', () => { openSignalIds.clear(); load(true); });
+  el('status').addEventListener('change', () => { openSignalIds.clear(); load(true); });
   load(); setInterval(load, 5000);
 </script>
 </body>
