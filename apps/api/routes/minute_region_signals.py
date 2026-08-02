@@ -12,6 +12,7 @@ from api.core.db import minute_region_signals_coll
 from api.services.minute_region_signal_stats import (
     build_available_coverages_pipeline,
     build_accuracy_pipeline,
+    build_attempt_accuracy_rows,
     build_signal_list_pipeline,
     evaluate_signal,
 )
@@ -209,6 +210,10 @@ async def minute_region_signal_stats(
                 "misses": misses,
                 "accuracy": round((hits / evaluated) * 100, 2) if evaluated else 0.0,
             },
+            "attempt_accuracy": build_attempt_accuracy_rows(
+                accuracy_doc,
+                attempt_horizon=attempt_horizon,
+            ),
             "coverage_breakdown": [
                 {
                     "coverage": int(item["_id"]),

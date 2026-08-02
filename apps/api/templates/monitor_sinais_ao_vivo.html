@@ -32,6 +32,14 @@
     .coverage-mode.active { border-color:var(--cyan); background:rgba(41,211,194,.13); color:var(--cyan); }
     .evaluation-stats { display:grid; grid-template-columns:repeat(4,minmax(130px,1fr)); gap:10px; margin-bottom:12px; }
     .evaluation-note { grid-column:1/-1; color:var(--muted); padding:0 4px; }
+    .attempt-accuracy-section { margin:0 0 14px; padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(16,29,39,.8); }
+    .attempt-accuracy-title { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .attempt-accuracy-title span { color:var(--muted); font-size:12px; }
+    .attempt-accuracy-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(135px,1fr)); gap:8px; }
+    .attempt-accuracy-card { padding:11px; border:1px solid var(--line); border-radius:11px; background:#0b161e; }
+    .attempt-accuracy-card strong { display:block; color:var(--cyan); font-size:13px; }
+    .attempt-accuracy-card .attempt-percent { display:block; font-size:22px; font-weight:850; margin:2px 0; }
+    .attempt-accuracy-card small { display:block; color:var(--muted); }
     .coverage-breakdown { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px; }
     .coverage-pill { border:1px solid var(--line); background:#101d27; color:var(--text); padding:8px 11px; border-radius:999px; cursor:pointer; }
     .coverage-pill:hover,.coverage-pill.selected { border-color:var(--cyan); color:var(--cyan); }
@@ -119,6 +127,10 @@
     <div class="stat"><span>Erros</span><strong class="offline" id="evaluationMisses">—</strong></div>
     <div class="stat"><span>Assertividade</span><strong id="evaluationAccuracy">—</strong></div>
     <div class="evaluation-note" id="evaluationNote">Aguardando os filtros…</div>
+  </section>
+  <section class="attempt-accuracy-section">
+    <div class="attempt-accuracy-title"><strong>Acertos por tentativa</strong><span>Primeiro acerto do sinal e percentual acumulado</span></div>
+    <div class="attempt-accuracy-grid" id="attemptAccuracy"><div class="muted">Aguardando os filtros…</div></div>
   </section>
   <div class="coverage-breakdown" id="coverageBreakdown"></div>
 
@@ -245,6 +257,17 @@
     }));
   }
 
+  function renderAttemptAccuracy(items) {
+    el('attemptAccuracy').innerHTML = (items || []).length
+      ? items.map(item => `<div class="attempt-accuracy-card">
+          <strong>G${escapeHtml(item.attempt)}</strong>
+          <span class="attempt-percent">${escapeHtml(Number(item.accuracy || 0).toFixed(2))}%</span>
+          <small>${escapeHtml(item.hits || 0)} primeiro(s) acerto(s)</small>
+          <small>Até G${escapeHtml(item.attempt)}: ${escapeHtml(Number(item.cumulative_accuracy || 0).toFixed(2))}% · ${escapeHtml(item.cumulative_hits || 0)} sinais</small>
+        </div>`).join('')
+      : '<div class="muted">Nenhum sinal concluído para calcular.</div>';
+  }
+
   async function load(force=false) {
     if (loadInProgress && !force) return;
     const loadSequence = ++latestLoadSequence;
@@ -281,6 +304,7 @@
       el('lastUpdate').textContent = `Atualizado ${new Date().toLocaleTimeString('pt-BR')} · último sinal ${fmt(stats.latest_signal_minute_utc)}`;
       el('listCount').textContent = `${data.total ?? data.count} sinal(is) no filtro; exibindo ${data.count}.`;
       populateCoverages(stats.available_coverages || []);
+      renderAttemptAccuracy(stats.attempt_accuracy || []);
       renderCoverageBreakdown(stats.coverage_breakdown || []);
       el('signals').innerHTML = data.items.length ? data.items.map(renderSignal).join('') : '<div class="notice">Nenhum sinal para este filtro.</div>';
       bindAccordionState();

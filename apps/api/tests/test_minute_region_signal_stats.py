@@ -1,5 +1,6 @@
 from api.services.minute_region_signal_stats import (
     build_accuracy_pipeline,
+    build_attempt_accuracy_rows,
     build_coverage_stages,
     build_signal_list_pipeline,
     effective_coverage,
@@ -88,6 +89,10 @@ def test_accuracy_pipeline_filters_coverage_and_completed_horizon():
     assert "$gt" in hit_expression
     filtered_hit = hit_expression["$gt"][0]["$size"]["$filter"]["cond"]
     assert "$or" in filtered_hit
+    group = pipeline[4]["$group"]
+    assert "attempt_1_hits" in group
+    assert "attempt_7_hits" in group
+    assert "attempt_8_hits" not in group
 
 
 def test_effective_coverage_unites_official_and_alternative_without_duplicates():
@@ -129,3 +134,39 @@ def test_list_pipeline_does_not_hide_recent_signals_by_attempt_count():
     assert pipeline[0] == {"$match": {"roulette_id": "pragmatic-auto-roulette"}}
     assert "attempt_count" not in str(pipeline)
     assert pipeline[-1]["$facet"]["items"][-1] == {"$limit": 200}
+
+
+def test_attempt_accuracy_rows_show_exact_and_cumulative_percentages():
+    rows = build_attempt_accuracy_rows(
+        {
+            "evaluated": 10,
+            "attempt_1_hits": 3,
+            "attempt_2_hits": 2,
+            "attempt_3_hits": 1,
+        },
+        attempt_horizon=3,
+    )
+
+    assert rows == [
+        {
+            "attempt": 1,
+            "hits": 3,
+            "accuracy": 30.0,
+            "cumulative_hits": 3,
+            "cumulative_accuracy": 30.0,
+        },
+        {
+            "attempt": 2,
+            "hits": 2,
+            "accuracy": 20.0,
+            "cumulative_hits": 5,
+            "cumulative_accuracy": 50.0,
+        },
+        {
+            "attempt": 3,
+            "hits": 1,
+            "accuracy": 10.0,
+            "cumulative_hits": 6,
+            "cumulative_accuracy": 60.0,
+        },
+    ]

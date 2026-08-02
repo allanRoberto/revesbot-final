@@ -173,6 +173,35 @@ def evaluate_signal(
     }
 
 
+def build_attempt_accuracy_rows(
+    accuracy_doc: Mapping[str, Any],
+    *,
+    attempt_horizon: int,
+) -> list[Dict[str, Any]]:
+    horizon = max(1, min(10, int(attempt_horizon)))
+    evaluated = max(0, int(accuracy_doc.get("evaluated", 0) or 0))
+    cumulative_hits = 0
+    rows: list[Dict[str, Any]] = []
+    for attempt in range(1, horizon + 1):
+        hits = max(0, int(accuracy_doc.get(f"attempt_{attempt}_hits", 0) or 0))
+        cumulative_hits += hits
+        rows.append(
+            {
+                "attempt": attempt,
+                "hits": hits,
+                "accuracy": round((hits / evaluated) * 100, 2) if evaluated else 0.0,
+                "cumulative_hits": cumulative_hits,
+                "cumulative_accuracy": round(
+                    (cumulative_hits / evaluated) * 100,
+                    2,
+                )
+                if evaluated
+                else 0.0,
+            }
+        )
+    return rows
+
+
 def build_accuracy_pipeline(
     match_query: Mapping[str, Any],
     *,
@@ -197,26 +226,63 @@ def build_accuracy_pipeline(
     else:
         considered_hit = official_hit
 
+    considered_attempts_expression = {
+        "$filter": {
+            "input": {
+                "$slice": [
+                    {"$ifNull": ["$attempts", []]},
+                    horizon,
+                ]
+            },
+            "as": "attempt",
+            "cond": considered_hit,
+        }
+    }
     hit_expression = {
         "$gt": [
-            {
-                "$size": {
-                    "$filter": {
-                        "input": {
-                            "$slice": [
-                                {"$ifNull": ["$attempts", []]},
-                                horizon,
-                            ]
-                        },
-                        "as": "attempt",
-                        "cond": considered_hit,
-                    }
-                }
-            },
+            {"$size": considered_attempts_expression},
             0,
         ]
     }
+    first_hit_attempt_expression = {
+        "$let": {
+            "vars": {"hit_attempts": considered_attempts_expression},
+            "in": {
+                "$ifNull": [
+                    {
+                        "$arrayElemAt": [
+                            {
+                                "$map": {
+                                    "input": "$$hit_attempts",
+                                    "as": "hit_attempt",
+                                    "in": "$$hit_attempt.attempt_number",
+                                }
+                            },
+                            0,
+                        ]
+                    },
+                    None,
+                ]
+            },
+        }
+    }
     group_id: Any = "$effective_coverage" if group_by_coverage else None
+    group_fields: Dict[str, Any] = {
+        "_id": group_id,
+        "evaluated": {"$sum": 1},
+        "hits": {"$sum": {"$cond": ["$hit", 1, 0]}},
+    }
+    if not group_by_coverage:
+        for attempt in range(1, horizon + 1):
+            group_fields[f"attempt_{attempt}_hits"] = {
+                "$sum": {
+                    "$cond": [
+                        {"$eq": ["$first_hit_attempt", attempt]},
+                        1,
+                        0,
+                    ]
+                }
+            }
     pipeline: list[Dict[str, Any]] = [
         {"$match": query},
         *build_coverage_stages(
@@ -224,14 +290,14 @@ def build_accuracy_pipeline(
             coverage=coverage,
             coverage_mode=coverage_mode,
         ),
-        {"$project": {"effective_coverage": 1, "hit": hit_expression}},
         {
-            "$group": {
-                "_id": group_id,
-                "evaluated": {"$sum": 1},
-                "hits": {"$sum": {"$cond": ["$hit", 1, 0]}},
+            "$project": {
+                "effective_coverage": 1,
+                "hit": hit_expression,
+                "first_hit_attempt": first_hit_attempt_expression,
             }
         },
+        {"$group": group_fields},
     ]
     if group_by_coverage:
         pipeline.append({"$sort": {"_id": 1}})
