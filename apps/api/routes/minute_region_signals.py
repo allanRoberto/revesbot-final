@@ -9,10 +9,14 @@ from fastapi import APIRouter, HTTPException, Query
 from pymongo import DESCENDING
 
 from api.core.db import minute_region_signals_coll
+from api.services.minute_region_signal_persistence import (
+    analyze_number_persistence,
+)
 from api.services.minute_region_signal_stats import (
     build_available_coverages_pipeline,
     build_accuracy_pipeline,
     build_attempt_accuracy_rows,
+    build_coverage_stages,
     build_hit_count_rows,
     build_signal_list_pipeline,
     evaluate_signal,
@@ -95,6 +99,67 @@ async def list_minute_region_signals(
                 include_alternative=include_alternative,
             )
     return {"items": _serialize(docs), "count": len(docs), "total": total}
+
+
+@router.get("/persistence")
+async def minute_region_signal_persistence(
+    roulette_id: str = Query(DEFAULT_ROULETTE_ID, min_length=1),
+    min_repetitions: int = Query(3, ge=1, le=10),
+    max_repetitions: int = Query(6, ge=1, le=10),
+    max_gap_minutes: int = Query(1, ge=1, le=10),
+    attempt_horizon: int = Query(7, ge=1, le=10),
+    include_alternative: bool = Query(False),
+    coverage: int | None = Query(None, ge=1, le=37),
+    coverage_mode: Literal["up_to", "exact"] = Query("up_to"),
+    history_limit: int = Query(3000, ge=100, le=5000),
+    recent_limit: int = Query(80, ge=1, le=200),
+):
+    pipeline = [
+        {"$match": {"roulette_id": str(roulette_id).strip()}},
+        *build_coverage_stages(
+            include_alternative=include_alternative,
+            coverage=coverage,
+            coverage_mode=coverage_mode,
+        ),
+        {"$sort": {"signal_minute_utc": DESCENDING}},
+        {"$limit": history_limit},
+        {
+            "$project": {
+                "signal_minute_utc": 1,
+                "generated_at_utc": 1,
+                "bet_values": 1,
+                "alternative_analysis.alternative_bet_values": 1,
+                "selected_centers": 1,
+                "attempts.attempt_number": 1,
+                "attempts.result_history_id": 1,
+                "attempts.value": 1,
+                "attempts.timestamp_utc": 1,
+                "attempts.formatted": 1,
+            }
+        },
+    ]
+    signals = await minute_region_signals_coll.aggregate(pipeline).to_list(
+        length=history_limit
+    )
+    result = await asyncio.to_thread(
+        analyze_number_persistence,
+        signals,
+        min_repetitions=min_repetitions,
+        max_repetitions=max_repetitions,
+        max_gap_minutes=max_gap_minutes,
+        attempt_horizon=attempt_horizon,
+        include_alternative=include_alternative,
+        recent_limit=recent_limit,
+    )
+    result["roulette_id"] = str(roulette_id).strip()
+    result["config"].update(
+        {
+            "coverage": coverage,
+            "coverage_mode": coverage_mode,
+            "history_limit": history_limit,
+        }
+    )
+    return _serialize(result)
 
 
 @router.get("/stats")
