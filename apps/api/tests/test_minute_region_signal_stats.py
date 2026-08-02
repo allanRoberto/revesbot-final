@@ -2,6 +2,7 @@ from api.services.minute_region_signal_stats import (
     build_accuracy_pipeline,
     build_attempt_accuracy_rows,
     build_coverage_stages,
+    build_hit_count_rows,
     build_signal_list_pipeline,
     effective_coverage,
     evaluate_signal,
@@ -74,6 +75,16 @@ def test_alternative_hit_is_optional_and_does_not_become_official():
     assert with_alternative["first_hit_attempt"] == 2
 
 
+def test_hit_count_counts_each_attempt_only_once_with_alternative():
+    evaluation = evaluate_signal(
+        _signal((True, True), (False, True), (False, False)),
+        attempt_horizon=3,
+        include_alternative=True,
+    )
+
+    assert evaluation["hit_count"] == 2
+
+
 def test_accuracy_pipeline_filters_coverage_and_completed_horizon():
     pipeline = build_accuracy_pipeline(
         {"roulette_id": "pragmatic-auto-roulette"},
@@ -128,12 +139,33 @@ def test_list_pipeline_does_not_hide_recent_signals_by_attempt_count():
         include_alternative=True,
         coverage=None,
         coverage_mode="up_to",
+        attempt_horizon=7,
+        hit_count=None,
         limit=200,
     )
 
     assert pipeline[0] == {"$match": {"roulette_id": "pragmatic-auto-roulette"}}
     assert "attempt_count" not in str(pipeline)
     assert pipeline[-1]["$facet"]["items"][-1] == {"$limit": 200}
+
+
+def test_list_pipeline_filters_an_exact_hit_count_only_after_full_horizon():
+    pipeline = build_signal_list_pipeline(
+        {"roulette_id": "pragmatic-auto-roulette"},
+        include_alternative=True,
+        coverage=None,
+        coverage_mode="up_to",
+        attempt_horizon=7,
+        hit_count=2,
+        limit=200,
+    )
+
+    assert pipeline[-2] == {
+        "$match": {
+            "attempt_count": {"$gte": 7},
+            "evaluated_hit_count": 2,
+        }
+    }
 
 
 def test_attempt_accuracy_rows_show_exact_and_cumulative_percentages():
@@ -168,5 +200,41 @@ def test_attempt_accuracy_rows_show_exact_and_cumulative_percentages():
             "accuracy": 10.0,
             "cumulative_hits": 6,
             "cumulative_accuracy": 60.0,
+        },
+    ]
+
+
+def test_hit_count_rows_show_exact_and_at_least_percentages():
+    rows = build_hit_count_rows(
+        {
+            "evaluated": 10,
+            "hit_count_0_signals": 2,
+            "hit_count_1_signals": 5,
+            "hit_count_2_signals": 3,
+        },
+        attempt_horizon=2,
+    )
+
+    assert rows == [
+        {
+            "hit_count": 0,
+            "signals": 2,
+            "percentage": 20.0,
+            "at_least_signals": 10,
+            "at_least_percentage": 100.0,
+        },
+        {
+            "hit_count": 1,
+            "signals": 5,
+            "percentage": 50.0,
+            "at_least_signals": 8,
+            "at_least_percentage": 80.0,
+        },
+        {
+            "hit_count": 2,
+            "signals": 3,
+            "percentage": 30.0,
+            "at_least_signals": 3,
+            "at_least_percentage": 30.0,
         },
     ]

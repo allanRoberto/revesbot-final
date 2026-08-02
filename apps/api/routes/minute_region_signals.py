@@ -13,6 +13,7 @@ from api.services.minute_region_signal_stats import (
     build_available_coverages_pipeline,
     build_accuracy_pipeline,
     build_attempt_accuracy_rows,
+    build_hit_count_rows,
     build_signal_list_pipeline,
     evaluate_signal,
 )
@@ -62,6 +63,7 @@ async def list_minute_region_signals(
     coverage_mode: Literal["up_to", "exact"] = Query("up_to"),
     attempt_horizon: int | None = Query(None, ge=1, le=10),
     include_alternative: bool = Query(False),
+    hit_count: int | None = Query(None, ge=0, le=10),
     limit: int = Query(100, ge=1, le=500),
 ):
     safe_status = _safe_status(status)
@@ -74,6 +76,8 @@ async def list_minute_region_signals(
         include_alternative=include_alternative,
         coverage=coverage,
         coverage_mode=coverage_mode,
+        attempt_horizon=attempt_horizon or 10,
+        hit_count=hit_count,
         limit=limit,
     )
     result_docs = await minute_region_signals_coll.aggregate(list_pipeline).to_list(
@@ -211,6 +215,10 @@ async def minute_region_signal_stats(
                 "accuracy": round((hits / evaluated) * 100, 2) if evaluated else 0.0,
             },
             "attempt_accuracy": build_attempt_accuracy_rows(
+                accuracy_doc,
+                attempt_horizon=attempt_horizon,
+            ),
+            "hit_count_distribution": build_hit_count_rows(
                 accuracy_doc,
                 attempt_horizon=attempt_horizon,
             ),

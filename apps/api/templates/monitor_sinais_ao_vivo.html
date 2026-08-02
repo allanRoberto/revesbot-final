@@ -40,6 +40,11 @@
     .attempt-accuracy-card strong { display:block; color:var(--cyan); font-size:13px; }
     .attempt-accuracy-card .attempt-percent { display:block; font-size:22px; font-weight:850; margin:2px 0; }
     .attempt-accuracy-card small { display:block; color:var(--muted); }
+    .hit-count-card { text-align:left; color:var(--text); cursor:pointer; }
+    .hit-count-card:hover,.hit-count-card.selected { border-color:var(--cyan); box-shadow:inset 0 0 0 1px rgba(41,211,194,.25); }
+    .hit-count-card.selected strong { color:var(--amber); }
+    .hit-count-clear { border:1px solid var(--line); background:#0b161e; color:var(--muted); border-radius:8px; padding:6px 10px; cursor:pointer; }
+    .hit-count-clear.selected { border-color:var(--cyan); color:var(--cyan); }
     .coverage-breakdown { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px; }
     .coverage-pill { border:1px solid var(--line); background:#101d27; color:var(--text); padding:8px 11px; border-radius:999px; cursor:pointer; }
     .coverage-pill:hover,.coverage-pill.selected { border-color:var(--cyan); color:var(--cyan); }
@@ -132,6 +137,10 @@
     <div class="attempt-accuracy-title"><strong>Acertos por tentativa</strong><span>Primeiro acerto do sinal e percentual acumulado</span></div>
     <div class="attempt-accuracy-grid" id="attemptAccuracy"><div class="muted">Aguardando os filtros…</div></div>
   </section>
+  <section class="attempt-accuracy-section">
+    <div class="attempt-accuracy-title"><strong>Quantidade de acertos</strong><button class="hit-count-clear selected" id="clearHitCount" type="button">Todas</button></div>
+    <div class="attempt-accuracy-grid" id="hitCountDistribution"><div class="muted">Aguardando os filtros…</div></div>
+  </section>
   <div class="coverage-breakdown" id="coverageBreakdown"></div>
 
   <div class="toolbar">
@@ -146,6 +155,7 @@
   let latestLoadSequence = 0;
   let loadInProgress = false;
   let coverageMode = 'up_to';
+  let selectedHitCount = '';
   const el = id => document.getElementById(id);
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const fmt = value => value ? new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(value)) : '—';
@@ -268,6 +278,23 @@
       : '<div class="muted">Nenhum sinal concluído para calcular.</div>';
   }
 
+  function renderHitCountDistribution(items) {
+    el('clearHitCount').classList.toggle('selected', selectedHitCount === '');
+    el('hitCountDistribution').innerHTML = (items || []).length
+      ? items.map(item => `<button class="attempt-accuracy-card hit-count-card ${String(item.hit_count)===selectedHitCount?'selected':''}" data-hit-count="${escapeHtml(item.hit_count)}" type="button">
+          <strong>${escapeHtml(item.hit_count)} acerto(s)</strong>
+          <span class="attempt-percent">${escapeHtml(Number(item.percentage || 0).toFixed(2))}%</span>
+          <small>${escapeHtml(item.signals || 0)} sinais com exatamente ${escapeHtml(item.hit_count)}</small>
+          <small>Pelo menos ${escapeHtml(item.hit_count)}: ${escapeHtml(Number(item.at_least_percentage || 0).toFixed(2))}% · ${escapeHtml(item.at_least_signals || 0)} sinais</small>
+        </button>`).join('')
+      : '<div class="muted">Nenhum sinal concluído para calcular.</div>';
+    document.querySelectorAll('[data-hit-count]').forEach(button => button.addEventListener('click', () => {
+      selectedHitCount = selectedHitCount === button.dataset.hitCount ? '' : button.dataset.hitCount;
+      openSignalIds.clear();
+      load(true);
+    }));
+  }
+
   async function load(force=false) {
     if (loadInProgress && !force) return;
     const loadSequence = ++latestLoadSequence;
@@ -277,11 +304,13 @@
       const coverage = el('coverageFilter').value;
       const attemptHorizon = el('attemptHorizon').value;
       const includeAlternative = el('includeAlternative').value;
+      if (selectedHitCount !== '' && Number(selectedHitCount) > Number(attemptHorizon)) selectedHitCount = '';
       const query = new URLSearchParams({roulette_id:rouletteId,status,attempt_horizon:attemptHorizon,include_alternative:includeAlternative,limit:'200'});
       const statsQuery = new URLSearchParams({roulette_id:rouletteId,status,attempt_horizon:attemptHorizon,include_alternative:includeAlternative});
       query.set('coverage_mode', coverageMode);
       statsQuery.set('coverage_mode', coverageMode);
       if (coverage) { query.set('coverage', coverage); statsQuery.set('coverage', coverage); }
+      if (selectedHitCount !== '') query.set('hit_count', selectedHitCount);
       const [itemsResponse,statsResponse] = await Promise.all([
         fetch(`/api/minute-region-signals?${query}`), fetch(`/api/minute-region-signals/stats?${statsQuery}`)
       ]);
@@ -302,9 +331,11 @@
         : `Todas as coberturas${includeAlternative==='true'?' totais':''}`;
       el('evaluationNote').textContent = `${coverageDescription} · até ${attemptHorizon} tentativa(s) · centros alternativos ${includeAlternative==='true'?'incluídos':'ignorados'}. Sinais com menos tentativas permanecem na lista, fora do cálculo.`;
       el('lastUpdate').textContent = `Atualizado ${new Date().toLocaleTimeString('pt-BR')} · último sinal ${fmt(stats.latest_signal_minute_utc)}`;
-      el('listCount').textContent = `${data.total ?? data.count} sinal(is) no filtro; exibindo ${data.count}.`;
+      const hitCountDescription = selectedHitCount === '' ? '' : ` · exatamente ${selectedHitCount} acerto(s)`;
+      el('listCount').textContent = `${data.total ?? data.count} sinal(is) no filtro${hitCountDescription}; exibindo ${data.count}.`;
       populateCoverages(stats.available_coverages || []);
       renderAttemptAccuracy(stats.attempt_accuracy || []);
+      renderHitCountDistribution(stats.hit_count_distribution || []);
       renderCoverageBreakdown(stats.coverage_breakdown || []);
       el('signals').innerHTML = data.items.length ? data.items.map(renderSignal).join('') : '<div class="notice">Nenhum sinal para este filtro.</div>';
       bindAccordionState();
@@ -317,6 +348,7 @@
   }
   el('refresh').addEventListener('click', () => load(true));
   el('applyFilters').addEventListener('click', () => { openSignalIds.clear(); load(true); });
+  el('clearHitCount').addEventListener('click', () => { selectedHitCount = ''; openSignalIds.clear(); load(true); });
   el('coverageFilter').addEventListener('change', updateCoverageModeButtons);
   document.querySelectorAll('[data-coverage-mode]').forEach(button => button.addEventListener('click', () => setCoverageMode(button.dataset.coverageMode, true)));
   el('status').addEventListener('change', () => { openSignalIds.clear(); load(true); });

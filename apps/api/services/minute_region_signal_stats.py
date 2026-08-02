@@ -99,21 +99,79 @@ def build_available_coverages_pipeline(
     ]
 
 
+def considered_hit_condition(*, include_alternative: bool) -> Dict[str, Any]:
+    official_hit: Dict[str, Any] = {"$eq": ["$$attempt.is_payment", True]}
+    if not include_alternative:
+        return official_hit
+    return {
+        "$or": [
+            official_hit,
+            {"$eq": ["$$attempt.is_alternative_payment", True]},
+        ]
+    }
+
+
+def hit_count_expression(
+    *,
+    attempt_horizon: int,
+    include_alternative: bool,
+) -> Dict[str, Any]:
+    horizon = max(1, min(10, int(attempt_horizon)))
+    return {
+        "$size": {
+            "$filter": {
+                "input": {
+                    "$slice": [
+                        {"$ifNull": ["$attempts", []]},
+                        horizon,
+                    ]
+                },
+                "as": "attempt",
+                "cond": considered_hit_condition(
+                    include_alternative=include_alternative
+                ),
+            }
+        }
+    }
+
+
 def build_signal_list_pipeline(
     match_query: Mapping[str, Any],
     *,
     include_alternative: bool,
     coverage: int | None,
     coverage_mode: str,
+    attempt_horizon: int,
+    hit_count: int | None,
     limit: int,
 ) -> list[Dict[str, Any]]:
-    return [
+    horizon = max(1, min(10, int(attempt_horizon)))
+    pipeline: list[Dict[str, Any]] = [
         {"$match": dict(match_query)},
         *build_coverage_stages(
             include_alternative=include_alternative,
             coverage=coverage,
             coverage_mode=coverage_mode,
         ),
+        {
+            "$addFields": {
+                "evaluated_hit_count": hit_count_expression(
+                    attempt_horizon=horizon,
+                    include_alternative=include_alternative,
+                )
+            }
+        },
+    ]
+    if hit_count is not None:
+        pipeline.append(
+            {
+                "$match": {
+                    "attempt_count": {"$gte": horizon},
+                    "evaluated_hit_count": int(hit_count),
+                }
+            }
+        )
+    pipeline.append(
         {
             "$facet": {
                 "items": [
@@ -122,8 +180,9 @@ def build_signal_list_pipeline(
                 ],
                 "total": [{"$count": "value"}],
             }
-        },
-    ]
+        }
+    )
+    return pipeline
 
 
 def evaluate_signal(
@@ -154,6 +213,12 @@ def evaluate_signal(
         considered_attempts.append(alternative_hit_attempt)
     valid_hits = [item for item in considered_attempts if item is not None]
     hit = bool(valid_hits) if eligible else None
+    hit_count = sum(
+        1
+        for item in attempts
+        if item.get("is_payment")
+        or (include_alternative and item.get("is_alternative_payment"))
+    )
 
     return {
         "eligible": eligible,
@@ -162,6 +227,7 @@ def evaluate_signal(
         "outcome": "hit" if hit is True else "miss" if hit is False else "pending",
         "hit": hit,
         "first_hit_attempt": min(valid_hits) if eligible and valid_hits else None,
+        "hit_count": hit_count if eligible else None,
         "official_hit": official_hit_attempt is not None if eligible else None,
         "official_first_hit_attempt": official_hit_attempt if eligible else None,
         "alternative_hit": alternative_hit_attempt is not None if eligible else None,
@@ -202,6 +268,39 @@ def build_attempt_accuracy_rows(
     return rows
 
 
+def build_hit_count_rows(
+    accuracy_doc: Mapping[str, Any],
+    *,
+    attempt_horizon: int,
+) -> list[Dict[str, Any]]:
+    horizon = max(1, min(10, int(attempt_horizon)))
+    evaluated = max(0, int(accuracy_doc.get("evaluated", 0) or 0))
+    exact_counts = [
+        max(0, int(accuracy_doc.get(f"hit_count_{count}_signals", 0) or 0))
+        for count in range(0, horizon + 1)
+    ]
+    rows: list[Dict[str, Any]] = []
+    for hit_count, signals in enumerate(exact_counts):
+        at_least_signals = sum(exact_counts[hit_count:])
+        rows.append(
+            {
+                "hit_count": hit_count,
+                "signals": signals,
+                "percentage": round((signals / evaluated) * 100, 2)
+                if evaluated
+                else 0.0,
+                "at_least_signals": at_least_signals,
+                "at_least_percentage": round(
+                    (at_least_signals / evaluated) * 100,
+                    2,
+                )
+                if evaluated
+                else 0.0,
+            }
+        )
+    return rows
+
+
 def build_accuracy_pipeline(
     match_query: Mapping[str, Any],
     *,
@@ -215,16 +314,9 @@ def build_accuracy_pipeline(
     query = dict(match_query)
     query["attempt_count"] = {"$gte": horizon}
 
-    official_hit = {"$eq": ["$$attempt.is_payment", True]}
-    if include_alternative:
-        considered_hit: Dict[str, Any] = {
-            "$or": [
-                official_hit,
-                {"$eq": ["$$attempt.is_alternative_payment", True]},
-            ]
-        }
-    else:
-        considered_hit = official_hit
+    considered_hit = considered_hit_condition(
+        include_alternative=include_alternative
+    )
 
     considered_attempts_expression = {
         "$filter": {
@@ -283,6 +375,16 @@ def build_accuracy_pipeline(
                     ]
                 }
             }
+        for hit_count in range(0, horizon + 1):
+            group_fields[f"hit_count_{hit_count}_signals"] = {
+                "$sum": {
+                    "$cond": [
+                        {"$eq": ["$evaluated_hit_count", hit_count]},
+                        1,
+                        0,
+                    ]
+                }
+            }
     pipeline: list[Dict[str, Any]] = [
         {"$match": query},
         *build_coverage_stages(
@@ -295,6 +397,10 @@ def build_accuracy_pipeline(
                 "effective_coverage": 1,
                 "hit": hit_expression,
                 "first_hit_attempt": first_hit_attempt_expression,
+                "evaluated_hit_count": hit_count_expression(
+                    attempt_horizon=horizon,
+                    include_alternative=include_alternative,
+                ),
             }
         },
         {"$group": group_fields},
