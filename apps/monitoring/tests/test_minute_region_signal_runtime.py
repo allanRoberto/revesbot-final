@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from apps.monitoring.src.minute_region_signal_runtime import (
+    G5_SHADOW_SCENARIO_KEY,
     apply_result_to_signal,
     build_alternative_analysis,
     build_signal_document,
@@ -110,6 +111,25 @@ def test_close_official_centers_create_disjoint_informative_alternative():
     assert analysis["alternative_center"] is not None
     assert set(region_numbers(1, 3)).isdisjoint(
         analysis["alternative_bet_values"]
+    )
+
+
+def test_g5_shadow_recalculates_four_neighbor_region_without_changing_primary():
+    signal = _signal()
+    scenario = signal["shadow_scenarios"][G5_SHADOW_SCENARIO_KEY]
+
+    assert scenario["mode"] == "shadow"
+    assert scenario["attempt_horizon"] == 5
+    assert scenario["bet_neighbors"] == 4
+    assert [item["value"] for item in scenario["selected_centers"]] == [1, 5]
+    assert set(signal["bet_values"]) != set(scenario["bet_values"])
+    assert scenario["effective_coverage"] == len(
+        set(scenario["effective_bet_values"])
+    )
+    alternative = scenario["alternative_analysis"]
+    assert alternative["triggered"] is True
+    assert set(region_numbers(1, 4)).isdisjoint(
+        alternative["alternative_bet_values"]
     )
 
 

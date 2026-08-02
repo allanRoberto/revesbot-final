@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Validação G5 · Modo sombra</title>
+  <style>
+    :root{--bg:#071018;--panel:#0d1a24;--panel2:#101f2b;--line:#233746;--text:#edf6fb;--muted:#8ea6b5;--cyan:#4ed9eb;--green:#4ade80;--yellow:#facc15;--red:#fb7185;--blue:#60a5fa}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 18% 0,#133042 0,transparent 34%),var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,select{font:inherit} .page{max-width:1440px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:18px}.eyebrow{color:var(--cyan);font-size:12px;font-weight:850;letter-spacing:.13em;text-transform:uppercase}.top h1{font-size:clamp(25px,4vw,40px);line-height:1.05;margin:6px 0 9px}.top p{color:var(--muted);margin:0;max-width:760px}.top-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}.link,.button,select{border:1px solid var(--line);border-radius:10px;background:#0a151e;color:var(--text);padding:10px 13px;text-decoration:none}.button{cursor:pointer;font-weight:800}.button:hover,.link:hover{border-color:var(--cyan)}.button:disabled{opacity:.55;cursor:wait}
+    .shadow-banner{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 16px;margin-bottom:14px;border:1px solid #185f69;border-radius:14px;background:linear-gradient(90deg,rgba(29,165,180,.18),rgba(16,31,43,.92))}.shadow-banner strong{color:var(--cyan)}.shadow-banner span{color:#b9dce1}.live-dot{width:9px;height:9px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 5px rgba(78,217,235,.12);display:inline-block;margin-right:8px}
+    .cards{display:grid;grid-template-columns:repeat(5,minmax(160px,1fr));gap:10px;margin-bottom:14px}.card,.panel{border:1px solid var(--line);border-radius:14px;background:linear-gradient(150deg,rgba(18,36,49,.97),rgba(10,21,30,.97));box-shadow:0 12px 32px rgba(0,0,0,.14)}.card{padding:15px}.card span{display:block;color:var(--muted);font-size:12px}.card strong{display:block;font-size:26px;margin:4px 0 1px}.card small{color:var(--muted)}.positive{color:var(--green)!important}.warning{color:var(--yellow)!important}.negative{color:var(--red)!important}.cyan{color:var(--cyan)!important}
+    .panel{padding:17px;margin-bottom:14px}.panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:13px}.panel h2{font-size:17px;margin:0}.panel-head span{color:var(--muted);font-size:12px}.comparison{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:9px}.compare-cell{padding:12px;border:1px solid var(--line);border-radius:11px;background:#09151e}.compare-cell span{display:block;color:var(--muted);font-size:11px}.compare-cell strong{font-size:21px}.compare-cell small{display:block;color:var(--muted);margin-top:2px}
+    .attempt-grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:9px}.attempt{padding:13px;border:1px solid var(--line);border-radius:12px;background:#09151e}.attempt b{color:var(--cyan)}.attempt strong{display:block;font-size:24px;margin:2px 0}.attempt .baseline{color:var(--muted);font-size:12px}.attempt small{display:block;color:var(--muted);margin-top:4px}
+    .gate{display:grid;grid-template-columns:auto 1fr;gap:15px;align-items:center}.gate-badge{min-width:190px;text-align:center;padding:14px;border-radius:12px;font-weight:900;letter-spacing:.05em}.gate-badge.collecting{color:var(--yellow);background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.35)}.gate-badge.criteria_met{color:var(--green);background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.35)}.gate-badge.below_target{color:var(--red);background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.35)}.gate-copy{color:var(--muted)}.gate-copy strong{color:var(--text)}
+    .signals{display:grid;gap:8px}.signal{border:1px solid var(--line);border-radius:11px;background:#09151e;overflow:hidden}.signal summary{list-style:none;display:grid;grid-template-columns:170px minmax(180px,1fr) 115px 115px;gap:10px;align-items:center;padding:12px;cursor:pointer}.signal summary::-webkit-details-marker{display:none}.signal summary:hover{background:#0d1d28}.signal-time{color:var(--muted)}.centers{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.ball{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;font-weight:850;background:#111827;border:1px solid #334155}.ball.red{background:#7f1d1d;border-color:#ef4444}.ball.black{background:#111827}.ball.green{background:#065f46;border-color:#10b981}.outcome{font-weight:850}.outcome.hit{color:var(--green)}.outcome.miss{color:var(--red)}.outcome.pending{color:var(--yellow)}.coverage{text-align:right;color:var(--muted)}.signal-body{padding:0 12px 13px;border-top:1px solid var(--line)}.signal-body p{color:var(--muted);margin:10px 0 7px}.attempt-balls{display:flex;gap:6px;flex-wrap:wrap}.spin{display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;color:var(--muted)}.spin.hit{border-color:rgba(74,222,128,.45);color:var(--green)}
+    .empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:11px}.footer-note{color:var(--muted);font-size:12px;margin-top:8px}.error{color:var(--red)}
+    @media(max-width:1050px){.cards{grid-template-columns:repeat(3,1fr)}.comparison{grid-template-columns:repeat(2,1fr)}.attempt-grid{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:720px){.page{padding:15px}.top{display:block}.top-actions{justify-content:flex-start;margin-top:14px}.cards{grid-template-columns:repeat(2,1fr)}.attempt-grid{grid-template-columns:repeat(2,1fr)}.gate{grid-template-columns:1fr}.signal summary{grid-template-columns:1fr 90px}.signal summary .centers{grid-column:1/-1;grid-row:2}.coverage{grid-column:2;grid-row:1}.shadow-banner{display:block}.shadow-banner span{display:block;margin-top:5px}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <div><div class="eyebrow">Experimento controlado</div><h1>Validação G5 · 4 vizinhos</h1><p>Compara a região atual com o cenário de dois centros, quatro vizinhos e centro alternativo recalculado. O cenário é apenas observado e não executa apostas.</p></div>
+      <div class="top-actions"><select id="historyLimit" aria-label="Quantidade de sinais"><option value="1000">Últimos 1.000</option><option value="3000">Últimos 3.000</option><option value="5000" selected>Últimos 5.000</option></select><button class="button" id="refreshButton" type="button">Atualizar agora</button><a class="link" href="/monitor-sinais-ao-vivo">Monitor atual</a></div>
+    </header>
+
+    <div class="shadow-banner"><strong><span class="live-dot"></span>MODO SOMBRA · g5_n4_v1</strong><span>10 resultados continuam sendo coletados; somente G1–G5 entram nesta medição.</span></div>
+
+    <section class="cards">
+      <article class="card"><span>Estado da validação</span><strong id="gateCard">—</strong><small id="gateProgress">Aguardando dados</small></article>
+      <article class="card"><span>Assertividade sombra G5</span><strong id="candidateAccuracy">—</strong><small>Meta estrita: acima de 95%</small></article>
+      <article class="card"><span>Retenção dos sinais</span><strong id="retention">—</strong><small>Meta: pelo menos 50%</small></article>
+      <article class="card"><span>Amostra concluída</span><strong id="evaluated">—</strong><small id="pending">— pendentes</small></article>
+      <article class="card"><span>Cobertura média</span><strong id="coverage">—</strong><small id="coverageDelta">—</small></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Atual × cenário sombra</h2><span id="lastUpdate">—</span></div>
+      <div class="comparison" id="comparison"><div class="empty">Aguardando o primeiro sinal do modo sombra.</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Assertividade acumulada por tentativa</h2><span>Primeiro acerto dentro da região efetiva</span></div>
+      <div class="attempt-grid" id="attemptGrid"><div class="empty">Aguardando tentativas.</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Critério para promoção</h2><span>Não promove automaticamente</span></div>
+      <div class="gate"><div class="gate-badge collecting" id="gateBadge">COLETANDO</div><div class="gate-copy" id="gateCopy">É necessário acumular sinais ao vivo antes da decisão.</div></div>
+      <div class="footer-note">Backtest histórico: 43.200 sinais em 30 dias · 97,22% em G5 · limite inferior de 95%: 97,07% · cobertura média 19,32.</div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Últimos sinais observados</h2><span id="recentCount">—</span></div>
+      <div class="signals" id="recentSignals"><div class="empty">Aguardando o primeiro sinal.</div></div>
+    </section>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    let requestSequence = 0;
+
+    function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));}
+    function numberColor(value){const n=Number(value);return n===0?'green':RED.has(n)?'red':'black';}
+    function ball(value){return `<span class="ball ${numberColor(value)}">${escapeHtml(value)}</span>`;}
+    function percent(value){return `${Number(value||0).toFixed(2)}%`;}
+    function dateBr(value){if(!value)return '—';const date=new Date(value);return Number.isNaN(date.getTime())?'—':date.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+    function signed(value,suffix=''){const n=Number(value||0);return `${n>0?'+':''}${n.toFixed(2)}${suffix}`;}
+    function outcomeLabel(evaluation){if(evaluation?.outcome==='hit')return `ACERTO G${evaluation.first_hit_attempt}`;if(evaluation?.outcome==='miss')return 'ERRO EM G5';if(evaluation?.observed_first_hit_attempt)return `ACERTO OBSERVADO G${evaluation.observed_first_hit_attempt}`;return `PENDENTE ${evaluation?.attempt_count||0}/5`;}
+
+    function renderCards(data){
+      const gate=data.gate||{}, candidate=data.candidate||{};
+      const gateLabels={collecting:'COLETANDO',criteria_met:'CRITÉRIO ATINGIDO',below_target:'ABAIXO DA META'};
+      $('gateCard').textContent=gateLabels[gate.status]||'AGUARDANDO';
+      $('gateCard').className=gate.status==='criteria_met'?'positive':gate.status==='below_target'?'negative':'warning';
+      $('gateProgress').textContent=`${candidate.evaluated||0} de ${gate.minimum_sample||1000} sinais mínimos`;
+      $('candidateAccuracy').textContent=candidate.evaluated?percent(candidate.accuracy):'—';
+      $('candidateAccuracy').className=candidate.evaluated?(Number(candidate.accuracy)>95?'positive':'warning'):'';
+      $('retention').textContent=data.scenario_signals?percent(data.retention):'—';
+      $('retention').className=data.scenario_signals?(Number(data.retention)>=50?'positive':'negative'):'';
+      $('evaluated').textContent=String(candidate.evaluated||0);
+      $('pending').textContent=`${candidate.pending||0} pendente(s)`;
+      $('coverage').textContent=data.scenario_signals?Number(candidate.average_coverage||0).toFixed(2):'—';
+      $('coverageDelta').textContent=data.scenario_signals?`${signed(data.comparison?.coverage_delta)} número(s) vs atual`:'Aguardando cenário';
+    }
+
+    function renderComparison(data){
+      const baseline=data.baseline||{}, candidate=data.candidate||{}, comparison=data.comparison||{};
+      if(!data.scenario_signals){$('comparison').innerHTML='<div class="empty">O worker ainda não gravou o primeiro sinal g5_n4_v1.</div>';return;}
+      $('comparison').innerHTML=`
+        <article class="compare-cell"><span>Atual · assertividade G5</span><strong>${percent(baseline.accuracy)}</strong><small>${baseline.hits||0}/${baseline.evaluated||0} sinais</small></article>
+        <article class="compare-cell"><span>Sombra · assertividade G5</span><strong class="${Number(candidate.accuracy)>95?'positive':'warning'}">${percent(candidate.accuracy)}</strong><small>${candidate.hits||0}/${candidate.evaluated||0} sinais</small></article>
+        <article class="compare-cell"><span>Diferença de assertividade</span><strong class="${Number(comparison.accuracy_delta)>=0?'positive':'negative'}">${signed(comparison.accuracy_delta,'%')}</strong><small>sombra menos configuração atual</small></article>
+        <article class="compare-cell"><span>Diferença de cobertura</span><strong>${signed(comparison.coverage_delta)}</strong><small>${Number(baseline.average_coverage||0).toFixed(2)} atual · ${Number(candidate.average_coverage||0).toFixed(2)} sombra</small></article>`;
+    }
+
+    function renderAttempts(data){
+      const candidate=data.candidate?.attempt_accuracy||[], baseline=data.baseline?.attempt_accuracy||[];
+      if(!candidate.length||!data.candidate?.evaluated){$('attemptGrid').innerHTML='<div class="empty">As porcentagens aparecem após cinco resultados concluídos.</div>';return;}
+      $('attemptGrid').innerHTML=candidate.map((item,index)=>{const current=baseline[index]||{};return `<article class="attempt"><b>Até G${escapeHtml(item.attempt)}</b><strong>${percent(item.cumulative_accuracy)}</strong><div class="baseline">Atual: ${percent(current.cumulative_accuracy)}</div><small>${item.hits||0} primeiro(s) acerto(s) exatamente no G${escapeHtml(item.attempt)} · ${item.cumulative_hits||0} acumulados</small></article>`;}).join('');
+    }
+
+    function renderGate(data){
+      const gate=data.gate||{}, candidate=data.candidate||{};
+      const labels={collecting:'COLETANDO',criteria_met:'CRITÉRIO ATINGIDO',below_target:'ABAIXO DA META'};
+      $('gateBadge').textContent=labels[gate.status]||'AGUARDANDO';
+      $('gateBadge').className=`gate-badge ${gate.status||'collecting'}`;
+      if(gate.status==='criteria_met')$('gateCopy').innerHTML=`A amostra mínima foi atingida com <strong>${percent(candidate.accuracy)}</strong> e retenção de <strong>${percent(data.retention)}</strong>. A promoção ainda depende de confirmação manual.`;
+      else if(gate.status==='below_target')$('gateCopy').innerHTML=`A amostra mínima foi atingida, mas o cenário não cumpre simultaneamente assertividade acima de 95% e retenção mínima de 50%.`;
+      else $('gateCopy').innerHTML=`Coletando: <strong>${candidate.evaluated||0}/${gate.minimum_sample||1000}</strong> sinais concluídos. Assertividade atual: <strong>${candidate.evaluated?percent(candidate.accuracy):'—'}</strong>; retenção: <strong>${data.scenario_signals?percent(data.retention):'—'}</strong>.`;
+    }
+
+    function renderRecent(items){
+      $('recentCount').textContent=`${(items||[]).length} sinal(is)`;
+      if(!(items||[]).length){$('recentSignals').innerHTML='<div class="empty">Aguardando novos sinais do worker.</div>';return;}
+      $('recentSignals').innerHTML=items.map(item=>{
+        const evaluation=item.candidate||{}, outcome=evaluation.outcome||'pending';
+        const centers=(item.selected_centers||[]).map(center=>ball(center.value)).join('');
+        const alternative=item.alternative_center?.value!=null?`<span class="signal-time">Alt.</span>${ball(item.alternative_center.value)}`:'';
+        const spins=(evaluation.attempts||[]).map(attempt=>`<span class="spin ${attempt.is_hit?'hit':''}">G${escapeHtml(attempt.attempt)} ${ball(attempt.value)}</span>`).join('')||'<span class="signal-time">Nenhum resultado ainda.</span>';
+        return `<details class="signal"><summary><span class="signal-time">${escapeHtml(dateBr(item.signal_minute_utc))}</span><span class="centers"><span class="signal-time">Centros</span>${centers}${alternative}</span><span class="outcome ${outcome}">${escapeHtml(outcomeLabel(evaluation))}</span><span class="coverage">${escapeHtml(item.effective_coverage)} números</span></summary><div class="signal-body"><p>Resultados observados no cenário sombra:</p><div class="attempt-balls">${spins}</div></div></details>`;
+      }).join('');
+    }
+
+    function render(data){renderCards(data);renderComparison(data);renderAttempts(data);renderGate(data);renderRecent(data.recent_signals||[]);$('lastUpdate').textContent=`Atualizado ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;}
+
+    async function load(){
+      const sequence=++requestSequence, button=$('refreshButton');button.disabled=true;button.textContent='Atualizando…';
+      try{
+        const query=new URLSearchParams({roulette_id:'pragmatic-auto-roulette',history_limit:$('historyLimit').value,recent_limit:'80'});
+        const response=await fetch(`/api/minute-region-signals/shadow-g5?${query}`);
+        if(!response.ok)throw new Error(`HTTP ${response.status}`);
+        const data=await response.json();if(sequence!==requestSequence)return;render(data);
+      }catch(error){if(sequence!==requestSequence)return;$('comparison').innerHTML=`<div class="empty error">Erro ao carregar o modo sombra: ${escapeHtml(error.message)}</div>`;$('lastUpdate').textContent='Falha na atualização';}
+      finally{if(sequence===requestSequence){button.disabled=false;button.textContent='Atualizar agora';}}
+    }
+
+    $('refreshButton').addEventListener('click',load);$('historyLimit').addEventListener('change',load);load();setInterval(load,30000);
+  </script>
+</body>
+</html>

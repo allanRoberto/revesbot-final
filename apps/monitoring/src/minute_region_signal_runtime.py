@@ -10,6 +10,9 @@ WHEEL_ORDER = (
 )
 WHEEL_INDEX = {value: index for index, value in enumerate(WHEEL_ORDER)}
 RED_NUMBERS = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+G5_SHADOW_SCENARIO_KEY = "g5_n4_v1"
+G5_SHADOW_BET_NEIGHBORS = 4
+G5_SHADOW_ATTEMPT_HORIZON = 5
 
 
 def number_color(value: int) -> str:
@@ -184,6 +187,49 @@ def build_alternative_analysis(
     }
 
 
+def build_g5_shadow_scenario(
+    rankings: Sequence[Mapping[str, Any]],
+    selected_rankings: Sequence[Mapping[str, Any]],
+    *,
+    analysis_neighbors: int,
+) -> Dict[str, Any]:
+    selected_values = [int(item["center"]) for item in selected_rankings]
+    official_values = _ordered_region_values(
+        selected_values,
+        G5_SHADOW_BET_NEIGHBORS,
+    )
+    alternative_analysis = build_alternative_analysis(
+        rankings,
+        selected_rankings,
+        bet_neighbors=G5_SHADOW_BET_NEIGHBORS,
+    )
+    effective_values = set(official_values)
+    effective_values.update(
+        int(value)
+        for value in alternative_analysis.get("alternative_bet_values", [])
+    )
+    ordered_effective_values = [
+        value for value in WHEEL_ORDER if value in effective_values
+    ]
+    return {
+        "key": G5_SHADOW_SCENARIO_KEY,
+        "label": "G5 · 4 vizinhos",
+        "mode": "shadow",
+        "attempt_horizon": G5_SHADOW_ATTEMPT_HORIZON,
+        "analysis_neighbors": int(analysis_neighbors),
+        "bet_neighbors": G5_SHADOW_BET_NEIGHBORS,
+        "centers_count": len(selected_rankings),
+        "selected_centers": [
+            _ranking_payload(item) for item in selected_rankings
+        ],
+        "bet_values": official_values,
+        "coverage": len(official_values),
+        "alternative_analysis": alternative_analysis,
+        "effective_bet_values": ordered_effective_values,
+        "effective_coverage": len(ordered_effective_values),
+    }
+
+
 def build_signal_document(
     *,
     roulette_id: str,
@@ -213,6 +259,11 @@ def build_signal_document(
         rankings,
         selected_rankings,
         bet_neighbors=bet_neighbors,
+    )
+    g5_shadow_scenario = build_g5_shadow_scenario(
+        rankings,
+        selected_rankings,
+        analysis_neighbors=analysis_neighbors,
     )
 
     serialized_previous = [dict(item) for item in previous_results]
@@ -245,6 +296,9 @@ def build_signal_document(
         "previous_region_hit": bool(previous_region_matches),
         "previous_region_hit_count": len(previous_region_matches),
         "alternative_analysis": alternative_analysis,
+        "shadow_scenarios": {
+            G5_SHADOW_SCENARIO_KEY: g5_shadow_scenario,
+        },
         "alternative_payment_count": 0,
         "alternative_hit": False,
         "status": "active",

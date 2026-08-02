@@ -13,6 +13,7 @@ from api.core.db import minute_region_signals_coll
 from api.services.minute_region_signal_persistence import (
     analyze_center_persistence,
 )
+from api.services.minute_region_signal_shadow import analyze_g5_shadow_signals
 from api.services.minute_region_signal_stats import (
     build_available_coverages_pipeline,
     build_accuracy_pipeline,
@@ -198,6 +199,47 @@ async def minute_region_signal_persistence(
             _persistence_cache.pop(oldest_key, None)
         _persistence_cache[cache_key] = (monotonic(), result)
         return _serialize(result)
+
+
+@router.get("/shadow-g5")
+async def minute_region_signal_shadow_g5(
+    roulette_id: str = Query(DEFAULT_ROULETTE_ID, min_length=1),
+    history_limit: int = Query(5000, ge=100, le=5000),
+    recent_limit: int = Query(80, ge=1, le=200),
+):
+    pipeline = [
+        {"$match": {"roulette_id": str(roulette_id).strip()}},
+        {"$sort": {"signal_minute_utc": DESCENDING}},
+        {"$limit": history_limit},
+        {
+            "$project": {
+                "signal_key": 1,
+                "signal_minute_utc": 1,
+                "signal_minute_br": 1,
+                "generated_at_utc": 1,
+                "selected_centers": 1,
+                "bet_values": 1,
+                "alternative_analysis.alternative_bet_values": 1,
+                "shadow_scenarios": 1,
+                "attempt_count": 1,
+                "attempts.attempt_number": 1,
+                "attempts.value": 1,
+                "attempts.timestamp_utc": 1,
+                "attempts.formatted": 1,
+            }
+        },
+    ]
+    signals = await minute_region_signals_coll.aggregate(pipeline).to_list(
+        length=history_limit
+    )
+    result = await asyncio.to_thread(
+        analyze_g5_shadow_signals,
+        signals,
+        recent_limit=recent_limit,
+    )
+    result["roulette_id"] = str(roulette_id).strip()
+    result["history_limit"] = history_limit
+    return _serialize(result)
 
 
 @router.get("/stats")
