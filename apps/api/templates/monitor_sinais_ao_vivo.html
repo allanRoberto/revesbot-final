@@ -195,12 +195,15 @@
     const evaluationBadge = evaluation.eligible
       ? `<span class="result-badge ${evaluation.hit?'hit':'miss'}">${evaluation.hit?'ACERTO':'ERRO'} ATÉ ${escapeHtml(evaluation.attempt_horizon)}ª${evaluation.first_hit_attempt?` · G${escapeHtml(evaluation.first_hit_attempt)}`:''}</span>`
       : `<span class="result-badge pending">PENDENTE · ${escapeHtml(signal.attempt_count || 0)}/${escapeHtml(evaluation.attempt_horizon || 0)}</span>`;
+    const hitCountLabel = evaluation.eligible
+      ? `${escapeHtml(evaluation.hit_count || 0)} acerto(s) até G${escapeHtml(evaluation.attempt_horizon)}`
+      : `${escapeHtml(signal.payment_count || 0)} acerto(s)`;
     return `<details data-signal-id="${escapeHtml(signalId)}" ${openSignalIds.has(signalId)?'open':''}>
       <summary>
         <div class="signal-time"><strong>${fmt(signal.signal_minute_utc)}</strong><small>${escapeHtml(signal.attempt_count)}/${maxAttempts} tentativas</small><div class="progress"><i style="width:${progress}%"></i></div></div>
         <div class="centers"><span class="muted">Centros</span> ${(signal.selected_centers||[]).map(item=>ball(item,true)).join('')}</div>
         <div><span class="badge ${escapeHtml(signal.status)}">${signal.status==='active'?'Monitorando':'Concluído'}</span>${evaluationBadge}</div>
-        <div class="payments">${escapeHtml(signal.payment_count || 0)} acerto(s)</div>
+        <div class="payments">${hitCountLabel}</div>
       </summary>
       <div class="body">
         <div class="box"><h3>Região apostada · ${escapeHtml(signal.coverage)} números</h3><div class="numbers">${region}</div></div>
