@@ -215,6 +215,8 @@
     <p class="persistence-note" id="persistenceNote">O centro é contado uma vez por minuto; se sua região for paga antes da entrada, a sequência recomeça.</p>
     <div class="persistence-subtitle"><strong>Comparação por momento da entrada</strong><span>Clique em um limite para analisar seus gatilhos</span></div>
     <div class="persistence-comparison" id="persistenceComparison"><div class="persistence-empty">Carregando comparação…</div></div>
+    <div class="persistence-subtitle"><strong id="persistenceAttemptTitle">Assertividade por tentativa do centro</strong><span id="persistenceAttemptSample">—</span></div>
+    <div class="attempt-accuracy-grid" id="persistenceAttemptAccuracy"><div class="persistence-empty">Carregando tentativas…</div></div>
     <div class="persistence-subtitle"><strong>Centros persistentes agora</strong><span id="persistenceActiveCount">—</span></div>
     <div class="persistence-active" id="persistenceActive"><div class="persistence-empty">Carregando centros…</div></div>
     <div class="persistence-subtitle"><strong>Últimos gatilhos do limite escolhido</strong><span id="persistenceTriggerCount">—</span></div>
@@ -433,9 +435,28 @@
       : '<div class="persistence-empty">Ainda não há ocorrências suficientes para comparar.</div>';
     document.querySelectorAll('[data-persistence-threshold]').forEach(button => button.addEventListener('click', () => {
       el('persistenceMinRepetitions').value = button.dataset.persistenceThreshold;
+      renderPersistenceAttemptAccuracy(persistenceData?.thresholds || rows || []);
       openPersistenceIds.clear();
       loadPersistence(true);
     }));
+  }
+
+  function renderPersistenceAttemptAccuracy(rows) {
+    const selected = Number(el('persistenceMinRepetitions').value || 1);
+    const threshold = (rows || []).find(item => Number(item.threshold)===selected);
+    el('persistenceAttemptTitle').textContent = `Assertividade por tentativa · entrada após ${selected} sugestão(ões)`;
+    el('persistenceAttemptSample').textContent = threshold
+      ? `${threshold.evaluated||0} gatilho(s) avaliados · ${threshold.pending||0} pendente(s) fora do cálculo`
+      : 'Nenhuma amostra para este limite';
+    const attempts = threshold?.attempt_accuracy || [];
+    el('persistenceAttemptAccuracy').innerHTML = attempts.length
+      ? attempts.map(item => `<div class="attempt-accuracy-card">
+          <strong>G${escapeHtml(item.attempt)}</strong>
+          <span class="attempt-percent">${escapeHtml(Number(item.accuracy||0).toFixed(2))}%</span>
+          <small>${escapeHtml(item.hits||0)} primeiro(s) acerto(s) exatamente no G${escapeHtml(item.attempt)}</small>
+          <small>Até G${escapeHtml(item.attempt)}: ${escapeHtml(Number(item.cumulative_accuracy||0).toFixed(2))}% · ${escapeHtml(item.cumulative_hits||0)} acerto(s)</small>
+        </div>`).join('')
+      : '<div class="persistence-empty">Nenhum gatilho concluído para calcular as tentativas.</div>';
   }
 
   function renderPersistenceActive(items) {
@@ -494,6 +515,7 @@
     el('persistenceAnalyzed').textContent = `${escapeHtml(config.signals_analyzed||0)} sinais analisados`;
     el('persistenceNote').textContent = `Cada centro conta uma vez por minuto · ${config.center_neighbors} vizinho(s) de cada lado · ${config.max_gap_minutes===1?'minutos consecutivos':`intervalo de até ${config.max_gap_minutes} min`} · próximas ${config.attempt_horizon} jogadas · ${config.include_alternative?'centros oficiais e alternativos':'somente centros oficiais'} · pagamento da região antes do gatilho reinicia a sequência.`;
     renderPersistenceComparison(data.thresholds || []);
+    renderPersistenceAttemptAccuracy(data.thresholds || []);
     renderPersistenceActive(data.active_centers || []);
     renderPersistenceTriggers(data.recent_triggers || []);
   }
@@ -526,6 +548,7 @@
       if (persistenceSequence !== latestPersistenceSequence) return;
       el('persistenceAnalyzed').textContent = 'ERRO';
       el('persistenceComparison').innerHTML = `<div class="persistence-empty">Erro ao analisar: ${escapeHtml(error.message)}</div>`;
+      el('persistenceAttemptAccuracy').innerHTML = '<div class="persistence-empty">Não foi possível calcular as tentativas.</div>';
       el('persistenceActive').innerHTML = '<div class="persistence-empty">Não foi possível carregar os centros persistentes.</div>';
       el('persistenceTriggers').innerHTML = '<div class="persistence-empty">Não foi possível carregar os gatilhos.</div>';
     } finally {

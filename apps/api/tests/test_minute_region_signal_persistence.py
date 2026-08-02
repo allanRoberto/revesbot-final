@@ -174,6 +174,48 @@ def test_pending_center_triggers_do_not_enter_accuracy_denominator():
     assert row["misses"] == 1
 
 
+def test_attempt_accuracy_shows_exact_and_cumulative_center_hits():
+    signals = [
+        _signal(0, attempts=[_attempt(3, minute=0, attempt=1)]),
+        _signal(
+            3,
+            attempts=[
+                _attempt(5, minute=3, attempt=1),
+                _attempt(3, minute=3, attempt=2),
+            ],
+        ),
+    ]
+
+    result = analyze_center_persistence(
+        signals,
+        min_repetitions=1,
+        max_repetitions=1,
+        max_gap_minutes=1,
+        attempt_horizon=2,
+        center_neighbors=0,
+    )
+
+    row = result["thresholds"][0]
+    assert row["evaluated"] == 2
+    assert row["hits"] == 2
+    assert row["attempt_accuracy"] == [
+        {
+            "attempt": 1,
+            "hits": 1,
+            "accuracy": 50.0,
+            "cumulative_hits": 1,
+            "cumulative_accuracy": 50.0,
+        },
+        {
+            "attempt": 2,
+            "hits": 1,
+            "accuracy": 50.0,
+            "cumulative_hits": 2,
+            "cumulative_accuracy": 100.0,
+        },
+    ]
+
+
 def test_maximum_gap_controls_center_suggestion_run():
     signals = [_signal(0), _signal(2)]
 
