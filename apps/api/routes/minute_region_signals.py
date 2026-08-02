@@ -26,7 +26,7 @@ from api.services.minute_region_signal_stats import (
 
 router = APIRouter(prefix="/api/minute-region-signals", tags=["minute-region-signals"])
 DEFAULT_ROULETTE_ID = "pragmatic-auto-roulette"
-PERSISTENCE_CACHE_TTL_SECONDS = 12.0
+PERSISTENCE_CACHE_TTL_SECONDS = 30.0
 _persistence_cache: Dict[tuple[Any, ...], tuple[float, Dict[str, Any]]] = {}
 _persistence_cache_lock = asyncio.Lock()
 
