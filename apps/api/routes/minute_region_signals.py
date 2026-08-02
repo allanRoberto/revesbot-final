@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from time import monotonic
 from typing import Any, Dict, Literal
 
 from bson import ObjectId
@@ -25,6 +26,9 @@ from api.services.minute_region_signal_stats import (
 
 router = APIRouter(prefix="/api/minute-region-signals", tags=["minute-region-signals"])
 DEFAULT_ROULETTE_ID = "pragmatic-auto-roulette"
+PERSISTENCE_CACHE_TTL_SECONDS = 12.0
+_persistence_cache: Dict[tuple[Any, ...], tuple[float, Dict[str, Any]]] = {}
+_persistence_cache_lock = asyncio.Lock()
 
 
 def _safe_status(status: str) -> str:
@@ -114,13 +118,34 @@ async def minute_region_signal_persistence(
     history_limit: int = Query(3000, ge=100, le=5000),
     recent_limit: int = Query(80, ge=1, le=200),
 ):
-    pipeline = [
-        {"$match": {"roulette_id": str(roulette_id).strip()}},
-        *build_coverage_stages(
+    cache_key = (
+        str(roulette_id).strip(),
+        min_repetitions,
+        max_repetitions,
+        max_gap_minutes,
+        attempt_horizon,
+        include_alternative,
+        coverage,
+        coverage_mode,
+        history_limit,
+        recent_limit,
+    )
+    cached = _persistence_cache.get(cache_key)
+    if cached and monotonic() - cached[0] <= PERSISTENCE_CACHE_TTL_SECONDS:
+        return _serialize(cached[1])
+
+    coverage_stages = (
+        build_coverage_stages(
             include_alternative=include_alternative,
             coverage=coverage,
             coverage_mode=coverage_mode,
-        ),
+        )
+        if coverage is not None
+        else []
+    )
+    pipeline = [
+        {"$match": {"roulette_id": str(roulette_id).strip()}},
+        *coverage_stages,
         {"$sort": {"signal_minute_utc": DESCENDING}},
         {"$limit": history_limit},
         {
@@ -138,28 +163,39 @@ async def minute_region_signal_persistence(
             }
         },
     ]
-    signals = await minute_region_signals_coll.aggregate(pipeline).to_list(
-        length=history_limit
-    )
-    result = await asyncio.to_thread(
-        analyze_number_persistence,
-        signals,
-        min_repetitions=min_repetitions,
-        max_repetitions=max_repetitions,
-        max_gap_minutes=max_gap_minutes,
-        attempt_horizon=attempt_horizon,
-        include_alternative=include_alternative,
-        recent_limit=recent_limit,
-    )
-    result["roulette_id"] = str(roulette_id).strip()
-    result["config"].update(
-        {
-            "coverage": coverage,
-            "coverage_mode": coverage_mode,
-            "history_limit": history_limit,
-        }
-    )
-    return _serialize(result)
+    async with _persistence_cache_lock:
+        cached = _persistence_cache.get(cache_key)
+        if cached and monotonic() - cached[0] <= PERSISTENCE_CACHE_TTL_SECONDS:
+            return _serialize(cached[1])
+        signals = await minute_region_signals_coll.aggregate(pipeline).to_list(
+            length=history_limit
+        )
+        result = await asyncio.to_thread(
+            analyze_number_persistence,
+            signals,
+            min_repetitions=min_repetitions,
+            max_repetitions=max_repetitions,
+            max_gap_minutes=max_gap_minutes,
+            attempt_horizon=attempt_horizon,
+            include_alternative=include_alternative,
+            recent_limit=recent_limit,
+        )
+        result["roulette_id"] = str(roulette_id).strip()
+        result["config"].update(
+            {
+                "coverage": coverage,
+                "coverage_mode": coverage_mode,
+                "history_limit": history_limit,
+            }
+        )
+        if len(_persistence_cache) >= 32:
+            oldest_key = min(
+                _persistence_cache,
+                key=lambda key: _persistence_cache[key][0],
+            )
+            _persistence_cache.pop(oldest_key, None)
+        _persistence_cache[cache_key] = (monotonic(), result)
+        return _serialize(result)
 
 
 @router.get("/stats")
