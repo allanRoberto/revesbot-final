@@ -49,7 +49,7 @@
     .persistence-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:14px; }
     .persistence-header h2 { margin:0 0 4px; font-size:20px; }
     .persistence-header p { margin:0; }
-    .persistence-filters { display:grid; grid-template-columns:repeat(4,minmax(145px,1fr)); gap:10px; margin-bottom:14px; }
+    .persistence-filters { display:grid; grid-template-columns:repeat(6,minmax(125px,1fr)); gap:10px; margin-bottom:14px; }
     .persistence-filters label { display:grid; gap:5px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
     .persistence-filters select { width:100%; text-transform:none; letter-spacing:normal; }
     .persistence-filters .button { align-self:end; height:42px; border-color:var(--amber); background:rgba(255,191,69,.11); }
@@ -177,7 +177,7 @@
   </section>
   <section class="persistence-section">
     <div class="persistence-header">
-      <div><h2>Persistência da sugestão</h2><p class="muted">Descubra se esperar o mesmo número ser sugerido repetidamente melhora e acelera o acerto.</p></div>
+      <div><h2>Persistência do centro</h2><p class="muted">Descubra se esperar o mesmo centro ser sugerido repetidamente melhora o acerto da região.</p></div>
       <span class="badge active" id="persistenceAnalyzed">Aguardando</span>
     </div>
     <div class="persistence-filters">
@@ -185,6 +185,19 @@
         <select id="persistenceMinRepetitions">
           <option value="1">1 sugestão</option><option value="2">2 sugestões</option><option value="3" selected>3 sugestões</option>
           <option value="4">4 sugestões</option><option value="5">5 sugestões</option><option value="6">6 sugestões</option>
+        </select>
+      </label>
+      <label>Próximas jogadas
+        <select id="persistenceAttemptHorizon">
+          <option value="1">1 jogada</option><option value="2">2 jogadas</option><option value="3">3 jogadas</option>
+          <option value="4">4 jogadas</option><option value="5">5 jogadas</option><option value="6">6 jogadas</option>
+          <option value="7" selected>7 jogadas</option><option value="8">8 jogadas</option><option value="9">9 jogadas</option><option value="10">10 jogadas</option>
+        </select>
+      </label>
+      <label>Vizinhos de cada lado
+        <select id="persistenceCenterNeighbors">
+          <option value="0">Somente o centro</option><option value="1">1 vizinho</option><option value="2" selected>2 vizinhos</option>
+          <option value="3">3 vizinhos</option><option value="4">4 vizinhos</option><option value="5">5 vizinhos</option>
         </select>
       </label>
       <label>Intervalo máximo
@@ -199,11 +212,11 @@
       </label>
       <button class="button" id="applyPersistence" type="button">Analisar repetições</button>
     </div>
-    <p class="persistence-note" id="persistenceNote">O número é contado uma vez por minuto; se sair antes da entrada, a sequência recomeça.</p>
+    <p class="persistence-note" id="persistenceNote">O centro é contado uma vez por minuto; se sua região for paga antes da entrada, a sequência recomeça.</p>
     <div class="persistence-subtitle"><strong>Comparação por momento da entrada</strong><span>Clique em um limite para analisar seus gatilhos</span></div>
     <div class="persistence-comparison" id="persistenceComparison"><div class="persistence-empty">Carregando comparação…</div></div>
-    <div class="persistence-subtitle"><strong>Números persistentes agora</strong><span id="persistenceActiveCount">—</span></div>
-    <div class="persistence-active" id="persistenceActive"><div class="persistence-empty">Carregando números…</div></div>
+    <div class="persistence-subtitle"><strong>Centros persistentes agora</strong><span id="persistenceActiveCount">—</span></div>
+    <div class="persistence-active" id="persistenceActive"><div class="persistence-empty">Carregando centros…</div></div>
     <div class="persistence-subtitle"><strong>Últimos gatilhos do limite escolhido</strong><span id="persistenceTriggerCount">—</span></div>
     <div class="persistence-triggers" id="persistenceTriggers"><div class="persistence-empty">Carregando gatilhos…</div></div>
   </section>
@@ -426,21 +439,25 @@
   }
 
   function renderPersistenceActive(items) {
-    el('persistenceActiveCount').textContent = `${(items||[]).length} número(s) pronto(s)`;
+    el('persistenceActiveCount').textContent = `${(items||[]).length} centro(s) pronto(s)`;
     el('persistenceActive').innerHTML = (items || []).length
       ? items.map(item => {
-          const persistenceId = `active-${item.number}`;
+          const persistenceId = `active-center-${item.center}`;
+          const regionItems = (item.region_values||[]).map(value=>numberBall(value)).join('');
           return `<details class="persistence-accordion" data-persistence-id="${escapeHtml(persistenceId)}" ${openPersistenceIds.has(persistenceId)?'open':''}>
             <summary>
-              <div class="persistence-number">${numberBall(item.number)}</div>
-              <div><strong>${escapeHtml(item.repetitions)} sugestões consecutivas</strong><small class="muted">Primeira ${escapeHtml(fmtMinute(item.first_suggested_at))} · última ${escapeHtml(fmtMinute(item.last_suggested_at))}</small></div>
+              <div class="persistence-number">${numberBall(item.center)}</div>
+              <div><strong>Centro ${escapeHtml(item.center)} · ${escapeHtml(item.repetitions)} sugestões</strong><small class="muted">Primeira ${escapeHtml(fmtMinute(item.first_suggested_at))} · última ${escapeHtml(fmtMinute(item.last_suggested_at))}</small></div>
               <small class="muted">Janela de ${escapeHtml(item.span_minutes)} min</small>
               <span class="persistence-status ready">ENTRADA LIBERADA</span>
             </summary>
-            <div class="persistence-body"><div><strong>Linha do tempo das sugestões</strong></div><div class="persistence-timeline">${persistenceTimeline(item.timeline)}</div></div>
+            <div class="persistence-body">
+              <div><strong>Região do centro · ${escapeHtml(item.center_neighbors)} vizinho(s) de cada lado</strong><div class="persistence-timeline">${regionItems}</div></div>
+              <div><strong>Linha do tempo das sugestões</strong><div class="persistence-timeline">${persistenceTimeline(item.timeline)}</div></div>
+            </div>
           </details>`;
         }).join('')
-      : '<div class="persistence-empty">Nenhum número atingiu o limite escolhido e continua sem pagamento neste momento.</div>';
+      : '<div class="persistence-empty">Nenhum centro atingiu o limite escolhido e continua sem pagamento neste momento.</div>';
   }
 
   function renderPersistenceTriggers(items) {
@@ -449,17 +466,19 @@
     el('persistenceTriggerCount').textContent = `${filtered.length} gatilho(s) exibido(s)`;
     el('persistenceTriggers').innerHTML = filtered.length
       ? filtered.map((item,index) => {
-          const persistenceId = `trigger-${item.threshold}-${item.number}-${item.trigger_minute_utc}-${index}`;
+          const persistenceId = `trigger-${item.threshold}-${item.center}-${item.trigger_minute_utc}-${index}`;
           const resultLabel = item.outcome==='hit'?`ACERTO G${item.first_hit_attempt}`:item.outcome==='miss'?'ERRO':'PENDENTE';
           const attemptItems = (item.attempts||[]).map(attempt => `<div class="persistence-step">${numberBall(attempt.value)}<small>G${escapeHtml(attempt.attempt)}${attempt.is_hit?' · acerto':''}</small></div>`).join('');
+          const regionItems = (item.region_values||[]).map(value=>numberBall(value)).join('');
           return `<details class="persistence-accordion" data-persistence-id="${escapeHtml(persistenceId)}" ${openPersistenceIds.has(persistenceId)?'open':''}>
             <summary>
-              <div class="persistence-number">${numberBall(item.number)}</div>
-              <div><strong>Entrada após ${escapeHtml(item.threshold)} sugestões</strong><small class="muted">Sequência iniciada ${escapeHtml(fmtMinute(item.sequence_start_utc))}</small></div>
+              <div class="persistence-number">${numberBall(item.center)}</div>
+              <div><strong>Centro ${escapeHtml(item.center)} após ${escapeHtml(item.threshold)} sugestões</strong><small class="muted">Sequência iniciada ${escapeHtml(fmtMinute(item.sequence_start_utc))}</small></div>
               <small class="muted">Gatilho ${escapeHtml(fmtMinute(item.trigger_minute_utc))}${item.seconds_to_hit!=null?` · ${escapeHtml(formatPersistenceDuration(item.seconds_to_hit))}`:''}</small>
               <span class="persistence-status ${escapeHtml(item.outcome)}">${escapeHtml(resultLabel)}</span>
             </summary>
             <div class="persistence-body">
+              <div><strong>Região conferida · ${escapeHtml(item.center_neighbors)} vizinho(s) de cada lado</strong><div class="persistence-timeline">${regionItems}</div></div>
               <div><strong>Sugestões que formaram o gatilho</strong><div class="persistence-timeline">${persistenceTimeline(item.suggestions)}</div></div>
               <div><strong>Resultados depois da entrada</strong><div class="persistence-timeline">${attemptItems||'<span class="muted">Aguardando resultados.</span>'}</div></div>
             </div>
@@ -473,9 +492,9 @@
     persistenceData = data;
     const config = data.config || {};
     el('persistenceAnalyzed').textContent = `${escapeHtml(config.signals_analyzed||0)} sinais analisados`;
-    el('persistenceNote').textContent = `Cada número conta uma vez por minuto · ${config.max_gap_minutes===1?'minutos consecutivos':`intervalo de até ${config.max_gap_minutes} min`} · até G${config.attempt_horizon} · ${config.include_alternative?'regiões oficiais e alternativas':'somente regiões oficiais'} · pagamento antes do gatilho reinicia a sequência.`;
+    el('persistenceNote').textContent = `Cada centro conta uma vez por minuto · ${config.center_neighbors} vizinho(s) de cada lado · ${config.max_gap_minutes===1?'minutos consecutivos':`intervalo de até ${config.max_gap_minutes} min`} · próximas ${config.attempt_horizon} jogadas · ${config.include_alternative?'centros oficiais e alternativos':'somente centros oficiais'} · pagamento da região antes do gatilho reinicia a sequência.`;
     renderPersistenceComparison(data.thresholds || []);
-    renderPersistenceActive(data.active_numbers || []);
+    renderPersistenceActive(data.active_centers || []);
     renderPersistenceTriggers(data.recent_triggers || []);
   }
 
@@ -490,7 +509,8 @@
         min_repetitions:el('persistenceMinRepetitions').value,
         max_repetitions:'6',
         max_gap_minutes:el('persistenceMaxGap').value,
-        attempt_horizon:el('attemptHorizon').value,
+        attempt_horizon:el('persistenceAttemptHorizon').value,
+        center_neighbors:el('persistenceCenterNeighbors').value,
         include_alternative:el('includeAlternative').value,
         coverage_mode:coverageMode,
         history_limit:'3000',
@@ -506,7 +526,7 @@
       if (persistenceSequence !== latestPersistenceSequence) return;
       el('persistenceAnalyzed').textContent = 'ERRO';
       el('persistenceComparison').innerHTML = `<div class="persistence-empty">Erro ao analisar: ${escapeHtml(error.message)}</div>`;
-      el('persistenceActive').innerHTML = '<div class="persistence-empty">Não foi possível carregar os números persistentes.</div>';
+      el('persistenceActive').innerHTML = '<div class="persistence-empty">Não foi possível carregar os centros persistentes.</div>';
       el('persistenceTriggers').innerHTML = '<div class="persistence-empty">Não foi possível carregar os gatilhos.</div>';
     } finally {
       if (persistenceSequence === latestPersistenceSequence) persistenceLoadInProgress = false;

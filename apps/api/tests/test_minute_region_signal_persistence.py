@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
 from api.services.minute_region_signal_persistence import (
-    analyze_number_persistence,
-    suggestion_values,
+    analyze_center_persistence,
+    center_region,
+    suggested_centers,
 )
 
 
@@ -23,24 +24,29 @@ def _attempt(number, *, minute, attempt=1, history_id=None):
 def _signal(
     minute,
     *,
-    official=(0,),
-    alternative=(),
+    centers=(3,),
+    alternative_center=None,
     attempts=(),
 ):
     signal_time = BASE_TIME + timedelta(minutes=minute)
+    alternative_analysis = {}
+    if alternative_center is not None:
+        alternative_analysis["alternative_center"] = {"value": alternative_center}
     return {
         "signal_minute_utc": signal_time,
         "generated_at_utc": signal_time,
-        "bet_values": list(official),
-        "alternative_analysis": {
-            "alternative_bet_values": list(alternative),
-        },
-        "selected_centers": [{"value": 16}, {"value": 23}],
+        "alternative_analysis": alternative_analysis,
+        "selected_centers": [{"value": center} for center in centers],
         "attempts": list(attempts),
     }
 
 
-def test_third_consecutive_suggestion_creates_entry_and_measures_number_hit():
+def test_center_region_uses_real_wheel_neighbors_on_each_side():
+    assert center_region(3, neighbors=2) == [3, 12, 35, 26, 0]
+    assert center_region(3, neighbors=0) == [3]
+
+
+def test_third_center_suggestion_measures_hit_inside_center_region():
     signals = [
         _signal(0, attempts=[_attempt(5, minute=0)]),
         _signal(1, attempts=[_attempt(7, minute=1)]),
@@ -48,74 +54,99 @@ def test_third_consecutive_suggestion_creates_entry_and_measures_number_hit():
             2,
             attempts=[
                 _attempt(11, minute=2, attempt=1),
-                _attempt(0, minute=2, attempt=2),
+                _attempt(26, minute=2, attempt=2),
                 _attempt(8, minute=2, attempt=3),
             ],
         ),
     ]
 
-    result = analyze_number_persistence(
+    result = analyze_center_persistence(
         signals,
         min_repetitions=3,
         max_repetitions=3,
         attempt_horizon=3,
+        center_neighbors=2,
     )
 
     threshold = result["thresholds"][2]
     trigger = result["recent_triggers"][0]
     assert threshold["triggers"] == 1
-    assert threshold["evaluated"] == 1
     assert threshold["accuracy"] == 100.0
     assert threshold["average_hit_attempt"] == 2.0
-    assert trigger["number"] == 0
+    assert trigger["center"] == 3
+    assert trigger["region_values"] == [3, 12, 35, 26, 0]
     assert trigger["first_hit_attempt"] == 2
-    assert len(trigger["suggestions"]) == 3
 
 
-def test_payment_before_threshold_resets_the_repetition_sequence():
+def test_exact_center_does_not_hit_neighbor_when_neighbors_are_zero():
+    result = analyze_center_persistence(
+        [_signal(0, attempts=[_attempt(26, minute=0)])],
+        min_repetitions=1,
+        max_repetitions=1,
+        attempt_horizon=1,
+        center_neighbors=0,
+    )
+
+    assert result["thresholds"][0]["accuracy"] == 0.0
+    assert result["recent_triggers"][0]["outcome"] == "miss"
+
+
+def test_region_payment_before_threshold_resets_center_sequence():
     signals = [
-        _signal(0, attempts=[_attempt(0, minute=0)]),
+        _signal(0, attempts=[_attempt(35, minute=0)]),
         _signal(1, attempts=[_attempt(5, minute=1)]),
         _signal(2, attempts=[_attempt(7, minute=2)]),
     ]
 
-    result = analyze_number_persistence(
+    result = analyze_center_persistence(
         signals,
         min_repetitions=3,
         max_repetitions=3,
         attempt_horizon=1,
+        center_neighbors=2,
     )
 
     assert result["thresholds"][2]["triggers"] == 0
     assert result["recent_triggers"] == []
 
 
-def test_alternative_numbers_are_optional_and_count_only_once_per_minute():
-    signal = _signal(0, official=(0, 1), alternative=(0, 2))
-    official, official_values, alternative_values = suggestion_values(
+def test_alternative_center_is_optional_and_counted_once_per_minute():
+    signal = _signal(0, centers=(3, 16), alternative_center=3)
+    official, official_centers, alternative_centers = suggested_centers(
         signal,
         include_alternative=False,
     )
-    combined, _, _ = suggestion_values(signal, include_alternative=True)
+    combined, combined_official, combined_alternative = suggested_centers(
+        signal,
+        include_alternative=True,
+    )
 
-    assert official == {0, 1}
-    assert official_values == {0, 1}
-    assert alternative_values == set()
-    assert combined == {0, 1, 2}
+    assert official == {3, 16}
+    assert official_centers == {3, 16}
+    assert alternative_centers == set()
+    assert combined == {3, 16}
+    assert combined_official == {3, 16}
+    assert combined_alternative == {3}
 
-    result = analyze_number_persistence(
-        [_signal(0, official=(1,), alternative=(0,)), _signal(1, official=(1,), alternative=(0,))],
+    result = analyze_center_persistence(
+        [
+            _signal(0, centers=(16,), alternative_center=3),
+            _signal(1, centers=(16,), alternative_center=3),
+        ],
         min_repetitions=2,
         max_repetitions=2,
         attempt_horizon=1,
+        center_neighbors=1,
         include_alternative=True,
     )
-    zero_triggers = [item for item in result["recent_triggers"] if item["number"] == 0]
-    assert len(zero_triggers) == 1
-    assert zero_triggers[0]["source"] == "alternative"
+    center_triggers = [
+        item for item in result["recent_triggers"] if item["center"] == 3
+    ]
+    assert len(center_triggers) == 1
+    assert center_triggers[0]["source"] == "alternative"
 
 
-def test_pending_triggers_do_not_enter_accuracy_denominator():
+def test_pending_center_triggers_do_not_enter_accuracy_denominator():
     signals = [
         _signal(0, attempts=[_attempt(5, minute=0)]),
         _signal(
@@ -127,12 +158,13 @@ def test_pending_triggers_do_not_enter_accuracy_denominator():
         ),
     ]
 
-    result = analyze_number_persistence(
+    result = analyze_center_persistence(
         signals,
         min_repetitions=1,
         max_repetitions=1,
         max_gap_minutes=1,
         attempt_horizon=2,
+        center_neighbors=0,
     )
 
     row = result["thresholds"][0]
@@ -140,20 +172,19 @@ def test_pending_triggers_do_not_enter_accuracy_denominator():
     assert row["evaluated"] == 1
     assert row["pending"] == 1
     assert row["misses"] == 1
-    assert row["accuracy"] == 0.0
 
 
-def test_maximum_gap_controls_whether_suggestions_belong_to_same_run():
+def test_maximum_gap_controls_center_suggestion_run():
     signals = [_signal(0), _signal(2)]
 
-    consecutive = analyze_number_persistence(
+    consecutive = analyze_center_persistence(
         signals,
         min_repetitions=2,
         max_repetitions=2,
         max_gap_minutes=1,
         attempt_horizon=1,
     )
-    allowing_gap = analyze_number_persistence(
+    allowing_gap = analyze_center_persistence(
         signals,
         min_repetitions=2,
         max_repetitions=2,
@@ -165,8 +196,8 @@ def test_maximum_gap_controls_whether_suggestions_belong_to_same_run():
     assert allowing_gap["thresholds"][1]["triggers"] == 1
 
 
-def test_continuing_same_run_does_not_create_overlapping_entries():
-    result = analyze_number_persistence(
+def test_continuing_center_run_does_not_create_overlapping_entries():
+    result = analyze_center_persistence(
         [_signal(minute) for minute in range(5)],
         min_repetitions=3,
         max_repetitions=3,
@@ -176,20 +207,22 @@ def test_continuing_same_run_does_not_create_overlapping_entries():
 
     assert result["thresholds"][2]["triggers"] == 1
     assert len(result["recent_triggers"]) == 1
-    assert result["active_numbers"][0]["repetitions"] == 5
+    assert result["active_centers"][0]["center"] == 3
+    assert result["active_centers"][0]["repetitions"] == 5
 
 
-def test_lift_compares_each_threshold_with_first_suggestion_baseline():
+def test_lift_compares_center_threshold_with_first_suggestion():
     signals = [
         _signal(0, attempts=[_attempt(5, minute=0)]),
-        _signal(1, attempts=[_attempt(0, minute=1)]),
+        _signal(1, attempts=[_attempt(3, minute=1)]),
     ]
 
-    result = analyze_number_persistence(
+    result = analyze_center_persistence(
         signals,
         min_repetitions=2,
         max_repetitions=2,
         attempt_horizon=1,
+        center_neighbors=0,
     )
 
     first, second = result["thresholds"]

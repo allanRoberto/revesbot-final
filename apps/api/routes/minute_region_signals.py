@@ -11,7 +11,7 @@ from pymongo import DESCENDING
 
 from api.core.db import minute_region_signals_coll
 from api.services.minute_region_signal_persistence import (
-    analyze_number_persistence,
+    analyze_center_persistence,
 )
 from api.services.minute_region_signal_stats import (
     build_available_coverages_pipeline,
@@ -112,6 +112,7 @@ async def minute_region_signal_persistence(
     max_repetitions: int = Query(6, ge=1, le=10),
     max_gap_minutes: int = Query(1, ge=1, le=10),
     attempt_horizon: int = Query(7, ge=1, le=10),
+    center_neighbors: int = Query(2, ge=0, le=5),
     include_alternative: bool = Query(False),
     coverage: int | None = Query(None, ge=1, le=37),
     coverage_mode: Literal["up_to", "exact"] = Query("up_to"),
@@ -124,6 +125,7 @@ async def minute_region_signal_persistence(
         max_repetitions,
         max_gap_minutes,
         attempt_horizon,
+        center_neighbors,
         include_alternative,
         coverage,
         coverage_mode,
@@ -152,8 +154,7 @@ async def minute_region_signal_persistence(
             "$project": {
                 "signal_minute_utc": 1,
                 "generated_at_utc": 1,
-                "bet_values": 1,
-                "alternative_analysis.alternative_bet_values": 1,
+                "alternative_analysis.alternative_center": 1,
                 "selected_centers": 1,
                 "attempts.attempt_number": 1,
                 "attempts.result_history_id": 1,
@@ -171,12 +172,13 @@ async def minute_region_signal_persistence(
             length=history_limit
         )
         result = await asyncio.to_thread(
-            analyze_number_persistence,
+            analyze_center_persistence,
             signals,
             min_repetitions=min_repetitions,
             max_repetitions=max_repetitions,
             max_gap_minutes=max_gap_minutes,
             attempt_horizon=attempt_horizon,
+            center_neighbors=center_neighbors,
             include_alternative=include_alternative,
             recent_limit=recent_limit,
         )
