@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
@@ -10,7 +10,9 @@ from pymongo import DESCENDING
 
 from api.core.db import minute_region_signals_coll
 from api.services.minute_region_signal_stats import (
+    build_available_coverages_pipeline,
     build_accuracy_pipeline,
+    build_signal_list_pipeline,
     evaluate_signal,
 )
 
@@ -30,16 +32,10 @@ def _filtered_query(
     *,
     roulette_id: str,
     status: str,
-    coverage: int | None,
-    attempt_horizon: int | None,
 ) -> Dict[str, Any]:
     query: Dict[str, Any] = {"roulette_id": str(roulette_id).strip()}
     if status != "all":
         query["status"] = status
-    if coverage is not None:
-        query["coverage"] = int(coverage)
-    if attempt_horizon is not None:
-        query["attempt_count"] = {"$gte": int(attempt_horizon)}
     return query
 
 
@@ -62,6 +58,7 @@ async def list_minute_region_signals(
     roulette_id: str = Query(DEFAULT_ROULETTE_ID, min_length=1),
     status: str = Query("all"),
     coverage: int | None = Query(None, ge=1, le=37),
+    coverage_mode: Literal["up_to", "exact"] = Query("up_to"),
     attempt_horizon: int | None = Query(None, ge=1, le=10),
     include_alternative: bool = Query(False),
     limit: int = Query(100, ge=1, le=500),
@@ -70,18 +67,21 @@ async def list_minute_region_signals(
     query = _filtered_query(
         roulette_id=roulette_id,
         status=safe_status,
+    )
+    list_pipeline = build_signal_list_pipeline(
+        query,
+        include_alternative=include_alternative,
         coverage=coverage,
-        attempt_horizon=attempt_horizon,
+        coverage_mode=coverage_mode,
+        limit=limit,
     )
-    docs_cursor = (
-        minute_region_signals_coll.find(query)
-        .sort("signal_minute_utc", DESCENDING)
-        .limit(limit)
+    result_docs = await minute_region_signals_coll.aggregate(list_pipeline).to_list(
+        length=1
     )
-    total, docs = await asyncio.gather(
-        minute_region_signals_coll.count_documents(query),
-        docs_cursor.to_list(length=limit),
-    )
+    result = result_docs[0] if result_docs else {}
+    docs = result.get("items", [])
+    total_docs = result.get("total", [])
+    total = int(total_docs[0].get("value", 0)) if total_docs else 0
     if attempt_horizon is not None:
         for doc in docs:
             doc["evaluation"] = evaluate_signal(
@@ -97,6 +97,7 @@ async def minute_region_signal_stats(
     roulette_id: str = Query(DEFAULT_ROULETTE_ID, min_length=1),
     status: str = Query("all"),
     coverage: int | None = Query(None, ge=1, le=37),
+    coverage_mode: Literal["up_to", "exact"] = Query("up_to"),
     attempt_horizon: int = Query(10, ge=1, le=10),
     include_alternative: bool = Query(False),
 ):
@@ -105,14 +106,10 @@ async def minute_region_signal_stats(
     evaluation_query = _filtered_query(
         roulette_id=roulette_id,
         status=safe_status,
-        coverage=coverage,
-        attempt_horizon=None,
     )
     breakdown_query = _filtered_query(
         roulette_id=roulette_id,
         status=safe_status,
-        coverage=None,
-        attempt_horizon=None,
     )
     totals_cursor = minute_region_signals_coll.aggregate(
         [
@@ -135,6 +132,8 @@ async def minute_region_signal_stats(
             evaluation_query,
             attempt_horizon=attempt_horizon,
             include_alternative=include_alternative,
+            coverage=coverage,
+            coverage_mode=coverage_mode,
         )
     )
     breakdown_cursor = minute_region_signals_coll.aggregate(
@@ -145,13 +144,19 @@ async def minute_region_signal_stats(
             group_by_coverage=True,
         )
     )
+    available_coverages_cursor = minute_region_signals_coll.aggregate(
+        build_available_coverages_pipeline(
+            breakdown_query,
+            include_alternative=include_alternative,
+        )
+    )
     (
         active,
         completed,
         totals,
         accuracy_docs,
         breakdown_docs,
-        coverage_values,
+        coverage_docs,
         newest,
     ) = await asyncio.gather(
         minute_region_signals_coll.count_documents({**base_query, "status": "active"}),
@@ -159,13 +164,14 @@ async def minute_region_signal_stats(
         totals_cursor.to_list(length=1),
         accuracy_cursor.to_list(length=1),
         breakdown_cursor.to_list(length=37),
-        minute_region_signals_coll.distinct("coverage", base_query),
+        available_coverages_cursor.to_list(length=37),
         minute_region_signals_coll.find_one(base_query, sort=[("signal_minute_utc", DESCENDING)]),
     )
     available_coverages = sorted(
-        int(item)
-        for item in coverage_values
-        if isinstance(item, (int, float)) and 1 <= int(item) <= 37
+        int(item["_id"])
+        for item in coverage_docs
+        if isinstance(item.get("_id"), (int, float))
+        and 1 <= int(item["_id"]) <= 37
     )
     totals_doc = totals[0] if totals else {}
     accuracy_doc = accuracy_docs[0] if accuracy_docs else {}
@@ -195,6 +201,7 @@ async def minute_region_signal_stats(
             "latest_signal_age_seconds": age_seconds,
             "evaluation": {
                 "coverage": coverage,
+                "coverage_mode": coverage_mode,
                 "attempt_horizon": attempt_horizon,
                 "include_alternative": include_alternative,
                 "evaluated": evaluated,

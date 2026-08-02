@@ -1,5 +1,8 @@
 from api.services.minute_region_signal_stats import (
     build_accuracy_pipeline,
+    build_coverage_stages,
+    build_signal_list_pipeline,
+    effective_coverage,
     evaluate_signal,
 )
 
@@ -72,14 +75,57 @@ def test_alternative_hit_is_optional_and_does_not_become_official():
 
 def test_accuracy_pipeline_filters_coverage_and_completed_horizon():
     pipeline = build_accuracy_pipeline(
-        {"roulette_id": "pragmatic-auto-roulette", "coverage": 8},
+        {"roulette_id": "pragmatic-auto-roulette"},
         attempt_horizon=7,
         include_alternative=True,
+        coverage=8,
+        coverage_mode="exact",
     )
 
-    assert pipeline[0]["$match"]["coverage"] == 8
     assert pipeline[0]["$match"]["attempt_count"] == {"$gte": 7}
-    hit_expression = pipeline[1]["$project"]["hit"]
+    assert pipeline[2]["$match"]["effective_coverage"] == 8
+    hit_expression = pipeline[3]["$project"]["hit"]
     assert "$gt" in hit_expression
     filtered_hit = hit_expression["$gt"][0]["$size"]["$filter"]["cond"]
     assert "$or" in filtered_hit
+
+
+def test_effective_coverage_unites_official_and_alternative_without_duplicates():
+    signal = {
+        "coverage": 3,
+        "bet_values": [1, 2, 3],
+        "alternative_analysis": {"alternative_bet_values": [3, 4, 5]},
+    }
+
+    assert effective_coverage(signal, include_alternative=False) == 3
+    assert effective_coverage(signal, include_alternative=True) == 5
+
+
+def test_coverage_modes_support_up_to_and_exact():
+    up_to = build_coverage_stages(
+        include_alternative=False,
+        coverage=8,
+        coverage_mode="up_to",
+    )
+    exact = build_coverage_stages(
+        include_alternative=False,
+        coverage=8,
+        coverage_mode="exact",
+    )
+
+    assert up_to[1] == {"$match": {"effective_coverage": {"$lte": 8}}}
+    assert exact[1] == {"$match": {"effective_coverage": 8}}
+
+
+def test_list_pipeline_does_not_hide_recent_signals_by_attempt_count():
+    pipeline = build_signal_list_pipeline(
+        {"roulette_id": "pragmatic-auto-roulette"},
+        include_alternative=True,
+        coverage=None,
+        coverage_mode="up_to",
+        limit=200,
+    )
+
+    assert pipeline[0] == {"$match": {"roulette_id": "pragmatic-auto-roulette"}}
+    assert "attempt_count" not in str(pipeline)
+    assert pipeline[-1]["$facet"]["items"][-1] == {"$limit": 200}

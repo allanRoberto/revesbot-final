@@ -24,9 +24,12 @@
     .online { color:var(--green); } .offline { color:var(--red); }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--line); background:rgba(16,29,39,.75); border-radius:14px; margin-bottom:12px; }
     .filters { display:grid; grid-template-columns:repeat(4,minmax(150px,1fr)); gap:12px; padding:16px; margin-bottom:12px; background:rgba(16,29,39,.9); border:1px solid var(--line); border-radius:14px; }
-    .filters label { display:grid; gap:6px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+    .filters label,.filter-field { display:grid; gap:6px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
     .filters select { width:100%; text-transform:none; letter-spacing:normal; }
     .filters .button { align-self:end; height:42px; border-color:var(--cyan); background:rgba(41,211,194,.12); }
+    .coverage-modes { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+    .coverage-mode { min-height:34px; border:1px solid var(--line); background:#0d1b24; color:var(--muted); border-radius:8px; padding:6px 8px; cursor:pointer; font-size:11px; }
+    .coverage-mode.active { border-color:var(--cyan); background:rgba(41,211,194,.13); color:var(--cyan); }
     .evaluation-stats { display:grid; grid-template-columns:repeat(4,minmax(130px,1fr)); gap:10px; margin-bottom:12px; }
     .evaluation-note { grid-column:1/-1; color:var(--muted); padding:0 4px; }
     .coverage-breakdown { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px; }
@@ -51,6 +54,7 @@
     .result-badge { display:inline-flex; border-radius:999px; padding:5px 8px; margin-top:6px; font-size:11px; font-weight:900; }
     .result-badge.hit { background:rgba(54,212,119,.14); color:var(--green); }
     .result-badge.miss { background:rgba(255,93,108,.13); color:var(--red); }
+    .result-badge.pending { background:rgba(255,191,69,.13); color:var(--amber); }
     .payments { color:var(--green); font-size:17px; font-weight:800; text-align:right; }
     .body { border-top:1px solid var(--line); padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:18px; }
     .box { background:#0b161e; border:1px solid #1c2c38; padding:14px; border-radius:12px; }
@@ -88,9 +92,13 @@
   </section>
 
   <section class="filters">
-    <label>Número de fichas
+    <div class="filter-field"><span>Número de fichas</span>
       <select id="coverageFilter"><option value="">Todas as coberturas</option></select>
-    </label>
+      <div class="coverage-modes">
+        <button class="coverage-mode active" data-coverage-mode="up_to" type="button">Até</button>
+        <button class="coverage-mode" data-coverage-mode="exact" type="button">Apenas</button>
+      </div>
+    </div>
     <label>Até quantas tentativas
       <select id="attemptHorizon">
         <option value="1">1 tentativa</option><option value="2">2 tentativas</option><option value="3">3 tentativas</option>
@@ -125,6 +133,7 @@
   const openSignalIds = new Set();
   let latestLoadSequence = 0;
   let loadInProgress = false;
+  let coverageMode = 'up_to';
   const el = id => document.getElementById(id);
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const fmt = value => value ? new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(value)) : '—';
@@ -141,13 +150,15 @@
       return `<div class="attempt ${item.is_payment?'hit':''} ${item.is_alternative_payment?'alt-hit':''}">${ball(item)}<small>${escapeHtml(item.attempt_number)}ª · ${escapeHtml((item.formatted||'').slice(11))}${labels.length?` · ${escapeHtml(labels.join(' + '))}`:''}</small></div>`;
     }).join('') || '<span class="muted">Aguardando o próximo resultado.</span>';
     const alternative = signal.alternative_analysis || {};
+    const evaluation = signal.evaluation || {};
+    const effectiveCoverage = Number(evaluation.effective_coverage ?? signal.effective_coverage ?? signal.coverage ?? 0);
     let alternativeBox = '';
     if (alternative.triggered) {
       if (alternative.alternative_center) {
         const closeCenters = (alternative.close_centers || []).map(item => ball(item)).join('');
         const alternativeRegion = (alternative.alternative_bet_numbers || []).map(item => ball(item)).join('');
         alternativeBox = `<div class="box alternative-box" style="grid-column:1/-1">
-          <h3>Simulação afastada · não altera a aposta oficial</h3>
+          <h3>Simulação afastada · ${escapeHtml(alternative.alternative_coverage || 0)} números · cobertura total considerada ${escapeHtml(effectiveCoverage)} fichas</h3>
           <div class="alternative-flow"><span class="muted">Centro principal</span>${ball(alternative.primary_center,true)}<span class="muted">próximo de</span>${closeCenters}<span>→</span><strong>alternativa</strong>${ball(alternative.alternative_center,true)}<span class="muted">distância ${escapeHtml(alternative.alternative_center.wheel_distance_from_primary)} posições</span><span class="alternative-score">${escapeHtml(signal.alternative_payment_count || 0)} acerto(s)</span></div>
           <div class="numbers">${alternativeRegion}</div>
           <p class="muted" style="margin:10px 0 0">Esta região é apenas conferida nas mesmas 10 tentativas e não entra nos pagamentos oficiais.</p>
@@ -159,10 +170,9 @@
     const previousText = signal.previous_region_hit
       ? `${signal.previous_region_hit_count} dos 5 anteriores estavam na região — apenas registrado, sem cancelar.`
       : 'Nenhum dos 5 anteriores estava na região.';
-    const evaluation = signal.evaluation || {};
     const evaluationBadge = evaluation.eligible
       ? `<span class="result-badge ${evaluation.hit?'hit':'miss'}">${evaluation.hit?'ACERTO':'ERRO'} ATÉ ${escapeHtml(evaluation.attempt_horizon)}ª${evaluation.first_hit_attempt?` · G${escapeHtml(evaluation.first_hit_attempt)}`:''}</span>`
-      : '';
+      : `<span class="result-badge pending">PENDENTE · ${escapeHtml(signal.attempt_count || 0)}/${escapeHtml(evaluation.attempt_horizon || 0)}</span>`;
     return `<details data-signal-id="${escapeHtml(signalId)}" ${openSignalIds.has(signalId)?'open':''}>
       <summary>
         <div class="signal-time"><strong>${fmt(signal.signal_minute_utc)}</strong><small>${escapeHtml(signal.attempt_count)}/${maxAttempts} tentativas</small><div class="progress"><i style="width:${progress}%"></i></div></div>
@@ -192,19 +202,44 @@
   function populateCoverages(values) {
     const select = el('coverageFilter');
     const current = select.value;
+    const available = new Set((values || []).map(Number));
+    if (current) available.add(Number(current));
     select.innerHTML = ['<option value="">Todas as coberturas</option>']
-      .concat((values || []).map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)} fichas</option>`))
+      .concat([...available].sort((a,b) => a-b).map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)} fichas</option>`))
       .join('');
-    if ([...select.options].some(option => option.value === current)) select.value = current;
+    select.value = current;
+    updateCoverageModeButtons();
+  }
+
+  function updateCoverageModeButtons() {
+    const coverage = el('coverageFilter').value;
+    document.querySelectorAll('[data-coverage-mode]').forEach(button => {
+      const mode = button.dataset.coverageMode;
+      button.classList.toggle('active', mode === coverageMode);
+      button.textContent = coverage
+        ? `${mode === 'up_to' ? 'Até' : 'Apenas'} ${coverage} fichas`
+        : `${mode === 'up_to' ? 'Até' : 'Apenas'}`;
+    });
+  }
+
+  function setCoverageMode(mode, reload=false) {
+    coverageMode = mode === 'exact' ? 'exact' : 'up_to';
+    updateCoverageModeButtons();
+    if (reload && el('coverageFilter').value) {
+      openSignalIds.clear();
+      load(true);
+    }
   }
 
   function renderCoverageBreakdown(items) {
     const selected = el('coverageFilter').value;
+    const coverageLabel = el('includeAlternative').value === 'true' ? 'fichas totais' : 'fichas';
     el('coverageBreakdown').innerHTML = (items || []).map(item =>
-      `<button type="button" class="coverage-pill ${String(item.coverage)===selected?'selected':''}" data-coverage="${escapeHtml(item.coverage)}">${escapeHtml(item.coverage)} fichas · ${escapeHtml(Number(item.accuracy || 0).toFixed(2))}% (${escapeHtml(item.evaluated)})</button>`
+      `<button type="button" class="coverage-pill ${String(item.coverage)===selected && coverageMode==='exact'?'selected':''}" data-coverage="${escapeHtml(item.coverage)}">${escapeHtml(item.coverage)} ${coverageLabel} · ${escapeHtml(Number(item.accuracy || 0).toFixed(2))}% (${escapeHtml(item.evaluated)})</button>`
     ).join('');
     document.querySelectorAll('[data-coverage]').forEach(button => button.addEventListener('click', () => {
       el('coverageFilter').value = button.dataset.coverage;
+      setCoverageMode('exact');
       openSignalIds.clear();
       load(true);
     }));
@@ -221,6 +256,8 @@
       const includeAlternative = el('includeAlternative').value;
       const query = new URLSearchParams({roulette_id:rouletteId,status,attempt_horizon:attemptHorizon,include_alternative:includeAlternative,limit:'200'});
       const statsQuery = new URLSearchParams({roulette_id:rouletteId,status,attempt_horizon:attemptHorizon,include_alternative:includeAlternative});
+      query.set('coverage_mode', coverageMode);
+      statsQuery.set('coverage_mode', coverageMode);
       if (coverage) { query.set('coverage', coverage); statsQuery.set('coverage', coverage); }
       const [itemsResponse,statsResponse] = await Promise.all([
         fetch(`/api/minute-region-signals?${query}`), fetch(`/api/minute-region-signals/stats?${statsQuery}`)
@@ -237,12 +274,15 @@
       el('evaluationHits').textContent = evaluation.hits ?? 0;
       el('evaluationMisses').textContent = evaluation.misses ?? 0;
       el('evaluationAccuracy').textContent = `${Number(evaluation.accuracy || 0).toFixed(2)}%`;
-      el('evaluationNote').textContent = `${coverage || 'Todas as'} fichas · até ${attemptHorizon} tentativa(s) · centros alternativos ${includeAlternative==='true'?'incluídos':'ignorados'}. Sinais com menos tentativas permanecem fora do cálculo.`;
+      const coverageDescription = coverage
+        ? `${coverageMode==='up_to'?'Sinais até':'Sinais com apenas'} ${coverage} fichas${includeAlternative==='true'?' totais':''}`
+        : `Todas as coberturas${includeAlternative==='true'?' totais':''}`;
+      el('evaluationNote').textContent = `${coverageDescription} · até ${attemptHorizon} tentativa(s) · centros alternativos ${includeAlternative==='true'?'incluídos':'ignorados'}. Sinais com menos tentativas permanecem na lista, fora do cálculo.`;
       el('lastUpdate').textContent = `Atualizado ${new Date().toLocaleTimeString('pt-BR')} · último sinal ${fmt(stats.latest_signal_minute_utc)}`;
-      el('listCount').textContent = `${data.total ?? data.count} sinal(is) elegível(is) no filtro; exibindo ${data.count}.`;
+      el('listCount').textContent = `${data.total ?? data.count} sinal(is) no filtro; exibindo ${data.count}.`;
       populateCoverages(stats.available_coverages || []);
       renderCoverageBreakdown(stats.coverage_breakdown || []);
-      el('signals').innerHTML = data.items.length ? data.items.map(renderSignal).join('') : '<div class="notice">Nenhum sinal com tentativas suficientes para este filtro.</div>';
+      el('signals').innerHTML = data.items.length ? data.items.map(renderSignal).join('') : '<div class="notice">Nenhum sinal para este filtro.</div>';
       bindAccordionState();
     } catch (error) {
       if (loadSequence !== latestLoadSequence) return;
@@ -253,6 +293,8 @@
   }
   el('refresh').addEventListener('click', () => load(true));
   el('applyFilters').addEventListener('click', () => { openSignalIds.clear(); load(true); });
+  el('coverageFilter').addEventListener('change', updateCoverageModeButtons);
+  document.querySelectorAll('[data-coverage-mode]').forEach(button => button.addEventListener('click', () => setCoverageMode(button.dataset.coverageMode, true)));
   el('status').addEventListener('change', () => { openSignalIds.clear(); load(true); });
   load(); setInterval(load, 5000);
 </script>

@@ -3,6 +3,129 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping
 
 
+VALID_COVERAGE_MODES = {"up_to", "exact"}
+
+
+def normalize_coverage_mode(value: str) -> str:
+    mode = str(value or "up_to").strip().lower()
+    return mode if mode in VALID_COVERAGE_MODES else "up_to"
+
+
+def effective_coverage(
+    signal: Mapping[str, Any],
+    *,
+    include_alternative: bool,
+) -> int:
+    official_values = {
+        int(item)
+        for item in signal.get("bet_values", [])
+        if item is not None
+    }
+    considered_values = set(official_values)
+    if include_alternative:
+        alternative_analysis = signal.get("alternative_analysis") or {}
+        considered_values.update(
+            int(item)
+            for item in alternative_analysis.get(
+                "alternative_bet_values", []
+            )
+            if item is not None
+        )
+    if considered_values:
+        return len(considered_values)
+    return max(0, int(signal.get("coverage", 0) or 0))
+
+
+def effective_coverage_expression(*, include_alternative: bool) -> Dict[str, Any]:
+    value_sets: list[Any] = [
+        {"$ifNull": ["$bet_values", []]},
+        [],
+    ]
+    if include_alternative:
+        value_sets.append(
+            {
+                "$ifNull": [
+                    "$alternative_analysis.alternative_bet_values",
+                    [],
+                ]
+            }
+        )
+    return {
+        "$max": [
+            {"$size": {"$setUnion": value_sets}},
+            {"$ifNull": ["$coverage", 0]},
+        ]
+    }
+
+
+def build_coverage_stages(
+    *,
+    include_alternative: bool,
+    coverage: int | None,
+    coverage_mode: str,
+) -> list[Dict[str, Any]]:
+    stages: list[Dict[str, Any]] = [
+        {
+            "$addFields": {
+                "effective_coverage": effective_coverage_expression(
+                    include_alternative=include_alternative
+                )
+            }
+        }
+    ]
+    if coverage is not None:
+        mode = normalize_coverage_mode(coverage_mode)
+        coverage_match: Any = (
+            int(coverage) if mode == "exact" else {"$lte": int(coverage)}
+        )
+        stages.append({"$match": {"effective_coverage": coverage_match}})
+    return stages
+
+
+def build_available_coverages_pipeline(
+    match_query: Mapping[str, Any],
+    *,
+    include_alternative: bool,
+) -> list[Dict[str, Any]]:
+    return [
+        {"$match": dict(match_query)},
+        *build_coverage_stages(
+            include_alternative=include_alternative,
+            coverage=None,
+            coverage_mode="exact",
+        ),
+        {"$group": {"_id": "$effective_coverage"}},
+        {"$sort": {"_id": 1}},
+    ]
+
+
+def build_signal_list_pipeline(
+    match_query: Mapping[str, Any],
+    *,
+    include_alternative: bool,
+    coverage: int | None,
+    coverage_mode: str,
+    limit: int,
+) -> list[Dict[str, Any]]:
+    return [
+        {"$match": dict(match_query)},
+        *build_coverage_stages(
+            include_alternative=include_alternative,
+            coverage=coverage,
+            coverage_mode=coverage_mode,
+        ),
+        {
+            "$facet": {
+                "items": [
+                    {"$sort": {"signal_minute_utc": -1}},
+                    {"$limit": int(limit)},
+                ],
+                "total": [{"$count": "value"}],
+            }
+        },
+    ]
+
+
 def evaluate_signal(
     signal: Mapping[str, Any],
     *,
@@ -43,6 +166,10 @@ def evaluate_signal(
         "official_first_hit_attempt": official_hit_attempt if eligible else None,
         "alternative_hit": alternative_hit_attempt is not None if eligible else None,
         "alternative_first_hit_attempt": alternative_hit_attempt if eligible else None,
+        "effective_coverage": effective_coverage(
+            signal,
+            include_alternative=include_alternative,
+        ),
     }
 
 
@@ -51,6 +178,8 @@ def build_accuracy_pipeline(
     *,
     attempt_horizon: int,
     include_alternative: bool,
+    coverage: int | None = None,
+    coverage_mode: str = "up_to",
     group_by_coverage: bool = False,
 ) -> list[Dict[str, Any]]:
     horizon = max(1, min(10, int(attempt_horizon)))
@@ -87,10 +216,15 @@ def build_accuracy_pipeline(
             0,
         ]
     }
-    group_id: Any = "$coverage" if group_by_coverage else None
+    group_id: Any = "$effective_coverage" if group_by_coverage else None
     pipeline: list[Dict[str, Any]] = [
         {"$match": query},
-        {"$project": {"coverage": 1, "hit": hit_expression}},
+        *build_coverage_stages(
+            include_alternative=include_alternative,
+            coverage=coverage,
+            coverage_mode=coverage_mode,
+        ),
+        {"$project": {"effective_coverage": 1, "hit": hit_expression}},
         {
             "$group": {
                 "_id": group_id,
