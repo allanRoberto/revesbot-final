@@ -18,6 +18,7 @@ def test_probability_requests_are_strict_and_normalize_roulette_id() -> None:
     assert payload.roulette_id == "pragmatic-auto-roulette"
     assert payload.number_count == 12
     assert payload.attempts == 3
+    assert payload.initial_bankroll == 1000.0
 
     with pytest.raises(ValidationError):
         probability_backtest.ProbabilityBacktestRequest(
@@ -28,6 +29,12 @@ def test_probability_requests_are_strict_and_normalize_roulette_id() -> None:
     with pytest.raises(ValidationError):
         probability_backtest.ProbabilityBacktestRequest(
             roulette_id="invalid slug",
+        )
+
+    with pytest.raises(ValidationError):
+        probability_backtest.ProbabilityBacktestRequest(
+            roulette_id="pragmatic-auto-roulette",
+            initial_bankroll=0,
         )
 
 
@@ -46,6 +53,7 @@ def test_backtest_route_forwards_all_configuration(monkeypatch) -> None:
         attempts=5,
         entries_limit=200,
         minimum_history=150,
+        initial_bankroll=2500.0,
     )
     result = asyncio.run(probability_backtest.probability_model_backtest(payload))
 
@@ -57,6 +65,7 @@ def test_backtest_route_forwards_all_configuration(monkeypatch) -> None:
         "attempts": 5,
         "entries_limit": 200,
         "minimum_history": 150,
+        "initial_bankroll": 2500.0,
     }
 
 

@@ -51,25 +51,81 @@ def _wilson_interval(hits: int, total: int, z: float = 1.96) -> dict[str, float]
     }
 
 
-def _profit_summary(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+def _profit_summary(
+    rows: Sequence[dict[str, Any]],
+    *,
+    initial_bankroll: float,
+    maximum_entry_exposure: float,
+) -> dict[str, Any]:
     total_profit = sum(float(row["profit"]) for row in rows)
     total_staked = sum(float(row["invested"]) for row in rows)
     cumulative = 0.0
-    peak = 0.0
+    peak_balance = float(initial_bankroll)
+    peak_entry = 0
+    minimum_balance = float(initial_bankroll)
+    maximum_balance = float(initial_bankroll)
     max_drawdown = 0.0
-    curve = [{"entry": 0, "cumulative_profit": 0.0}]
+    max_drawdown_percentage = 0.0
+    max_drawdown_peak_entry = 0
+    max_drawdown_trough_entry = 0
+    required_bankroll = float(maximum_entry_exposure)
+    curve = [
+        {
+            "entry": 0,
+            "cumulative_profit": 0.0,
+            "balance": round(float(initial_bankroll), 4),
+            "drawdown": 0.0,
+            "drawdown_percentage": 0.0,
+        }
+    ]
     for index, row in enumerate(rows, start=1):
-        cumulative += float(row["profit"])
-        peak = max(peak, cumulative)
-        max_drawdown = max(max_drawdown, peak - cumulative)
-        curve.append(
-            {"entry": index, "cumulative_profit": round(cumulative, 4)}
+        # Antes de cada entrada, a banca precisa suportar todas as tentativas
+        # possiveis, pois o desfecho que encerrara a entrada ainda e desconhecido.
+        required_bankroll = max(
+            required_bankroll,
+            float(maximum_entry_exposure) - cumulative,
         )
+        cumulative += float(row["profit"])
+        balance = float(initial_bankroll) + cumulative
+        minimum_balance = min(minimum_balance, balance)
+        maximum_balance = max(maximum_balance, balance)
+        if balance > peak_balance:
+            peak_balance = balance
+            peak_entry = index
+        drawdown = peak_balance - balance
+        drawdown_percentage = drawdown / peak_balance if peak_balance > 0 else 0.0
+        if drawdown > max_drawdown:
+            max_drawdown = drawdown
+            max_drawdown_percentage = drawdown_percentage
+            max_drawdown_peak_entry = peak_entry
+            max_drawdown_trough_entry = index
+        curve.append(
+            {
+                "entry": index,
+                "cumulative_profit": round(cumulative, 4),
+                "balance": round(balance, 4),
+                "drawdown": round(drawdown, 4),
+                "drawdown_percentage": round(drawdown_percentage, 6),
+            }
+        )
+    ending_bankroll = float(initial_bankroll) + total_profit
+    bankroll_shortfall = max(0.0, required_bankroll - float(initial_bankroll))
     return {
         "total_profit": round(total_profit, 4),
         "total_staked": round(total_staked, 4),
         "roi": round(total_profit / total_staked, 6) if total_staked else 0.0,
+        "initial_bankroll": round(float(initial_bankroll), 4),
+        "ending_bankroll": round(ending_bankroll, 4),
+        "minimum_balance": round(minimum_balance, 4),
+        "maximum_balance": round(maximum_balance, 4),
         "max_drawdown": round(max_drawdown, 4),
+        "max_drawdown_percentage": round(max_drawdown_percentage, 6),
+        "max_drawdown_peak_entry": max_drawdown_peak_entry,
+        "max_drawdown_trough_entry": max_drawdown_trough_entry,
+        "maximum_entry_exposure": round(float(maximum_entry_exposure), 4),
+        "required_bankroll": round(required_bankroll, 4),
+        "bankroll_sufficient": float(initial_bankroll) >= required_bankroll,
+        "bankroll_shortfall": round(bankroll_shortfall, 4),
         "curve": curve,
     }
 
@@ -103,6 +159,7 @@ def run_probability_backtest_from_history(
     attempts: int = 4,
     entries_limit: int = 300,
     minimum_history: int = 100,
+    initial_bankroll: float = 1000.0,
 ) -> dict[str, Any]:
     """Executa replay walk-forward e recalcula o ranking apos cada tentativa.
 
@@ -116,6 +173,12 @@ def run_probability_backtest_from_history(
         raise ValueError("attempts deve estar entre 1 e 12")
     if isinstance(entries_limit, bool) or not 1 <= int(entries_limit) <= 2000:
         raise ValueError("entries_limit deve estar entre 1 e 2000")
+    if (
+        isinstance(initial_bankroll, bool)
+        or not math.isfinite(float(initial_bankroll))
+        or not 0 < float(initial_bankroll) <= 1_000_000_000
+    ):
+        raise ValueError("initial_bankroll deve estar entre 0 e 1 bilhao")
     if (
         isinstance(minimum_history, bool)
         or not MINIMUM_BACKTEST_HISTORY <= int(minimum_history) <= 5000
@@ -258,10 +321,15 @@ def run_probability_backtest_from_history(
             "predictions_evaluated": prediction_count,
             "score_is_calibrated_probability": False,
         },
-        "profit": _profit_summary(rows),
+        "profit": _profit_summary(
+            rows,
+            initial_bankroll=float(initial_bankroll),
+            maximum_entry_exposure=float(int(number_count) * int(attempts)),
+        ),
         "profit_model": {
             "currency": "units",
             "unit_stake_per_number": 1.0,
+            "initial_bankroll": round(float(initial_bankroll), 4),
             "straight_up_payout_to_one": 35,
             "flat_stake": True,
             "stop_after_first_hit": True,
@@ -294,6 +362,7 @@ async def run_probability_backtest(
     attempts: int,
     entries_limit: int,
     minimum_history: int,
+    initial_bankroll: float,
 ) -> dict[str, Any]:
     history_desc = await fetch_history_desc(roulette_id, history_limit)
     if not history_desc:
@@ -306,6 +375,7 @@ async def run_probability_backtest(
         attempts=attempts,
         entries_limit=entries_limit,
         minimum_history=minimum_history,
+        initial_bankroll=initial_bankroll,
     )
 
 

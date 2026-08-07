@@ -52,6 +52,12 @@ class ProbabilityBacktestRequest(BaseModel):
     attempts: int = Field(default=4, ge=1, le=12, strict=True)
     entries_limit: int = Field(default=300, ge=1, le=2000, strict=True)
     minimum_history: int = Field(default=100, ge=50, le=5000, strict=True)
+    initial_bankroll: float = Field(
+        default=1000.0,
+        gt=0,
+        le=1_000_000_000,
+        strict=True,
+    )
 
     @field_validator("roulette_id")
     @classmethod
@@ -97,6 +103,7 @@ async def probability_model_backtest(payload: ProbabilityBacktestRequest):
             attempts=payload.attempts,
             entries_limit=payload.entries_limit,
             minimum_history=payload.minimum_history,
+            initial_bankroll=payload.initial_bankroll,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

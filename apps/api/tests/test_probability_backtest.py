@@ -54,6 +54,9 @@ def test_backtest_recalculates_after_each_miss_without_future_leakage(
     assert result["recalculates_after_each_miss"] is True
     assert result["causal"] is True
     assert result["source_order"] == "newest_first"
+    assert result["profit"]["initial_bankroll"] == 1000.0
+    assert result["profit"]["ending_bankroll"] == 1034.0
+    assert result["profit"]["curve"][-1]["balance"] == 1034.0
 
 
 def test_backtest_reports_attempt_baseline_and_non_overlapping_sample(
@@ -89,6 +92,47 @@ def test_backtest_reports_attempt_baseline_and_non_overlapping_sample(
     assert result["non_overlapping"]["entries"] == 2
 
 
+def test_profit_summary_calculates_balance_drawdown_and_required_bankroll() -> None:
+    rows = [
+        {"profit": -20.0, "invested": 20.0},
+        {"profit": -20.0, "invested": 20.0},
+        {"profit": 26.0, "invested": 10.0},
+    ]
+
+    summary = probability_backtest_service._profit_summary(
+        rows,
+        initial_bankroll=100.0,
+        maximum_entry_exposure=20.0,
+    )
+
+    assert summary["initial_bankroll"] == 100.0
+    assert summary["ending_bankroll"] == 86.0
+    assert summary["minimum_balance"] == 60.0
+    assert summary["maximum_balance"] == 100.0
+    assert summary["max_drawdown"] == 40.0
+    assert summary["max_drawdown_percentage"] == pytest.approx(0.4)
+    assert summary["max_drawdown_peak_entry"] == 0
+    assert summary["max_drawdown_trough_entry"] == 2
+    assert summary["required_bankroll"] == 60.0
+    assert summary["bankroll_sufficient"] is True
+    assert summary["bankroll_shortfall"] == 0.0
+    assert [point["balance"] for point in summary["curve"]] == [
+        100.0,
+        80.0,
+        60.0,
+        86.0,
+    ]
+
+    insufficient = probability_backtest_service._profit_summary(
+        rows,
+        initial_bankroll=50.0,
+        maximum_entry_exposure=20.0,
+    )
+    assert insufficient["required_bankroll"] == 60.0
+    assert insufficient["bankroll_sufficient"] is False
+    assert insufficient["bankroll_shortfall"] == 10.0
+
+
 def test_backtest_rejects_invalid_or_insufficient_history() -> None:
     with pytest.raises(LookupError, match="Historico insuficiente"):
         probability_backtest_service.run_probability_backtest_from_history(
@@ -102,4 +146,12 @@ def test_backtest_rejects_invalid_or_insufficient_history() -> None:
             [1] * 100 + [99],
             roulette_id="test-roulette",
             minimum_history=50,
+        )
+
+    with pytest.raises(ValueError, match="initial_bankroll"):
+        probability_backtest_service.run_probability_backtest_from_history(
+            [1] * 100,
+            roulette_id="test-roulette",
+            minimum_history=50,
+            initial_bankroll=0,
         )

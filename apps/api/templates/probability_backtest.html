@@ -125,7 +125,7 @@
     .control-card { padding: 18px; margin-bottom: 16px; }
     .control-grid {
       display: grid;
-      grid-template-columns: minmax(220px, 1.6fr) repeat(5, minmax(110px, .65fr));
+      grid-template-columns: minmax(220px, 1.6fr) repeat(6, minmax(110px, .65fr));
       gap: 12px;
       align-items: end;
     }
@@ -203,6 +203,39 @@
     .number-chip.hit { outline: 3px solid #f0b72f; outline-offset: 1px; }
 
     .table-card { margin-top: 12px; overflow: hidden; }
+    .balance-chart-card { margin-top: 12px; padding: 17px; }
+    .chart-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+    .chart-heading h3 { margin: 0; font-size: 15px; }
+    .chart-heading span { color: var(--muted); font-size: 11px; }
+    .balance-chart-wrap { position: relative; width: 100%; min-height: 290px; }
+    .balance-chart-wrap svg { display: block; width: 100%; height: auto; min-height: 290px; overflow: visible; }
+    .balance-chart-wrap svg text { fill: var(--muted); font-size: 11px; }
+    .chart-tooltip {
+      display: none;
+      position: absolute;
+      z-index: 5;
+      min-width: 148px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--surface);
+      box-shadow: 0 10px 30px rgba(24, 43, 36, .14);
+      pointer-events: none;
+      font-size: 11px;
+    }
+    .chart-tooltip strong { display: block; margin-bottom: 3px; font-size: 12px; }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 7px; color: var(--muted); font-size: 11px; }
+    .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend-mark { width: 18px; height: 3px; border-radius: 999px; background: var(--green); }
+    .legend-mark.initial { height: 0; border-top: 2px dashed var(--gold); background: none; }
+    .legend-mark.minimum { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th {
@@ -251,6 +284,7 @@
       .control-grid { grid-template-columns: 1fr 1fr; }
       .control-grid .roulette-field { grid-column: 1 / -1; }
       .section-header { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .chart-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
       .attempt-row { grid-template-columns: 28px 1fr 55px; }
       .attempt-row .outcome { grid-column: 2; }
     }
@@ -308,6 +342,10 @@
           <label for="entries-limit">Entradas avaliadas</label>
           <input id="entries-limit" type="number" min="1" max="2000" step="50" value="300">
         </div>
+        <div>
+          <label for="initial-bankroll">Banca inicial</label>
+          <input id="initial-bankroll" type="number" min="1" max="1000000000" step="100" value="1000">
+        </div>
       </div>
       <div class="actions">
         <button class="button secondary" id="analyze-button" type="button">Calcular ranking atual</button>
@@ -335,6 +373,21 @@
     <section class="section" id="backtest-section">
       <div class="section-header"><h2>Resultado do backtest</h2><span class="section-note" id="backtest-note"></span></div>
       <div class="card panel"><div class="metrics" id="backtest-metrics"></div></div>
+
+      <div class="card balance-chart-card">
+        <div class="chart-heading">
+          <h3>Evolução do saldo</h3>
+          <span id="chart-summary">Banca após cada entrada concluída</span>
+        </div>
+        <div class="balance-chart-wrap" id="balance-chart-wrap">
+          <div class="chart-tooltip" id="balance-chart-tooltip" role="tooltip"></div>
+        </div>
+        <div class="chart-legend" aria-label="Legenda do gráfico">
+          <span><i class="legend-mark"></i> Saldo</span>
+          <span><i class="legend-mark initial"></i> Banca inicial</span>
+          <span><i class="legend-mark minimum"></i> Menor saldo</span>
+        </div>
+      </div>
 
       <div class="card table-card">
         <div class="table-wrap">
@@ -390,6 +443,13 @@
       return `${number >= 0 ? "+" : ""}${number.toFixed(2)} p.p.`;
     }
 
+    function formatUnits(value, digits = 0) {
+      return `${Number(value || 0).toLocaleString("pt-BR", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      })} un.`;
+    }
+
     function metric(label, value, detail = "", tone = "") {
       return `<div class="metric"><span class="metric-label">${label}</span><strong class="metric-value ${tone}">${value}</strong><span class="metric-detail">${detail}</span></div>`;
     }
@@ -402,6 +462,7 @@
         history_limit: Number($("history-limit").value),
         minimum_history: Number($("minimum-history").value),
         entries_limit: Number($("entries-limit").value),
+        initial_bankroll: Number($("initial-bankroll").value),
       };
     }
 
@@ -412,6 +473,7 @@
       if (config.history_limit < 100 || config.history_limit > 10000) throw new Error("O histórico deve ficar entre 100 e 10.000.");
       if (config.minimum_history < 50 || config.minimum_history > 5000) throw new Error("A base inicial deve ficar entre 50 e 5.000.");
       if (config.entries_limit < 1 || config.entries_limit > 2000) throw new Error("As entradas devem ficar entre 1 e 2.000.");
+      if (config.initial_bankroll <= 0 || config.initial_bankroll > 1000000000) throw new Error("A banca inicial deve ser maior que zero.");
     }
 
     async function postJson(url, payload) {
@@ -480,11 +542,111 @@
         </tr>`).join("");
     }
 
+    function renderBalanceChart(profit) {
+      const wrap = $("balance-chart-wrap");
+      const curve = Array.isArray(profit.curve) ? profit.curve : [];
+      if (!curve.length) {
+        wrap.innerHTML = '<div class="empty">Sem dados de saldo para exibir.</div>';
+        return;
+      }
+
+      const width = 1000;
+      const height = 330;
+      const margin = { top: 22, right: 24, bottom: 44, left: 72 };
+      const plotWidth = width - margin.left - margin.right;
+      const plotHeight = height - margin.top - margin.bottom;
+      const balances = curve.map((point) => Number(point.balance));
+      const rawMinimum = Math.min(...balances, Number(profit.initial_bankroll));
+      const rawMaximum = Math.max(...balances, Number(profit.initial_bankroll));
+      const spread = Math.max(1, rawMaximum - rawMinimum);
+      const yMinimum = rawMinimum - spread * 0.12;
+      const yMaximum = rawMaximum + spread * 0.12;
+      const maxEntry = Math.max(1, Number(curve[curve.length - 1].entry));
+      const x = (entry) => margin.left + (Number(entry) / maxEntry) * plotWidth;
+      const y = (balance) => margin.top + ((yMaximum - Number(balance)) / (yMaximum - yMinimum)) * plotHeight;
+      const linePath = curve.map((point, index) => `${index ? "L" : "M"}${x(point.entry).toFixed(2)},${y(point.balance).toFixed(2)}`).join(" ");
+      const areaPath = `${linePath} L${x(curve[curve.length - 1].entry).toFixed(2)},${(margin.top + plotHeight).toFixed(2)} L${x(curve[0].entry).toFixed(2)},${(margin.top + plotHeight).toFixed(2)} Z`;
+      const minimumPoint = curve.reduce((minimum, point) => Number(point.balance) < Number(minimum.balance) ? point : minimum, curve[0]);
+
+      const yGrid = Array.from({ length: 5 }, (_, index) => {
+        const ratio = index / 4;
+        const value = yMaximum - ratio * (yMaximum - yMinimum);
+        const yPosition = y(value);
+        return `<line x1="${margin.left}" y1="${yPosition}" x2="${width - margin.right}" y2="${yPosition}" stroke="var(--line)" stroke-width="1"/><text x="${margin.left - 10}" y="${yPosition + 4}" text-anchor="end">${Math.round(value).toLocaleString("pt-BR")}</text>`;
+      }).join("");
+      const xGrid = Array.from({ length: 5 }, (_, index) => {
+        const entry = Math.round((index / 4) * maxEntry);
+        const xPosition = x(entry);
+        return `<line x1="${xPosition}" y1="${margin.top}" x2="${xPosition}" y2="${margin.top + plotHeight}" stroke="var(--line)" stroke-width="1" opacity=".45"/><text x="${xPosition}" y="${height - 15}" text-anchor="middle">${entry}</text>`;
+      }).join("");
+      const zeroLine = yMinimum < 0 && yMaximum > 0
+        ? `<line x1="${margin.left}" y1="${y(0)}" x2="${width - margin.right}" y2="${y(0)}" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="6 5" opacity=".65"/>`
+        : "";
+
+      wrap.innerHTML = `
+        <svg id="balance-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolução da banca ao longo das entradas do backtest">
+          <defs>
+            <linearGradient id="balance-area-gradient" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="var(--green)" stop-opacity=".26"/>
+              <stop offset="100%" stop-color="var(--green)" stop-opacity=".02"/>
+            </linearGradient>
+          </defs>
+          <rect x="${margin.left}" y="${margin.top}" width="${plotWidth}" height="${plotHeight}" rx="8" fill="var(--surface-soft)" stroke="var(--line)"/>
+          ${yGrid}${xGrid}${zeroLine}
+          <path d="${areaPath}" fill="url(#balance-area-gradient)"/>
+          <line x1="${margin.left}" y1="${y(profit.initial_bankroll)}" x2="${width - margin.right}" y2="${y(profit.initial_bankroll)}" stroke="var(--gold)" stroke-width="2" stroke-dasharray="8 6"/>
+          <path d="${linePath}" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="${x(minimumPoint.entry)}" cy="${y(minimumPoint.balance)}" r="6" fill="var(--red)" stroke="var(--surface)" stroke-width="3"/>
+          <line id="chart-hover-guide" x1="0" y1="${margin.top}" x2="0" y2="${margin.top + plotHeight}" stroke="var(--ink)" stroke-width="1" stroke-dasharray="4 4" opacity="0" pointer-events="none"/>
+          <circle id="chart-hover-point" cx="0" cy="0" r="5" fill="var(--green)" stroke="var(--surface)" stroke-width="3" opacity="0" pointer-events="none"/>
+          <rect id="chart-hover-overlay" x="${margin.left}" y="${margin.top}" width="${plotWidth}" height="${plotHeight}" fill="transparent" style="cursor:crosshair"/>
+          <text x="${margin.left + plotWidth / 2}" y="${height - 1}" text-anchor="middle">Entrada do backtest</text>
+          <text x="15" y="${margin.top + plotHeight / 2}" text-anchor="middle" transform="rotate(-90 15 ${margin.top + plotHeight / 2})">Saldo (unidades)</text>
+        </svg>
+        <div class="chart-tooltip" id="balance-chart-tooltip" role="tooltip"></div>`;
+
+      const svg = $("balance-chart");
+      const overlay = $("chart-hover-overlay");
+      const guide = $("chart-hover-guide");
+      const marker = $("chart-hover-point");
+      const activeTooltip = $("balance-chart-tooltip");
+      overlay.addEventListener("pointermove", (event) => {
+        const svgBounds = svg.getBoundingClientRect();
+        const wrapBounds = wrap.getBoundingClientRect();
+        const viewX = ((event.clientX - svgBounds.left) / svgBounds.width) * width;
+        const estimatedEntry = ((viewX - margin.left) / plotWidth) * maxEntry;
+        const index = Math.max(0, Math.min(curve.length - 1, Math.round(estimatedEntry)));
+        const point = curve[index];
+        const pointX = x(point.entry);
+        const pointY = y(point.balance);
+        guide.setAttribute("x1", pointX);
+        guide.setAttribute("x2", pointX);
+        guide.setAttribute("opacity", "0.55");
+        marker.setAttribute("cx", pointX);
+        marker.setAttribute("cy", pointY);
+        marker.setAttribute("opacity", "1");
+        activeTooltip.innerHTML = `<strong>Entrada ${point.entry}</strong>Saldo: ${formatUnits(point.balance, 0)}<br>P&L acumulado: ${formatUnits(point.cumulative_profit, 0)}<br>Drawdown: ${formatUnits(point.drawdown, 0)} (${percent(point.drawdown_percentage, 1)})`;
+        activeTooltip.style.display = "block";
+        const desiredLeft = event.clientX - wrapBounds.left + 12;
+        const desiredTop = event.clientY - wrapBounds.top - 58;
+        activeTooltip.style.left = `${Math.max(8, Math.min(wrap.clientWidth - activeTooltip.offsetWidth - 8, desiredLeft))}px`;
+        activeTooltip.style.top = `${Math.max(8, desiredTop)}px`;
+      });
+      overlay.addEventListener("pointerleave", () => {
+        guide.setAttribute("opacity", "0");
+        marker.setAttribute("opacity", "0");
+        activeTooltip.style.display = "none";
+      });
+      $("chart-summary").textContent = `Banca inicial ${formatUnits(profit.initial_bankroll)} · final ${formatUnits(profit.ending_bankroll)}`;
+    }
+
     function renderBacktest(data) {
       $("backtest-section").classList.add("visible");
       const summary = data.summary;
       const liftTone = summary.lift_percentage_points >= 0 ? "positive" : "negative";
       const profitTone = data.profit.total_profit >= 0 ? "positive" : "negative";
+      const bankrollTone = data.profit.bankroll_sufficient ? "positive" : "negative";
+      const endingTone = data.profit.ending_bankroll >= data.profit.initial_bankroll ? "positive" : "negative";
       $("backtest-note").textContent = `${data.evaluated_entries.toLocaleString("pt-BR")} entradas · ${data.history_size.toLocaleString("pt-BR")} resultados carregados`;
       $("backtest-metrics").innerHTML = [
         metric("Taxa de acerto", percent(summary.hit_rate), `${summary.hits} acertos e ${summary.misses} erros`),
@@ -492,9 +654,15 @@
         metric("Diferença", signedPoints(summary.lift_percentage_points), "modelo menos baseline", liftTone),
         metric("Intervalo de 95%", `${percent(summary.confidence_95.lower, 1)}–${percent(summary.confidence_95.upper, 1)}`, "intervalo de Wilson"),
         metric("Amostra sem sobreposição", percent(data.non_overlapping.hit_rate), `${data.non_overlapping.entries} entradas independentes`),
-        metric("P&L", `${data.profit.total_profit >= 0 ? "+" : ""}${data.profit.total_profit.toFixed(0)} un.`, `ROI ${percent(data.profit.roi)} · drawdown ${data.profit.max_drawdown.toFixed(0)}`, profitTone),
+        metric("Banca inicial", formatUnits(data.profit.initial_bankroll), `exposição máxima ${formatUnits(data.profit.maximum_entry_exposure)}`),
+        metric("Banca final", formatUnits(data.profit.ending_bankroll), `P&L ${data.profit.total_profit >= 0 ? "+" : ""}${formatUnits(data.profit.total_profit)}`, endingTone),
+        metric("Menor saldo", formatUnits(data.profit.minimum_balance), `maior saldo ${formatUnits(data.profit.maximum_balance)}`, data.profit.minimum_balance >= 0 ? "positive" : "negative"),
+        metric("Drawdown máximo", formatUnits(data.profit.max_drawdown), `${percent(data.profit.max_drawdown_percentage, 2)} · entradas ${data.profit.max_drawdown_peak_entry}–${data.profit.max_drawdown_trough_entry}`, data.profit.max_drawdown_percentage <= 0.2 ? "positive" : "warning"),
+        metric("Banca mínima", formatUnits(data.profit.required_bankroll), data.profit.bankroll_sufficient ? "a banca configurada suporta o histórico" : `faltam ${formatUnits(data.profit.bankroll_shortfall)}`, bankrollTone),
+        metric("P&L", `${data.profit.total_profit >= 0 ? "+" : ""}${formatUnits(data.profit.total_profit)}`, `ROI ${percent(data.profit.roi)} · drawdown ${formatUnits(data.profit.max_drawdown)}`, profitTone),
         metric("Log-loss", data.probability_quality.average_log_loss.toFixed(4), `uniforme ${data.probability_quality.uniform_log_loss.toFixed(4)}`, data.probability_quality.average_log_loss < data.probability_quality.uniform_log_loss ? "positive" : "negative"),
       ].join("");
+      renderBalanceChart(data.profit);
 
       $("attempts-body").innerHTML = data.attempts.map((row) => {
         const tone = row.lift_percentage_points >= 0 ? "positive" : "negative";
