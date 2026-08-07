@@ -126,6 +126,7 @@ from api.routes.multi_pivo import router as multi_pivo_router
 from api.routes.multi_pivo_signals import router as multi_pivo_signals_router
 from api.routes.orbit import router as orbit_router
 from api.routes.orbit_triggers import router as orbit_triggers_router
+from api.routes.probability_backtest import router as probability_backtest_router
 from api.routes.number_day_comparison import router as number_day_comparison_router
 from api.routes.minute_region_signals import router as minute_region_signals_router
 from api.routes.pixgo_webhook import router as pixgo_webhook_router
@@ -269,6 +270,7 @@ app.include_router(multi_pivo_router)
 app.include_router(multi_pivo_signals_router)
 app.include_router(orbit_router)
 app.include_router(orbit_triggers_router)
+app.include_router(probability_backtest_router)
 app.include_router(number_day_comparison_router)
 app.include_router(minute_region_signals_router)
 app.include_router(pixgo_webhook_router)
