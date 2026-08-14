@@ -207,6 +207,116 @@
       font-weight: 700;
     }
 
+    .intersection-section {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .intersection-section h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .intersection-description {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .intersection-toolbar {
+      display: grid;
+      grid-template-columns: minmax(190px, 1.5fr) repeat(3, minmax(90px, 1fr)) minmax(120px, 160px) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .intersection-toolbar input {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 10px;
+      font-size: 14px;
+    }
+
+    .intersection-status {
+      min-height: 24px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .intersection-groups {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .intersection-group {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 12px;
+    }
+
+    .intersection-group h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    .pulled-sequence,
+    .relation-values {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pulled-sequence .number-pill,
+    .relation-values .number-pill {
+      min-width: 30px;
+      height: 26px;
+    }
+
+    .relation-values .separator {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .strength-label {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .strength-exact {
+      background: #dff2e9;
+      color: #0f5f46;
+    }
+
+    .strength-one_neighbor {
+      background: #fff0c7;
+      color: #745600;
+    }
+
+    .strength-two_neighbors {
+      background: #f8dddd;
+      color: #842b2b;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
     @media (max-width: 760px) {
       .topbar,
       .toolbar {
@@ -217,6 +327,11 @@
 
       .metric-row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .intersection-toolbar,
+      .intersection-groups {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -274,6 +389,89 @@
         <tbody id="rankingBody"></tbody>
       </table>
     </section>
+
+    <section class="intersection-section" aria-labelledby="intersectionTitle">
+      <h2 id="intersectionTitle">Intersecao de 3 numeros</h2>
+      <p class="intersection-description">
+        Compara os numeros puxados nas ocorrencias mais recentes de cada base.
+        Uma relacao exata e mais forte; cada vizinho direto reduz sua forca.
+      </p>
+
+      <form id="intersectionForm" class="intersection-toolbar">
+        <div>
+          <label for="intersectionRouletteSelect">Mesa</label>
+          <select id="intersectionRouletteSelect" required>
+            <option value="">Carregando mesas...</option>
+          </select>
+        </div>
+        <div>
+          <label for="intersectionNumberA">Primeiro numero</label>
+          <select id="intersectionNumberA" required></select>
+        </div>
+        <div>
+          <label for="intersectionNumberB">Segundo numero</label>
+          <select id="intersectionNumberB" required></select>
+        </div>
+        <div>
+          <label for="intersectionNumberC">Terceiro numero</label>
+          <select id="intersectionNumberC" required></select>
+        </div>
+        <div>
+          <label for="intersectionOccurrences">Ocorrencias por numero</label>
+          <input
+            id="intersectionOccurrences"
+            type="number"
+            min="1"
+            max="50"
+            step="1"
+            value="15"
+            required
+          >
+        </div>
+        <button id="intersectionButton" type="submit">Montar intersecao</button>
+      </form>
+
+      <div id="intersectionStatus" class="intersection-status">
+        Preparando os tres resultados mais recentes...
+      </div>
+
+      <section id="intersectionMetrics" class="metric-row" aria-label="Resumo da intersecao" hidden>
+        <div class="metric">
+          <span>Total de relacoes</span>
+          <strong id="intersectionTotal">-</strong>
+        </div>
+        <div class="metric">
+          <span>Exatas</span>
+          <strong id="intersectionExact">-</strong>
+        </div>
+        <div class="metric">
+          <span>Com 1 vizinho</span>
+          <strong id="intersectionOneNeighbor">-</strong>
+        </div>
+        <div class="metric">
+          <span>Com 2 vizinhos</span>
+          <strong id="intersectionTwoNeighbors">-</strong>
+        </div>
+      </section>
+
+      <section id="intersectionGroups" class="intersection-groups" aria-label="Numeros puxados por base" hidden></section>
+
+      <section id="intersectionRankingWrap" class="table-wrap" hidden>
+        <table>
+          <thead>
+            <tr>
+              <th>Ranking</th>
+              <th id="intersectionRelationHeader">Relacao</th>
+              <th>Forca</th>
+              <th>Centro</th>
+              <th>Vizinhos diretos</th>
+              <th>Repeticoes</th>
+            </tr>
+          </thead>
+          <tbody id="intersectionRankingBody"></tbody>
+        </table>
+      </section>
+    </section>
   </main>
 
   <script>
@@ -287,6 +485,25 @@
     const withNextCount = document.getElementById("withNextCount");
     const withoutNextCount = document.getElementById("withoutNextCount");
     const historyCount = document.getElementById("historyCount");
+    const intersectionForm = document.getElementById("intersectionForm");
+    const intersectionRouletteSelect = document.getElementById("intersectionRouletteSelect");
+    const intersectionSelects = [
+      document.getElementById("intersectionNumberA"),
+      document.getElementById("intersectionNumberB"),
+      document.getElementById("intersectionNumberC"),
+    ];
+    const intersectionOccurrences = document.getElementById("intersectionOccurrences");
+    const intersectionButton = document.getElementById("intersectionButton");
+    const intersectionStatus = document.getElementById("intersectionStatus");
+    const intersectionMetrics = document.getElementById("intersectionMetrics");
+    const intersectionGroups = document.getElementById("intersectionGroups");
+    const intersectionRankingWrap = document.getElementById("intersectionRankingWrap");
+    const intersectionRankingBody = document.getElementById("intersectionRankingBody");
+    const intersectionRelationHeader = document.getElementById("intersectionRelationHeader");
+    const intersectionTotal = document.getElementById("intersectionTotal");
+    const intersectionExact = document.getElementById("intersectionExact");
+    const intersectionOneNeighbor = document.getElementById("intersectionOneNeighbor");
+    const intersectionTwoNeighbors = document.getElementById("intersectionTwoNeighbors");
 
     let snapshot = null;
 
@@ -295,6 +512,13 @@
       option.value = String(number);
       option.textContent = String(number);
       numberSelect.appendChild(option);
+
+      for (const select of intersectionSelects) {
+        const intersectionOption = document.createElement("option");
+        intersectionOption.value = String(number);
+        intersectionOption.textContent = String(number);
+        select.appendChild(intersectionOption);
+      }
     }
 
     function formatNumber(value) {
@@ -366,10 +590,180 @@
       }
     }
 
+    function renderIntersection(data) {
+      const summary = data.summary || {};
+      intersectionTotal.textContent = formatNumber(summary.total_relations);
+      intersectionExact.textContent = formatNumber(summary.exact_count);
+      intersectionOneNeighbor.textContent = formatNumber(summary.one_neighbor_count);
+      intersectionTwoNeighbors.textContent = formatNumber(summary.two_neighbors_count);
+      intersectionMetrics.hidden = false;
+
+      const bases = data.base_numbers || [];
+      intersectionRelationHeader.textContent = `Relacao: ${bases.join(" · ")}`;
+      intersectionGroups.innerHTML = "";
+      for (const group of data.groups || []) {
+        const article = document.createElement("article");
+        article.className = "intersection-group";
+        const sequence = (group.pulled_numbers || [])
+          .map((number) => `<span class="number-pill">${number}</span>`)
+          .join("");
+        article.innerHTML = `
+          <h3>Apos ${group.base_number} · ${group.collected_occurrences}/${group.requested_occurrences}</h3>
+          <div class="pulled-sequence" aria-label="Puxadas do numero ${group.base_number}, da mais recente para a mais antiga">
+            ${sequence || "Sem ocorrencias suficientes"}
+          </div>
+        `;
+        intersectionGroups.appendChild(article);
+      }
+      intersectionGroups.hidden = false;
+
+      intersectionRankingBody.innerHTML = "";
+      for (const item of data.ranking || []) {
+        const row = document.createElement("tr");
+        const relation = (item.values || [])
+          .map((number) => `<span class="number-pill">${number}</span>`)
+          .join('<span class="separator">·</span>');
+        const strengthClass = ["exact", "one_neighbor", "two_neighbors"].includes(item.strength)
+          ? item.strength
+          : "two_neighbors";
+        row.innerHTML = `
+          <td>${item.position}</td>
+          <td><div class="relation-values">${relation}</div></td>
+          <td><span class="strength-label strength-${strengthClass}">${item.strength_label}</span></td>
+          <td><span class="number-pill">${item.center_number}</span></td>
+          <td>${(item.wheel_neighbors || []).join(" e ")}</td>
+          <td>${(item.occurrence_counts || []).join(" × ")}</td>
+        `;
+        intersectionRankingBody.appendChild(row);
+      }
+      if (!intersectionRankingBody.children.length) {
+        const emptyRow = document.createElement("tr");
+        emptyRow.innerHTML = '<td colspan="6">Nenhuma intersecao encontrada para a selecao.</td>';
+        intersectionRankingBody.appendChild(emptyRow);
+      }
+      intersectionRankingWrap.hidden = false;
+
+      const warning = (data.warnings || []).join(" ");
+      const capture = formatDate(data.last_history_timestamp_utc);
+      intersectionStatus.textContent = warning || `Analise atualizada com dados ate ${capture}.`;
+      intersectionStatus.classList.toggle("error", Boolean(warning));
+    }
+
+    async function runIntersection() {
+      const selectedRouletteId = intersectionRouletteSelect.value || rouletteId;
+      const baseNumbers = intersectionSelects.map((select) => Number(select.value));
+      const occurrences = Number(intersectionOccurrences.value);
+      if (new Set(baseNumbers).size !== 3) {
+        intersectionStatus.textContent = "Selecione tres numeros diferentes.";
+        intersectionStatus.classList.add("error");
+        return;
+      }
+      if (!Number.isInteger(occurrences) || occurrences < 1 || occurrences > 50) {
+        intersectionStatus.textContent = "As ocorrencias devem estar entre 1 e 50.";
+        intersectionStatus.classList.add("error");
+        return;
+      }
+
+      intersectionButton.disabled = true;
+      intersectionStatus.textContent = "Montando intersecao...";
+      intersectionStatus.classList.remove("error");
+      try {
+        const response = await fetch(`/api/next-number-rankings/${encodeURIComponent(selectedRouletteId)}/intersection`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ base_numbers: baseNumbers, occurrences }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || `HTTP ${response.status}`);
+        }
+        renderIntersection(data);
+      } catch (error) {
+        intersectionStatus.textContent = String(error.message || error);
+        intersectionStatus.classList.add("error");
+      } finally {
+        intersectionButton.disabled = false;
+      }
+    }
+
+    async function loadIntersectionDefaults() {
+      const selectedRouletteId = intersectionRouletteSelect.value || rouletteId;
+      intersectionStatus.textContent = "Buscando os tres resultados mais recentes da mesa...";
+      intersectionStatus.classList.remove("error");
+      try {
+        const response = await fetch(`/history/${encodeURIComponent(selectedRouletteId)}?limit=20`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const latestDistinct = [];
+        for (const number of data.results || []) {
+          if (!latestDistinct.includes(number)) latestDistinct.push(number);
+          if (latestDistinct.length === 3) break;
+        }
+        if (latestDistinct.length < 3) throw new Error("Historico recente insuficiente");
+        latestDistinct.forEach((number, index) => {
+          intersectionSelects[index].value = String(number);
+        });
+        await runIntersection();
+      } catch (error) {
+        intersectionStatus.textContent = `Selecione os tres numeros para analisar. ${String(error.message || error)}`;
+        intersectionStatus.classList.add("error");
+      }
+    }
+
+    async function loadIntersectionRoulettes() {
+      try {
+        const response = await fetch("/api/roulettes-list", {
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        const rows = Array.isArray(payload) ? payload : (payload.roulettes || []);
+        if (!rows.length) throw new Error("Nenhuma mesa encontrada no banco");
+
+        intersectionRouletteSelect.innerHTML = "";
+        for (const row of rows) {
+          const id = String(row.id || row.slug || row).trim();
+          if (!id) continue;
+          const option = document.createElement("option");
+          const count = row.count == null ? "" : ` · ${formatNumber(row.count)} giros`;
+          option.value = id;
+          option.textContent = `${String(row.name || id)}${count}`;
+          intersectionRouletteSelect.appendChild(option);
+        }
+        if (!intersectionRouletteSelect.options.length) {
+          throw new Error("Nenhuma mesa valida encontrada no banco");
+        }
+        if ([...intersectionRouletteSelect.options].some((option) => option.value === rouletteId)) {
+          intersectionRouletteSelect.value = rouletteId;
+        }
+      } catch (error) {
+        intersectionRouletteSelect.innerHTML = "";
+        const fallbackOption = document.createElement("option");
+        fallbackOption.value = rouletteId;
+        fallbackOption.textContent = rouletteId;
+        intersectionRouletteSelect.appendChild(fallbackOption);
+        intersectionStatus.textContent = `Nao foi possivel listar as mesas. Usando ${rouletteId}.`;
+        intersectionStatus.classList.add("error");
+      }
+    }
+
+    async function initializeIntersection() {
+      await loadIntersectionRoulettes();
+      await loadIntersectionDefaults();
+    }
+
     numberSelect.addEventListener("change", renderSelectedNumber);
     reloadButton.addEventListener("click", loadSnapshot);
+    intersectionForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      runIntersection();
+    });
+    intersectionRouletteSelect.addEventListener("change", loadIntersectionDefaults);
 
     loadSnapshot();
+    initializeIntersection();
     window.setInterval(loadSnapshot, 60000);
   </script>
 </body>

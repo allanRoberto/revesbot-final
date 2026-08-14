@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from api.services.next_number_backtest_service import (
     DEFAULT_ATTEMPTS,
@@ -27,9 +28,42 @@ from api.services.next_number_ranking_service import (
     get_latest_next_number_rankings,
     get_next_number_ranking_for_number,
 )
+from api.services.next_number_intersection_service import (
+    DEFAULT_INTERSECTION_OCCURRENCES,
+    MAX_INTERSECTION_OCCURRENCES,
+    get_next_number_intersection,
+)
 
 
 router = APIRouter()
+
+
+class NextNumberIntersectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    base_numbers: List[int] = Field(min_length=3, max_length=3)
+    occurrences: int = Field(
+        default=DEFAULT_INTERSECTION_OCCURRENCES,
+        ge=1,
+        le=MAX_INTERSECTION_OCCURRENCES,
+        strict=True,
+    )
+
+    @field_validator("base_numbers", mode="before")
+    @classmethod
+    def validate_base_numbers(cls, values: Any) -> Any:
+        if not isinstance(values, (list, tuple)):
+            raise ValueError("base_numbers deve conter exatamente 3 numeros.")
+        if any(
+            isinstance(value, bool) or not isinstance(value, int)
+            for value in values
+        ):
+            raise ValueError("Os numeros base devem ser inteiros entre 0 e 36.")
+        if any(value < 0 or value > 36 for value in values):
+            raise ValueError("Os numeros base devem estar entre 0 e 36.")
+        if len(set(values)) != len(values):
+            raise ValueError("Selecione 3 numeros base diferentes.")
+        return list(values)
 
 
 @router.get("/api/next-number-rankings/{roulette_id}/latest")
@@ -66,6 +100,27 @@ async def get_next_number_ranking_number_route(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Falha ao consultar ranking do numero: {exc}")
+
+
+@router.post("/api/next-number-rankings/{roulette_id}/intersection")
+async def post_next_number_intersection_route(
+    roulette_id: str,
+    payload: NextNumberIntersectionRequest,
+) -> Dict[str, Any]:
+    try:
+        return await get_next_number_intersection(
+            roulette_id=roulette_id,
+            base_numbers=payload.base_numbers,
+            occurrence_limit=payload.occurrences,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao montar intersecao: {exc}")
 
 
 @router.get("/api/next-number-rankings/{roulette_id}/backtest")
