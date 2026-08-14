@@ -227,7 +227,7 @@
 
     .intersection-toolbar {
       display: grid;
-      grid-template-columns: minmax(190px, 1.5fr) repeat(3, minmax(90px, 1fr)) minmax(120px, 160px) auto;
+      grid-template-columns: minmax(190px, 1.5fr) repeat(3, minmax(90px, 1fr)) minmax(120px, 160px) auto auto;
       gap: 12px;
       align-items: end;
       margin-bottom: 12px;
@@ -428,6 +428,7 @@
             required
           >
         </div>
+        <button id="intersectionLoadLatestButton" type="button">Carregar ultimos numeros da mesa</button>
         <button id="intersectionButton" type="submit">Montar intersecao</button>
       </form>
 
@@ -493,6 +494,7 @@
       document.getElementById("intersectionNumberC"),
     ];
     const intersectionOccurrences = document.getElementById("intersectionOccurrences");
+    const intersectionLoadLatestButton = document.getElementById("intersectionLoadLatestButton");
     const intersectionButton = document.getElementById("intersectionButton");
     const intersectionStatus = document.getElementById("intersectionStatus");
     const intersectionMetrics = document.getElementById("intersectionMetrics");
@@ -686,10 +688,11 @@
       }
     }
 
-    async function loadIntersectionDefaults() {
+    async function loadLatestIntersectionNumbers() {
       const selectedRouletteId = intersectionRouletteSelect.value || rouletteId;
       intersectionStatus.textContent = "Buscando os tres resultados mais recentes da mesa...";
       intersectionStatus.classList.remove("error");
+      intersectionLoadLatestButton.disabled = true;
       try {
         const response = await fetch(`/history/${encodeURIComponent(selectedRouletteId)}?limit=20`, {
           headers: { Accept: "application/json" },
@@ -709,6 +712,8 @@
       } catch (error) {
         intersectionStatus.textContent = `Selecione os tres numeros para analisar. ${String(error.message || error)}`;
         intersectionStatus.classList.add("error");
+      } finally {
+        intersectionLoadLatestButton.disabled = false;
       }
     }
 
@@ -751,7 +756,8 @@
 
     async function initializeIntersection() {
       await loadIntersectionRoulettes();
-      await loadIntersectionDefaults();
+      intersectionStatus.textContent = "Selecione a mesa e clique em Carregar ultimos numeros da mesa.";
+      intersectionStatus.classList.remove("error");
     }
 
     numberSelect.addEventListener("change", renderSelectedNumber);
@@ -760,7 +766,11 @@
       event.preventDefault();
       runIntersection();
     });
-    intersectionRouletteSelect.addEventListener("change", loadIntersectionDefaults);
+    intersectionLoadLatestButton.addEventListener("click", loadLatestIntersectionNumbers);
+    intersectionRouletteSelect.addEventListener("change", () => {
+      intersectionStatus.textContent = "Clique em Carregar ultimos numeros da mesa para atualizar a selecao.";
+      intersectionStatus.classList.remove("error");
+    });
 
     loadSnapshot();
     initializeIntersection();

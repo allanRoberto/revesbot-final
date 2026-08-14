@@ -151,8 +151,11 @@ def test_page_exposes_three_number_intersection_controls() -> None:
     assert 'id="intersectionNumberB"' in template
     assert 'id="intersectionNumberC"' in template
     assert 'id="intersectionRouletteSelect"' in template
+    assert 'id="intersectionLoadLatestButton"' in template
     assert 'id="intersectionOccurrences"' in template
     assert 'id="intersectionRankingBody"' in template
     assert 'fetch("/api/roulettes-list"' in template
     assert "/api/next-number-rankings/${encodeURIComponent(selectedRouletteId)}/intersection" in template
     assert "/history/${encodeURIComponent(selectedRouletteId)}?limit=20" in template
+    assert 'intersectionLoadLatestButton.addEventListener("click", loadLatestIntersectionNumbers)' in template
+    assert 'intersectionRouletteSelect.addEventListener("change", () =>' in template
