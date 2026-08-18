@@ -7,4 +7,4 @@ if [[ ! "$commit_sha" =~ ^[0-9a-f]{40}$ ]]; then
   exit 2
 fi
 
-exec sudo /var/www/revesbot/repository/infra/deploy/api/deploy.sh "$commit_sha"
+exec sudo /usr/local/sbin/revesbot-api-deploy "$commit_sha"
