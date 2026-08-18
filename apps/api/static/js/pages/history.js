@@ -11,11 +11,39 @@ const grid = document.querySelector("#result-grid");
 const empty = document.querySelector("#empty-state");
 const summary = document.querySelector("#results-summary");
 const limitSelect = document.querySelector("#result-limit");
+const columnsSelect = document.querySelector("#grid-columns");
 const status = document.querySelector("#live-status");
 const statusText = document.querySelector("#live-status-text");
 const socketToggle = document.querySelector("#socket-toggle");
 let items = [];
 let paused = false;
+
+const columnsStorageKey = "revesbot-history-columns";
+const allowedColumnValues = new Set(["auto", "5", "8", "10", "12", "15", "20"]);
+
+function applyGridColumns(value) {
+  const selectedValue = allowedColumnValues.has(value) ? value : "auto";
+  columnsSelect.value = selectedValue;
+
+  if (selectedValue === "auto") {
+    grid.removeAttribute("data-columns");
+    grid.removeAttribute("data-density");
+    grid.style.removeProperty("--grid-columns");
+    grid.style.removeProperty("--grid-min-width");
+    return;
+  }
+
+  const columns = Number(selectedValue);
+  grid.dataset.columns = selectedValue;
+  grid.dataset.density = columns >= 16 ? "dense" : columns >= 12 ? "compact" : "comfortable";
+  grid.style.setProperty("--grid-columns", selectedValue);
+  grid.style.setProperty("--grid-min-width", `${(columns * 53) - 7}px`);
+}
+
+function readSavedGridColumns() {
+  try { return localStorage.getItem(columnsStorageKey) || "auto"; }
+  catch (_) { return "auto"; }
+}
 
 function updateView(nextItems) {
   items = nextItems;
@@ -55,6 +83,11 @@ bindRouletteSelector(document.querySelector("#roulette-select"));
 bindResultHighlight(grid);
 
 limitSelect.addEventListener("change", loadHistory);
+columnsSelect.addEventListener("change", () => {
+  applyGridColumns(columnsSelect.value);
+  try { localStorage.setItem(columnsStorageKey, columnsSelect.value); }
+  catch (_) { /* The preference remains active for this page load. */ }
+});
 socketToggle.addEventListener("click", async () => {
   paused = !paused;
   socketToggle.textContent = paused ? "Retomar ao vivo" : "Pausar ao vivo";
@@ -78,5 +111,6 @@ document.querySelector("#theme-toggle").addEventListener("click", () => {
 });
 
 fetchRoulettes().then((data) => fillRouletteCounts(document.querySelector("#roulette-select"), data)).catch(() => {});
+applyGridColumns(readSavedGridColumns());
 await loadHistory();
 socket.connect();
