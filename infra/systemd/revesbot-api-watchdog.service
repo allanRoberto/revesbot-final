@@ -1,0 +1,7 @@
+[Unit]
+Description=Revesbot API external health watchdog
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/var/www/revesbot/api-current/infra/deploy/api/watchdog.sh

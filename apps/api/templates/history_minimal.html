@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Resultados em tempo real das roletas monitoradas">
+  <title>{{ roulette.name }} | Revesbot</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/components/roulette-selector.css">
+  <link rel="stylesheet" href="/static/css/components/live-status.css">
+  <link rel="stylesheet" href="/static/css/components/result-grid.css">
+  <link rel="stylesheet" href="/static/css/pages/history.css">
+</head>
+<body>
+  <main class="history-page" id="history-app" data-slug="{{ slug }}">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Resultados ao vivo</p>
+        <h1 id="roulette-title">{{ roulette.name }}</h1>
+      </div>
+      <button class="icon-button" id="theme-toggle" type="button" aria-label="Alternar tema">◐</button>
+    </header>
+
+    <section class="toolbar" aria-label="Controles do histórico">
+      <label class="field roulette-selector">
+        <span>Mesa</span>
+        <select id="roulette-select" aria-label="Selecionar roleta">
+          {% for item in all_roulettes %}
+          <option value="{{ item.slug }}"{% if item.slug == slug %} selected{% endif %}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field field--compact">
+        <span>Quantidade</span>
+        <select id="result-limit">
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+        </select>
+      </label>
+
+      <div class="live-status" id="live-status" role="status" aria-live="polite">
+        <span class="live-status__dot"></span>
+        <span id="live-status-text">Conectando</span>
+      </div>
+
+      <button class="button" id="socket-toggle" type="button">Pausar ao vivo</button>
+      <button class="button button--secondary" id="copy-results" type="button">Copiar números</button>
+      {% if roulette.url %}
+      <a class="button button--secondary open-table-link" href="{{ roulette.url }}" target="_blank" rel="noopener noreferrer">Abrir mesa ↗</a>
+      {% endif %}
+    </section>
+
+    <section class="results-panel" aria-labelledby="results-heading">
+      <div class="results-panel__header">
+        <h2 id="results-heading">Últimos resultados</h2>
+        <span id="results-summary">Carregando…</span>
+      </div>
+      <div class="result-grid" id="result-grid" aria-live="polite"></div>
+      <p class="empty-state" id="empty-state" hidden>Nenhum resultado encontrado.</p>
+    </section>
+  </main>
+  <script type="module" src="/static/js/pages/history.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+[Unit]
+Description=Restricted tunnel from the new API to the legacy PixGo MongoDB
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=revesbot
+Group=revesbot
+ExecStart=/usr/bin/ssh -NT -i /etc/revesbot/pixgo-mongo-tunnel-ed25519 -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/revesbot/pixgo-mongo-tunnel-known-hosts -L 127.0.0.1:27019:127.0.0.1:27017 revesbot-api-tunnel@45.179.88.173
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
