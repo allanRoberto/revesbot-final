@@ -3,6 +3,7 @@
 .page-header h1 { margin-bottom: 0; font-size: clamp(25px, 4vw, 42px); }
 .eyebrow { margin-bottom: 5px; color: var(--accent); font-size: 12px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
 .toolbar { flex-wrap: wrap; margin-top: 28px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.open-table-link { white-space: nowrap; }
 .results-panel { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; background: var(--surface); box-shadow: var(--shadow); }
 .results-panel__header { margin-bottom: 18px; }
 .results-panel__header h2 { margin-bottom: 0; }

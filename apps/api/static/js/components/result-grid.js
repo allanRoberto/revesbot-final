@@ -1,5 +1,7 @@
 import { rouletteColor } from "../core/roulette-colors.js";
 
+let highlightedValue = null;
+
 function slotsLabel(slots) {
   if (!slots || (Array.isArray(slots) && !slots.length)) return "";
   if (Array.isArray(slots)) return slots.map((slot) => typeof slot === "object" ? JSON.stringify(slot) : slot).join(", ");
@@ -8,8 +10,12 @@ function slotsLabel(slots) {
 
 function resultCard(item) {
   const value = Number(item.value ?? item.result);
-  const card = document.createElement("article");
+  const card = document.createElement("button");
+  card.type = "button";
   card.className = `result-card result-card--${rouletteColor(value)}`;
+  card.dataset.value = String(value);
+  card.setAttribute("aria-label", `Destacar todas as ocorrências do número ${value}`);
+  if (highlightedValue === value) card.classList.add("result-card--highlighted");
   card.title = item.formatted || item.timestamp || "";
 
   const number = document.createElement("strong");
@@ -37,4 +43,19 @@ export function renderResults(container, items) {
 
 export function prependResult(container, item) {
   container.prepend(resultCard(item));
+}
+
+export function bindResultHighlight(container) {
+  container.addEventListener("click", (event) => {
+    const card = event.target.closest(".result-card");
+    if (!card || !container.contains(card)) return;
+    const value = Number(card.dataset.value);
+    highlightedValue = highlightedValue === value ? null : value;
+    container.querySelectorAll(".result-card").forEach((item) => {
+      item.classList.toggle(
+        "result-card--highlighted",
+        highlightedValue !== null && Number(item.dataset.value) === highlightedValue,
+      );
+    });
+  });
 }

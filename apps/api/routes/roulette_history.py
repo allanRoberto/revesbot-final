@@ -80,6 +80,7 @@ async def get_all_roulettes():
                 "id": roulette["slug"],
                 "name": roulette["name"],
                 "count": counts.get(roulette["slug"], 0),
+                "url": roulette.get("url"),
             }
             for roulette in ACTIVE_ROULETTES
         ]

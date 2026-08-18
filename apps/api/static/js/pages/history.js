@@ -1,9 +1,8 @@
-import { fetchDetailedHistory, fetchHistory, fetchRoulettes } from "../core/api-client.js";
+import { fetchHistory, fetchRoulettes } from "../core/api-client.js";
 import { ResultsSocket } from "../core/results-socket.js";
 import { copyResults } from "../components/copy-results.js";
-import { bindHistoryFilters } from "../components/history-filters.js";
 import { setLiveStatus } from "../components/live-status.js";
-import { prependResult, renderResults } from "../components/result-grid.js";
+import { bindResultHighlight, prependResult, renderResults } from "../components/result-grid.js";
 import { bindRouletteSelector, fillRouletteCounts } from "../components/roulette-selector.js";
 
 const app = document.querySelector("#history-app");
@@ -53,15 +52,7 @@ const socket = new ResultsSocket({
 });
 
 bindRouletteSelector(document.querySelector("#roulette-select"));
-bindHistoryFilters(
-  document.querySelector("#history-filters"),
-  document.querySelector("#clear-filters"),
-  async (filters) => {
-    summary.textContent = "Filtrando…";
-    try { updateView(await fetchDetailedHistory(slug, filters, Number(limitSelect.value))); }
-    catch (_) { summary.textContent = "Filtro inválido ou indisponível"; }
-  },
-);
+bindResultHighlight(grid);
 
 limitSelect.addEventListener("change", loadHistory);
 socketToggle.addEventListener("click", async () => {

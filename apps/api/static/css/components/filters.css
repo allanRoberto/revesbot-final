@@ -1,3 +1,0 @@
-.filters { margin: 18px 0; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; background: var(--surface); }
-.filters summary { cursor: pointer; font-weight: 800; }
-.filters__form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding-top: 16px; }

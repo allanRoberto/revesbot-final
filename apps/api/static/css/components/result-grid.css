@@ -1,7 +1,9 @@
 .result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 10px; }
-.result-card { position: relative; min-height: 82px; display: grid; place-items: center; align-content: center; border-radius: 12px; color: #fff; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%); }
+.result-card { position: relative; min-height: 82px; display: grid; place-items: center; align-content: center; border: 0; border-radius: 12px; color: #fff; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%); cursor: pointer; font: inherit; transition: background .15s ease, box-shadow .15s ease, transform .15s ease; }
 .result-card--red { background: var(--roulette-red); }
 .result-card--black { background: var(--roulette-black); }
 .result-card--green { background: var(--roulette-green); }
 .result-card__number { font-size: 30px; line-height: 1; font-weight: 900; }
 .result-card__multiplier { position: absolute; top: 7px; right: 7px; padding: 2px 6px; border-radius: 999px; color: #3b2700; background: #ffd769; font-size: 10px; font-weight: 900; }
+.result-card--highlighted { color: #251900; background: #f3cc59; box-shadow: inset 0 0 0 3px #fff0a6, 0 8px 20px rgb(243 204 89 / 24%); transform: translateY(-2px); }
+.result-card--highlighted .result-card__multiplier { color: #fff; background: #6a4a00; }
