@@ -7,9 +7,11 @@ on:
       - "apps/collector/**"
       - "infra/deploy/collector/**"
       - "infra/docker/collector-test.compose.yml"
+      - "infra/docker/collector-prod.compose.yml"
       - "infra/logrotate/revesbot-collector"
       - "infra/pm2/collector.config.js"
       - "infra/systemd/revesbot-collector-watchdog.*"
+      - "infra/systemd/revesbot-redis-tunnel.service"
       - ".github/workflows/deploy-collector.yml"
   workflow_dispatch:
 

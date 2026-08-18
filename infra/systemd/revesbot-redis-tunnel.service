@@ -1,0 +1,19 @@
+[Unit]
+Description=Secure tunnel from the new collector to the legacy Redis
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=revesbot
+Group=revesbot
+ExecStart=/usr/bin/ssh -NT -i /etc/revesbot/redis-tunnel-ed25519 -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/revesbot/redis-tunnel-known-hosts -L 127.0.0.1:6380:127.0.0.1:6379 revesbot-tunnel@45.179.88.173
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

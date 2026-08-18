@@ -46,6 +46,25 @@ de 20 resultados disponibilizada pelo provedor.
 Os logs do collector giram diariamente ou ao atingir 20 MB. Sao mantidos sete
 arquivos compactados, evitando crescimento indefinido no disco.
 
+## Migracao da collection history
+
+A primeira etapa de producao migra somente `roleta_db.history`. O MongoDB de
+producao roda em `127.0.0.1:27018`, separado do banco de teste em `27017`.
+
+1. Execute `bootstrap-data-prod.sh` no servidor novo.
+2. Ative o tunel `revesbot-redis-tunnel.service`; ele expoe o Redis legado
+   somente em `127.0.0.1:6380` no servidor novo.
+3. Gere a carga inicial com `migrate-history.sh source-full` no servidor atual.
+4. Transfira arquivo, checksum e limite de ObjectId para o servidor novo.
+5. Restaure com `migrate-history.sh target-full` e valide contagem e indices.
+6. Pare o collector antigo, gere `source-delta` a partir do limite inicial e
+   restaure com `target-delta`.
+7. Execute `cutover.sh` somente depois das contagens coincidirem.
+
+O cutover preserva `/etc/revesbot/collector.env.pre-history-cutover` e volta ao
+collector de teste automaticamente se MongoDB, Redis ou healthcheck falharem.
+As demais collections continuam no servidor antigo nesta etapa.
+
 ## Conferencia da captura
 
 Com as variaveis do collector carregadas, o diagnostico abaixo informa a
