@@ -35,7 +35,7 @@ fi
 
 sudo -u "$runtime_user" python3 -m venv "$release_dir/.venv"
 sudo -u "$runtime_user" "$release_dir/.venv/bin/pip" install --disable-pip-version-check \
-  -r "$release_dir/apps/api/requirements-minimal.txt"
+  -r "$release_dir/apps/api/requirements-minimal.txt" pytest
 
 cd "$release_dir"
 sudo -u "$runtime_user" env PYTHONPATH=apps "$release_dir/.venv/bin/python" -m pytest -q \
