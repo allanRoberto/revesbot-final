@@ -60,6 +60,7 @@ if [[ ! -s "$api_env" ]]; then
 fi
 
 install -m 0755 "$source_root/infra/deploy/api/ssh-dispatch.sh" /usr/local/sbin/revesbot-api-deploy-dispatch
+install -m 0755 "$source_root/infra/deploy/api/deploy.sh" /usr/local/sbin/revesbot-api-deploy
 install -m 0644 "$source_root/infra/systemd/revesbot-api-watchdog.service" /etc/systemd/system/
 install -m 0644 "$source_root/infra/systemd/revesbot-api-watchdog.timer" /etc/systemd/system/
 install -m 0644 "$source_root/infra/systemd/revesbot-pixgo-mongo-tunnel.service" /etc/systemd/system/
@@ -67,7 +68,7 @@ install -m 0644 "$source_root/infra/logrotate/revesbot-api" /etc/logrotate.d/rev
 install -m 0644 "$source_root/infra/nginx/api-revesbot.conf" /etc/nginx/sites-available/api-revesbot.conf
 
 sudoers_file=/etc/sudoers.d/revesbot-api-deploy
-printf '%s ALL=(root) NOPASSWD: %s/infra/deploy/api/deploy.sh *\n' "$runtime_user" "$repository" > "$sudoers_file"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/revesbot-api-deploy *\n' "$runtime_user" > "$sudoers_file"
 chmod 0440 "$sudoers_file"
 visudo -cf "$sudoers_file" >/dev/null
 

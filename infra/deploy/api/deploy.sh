@@ -94,4 +94,11 @@ for old_release in "${old_releases[@]}"; do
   sudo -u "$runtime_user" git -C "$repository" worktree remove --force "$old_release" || true
 done
 
+# Atualiza os executáveis estáveis somente depois que este deploy terminou.
+install -m 0755 "$base_dir/api-current/infra/deploy/api/deploy.sh" \
+  /usr/local/sbin/revesbot-api-deploy.next
+mv -f /usr/local/sbin/revesbot-api-deploy.next /usr/local/sbin/revesbot-api-deploy
+install -m 0755 "$base_dir/api-current/infra/deploy/api/ssh-dispatch.sh" \
+  /usr/local/sbin/revesbot-api-deploy-dispatch
+
 echo "API implantada no commit $commit_sha"
