@@ -9,6 +9,7 @@ fi
 base_dir="${REVESBOT_BASE_DIR:-/var/www/revesbot}"
 runtime_user="${REVESBOT_RUNTIME_USER:-revesbot}"
 repository="$base_dir/repository"
+source_root="${REVESBOT_SOURCE_ROOT:-$repository}"
 api_env=/etc/revesbot/api.env
 mongo_data_env=/etc/revesbot/collector-data-prod.env
 
@@ -16,6 +17,7 @@ command -v git >/dev/null
 command -v pm2 >/dev/null
 command -v nginx >/dev/null
 test -d "$repository/.git"
+test -f "$source_root/infra/pm2/api-minimal.config.js"
 test -s "$mongo_data_env"
 
 install -d -o "$runtime_user" -g "$runtime_user" "$base_dir/api-releases"
@@ -57,12 +59,12 @@ if [[ ! -s "$api_env" ]]; then
   trap - EXIT
 fi
 
-install -m 0755 "$repository/infra/deploy/api/ssh-dispatch.sh" /usr/local/sbin/revesbot-api-deploy-dispatch
-install -m 0644 "$repository/infra/systemd/revesbot-api-watchdog.service" /etc/systemd/system/
-install -m 0644 "$repository/infra/systemd/revesbot-api-watchdog.timer" /etc/systemd/system/
-install -m 0644 "$repository/infra/systemd/revesbot-pixgo-mongo-tunnel.service" /etc/systemd/system/
-install -m 0644 "$repository/infra/logrotate/revesbot-api" /etc/logrotate.d/revesbot-api
-install -m 0644 "$repository/infra/nginx/api-revesbot.conf" /etc/nginx/sites-available/api-revesbot.conf
+install -m 0755 "$source_root/infra/deploy/api/ssh-dispatch.sh" /usr/local/sbin/revesbot-api-deploy-dispatch
+install -m 0644 "$source_root/infra/systemd/revesbot-api-watchdog.service" /etc/systemd/system/
+install -m 0644 "$source_root/infra/systemd/revesbot-api-watchdog.timer" /etc/systemd/system/
+install -m 0644 "$source_root/infra/systemd/revesbot-pixgo-mongo-tunnel.service" /etc/systemd/system/
+install -m 0644 "$source_root/infra/logrotate/revesbot-api" /etc/logrotate.d/revesbot-api
+install -m 0644 "$source_root/infra/nginx/api-revesbot.conf" /etc/nginx/sites-available/api-revesbot.conf
 
 sudoers_file=/etc/sudoers.d/revesbot-api-deploy
 printf '%s ALL=(root) NOPASSWD: %s/infra/deploy/api/deploy.sh *\n' "$runtime_user" "$repository" > "$sudoers_file"
