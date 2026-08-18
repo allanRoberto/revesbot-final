@@ -294,15 +294,25 @@ class PragmaticCollector:
             return 0
 
         raw_table_id = data.get("tableId", data.get("key"))
-        results = data.get("last20Results")
-        if (
-            data.get("tableType") != "ROULETTE"
-            or raw_table_id is None
-            or not isinstance(results, list)
-            or not results
-        ):
+        if raw_table_id is None:
             return 0
         table_id = str(raw_table_id)
+        if table_id not in self.settings.subscribe_keys:
+            return 0
+        verified_tables = subscription.setdefault("verified_roulette_tables", set())
+        if not isinstance(verified_tables, set):
+            verified_tables = set()
+            subscription["verified_roulette_tables"] = verified_tables
+        table_type = data.get("tableType")
+        if table_type is not None:
+            if table_type != "ROULETTE":
+                return 0
+            verified_tables.add(table_id)
+        elif table_id not in verified_tables:
+            return 0
+        results = data.get("last20Results")
+        if not isinstance(results, list) or not results:
+            return 0
         roulette_id = ROULETTE_NAMES.get(table_id, f"pragmatic-table-{table_id}")
         captured_at = datetime.now(UTC)
         reconciled_tables = subscription.setdefault("reconciled_tables", set())

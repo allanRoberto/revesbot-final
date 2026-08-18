@@ -157,7 +157,6 @@ def test_live_capture_resumes_after_snapshot_reconciliation(monkeypatch):
     })
     live = json.dumps({
         "tableId": "225",
-        "tableType": "ROULETTE",
         "last20Results": [
             {"gameId": "live", "result": "4", "time": "Aug 18, 2026 6:11:54 PM"},
             {"gameId": "known", "result": "3", "time": "Aug 18, 2026 6:11:14 PM"},
@@ -171,6 +170,24 @@ def test_live_capture_resumes_after_snapshot_reconciliation(monkeypatch):
     assert repository.documents[-1].timestamp == repository.documents[-1].captured_at
     assert repository.documents[-1].timestamp_source == "captured"
     assert publisher.payloads[0]["full_result"]["recovered"] is False
+
+
+def test_delta_without_table_type_requires_prior_roulette_verification(monkeypatch):
+    repository = FakeRepository()
+    collector = PragmaticCollector(
+        settings(monkeypatch), repository, FakePublisher(), CollectorState()
+    )
+    message = json.dumps({
+        "tableId": "225",
+        "last20Results": [{
+            "gameId": "unverified-delta",
+            "result": "17",
+            "time": "Aug 18, 2026 8:19:18 PM",
+        }],
+    })
+
+    assert collector.process_message(FakeWebSocket(), message, {"sent": False}) == 0
+    assert repository.documents == []
 
 
 def test_exhausted_recovery_window_is_marked_and_salvages_snapshot(monkeypatch):
