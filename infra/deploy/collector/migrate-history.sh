@@ -29,7 +29,7 @@ case "$phase" in
     boundary_file="$archive.boundary"
     test ! -e "$boundary_file"
     max_id="$(mongosh "$MONGO_URL" --quiet --eval \
-      "const d=db.getSiblingDB('$database').getCollection('$collection').find({}, {_id:1}).sort({_id:-1}).limit(1).next(); print(d ? d._id.valueOf() : '')")"
+      "const d=db.getSiblingDB('$database').getCollection('$collection').find({}, {_id:1}).sort({_id:-1}).limit(1).next(); print(d ? d._id.toHexString() : '')")"
     [[ "$max_id" =~ ^[0-9a-f]{24}$ ]] || {
       echo "Nao foi possivel determinar o ObjectId limite." >&2
       exit 1
