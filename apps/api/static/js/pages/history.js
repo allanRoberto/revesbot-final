@@ -1,9 +1,9 @@
-import { fetchHistory, fetchRoulettes } from "../core/api-client.js";
-import { ResultsSocket } from "../core/results-socket.js";
-import { copyResults } from "../components/copy-results.js";
-import { setLiveStatus } from "../components/live-status.js";
-import { bindResultHighlight, prependResult, renderResults } from "../components/result-grid.js";
-import { bindRouletteSelector, fillRouletteCounts } from "../components/roulette-selector.js";
+import { fetchHistory, fetchRoulettes } from "../core/api-client.js?v=3";
+import { ResultsSocket } from "../core/results-socket.js?v=3";
+import { copyResults } from "../components/copy-results.js?v=3";
+import { setLiveStatus } from "../components/live-status.js?v=3";
+import { bindResultHighlight, prependResult, renderResults } from "../components/result-grid.js?v=3";
+import { bindRouletteSelector, fillRouletteCounts } from "../components/roulette-selector.js?v=3";
 
 const app = document.querySelector("#history-app");
 const slug = app.dataset.slug;

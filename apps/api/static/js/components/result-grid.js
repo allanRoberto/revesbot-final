@@ -1,4 +1,4 @@
-import { rouletteColor } from "../core/roulette-colors.js";
+import { rouletteColor } from "../core/roulette-colors.js?v=3";
 
 let highlightedValue = null;
 
