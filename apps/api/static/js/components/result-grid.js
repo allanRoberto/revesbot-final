@@ -1,12 +1,5 @@
 import { rouletteColor } from "../core/roulette-colors.js";
 
-function timeLabel(item) {
-  if (item.time) return item.time;
-  if (!item.timestamp) return "";
-  const date = new Date(item.timestamp);
-  return Number.isNaN(date.valueOf()) ? "" : date.toLocaleTimeString("pt-BR");
-}
-
 function slotsLabel(slots) {
   if (!slots || (Array.isArray(slots) && !slots.length)) return "";
   if (Array.isArray(slots)) return slots.map((slot) => typeof slot === "object" ? JSON.stringify(slot) : slot).join(", ");
@@ -24,11 +17,6 @@ function resultCard(item) {
   number.textContent = String(value);
   card.append(number);
 
-  const time = document.createElement("span");
-  time.className = "result-card__time";
-  time.textContent = timeLabel(item);
-  card.append(time);
-
   if (item.winning_multiplier != null) {
     const multiplier = document.createElement("span");
     multiplier.className = "result-card__multiplier";
@@ -37,13 +25,7 @@ function resultCard(item) {
   }
 
   const slots = slotsLabel(item.slots);
-  if (slots) {
-    const details = document.createElement("span");
-    details.className = "result-card__slots";
-    details.textContent = slots;
-    details.title = slots;
-    card.append(details);
-  }
+  if (slots) card.title = `${card.title}${card.title ? " · " : ""}Multiplicadores: ${slots}`;
   return card;
 }
 
