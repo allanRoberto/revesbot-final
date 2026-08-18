@@ -22,7 +22,15 @@ def main() -> None:
 
     latest = collection.find_one(
         {},
-        {"_id": 0, "roulette_id": 1, "value": 1, "timestamp": 1, "external_game_id": 1},
+        {
+            "_id": 0,
+            "roulette_id": 1,
+            "value": 1,
+            "timestamp": 1,
+            "external_game_id": 1,
+            "slots": 1,
+            "winning_multiplier": 1,
+        },
         sort=[("timestamp", -1)],
     )
     duplicate_groups = list(
@@ -45,6 +53,10 @@ def main() -> None:
         "documents": collection.count_documents({}),
         "tables": len(collection.distinct("roulette_id")),
         "duplicate_game_groups": duplicate_groups[0]["total"] if duplicate_groups else 0,
+        "documents_with_slots": collection.count_documents(
+            {"slots": {"$exists": True, "$ne": {}}}
+        ),
+        "multiplier_payments": collection.count_documents({"winning_multiplier": {"$ne": None}}),
         "latest": {key: _iso(value) for key, value in (latest or {}).items()},
     }
     print(json.dumps(output, ensure_ascii=False, sort_keys=True))

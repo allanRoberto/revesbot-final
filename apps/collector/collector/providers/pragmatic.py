@@ -31,6 +31,23 @@ ROULETTE_NAMES = {
 }
 
 
+def _parse_slots(raw_slots: object) -> dict[str, int | float]:
+    if not isinstance(raw_slots, dict):
+        return {}
+    slots: dict[str, int | float] = {}
+    for raw_number, raw_multiplier in raw_slots.items():
+        try:
+            number = int(raw_number)
+        except (TypeError, ValueError):
+            continue
+        if not 0 <= number <= 36 or isinstance(raw_multiplier, bool):
+            continue
+        if not isinstance(raw_multiplier, (int, float)):
+            continue
+        slots[str(number)] = raw_multiplier
+    return slots
+
+
 class PragmaticCollector:
     websocket_url = "wss://dga.pragmaticplaylive.net/ws"
 
@@ -53,6 +70,8 @@ class PragmaticCollector:
                 "external_game_id": result.external_game_id,
                 "value": result.value,
                 "timestamp": result.timestamp.isoformat(),
+                "slots": result.slots,
+                "winning_multiplier": result.winning_multiplier,
                 "timestamp_br": br_time.isoformat(),
                 "date": br_time.strftime("%Y-%m-%d"),
                 "time": br_time.strftime("%H:%M:%S"),
@@ -108,7 +127,15 @@ class PragmaticCollector:
             game_id = str(raw_game_id).strip() if raw_game_id is not None else ""
             if game_id and self.state.was_seen(roulette_id, game_id):
                 continue
-            result = RouletteResult(roulette_id, value, datetime.now(UTC), game_id or None)
+            slots = _parse_slots(item.get("slots"))
+            result = RouletteResult(
+                roulette_id=roulette_id,
+                value=value,
+                timestamp=datetime.now(UTC),
+                external_game_id=game_id or None,
+                slots=slots,
+                winning_multiplier=slots.get(str(value)),
+            )
             try:
                 inserted, inserted_id = self.repository.insert_if_new(result)
                 with self.state._lock:

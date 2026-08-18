@@ -22,5 +22,19 @@ de teste isolados do futuro banco de producao.
 - `GET /health/ready`: dependencias, WebSocket e resultados recentes.
 - `GET /metrics`: metricas Prometheus.
 
+## Multiplicadores
+
+Resultados de mesas como Mega Roulette preservam o mapa `slots` recebido da
+Pragmatic. `winning_multiplier` recebe o valor associado ao numero sorteado ou
+`null` quando nenhum multiplicador pagou naquela rodada.
+
+```json
+{
+  "value": 2,
+  "slots": {"1": 100, "16": 100, "2": 100},
+  "winning_multiplier": 100
+}
+```
+
 O watchdog interno encerra o processo quando a captura fica obsoleta. O PM2
 reinicia a aplicacao e um timer externo fornece uma segunda camada de defesa.

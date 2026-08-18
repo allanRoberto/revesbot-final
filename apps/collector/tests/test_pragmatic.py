@@ -52,7 +52,7 @@ def test_snapshot_is_reconciled_oldest_first_and_is_idempotent(monkeypatch):
     message = json.dumps({
         "tableId": "225",
         "last20Results": [
-            {"gameId": "new", "result": "17"},
+            {"gameId": "new", "result": "17", "slots": {"17": 500, "2": 100}},
             {"gameId": "old", "result": "8"},
         ],
     })
@@ -60,8 +60,55 @@ def test_snapshot_is_reconciled_oldest_first_and_is_idempotent(monkeypatch):
     assert collector.process_message(FakeWebSocket(), message, subscription) == 2
     assert [item.external_game_id for item in repository.documents] == ["old", "new"]
     assert [item["result"] for item in publisher.payloads] == [8, 17]
+    assert repository.documents[0].slots == {}
+    assert repository.documents[0].winning_multiplier is None
+    assert repository.documents[1].slots == {"17": 500, "2": 100}
+    assert repository.documents[1].winning_multiplier == 500
+    assert repository.documents[1].as_document()["winning_multiplier"] == 500
+    assert publisher.payloads[1]["full_result"]["slots"] == {"17": 500, "2": 100}
+    assert publisher.payloads[1]["full_result"]["winning_multiplier"] == 500
     assert collector.process_message(FakeWebSocket(), message, subscription) == 0
     assert len(repository.documents) == 2
+
+
+def test_slots_are_saved_without_false_multiplier_payment(monkeypatch):
+    repository = FakeRepository()
+    publisher = FakePublisher()
+    collector = PragmaticCollector(
+        settings(monkeypatch), repository, publisher, CollectorState()
+    )
+    message = json.dumps({
+        "tableId": "204",
+        "last20Results": [{
+            "gameId": "mega-1",
+            "result": "3",
+            "slots": {"1": 100, "16": 100, "28": 50},
+        }],
+    })
+
+    assert collector.process_message(FakeWebSocket(), message, {"sent": False}) == 1
+    assert repository.documents[0].slots == {"1": 100, "16": 100, "28": 50}
+    assert repository.documents[0].winning_multiplier is None
+    assert publisher.payloads[0]["full_result"]["winning_multiplier"] is None
+
+
+def test_invalid_slots_are_ignored(monkeypatch):
+    repository = FakeRepository()
+    collector = PragmaticCollector(
+        settings(monkeypatch), repository, FakePublisher(), CollectorState()
+    )
+    message = json.dumps({
+        "tableId": "204",
+        "last20Results": [{
+            "gameId": "mega-2",
+            "result": "2",
+            "slots": {"2": 100, "99": 500, "invalid": 50, "3": "200"},
+        }],
+    })
+
+    assert collector.process_message(FakeWebSocket(), message, {"sent": False}) == 1
+    assert repository.documents[0].slots == {"2": 100}
+    assert repository.documents[0].winning_multiplier == 100
 
 
 def test_catalog_response_sends_subscription(monkeypatch):
