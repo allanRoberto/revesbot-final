@@ -278,6 +278,27 @@ def test_future_provider_time_is_rejected(monkeypatch):
     assert "reason=future" in (state.last_error or "")
 
 
+def test_null_result_from_non_roulette_table_is_ignored(monkeypatch):
+    repository = FakeRepository()
+    state = CollectorState()
+    collector = PragmaticCollector(
+        settings(monkeypatch), repository, FakePublisher(), state
+    )
+    message = json.dumps({
+        "tableId": "2101",
+        "last20Results": [{
+            "gameId": "non-roulette",
+            "result": None,
+            "time": "Aug 18, 2026 8:19:18 PM",
+        }],
+    })
+
+    assert collector.process_message(FakeWebSocket(), message, {"sent": False}) == 0
+    assert repository.documents == []
+    assert state.invalid_messages_total == 0
+    assert state.last_error is None
+
+
 def test_catalog_response_sends_subscription(monkeypatch):
     collector = PragmaticCollector(settings(monkeypatch), FakeRepository(), FakePublisher(), CollectorState())
     socket = FakeWebSocket()

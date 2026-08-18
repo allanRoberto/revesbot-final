@@ -200,7 +200,13 @@ class PragmaticCollector:
         raw_results: list,
         captured_at: datetime,
     ) -> int:
-        items = [item for item in raw_results if isinstance(item, dict) and _game_id(item)]
+        items = [
+            item
+            for item in raw_results
+            if isinstance(item, dict)
+            and _game_id(item)
+            and item.get("result") is not None
+        ]
         if not items:
             return 0
         recent = self.repository.recent_results(roulette_id, limit=20)
@@ -308,7 +314,14 @@ class PragmaticCollector:
             reconciled_tables.add(roulette_id)
             return inserted
 
-        newest = next((item for item in results if isinstance(item, dict)), None)
+        newest = next(
+            (
+                item
+                for item in results
+                if isinstance(item, dict) and item.get("result") is not None
+            ),
+            None,
+        )
         if newest is None:
             return 0
         result = self._build_result(
