@@ -45,6 +45,8 @@ install -m 0644 "$base_dir/repository/infra/systemd/revesbot-collector-watchdog.
   /etc/systemd/system/revesbot-collector-watchdog.timer
 install -m 0644 "$base_dir/repository/infra/logrotate/revesbot-collector" \
   /etc/logrotate.d/revesbot-collector
+install -m 0755 "$base_dir/repository/infra/deploy/collector/ssh-dispatch.sh" \
+  /usr/local/sbin/revesbot-collector-deploy-dispatch
 
 env PATH="/usr/local/bin:/usr/bin:/bin" pm2 startup systemd -u "$runtime_user" --hp "/home/$runtime_user" >/dev/null
 systemctl daemon-reload

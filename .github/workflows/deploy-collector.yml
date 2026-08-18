@@ -55,5 +55,4 @@ jobs:
         run: |
           test -n "$DEPLOY_HOST"
           test -n "$DEPLOY_USER"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
-            "sudo /var/www/revesbot/repository/infra/deploy/collector/deploy.sh '${GITHUB_SHA}'"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "${GITHUB_SHA}"

@@ -58,6 +58,10 @@ O workflow `deploy-collector.yml` testa e implanta o SHA exato enviado ao
 branch `main`. O script mantém tres releases e reverte o symlink `current` se o
 health check nao ficar pronto.
 
+A chave do GitHub Actions usa `restrict` e um comando SSH forcado. Mesmo em
+caso de exposicao, ela nao abre shell: aceita somente um SHA Git de 40
+caracteres e executa exclusivamente o deploy do collector.
+
 ## Validacao antes da migracao
 
 1. Manter os collectors antigo e novo ativos simultaneamente.
