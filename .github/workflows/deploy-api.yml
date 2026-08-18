@@ -1,0 +1,81 @@
+name: Test and deploy minimal API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/core/config.py"
+      - "apps/api/core/runtime_db.py"
+      - "apps/api/helpers/active_roulettes.py"
+      - "apps/api/minimal_main.py"
+      - "apps/api/start_minimal.py"
+      - "apps/api/requirements-minimal.txt"
+      - "apps/api/routes/pixgo_webhook.py"
+      - "apps/api/routes/results_websocket.py"
+      - "apps/api/routes/roulette_history.py"
+      - "apps/api/templates/history_minimal.html"
+      - "apps/api/static/css/**"
+      - "apps/api/static/js/**"
+      - "apps/api/tests/test_minimal_api.py"
+      - "apps/api/tests/test_pixgo_webhook.py"
+      - "apps/api/tests/test_results_websocket.py"
+      - "apps/api/tests/test_roulette_history_route.py"
+      - "infra/deploy/api/**"
+      - "infra/logrotate/revesbot-api"
+      - "infra/nginx/api-revesbot.conf"
+      - "infra/pm2/api-minimal.config.js"
+      - "infra/systemd/revesbot-api-watchdog.*"
+      - "infra/systemd/revesbot-pixgo-mongo-tunnel.service"
+      - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: api-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/requirements-minimal.txt
+      - name: Install dependencies
+        run: python -m pip install -r apps/api/requirements-minimal.txt pytest
+      - name: Run minimal API tests
+        env:
+          PYTHONPATH: apps
+        run: >-
+          python -m pytest -q
+          apps/api/tests/test_roulette_history_route.py
+          apps/api/tests/test_results_websocket.py
+          apps/api/tests/test_minimal_api.py
+          apps/api/tests/test_pixgo_webhook.py
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: api-production
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.API_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.API_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Deploy exact commit
+        env:
+          DEPLOY_HOST: ${{ vars.API_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.API_DEPLOY_USER }}
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "${GITHUB_SHA}"
