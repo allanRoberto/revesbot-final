@@ -35,6 +35,16 @@ function resultCard(item) {
   return card;
 }
 
+export function setResultHighlight(container, value) {
+  highlightedValue = value == null ? null : Number(value);
+  container.querySelectorAll(".result-card").forEach((item) => {
+    item.classList.toggle(
+      "result-card--highlighted",
+      highlightedValue !== null && Number(item.dataset.value) === highlightedValue,
+    );
+  });
+}
+
 export function renderResults(container, items) {
   const fragment = document.createDocumentFragment();
   items.forEach((item) => fragment.append(resultCard(item)));
@@ -45,17 +55,12 @@ export function prependResult(container, item) {
   container.prepend(resultCard(item));
 }
 
-export function bindResultHighlight(container) {
+export function bindResultHighlight(container, onSelectionChange = () => {}) {
   container.addEventListener("click", (event) => {
     const card = event.target.closest(".result-card");
     if (!card || !container.contains(card)) return;
     const value = Number(card.dataset.value);
-    highlightedValue = highlightedValue === value ? null : value;
-    container.querySelectorAll(".result-card").forEach((item) => {
-      item.classList.toggle(
-        "result-card--highlighted",
-        highlightedValue !== null && Number(item.dataset.value) === highlightedValue,
-      );
-    });
+    setResultHighlight(container, highlightedValue === value ? null : value);
+    onSelectionChange(highlightedValue);
   });
 }

@@ -33,5 +33,8 @@ def test_history_html_uses_external_assets_and_docs_are_disabled() -> None:
     assert '<script type="module" src="/static/js/pages/history.js?v=' in response.text
     assert 'id="grid-columns"' in response.text
     assert "Números por linha" in response.text
+    assert 'id="number-context-panel"' in response.text
+    assert "Números atrás" in response.text
+    assert "Números à frente" in response.text
     assert "<style" not in response.text
     assert client.get("/docs").status_code == 404
