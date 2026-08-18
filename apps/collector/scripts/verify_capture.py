@@ -30,6 +30,9 @@ def main() -> None:
             "external_game_id": 1,
             "slots": 1,
             "winning_multiplier": 1,
+            "captured_at": 1,
+            "recovered": 1,
+            "timestamp_source": 1,
         },
         sort=[("timestamp", -1)],
     )
@@ -57,6 +60,11 @@ def main() -> None:
             {"slots": {"$exists": True, "$ne": {}}}
         ),
         "multiplier_payments": collection.count_documents({"winning_multiplier": {"$ne": None}}),
+        "recovered_documents": collection.count_documents({"recovered": True}),
+        "provider_timestamps": collection.count_documents({"timestamp_source": "provider"}),
+        "captured_fallback_timestamps": collection.count_documents(
+            {"timestamp_source": "captured_fallback"}
+        ),
         "latest": {key: _iso(value) for key, value in (latest or {}).items()},
     }
     print(json.dumps(output, ensure_ascii=False, sort_keys=True))

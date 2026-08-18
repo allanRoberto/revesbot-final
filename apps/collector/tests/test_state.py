@@ -22,3 +22,13 @@ def test_readiness_reports_disconnected_websocket():
     ready, reasons = state.readiness(90, 180, 120)
     assert ready is False
     assert "websocket_disconnected" in reasons
+
+
+def test_recovery_counters_are_exposed_in_snapshot():
+    state = CollectorState()
+    state.record_persisted("pragmatic-auto-roulette", recovered=True)
+    state.record_recovery_failure("recovery_window_exhausted")
+    snapshot = state.snapshot(90, 180, 120)
+    assert snapshot["recovered_results_total"] == 1
+    assert snapshot["recovery_failures_total"] == 1
+    assert snapshot["last_error"] == "recovery_window_exhausted"

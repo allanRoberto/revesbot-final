@@ -17,6 +17,8 @@ def render_metrics(state: CollectorState, ready: bool) -> str:
         "revesbot_collector_redis_errors_total": snapshot["redis_errors_total"],
         "revesbot_collector_invalid_messages_total": snapshot["invalid_messages_total"],
         "revesbot_collector_watchdog_failures_total": snapshot["watchdog_failures_total"],
+        "revesbot_collector_recovered_results_total": snapshot["recovered_results_total"],
+        "revesbot_collector_recovery_failures_total": snapshot["recovery_failures_total"],
         "revesbot_collector_tables_seen": snapshot["tables_seen"],
     }
     return "\n".join(f"{name} {value}" for name, value in values.items()) + "\n"

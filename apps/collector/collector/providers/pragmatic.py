@@ -48,6 +48,23 @@ def _parse_slots(raw_slots: object) -> dict[str, int | float]:
     return slots
 
 
+def _game_id(item: dict) -> str:
+    raw_game_id = item.get("gameId")
+    return str(raw_game_id).strip() if raw_game_id is not None else ""
+
+
+def _provider_timestamp(item: dict) -> datetime | None:
+    raw_time = item.get("time")
+    if not isinstance(raw_time, str) or not raw_time.strip():
+        return None
+    try:
+        return datetime.strptime(
+            raw_time.strip(), "%b %d, %Y %I:%M:%S %p"
+        ).replace(tzinfo=UTC)
+    except ValueError:
+        return None
+
+
 class PragmaticCollector:
     websocket_url = "wss://dga.pragmaticplaylive.net/ws"
 
@@ -72,6 +89,9 @@ class PragmaticCollector:
                 "timestamp": result.timestamp.isoformat(),
                 "slots": result.slots,
                 "winning_multiplier": result.winning_multiplier,
+                "captured_at": (result.captured_at or result.timestamp).isoformat(),
+                "recovered": result.recovered,
+                "timestamp_source": result.timestamp_source,
                 "timestamp_br": br_time.isoformat(),
                 "date": br_time.strftime("%Y-%m-%d"),
                 "time": br_time.strftime("%H:%M:%S"),
@@ -82,7 +102,164 @@ class PragmaticCollector:
             },
         })
 
-    def process_message(self, ws, message: str, subscription: dict[str, bool]) -> int:
+    def _build_result(
+        self,
+        roulette_id: str,
+        item: dict,
+        timestamp: datetime,
+        captured_at: datetime,
+        recovered: bool,
+        timestamp_source: str,
+    ) -> RouletteResult | None:
+        try:
+            value = int(item["result"])
+        except (KeyError, TypeError, ValueError):
+            self.state.record_invalid()
+            return None
+        game_id = _game_id(item)
+        if not game_id:
+            self.state.record_invalid()
+            return None
+        slots = _parse_slots(item.get("slots"))
+        return RouletteResult(
+            roulette_id=roulette_id,
+            value=value,
+            timestamp=timestamp,
+            external_game_id=game_id,
+            slots=slots,
+            winning_multiplier=slots.get(str(value)),
+            captured_at=captured_at,
+            recovered=recovered,
+            timestamp_source=timestamp_source,
+        )
+
+    def _timestamp_for_item(
+        self,
+        roulette_id: str,
+        item: dict,
+        captured_at: datetime,
+        recovered: bool,
+    ) -> tuple[datetime, str]:
+        provider_timestamp = _provider_timestamp(item)
+        if provider_timestamp is not None:
+            return provider_timestamp, "provider"
+        game_id = _game_id(item) or "unknown"
+        message = (
+            f"provider_timestamp_missing roulette_id={roulette_id} "
+            f"game_id={game_id} recovered={recovered}"
+        )
+        if recovered:
+            self.state.record_recovery_failure(message)
+        else:
+            self.state.record_invalid()
+            self.state.record_error(message)
+        self.logger.error(message)
+        return captured_at, "captured_fallback"
+
+    def _persist(self, result: RouletteResult, publish_live: bool) -> int:
+        game_id = result.external_game_id or ""
+        if game_id and self.state.was_seen(result.roulette_id, game_id):
+            return 0
+        try:
+            inserted, inserted_id = self.repository.insert_if_new(result)
+            with self.state._lock:
+                self.state.mongo_ok = True
+        except Exception as exc:
+            self.state.record_mongo_error(str(exc))
+            self.logger.exception("mongo_write_failed roulette_id=%s", result.roulette_id)
+            return 0
+        if game_id:
+            self.state.mark_seen(result.roulette_id, game_id)
+        if not inserted:
+            self.state.record_duplicate()
+            return 0
+        self.state.record_persisted(result.roulette_id, recovered=result.recovered)
+        if publish_live:
+            try:
+                self.publisher.publish(self._event_payload(result, inserted_id))
+                self.state.record_published()
+            except Exception as exc:
+                self.state.record_redis_error(str(exc))
+                self.logger.exception("redis_publish_failed roulette_id=%s", result.roulette_id)
+        self.logger.info(
+            "result_saved roulette_id=%s value=%s game_id=%s recovered=%s",
+            result.roulette_id,
+            result.value,
+            game_id,
+            result.recovered,
+        )
+        return 1
+
+    def _reconcile_snapshot(
+        self,
+        roulette_id: str,
+        raw_results: list,
+        captured_at: datetime,
+    ) -> int:
+        items = [item for item in raw_results if isinstance(item, dict) and _game_id(item)]
+        if not items:
+            return 0
+        recent = self.repository.recent_results(roulette_id, limit=20)
+        if not recent:
+            timestamp, source = self._timestamp_for_item(
+                roulette_id, items[0], captured_at, recovered=False
+            )
+            result = self._build_result(
+                roulette_id,
+                items[0],
+                timestamp,
+                captured_at,
+                recovered=False,
+                timestamp_source=source,
+            )
+            return self._persist(result, publish_live=True) if result else 0
+
+        stored_by_id = {
+            str(item["external_game_id"]): item
+            for item in recent
+            if item.get("external_game_id")
+        }
+        overlap_index = next(
+            (index for index, item in enumerate(items) if _game_id(item) in stored_by_id),
+            None,
+        )
+        if overlap_index is None:
+            missing_oldest_first = list(reversed(items))
+            message = (
+                f"recovery_window_exhausted roulette_id={roulette_id} "
+                f"available_results={len(missing_oldest_first)}"
+            )
+            self.state.record_recovery_failure(message)
+            self.logger.critical(message)
+        else:
+            missing_oldest_first = list(reversed(items[:overlap_index]))
+            if not missing_oldest_first:
+                return 0
+
+        inserted = 0
+        for item in missing_oldest_first:
+            timestamp, source = self._timestamp_for_item(
+                roulette_id, item, captured_at, recovered=True
+            )
+            result = self._build_result(
+                roulette_id,
+                item,
+                timestamp,
+                captured_at,
+                recovered=True,
+                timestamp_source=source,
+            )
+            if result:
+                inserted += self._persist(result, publish_live=False)
+        if inserted:
+            self.logger.warning(
+                "recovery_completed roulette_id=%s recovered=%s",
+                roulette_id,
+                inserted,
+            )
+        return inserted
+
+    def process_message(self, ws, message: str, subscription: dict[str, object]) -> int:
         self.state.record_message()
         try:
             data = json.loads(message)
@@ -112,56 +289,36 @@ class PragmaticCollector:
             return 0
         table_id = str(raw_table_id)
         roulette_id = ROULETTE_NAMES.get(table_id, f"pragmatic-table-{table_id}")
-        inserted_count = 0
-
-        # Oldest first so a reconnect backfills the snapshot in order.
-        for item in reversed(results):
-            if not isinstance(item, dict):
-                continue
+        captured_at = datetime.now(UTC)
+        reconciled_tables = subscription.setdefault("reconciled_tables", set())
+        if not isinstance(reconciled_tables, set):
+            reconciled_tables = set()
+            subscription["reconciled_tables"] = reconciled_tables
+        if roulette_id not in reconciled_tables:
             try:
-                value = int(item["result"])
-            except (KeyError, TypeError, ValueError):
-                self.state.record_invalid()
-                continue
-            raw_game_id = item.get("gameId")
-            game_id = str(raw_game_id).strip() if raw_game_id is not None else ""
-            if game_id and self.state.was_seen(roulette_id, game_id):
-                continue
-            slots = _parse_slots(item.get("slots"))
-            result = RouletteResult(
-                roulette_id=roulette_id,
-                value=value,
-                timestamp=datetime.now(UTC),
-                external_game_id=game_id or None,
-                slots=slots,
-                winning_multiplier=slots.get(str(value)),
-            )
-            try:
-                inserted, inserted_id = self.repository.insert_if_new(result)
-                with self.state._lock:
-                    self.state.mongo_ok = True
+                inserted = self._reconcile_snapshot(roulette_id, results, captured_at)
             except Exception as exc:
                 self.state.record_mongo_error(str(exc))
-                self.logger.exception("mongo_write_failed roulette_id=%s", roulette_id)
-                continue
-            if game_id:
-                self.state.mark_seen(roulette_id, game_id)
-            if not inserted:
-                self.state.record_duplicate()
-                continue
-            self.state.record_persisted(roulette_id)
-            inserted_count += 1
-            try:
-                self.publisher.publish(self._event_payload(result, inserted_id))
-                self.state.record_published()
-            except Exception as exc:
-                self.state.record_redis_error(str(exc))
-                self.logger.exception("redis_publish_failed roulette_id=%s", roulette_id)
-            self.logger.info(
-                "result_saved roulette_id=%s value=%s game_id=%s",
-                roulette_id, value, game_id or "none",
-            )
-        return inserted_count
+                self.logger.exception("snapshot_reconciliation_failed roulette_id=%s", roulette_id)
+                return 0
+            reconciled_tables.add(roulette_id)
+            return inserted
+
+        newest = next((item for item in results if isinstance(item, dict)), None)
+        if newest is None:
+            return 0
+        timestamp, source = self._timestamp_for_item(
+            roulette_id, newest, captured_at, recovered=False
+        )
+        result = self._build_result(
+            roulette_id,
+            newest,
+            timestamp,
+            captured_at,
+            recovered=False,
+            timestamp_source=source,
+        )
+        return self._persist(result, publish_live=True) if result else 0
 
     def _send_subscribe(self, ws) -> None:
         ws.send(json.dumps({
@@ -173,7 +330,7 @@ class PragmaticCollector:
 
     def run_session(self) -> None:
         heartbeat_stop = threading.Event()
-        subscription = {"sent": False}
+        subscription: dict[str, object] = {"sent": False, "reconciled_tables": set()}
 
         def application_ping(ws) -> None:
             while not heartbeat_stop.wait(15):
