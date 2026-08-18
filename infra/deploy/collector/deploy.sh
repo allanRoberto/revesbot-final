@@ -28,6 +28,9 @@ test -d "$repository/.git"
 test -s "$env_file"
 
 sudo -u "$runtime_user" git -C "$repository" fetch --prune origin "$deploy_ref"
+if ! sudo -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}" 2>/dev/null; then
+  sudo -u "$runtime_user" git -C "$repository" fetch origin "$commit_sha"
+fi
 sudo -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}"
 
 if [[ ! -d "$release_dir" ]]; then
