@@ -86,7 +86,7 @@ case "$phase" in
       }
       restore_args+=(--drop)
     else
-      restore_args+=(--mode=upsert)
+      restore_args+=(--mode=upsert --noIndexRestore)
     fi
     docker exec "$container" "${restore_args[@]}"
     docker exec "$container" rm -f "$container_archive"
