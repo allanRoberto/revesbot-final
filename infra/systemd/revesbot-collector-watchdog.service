@@ -1,0 +1,7 @@
+[Unit]
+Description=Revesbot collector external health watchdog
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/var/www/revesbot/current/infra/deploy/collector/watchdog.sh

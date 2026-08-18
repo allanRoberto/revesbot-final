@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "apps/collector/**"
+      - "infra/deploy/collector/**"
+      - "infra/docker/collector-test.compose.yml"
+      - "infra/pm2/collector.config.js"
+      - "infra/systemd/revesbot-collector-watchdog.*"
+      - ".github/workflows/deploy-collector.yml"
+      - ".github/workflows/deploy-main.yml"
   workflow_dispatch:
 
 concurrency:
