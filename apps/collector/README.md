@@ -36,5 +36,27 @@ Pragmatic. `winning_multiplier` recebe o valor associado ao numero sorteado ou
 }
 ```
 
+## Recuperacao apos interrupcao
+
+Durante a operacao normal somente `last20Results[0]` e tratado. Na primeira
+mensagem de cada mesa apos iniciar ou reconectar, o collector compara os
+`gameId` recebidos com os 20 registros mais recentes do MongoDB:
+
+- com um ID em comum, insere somente a lacuna posterior a ele;
+- sem registros anteriores, salva apenas o resultado mais recente;
+- sem nenhum ID em comum, preserva os 20 disponiveis e registra um alerta de
+  janela de recuperacao esgotada.
+
+Os resultados ao vivo usam o instante da captura porque as mensagens delta da
+Pragmatic podem trazer o campo `time` com formato semanticamente incorreto. Os
+resultados recuperados sao ordenados do mais antigo para o mais novo e usam o
+horario original informado no snapshot completo do WebSocket. Eles
+recebem `recovered=true`, `timestamp_source=provider` e `captured_at` com o
+instante da recuperacao. Se o provedor excepcionalmente omitir ou invalidar o
+horario ou enviar uma data futura, o collector registra um alerta e usa o
+instante da captura com
+`timestamp_source=captured_fallback`; nenhuma estimativa por mediana e feita.
+Resultados recuperados nao sao publicados no canal de eventos ao vivo.
+
 O watchdog interno encerra o processo quando a captura fica obsoleta. O PM2
 reinicia a aplicacao e um timer externo fornece uma segunda camada de defesa.

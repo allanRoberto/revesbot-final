@@ -38,6 +38,11 @@ O endpoint `ready` exige MongoDB, Redis, WebSocket e resultados recentes. O
 watchdog interno encerra processos obsoletos; PM2 reinicia o worker e o timer
 systemd funciona como segunda camada.
 
+As metricas `revesbot_collector_recovered_results_total` e
+`revesbot_collector_recovery_failures_total` mostram, respectivamente, quantos
+resultados foram recompostos e quantas vezes a interrupcao ultrapassou a janela
+de 20 resultados disponibilizada pelo provedor.
+
 Os logs do collector giram diariamente ou ao atingir 20 MB. Sao mantidos sete
 arquivos compactados, evitando crescimento indefinido no disco.
 

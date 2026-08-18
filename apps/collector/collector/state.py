@@ -31,6 +31,8 @@ class CollectorState:
     redis_errors_total: int = 0
     invalid_messages_total: int = 0
     watchdog_failures_total: int = 0
+    recovered_results_total: int = 0
+    recovery_failures_total: int = 0
     table_last_result_at: dict[str, float] = field(default_factory=dict)
     _recent_ids: dict[str, deque[str]] = field(default_factory=lambda: defaultdict(lambda: deque(maxlen=200)))
     _recent_sets: dict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
@@ -75,7 +77,7 @@ class CollectorState:
         with self._lock:
             self.duplicates_total += 1
 
-    def record_persisted(self, roulette_id: str) -> None:
+    def record_persisted(self, roulette_id: str, recovered: bool = False) -> None:
         now = time.time()
         with self._lock:
             self.results_total += 1
@@ -83,6 +85,13 @@ class CollectorState:
             self.last_db_write_at = now
             self.mongo_ok = True
             self.table_last_result_at[roulette_id] = now
+            if recovered:
+                self.recovered_results_total += 1
+
+    def record_recovery_failure(self, message: str) -> None:
+        with self._lock:
+            self.recovery_failures_total += 1
+            self.last_error = message[:500]
 
     def record_published(self) -> None:
         with self._lock:
@@ -140,5 +149,7 @@ class CollectorState:
                 "redis_errors_total": self.redis_errors_total,
                 "invalid_messages_total": self.invalid_messages_total,
                 "watchdog_failures_total": self.watchdog_failures_total,
+                "recovered_results_total": self.recovered_results_total,
+                "recovery_failures_total": self.recovery_failures_total,
                 "tables_seen": len(self.table_last_result_at),
             }

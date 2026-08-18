@@ -8,8 +8,10 @@ on:
       - "apps/collector/**"
       - "infra/deploy/collector/**"
       - "infra/docker/collector-test.compose.yml"
+      - "infra/logrotate/**"
       - "infra/pm2/collector.config.js"
       - "infra/systemd/revesbot-collector-watchdog.*"
+      - "docs/collector-operations.md"
       - ".github/workflows/deploy-collector.yml"
       - ".github/workflows/deploy-main.yml"
   workflow_dispatch:

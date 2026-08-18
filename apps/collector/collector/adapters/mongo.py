@@ -12,6 +12,7 @@ class MongoResultRepository:
             serverSelectionTimeoutMS=8000,
             connectTimeoutMS=5000,
             appname="revesbot-collector",
+            tz_aware=True,
         )
         self.database = self.client[database]
         self.collection = self.database[collection]
@@ -57,6 +58,19 @@ class MongoResultRepository:
 
         inserted = self.collection.insert_one(document)
         return True, str(inserted.inserted_id)
+
+    def recent_results(self, roulette_id: str, limit: int = 20) -> list[dict]:
+        return list(
+            self.collection.find(
+                {
+                    "roulette_id": roulette_id,
+                    "external_game_id": {"$type": "string"},
+                },
+                {"_id": 0, "external_game_id": 1, "timestamp": 1},
+                sort=[("_id", DESCENDING)],
+                limit=limit,
+            )
+        )
 
     def trim(self, limit_per_table: int) -> int:
         if limit_per_table <= 0:
