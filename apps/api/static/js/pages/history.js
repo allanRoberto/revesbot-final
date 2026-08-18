@@ -2,7 +2,8 @@ import { fetchHistory, fetchRoulettes } from "../core/api-client.js?v=3";
 import { ResultsSocket } from "../core/results-socket.js?v=3";
 import { copyResults } from "../components/copy-results.js?v=3";
 import { setLiveStatus } from "../components/live-status.js?v=3";
-import { bindResultHighlight, prependResult, renderResults } from "../components/result-grid.js?v=3";
+import { createNumberContextPanel } from "../components/number-context-panel.js?v=1";
+import { bindResultHighlight, prependResult, renderResults, setResultHighlight } from "../components/result-grid.js?v=4";
 import { bindRouletteSelector, fillRouletteCounts } from "../components/roulette-selector.js?v=3";
 
 const app = document.querySelector("#history-app");
@@ -17,6 +18,18 @@ const statusText = document.querySelector("#live-status-text");
 const socketToggle = document.querySelector("#socket-toggle");
 let items = [];
 let paused = false;
+
+const contextPanel = createNumberContextPanel({
+  root: document.querySelector("#number-context-panel"),
+  closeButton: document.querySelector("#number-context-close"),
+  behindInput: document.querySelector("#context-behind"),
+  aheadInput: document.querySelector("#context-ahead"),
+  summary: document.querySelector("#context-summary"),
+  ranking: document.querySelector("#context-ranking"),
+  occurrences: document.querySelector("#context-occurrences"),
+  title: document.querySelector("#number-context-title"),
+  onClose: () => setResultHighlight(grid, null),
+});
 
 const columnsStorageKey = "revesbot-history-columns";
 const allowedColumnValues = new Set(["auto", "5", "8", "10", "12", "15", "20"]);
@@ -50,6 +63,7 @@ function updateView(nextItems) {
   renderResults(grid, items);
   summary.textContent = `${items.length.toLocaleString("pt-BR")} resultados`;
   empty.hidden = items.length > 0;
+  contextPanel.update(items);
 }
 
 async function loadHistory() {
@@ -76,11 +90,15 @@ const socket = new ResultsSocket({
     while (grid.children.length > items.length) grid.lastElementChild?.remove();
     summary.textContent = `${items.length.toLocaleString("pt-BR")} resultados`;
     empty.hidden = true;
+    contextPanel.update(items);
   },
 });
 
 bindRouletteSelector(document.querySelector("#roulette-select"));
-bindResultHighlight(grid);
+bindResultHighlight(grid, (value) => {
+  if (value === null) contextPanel.close({ notify: false });
+  else contextPanel.select(value, items);
+});
 
 limitSelect.addEventListener("change", loadHistory);
 columnsSelect.addEventListener("change", () => {

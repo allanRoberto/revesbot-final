@@ -1,0 +1,29 @@
+.number-context-panel { position: fixed; inset: auto 0 0; z-index: 20; max-height: min(72vh, 720px); padding: 0 16px; pointer-events: none; opacity: 0; transform: translateY(calc(100% + 24px)); transition: opacity .22s ease, transform .3s ease; }
+.number-context-panel--open { pointer-events: auto; opacity: 1; transform: translateY(0); }
+.number-context-panel__surface { width: min(1180px, 100%); max-height: min(72vh, 720px); margin: 0 auto; overflow-y: auto; border: 1px solid var(--border); border-bottom: 0; border-radius: 18px 18px 0 0; padding: 20px; background: color-mix(in srgb, var(--surface) 96%, transparent); box-shadow: 0 -24px 70px rgb(0 0 0 / 38%); backdrop-filter: blur(18px); }
+.number-context-panel__header, .number-context-panel__controls { display: flex; align-items: center; gap: 16px; }
+.number-context-panel__header { justify-content: space-between; margin-bottom: 16px; }
+.number-context-panel__header h2 { margin-bottom: 0; }
+.number-context-panel__controls { flex-wrap: wrap; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-strong); }
+.number-context-panel__summary { flex: 1 1 280px; margin: 20px 0 0; color: var(--muted); }
+.number-context-panel__section { margin-top: 18px; }
+.number-context-panel__section h3 { margin: 0 0 10px; font-size: 14px; }
+.context-ranking { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); }
+.context-ranking__item { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px 4px 4px; background: var(--surface-strong); font-size: 12px; font-weight: 800; }
+.context-ranking__number, .context-number { display: inline-grid; place-items: center; min-width: 32px; height: 32px; border-radius: 9px; padding: 0 7px; color: #fff; font-weight: 900; }
+.context-ranking__number { min-width: 27px; height: 27px; border-radius: 999px; }
+.context-ranking__number--red, .context-number--red { background: var(--roulette-red); }
+.context-ranking__number--black, .context-number--black { background: var(--roulette-black); }
+.context-ranking__number--green, .context-number--green { background: var(--roulette-green); }
+.context-occurrences { display: grid; gap: 8px; color: var(--muted); }
+.context-occurrence { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.context-occurrence__label { font-size: 11px; font-weight: 800; }
+.context-sequence { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.context-sequence__group { display: flex; flex-wrap: wrap; gap: 5px; }
+.context-sequence__group:first-child { justify-content: flex-end; }
+.context-sequence__empty { color: var(--muted); }
+.context-number--selected { position: relative; min-width: 42px; height: 42px; border: 3px solid #ffe58a; box-shadow: 0 0 0 3px rgb(255 229 138 / 16%); }
+.context-number--selected::before, .context-number--selected::after { position: absolute; top: 50%; color: var(--muted); font-size: 12px; transform: translateY(-50%); }
+.context-number--selected::before { right: calc(100% + 3px); content: "→"; }
+.context-number--selected::after { left: calc(100% + 3px); content: "→"; }
+@media (max-width: 640px) { .number-context-panel { padding: 0 6px; } .number-context-panel__surface { padding: 16px 12px; } .number-context-panel__controls .field { flex: 1 1 calc(50% - 8px); min-width: 110px; } .number-context-panel__summary { margin-top: 0; } .context-occurrence { grid-template-columns: 1fr; gap: 5px; } .context-sequence { min-width: max-content; } .context-occurrence { overflow-x: auto; padding-bottom: 4px; } }
