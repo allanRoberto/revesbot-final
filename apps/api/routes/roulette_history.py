@@ -14,7 +14,9 @@ from api.helpers.active_roulettes import ACTIVE_ROULETTE_BY_SLUG, ACTIVE_ROULETT
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
+api_dir = Path(__file__).resolve().parent.parent
+templates = Jinja2Templates(directory=api_dir / "templates")
+asset_version = str(int((api_dir / "static/js/pages/history.js").stat().st_mtime))
 tz_br = pytz.timezone("America/Sao_Paulo")
 
 _roulette_list_cache: tuple[float, list[dict[str, Any]]] | None = None
@@ -57,6 +59,7 @@ def _html_response(request: Request, slug: str, filters: dict[str, Any] | None =
             "roulette": roulette,
             "all_roulettes": ACTIVE_ROULETTES,
             "filters": filters or {},
+            "asset_version": asset_version,
         },
     )
 

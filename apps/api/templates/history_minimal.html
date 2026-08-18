@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Resultados em tempo real das roletas monitoradas">
   <title>{{ roulette.name }} | Revesbot</title>
-  <link rel="stylesheet" href="/static/css/tokens.css">
-  <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/components/roulette-selector.css">
-  <link rel="stylesheet" href="/static/css/components/live-status.css">
-  <link rel="stylesheet" href="/static/css/components/result-grid.css">
-  <link rel="stylesheet" href="/static/css/pages/history.css">
+  <link rel="stylesheet" href="/static/css/tokens.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/base.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/roulette-selector.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/live-status.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/result-grid.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/pages/history.css?v={{ asset_version }}">
 </head>
 <body>
   <main class="history-page" id="history-app" data-slug="{{ slug }}">
@@ -63,6 +63,6 @@
       <p class="empty-state" id="empty-state" hidden>Nenhum resultado encontrado.</p>
     </section>
   </main>
-  <script type="module" src="/static/js/pages/history.js"></script>
+  <script type="module" src="/static/js/pages/history.js?v={{ asset_version }}"></script>
 </body>
 </html>
