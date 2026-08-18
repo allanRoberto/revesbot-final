@@ -1,0 +1,55 @@
+services:
+  mongo-test:
+    image: mongo:7.0
+    container_name: revesbot-mongo-test
+    restart: unless-stopped
+    command:
+      - mongod
+      - --bind_ip_all
+      - --auth
+      - --wiredTigerCacheSizeGB
+      - "8"
+    env_file:
+      - /etc/revesbot/collector-data-test.env
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - /var/www/revesbot/data/mongo-test:/data/db
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "mongosh --quiet --host 127.0.0.1 --username '$${MONGO_INITDB_ROOT_USERNAME}' --password '$${MONGO_INITDB_ROOT_PASSWORD}' --authenticationDatabase admin --eval 'quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)'"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: revesbot-redis-test
+    restart: unless-stopped
+    env_file:
+      - /etc/revesbot/collector-data-test.env
+    command:
+      - /bin/sh
+      - -ec
+      - exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - /var/www/revesbot/data/redis-test:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"

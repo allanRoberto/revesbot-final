@@ -1,0 +1,58 @@
+name: Test and deploy Pragmatic collector
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/collector/**"
+      - "infra/deploy/collector/**"
+      - "infra/docker/collector-test.compose.yml"
+      - "infra/logrotate/revesbot-collector"
+      - "infra/pm2/collector.config.js"
+      - "infra/systemd/revesbot-collector-watchdog.*"
+      - ".github/workflows/deploy-collector.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: collector-test
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/collector/requirements-dev.txt
+      - name: Install dependencies
+        run: python -m pip install -r apps/collector/requirements-dev.txt
+      - name: Run collector tests
+        run: python -m pytest apps/collector/tests -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: collector-test
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.COLLECTOR_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.COLLECTOR_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Deploy exact commit
+        env:
+          DEPLOY_HOST: ${{ vars.COLLECTOR_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.COLLECTOR_DEPLOY_USER }}
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "${GITHUB_SHA}"
