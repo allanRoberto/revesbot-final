@@ -328,6 +328,26 @@ def test_american_roulette_type_is_ignored(monkeypatch):
     assert repository.documents == []
 
 
+def test_existing_generic_roulette_id_is_preserved(monkeypatch):
+    repository = FakeRepository()
+    collector = PragmaticCollector(
+        settings(monkeypatch), repository, FakePublisher(), CollectorState()
+    )
+    message = json.dumps({
+        "tableId": "270",
+        "tableName": "Fortune Roulette",
+        "tableType": "ROULETTE",
+        "last20Results": [{
+            "gameId": "fortune-roulette",
+            "result": "17",
+            "time": "Aug 18, 2026 8:19:18 PM",
+        }],
+    })
+
+    assert collector.process_message(FakeWebSocket(), message, {"sent": False}) == 1
+    assert repository.documents[0].roulette_id == "pragmatic-table-270"
+
+
 def test_catalog_response_sends_subscription(monkeypatch):
     collector = PragmaticCollector(settings(monkeypatch), FakeRepository(), FakePublisher(), CollectorState())
     socket = FakeWebSocket()

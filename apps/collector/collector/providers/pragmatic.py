@@ -27,12 +27,7 @@ ROULETTE_NAMES = {
     "234": "pragmatic-roulette-italian", "237": "pragmatic-brazilian-roulette",
     "222": "pragmatic-german-roulette", "221": "pragmatic-russian-roulette",
     "223": "pragmatic-roulette-italia-tricolore", "262": "pragmatic-vietnamese-roulette",
-    "206": "pragmatic-roulette-macao", "240": "pragmatic-powerup-roulette",
-    "2501": "pragmatic-crystal-roulette", "270": "pragmatic-fortune-roulette",
-    "12501": "pragmatic-speed-roulette-latina",
-    "28301": "pragmatic-prive-lounge-roulette-deluxe",
-    "28201": "pragmatic-prive-lounge-roulette",
-    "211": "pragmatic-lucky-6-roulette",
+    "206": "pragmatic-roulette-macao",
 }
 
 
