@@ -1,72 +1,93 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any
 
 import pytz
-import os
-
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
-from api.core.config import settings
-from api.core.db import history_coll
-from api.helpers.roulettes_list import roulettes
+from api.core.runtime_db import history_coll
+from api.helpers.active_roulettes import ACTIVE_ROULETTE_BY_SLUG, ACTIVE_ROULETTES
 
 
 router = APIRouter()
-base_dir = os.path.dirname(os.path.dirname(__file__))
-templates_dir = os.path.join(base_dir, "templates")
+templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
+tz_br = pytz.timezone("America/Sao_Paulo")
+
+_roulette_list_cache: tuple[float, list[dict[str, Any]]] | None = None
 
 
-def _serialize_history_item(doc: Dict[str, Any]) -> Dict[str, Any]:
+def _bounded_limit(limit: int) -> int:
+    return max(1, min(limit, 50_000))
+
+
+def _validate_slug(slug: str) -> None:
+    if slug not in ACTIVE_ROULETTE_BY_SLUG:
+        raise HTTPException(status_code=404, detail="Roleta não monitorada")
+
+
+def _serialize_history_item(doc: dict[str, Any]) -> dict[str, Any]:
+    timestamp = doc.get("timestamp")
+    captured_at = doc.get("captured_at")
     return {
         "_id": str(doc.get("_id")) if doc.get("_id") is not None else None,
         "value": int(doc.get("value")),
         "roulette_id": str(doc.get("roulette_id") or ""),
         "roulette_name": str(doc.get("roulette_name") or doc.get("roulette_id") or ""),
-        "timestamp": doc.get("timestamp").isoformat() if isinstance(doc.get("timestamp"), datetime) else None,
+        "external_game_id": doc.get("external_game_id"),
+        "timestamp": timestamp.isoformat() if isinstance(timestamp, datetime) else None,
+        "captured_at": captured_at.isoformat() if isinstance(captured_at, datetime) else None,
+        "timestamp_source": doc.get("timestamp_source"),
+        "recovered": bool(doc.get("recovered", False)),
+        "slots": doc.get("slots") or [],
+        "winning_multiplier": doc.get("winning_multiplier"),
     }
 
 
-def get_color_class(num: int) -> str:
-    if num == 0:
-        return "green"
-    red_numbers = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
-    return "red" if num in red_numbers else "black"
-
-
-def _template_feature_context() -> Dict[str, Any]:
-    return {
-        "bot_automation_enabled": bool(settings.bot_automation_enabled),
-        "bot_api_url": settings.bot_api_url,
-        "bot_health_url": settings.bot_health_url,
-        "pattern_metrics_enabled": bool(settings.pattern_metrics_enabled),
-    }
+def _html_response(request: Request, slug: str, filters: dict[str, Any] | None = None):
+    roulette = ACTIVE_ROULETTE_BY_SLUG.get(slug, {"slug": slug, "name": slug})
+    return templates.TemplateResponse(
+        request=request,
+        name="history_minimal.html",
+        context={
+            "slug": slug,
+            "roulette": roulette,
+            "all_roulettes": ACTIVE_ROULETTES,
+            "filters": filters or {},
+        },
+    )
 
 
 @router.get("/api/roulettes-list")
 async def get_all_roulettes():
-    """
-    Lista todas as roletas disponíveis no banco
-    """
+    global _roulette_list_cache
+
+    now = time.monotonic()
+    if _roulette_list_cache and now - _roulette_list_cache[0] < 30:
+        return _roulette_list_cache[1]
+
+    pipeline = [
+        {"$match": {"roulette_id": {"$in": list(ACTIVE_ROULETTE_BY_SLUG)}}},
+        {"$group": {"_id": "$roulette_id", "count": {"$sum": 1}}},
+    ]
     try:
-        roulettes_list = await history_coll.distinct("roulette_id")
-
-        roulette_info = []
-        for roulette_id in roulettes_list:
-            count = await history_coll.count_documents({"roulette_id": roulette_id})
-            roulette_info.append({
-                "id": roulette_id,
-                "name": roulette_id.replace("-", " ").title(),
-                "count": count,
-            })
-
-        roulette_info.sort(key=lambda x: x["count"], reverse=True)
-        return roulette_info
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        counts = {row["_id"]: row["count"] async for row in history_coll.aggregate(pipeline)}
+        result = [
+            {
+                "id": roulette["slug"],
+                "name": roulette["name"],
+                "count": counts.get(roulette["slug"], 0),
+            }
+            for roulette in ACTIVE_ROULETTES
+        ]
+        result.sort(key=lambda item: (-item["count"], item["name"]))
+        _roulette_list_cache = (now, result)
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Banco de dados indisponível") from exc
 
 
 @router.get("/history-detailed/{slug}")
@@ -74,179 +95,105 @@ async def get_history_detailed(
     slug: str,
     request: Request,
     limit: int = 500,
-    start_date: str = None,
-    end_date: str = None,
-    start_hour: int = None,
-    end_hour: int = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    start_hour: int | None = None,
+    end_hour: int | None = None,
 ):
-    """
-    Retorna histórico detalhado da roleta com timestamps.
-    """
+    _validate_slug(slug)
+    limit = _bounded_limit(limit)
+
+    if start_hour is not None and not 0 <= start_hour <= 23:
+        raise HTTPException(status_code=422, detail="start_hour deve estar entre 0 e 23")
+    if end_hour is not None and not 0 <= end_hour <= 23:
+        raise HTTPException(status_code=422, detail="end_hour deve estar entre 0 e 23")
+
+    query: dict[str, Any] = {"roulette_id": slug}
+    date_filter: dict[str, datetime] = {}
     try:
-        max_limit = 50000
-        limit = min(limit, max_limit)
-
-        tz_br = pytz.timezone("America/Sao_Paulo")
-        filter_query = {"roulette_id": slug}
-
-        date_filter = {}
         if start_date:
-            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-            start_dt_br = tz_br.localize(start_dt)
-            date_filter["$gte"] = start_dt_br.astimezone(pytz.utc)
-
+            start = tz_br.localize(datetime.strptime(start_date, "%Y-%m-%d"))
+            date_filter["$gte"] = start.astimezone(pytz.utc)
         if end_date:
-            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-            end_dt = end_dt.replace(hour=23, minute=59, second=59)
-            end_dt_br = tz_br.localize(end_dt)
-            date_filter["$lte"] = end_dt_br.astimezone(pytz.utc)
-
-        if date_filter:
-            filter_query["timestamp"] = date_filter
-
-        cursor = (
-            history_coll
-            .find(filter_query)
-            .sort("timestamp", -1)
-            .limit(limit)
-        )
-
-        docs = await cursor.to_list(length=limit)
-
-        processed_results = []
-        for doc in docs:
-            timestamp = doc["timestamp"]
-
-            if timestamp.tzinfo is None:
-                timestamp = pytz.utc.localize(timestamp)
-            br_time = timestamp.astimezone(tz_br)
-
-            if start_hour is not None and br_time.hour < start_hour:
-                continue
-            if end_hour is not None and br_time.hour > end_hour:
-                continue
-
-            processed_results.append({
-                "_id": str(doc["_id"]) if doc.get("_id") is not None else None,
-                "roulette_id": doc["roulette_id"],
-                "roulette_name": doc["roulette_name"],
-                "value": doc["value"],
-                "timestamp": timestamp.isoformat(),
-                "timestamp_br": br_time.isoformat(),
-                "date": br_time.strftime("%Y-%m-%d"),
-                "time": br_time.strftime("%H:%M:%S"),
-                "hour": br_time.hour,
-                "minute": br_time.minute,
-                "day_of_week": br_time.strftime("%A"),
-                "formatted": br_time.strftime("%d/%m/%Y %H:%M:%S"),
-            })
-
-        accept = request.headers.get("accept", "")
-        if "text/html" in accept:
-            roulette = next((r for r in roulettes if r.get("slug") == slug), {"name": slug})
-            from fastapi.templating import Jinja2Templates
-
-            templates = Jinja2Templates(directory=templates_dir)
-            return templates.TemplateResponse(
-                "api.html",
-                {
-                    "request": request,
-                    "slug": slug,
-                    "numbers": [r["value"] for r in processed_results],
-                    "history_entries": processed_results,
-                    "detailed_results": processed_results,
-                    "roulette": roulette,
-                    "all_roulettes": roulettes,
-                    "get_color_class": get_color_class,
-                    "filters": {
-                        "start_date": start_date,
-                        "end_date": end_date,
-                        "start_hour": start_hour,
-                        "end_hour": end_hour,
-                    },
-                    **_template_feature_context(),
-                },
+            end = datetime.strptime(end_date, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59, microsecond=999999
             )
+            date_filter["$lte"] = tz_br.localize(end).astimezone(pytz.utc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Data inválida; use AAAA-MM-DD") from exc
 
-        return processed_results
+    if date_filter:
+        query["timestamp"] = date_filter
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    try:
+        docs = await history_coll.find(query).sort("timestamp", -1).limit(limit).to_list(length=limit)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Banco de dados indisponível") from exc
+
+    results: list[dict[str, Any]] = []
+    for doc in docs:
+        timestamp = doc.get("timestamp")
+        if not isinstance(timestamp, datetime):
+            continue
+        if timestamp.tzinfo is None:
+            timestamp = pytz.utc.localize(timestamp)
+        local_time = timestamp.astimezone(tz_br)
+        if start_hour is not None and local_time.hour < start_hour:
+            continue
+        if end_hour is not None and local_time.hour > end_hour:
+            continue
+
+        item = _serialize_history_item(doc)
+        item.update(
+            {
+                "timestamp": timestamp.isoformat(),
+                "timestamp_br": local_time.isoformat(),
+                "date": local_time.strftime("%Y-%m-%d"),
+                "time": local_time.strftime("%H:%M:%S"),
+                "hour": local_time.hour,
+                "minute": local_time.minute,
+                "day_of_week": local_time.strftime("%A"),
+                "formatted": local_time.strftime("%d/%m/%Y %H:%M:%S"),
+            }
+        )
+        results.append(item)
+
+    if "text/html" in request.headers.get("accept", ""):
+        return _html_response(
+            request,
+            slug,
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "start_hour": start_hour,
+                "end_hour": end_hour,
+            },
+        )
+    return results
 
 
 @router.get("/history/{slug}")
-async def get_history(slug: str, request: Request, limit: int = 2000):
-    """
-    Retorna histórico da roleta.
-    - Param `limit`: número de resultados (default=2000)
-    - Mais recente sempre vem primeiro.
-    """
+async def get_history(slug: str, request: Request, limit: int = 2_000):
+    _validate_slug(slug)
+    if "text/html" in request.headers.get("accept", ""):
+        return _html_response(request, slug)
+
+    limit = _bounded_limit(limit)
     try:
-        max_limit = 50000
-        limit = min(limit, max_limit)
+        docs = await history_coll.find({"roulette_id": slug}).sort("timestamp", -1).limit(limit).to_list(length=limit)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Banco de dados indisponível") from exc
 
-        accept = request.headers.get("accept", "")
-
-        # Para renderização HTML usa no máximo 150 registros para não travar o browser
-        html_limit = min(limit, 150) if "text/html" in accept else limit
-
-        cursor = (
-            history_coll
-            .find({"roulette_id": slug})
-            .sort("timestamp", -1)
-            .limit(html_limit)
-        )
-
-        docs = await cursor.to_list(length=html_limit)
-        numbers = [doc["value"] for doc in docs]
-        history_entries = [_serialize_history_item(dict(doc)) for doc in docs]
-
-        if "text/html" in accept:
-            roulette = next((r for r in roulettes if r.get("slug") == slug), {"name": slug})
-            from fastapi.templating import Jinja2Templates
-
-            templates = Jinja2Templates(directory=templates_dir)
-            return templates.TemplateResponse(
-                "api.html",
-                {
-                    "request": request,
-                    "slug": slug,
-                    "numbers": numbers,
-                    "history_entries": history_entries,
-                    "roulette": roulette,
-                    "all_roulettes": roulettes,
-                    "get_color_class": get_color_class,
-                    **_template_feature_context(),
-                },
-            )
-
-        return {"results": numbers, "items": history_entries}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    items = [_serialize_history_item(doc) for doc in docs]
+    return {"results": [item["value"] for item in items], "items": items}
 
 
 @router.get("/history-app/{slug}")
-async def get_history_app(slug: str, limit: int = 2000):
-    """
-    Retorna apenas os números da roleta para integrações legadas/externas.
-    - Param `limit`: número de resultados (default=2000)
-    - Mais recente sempre vem primeiro.
-    """
+async def get_history_app(slug: str, limit: int = 2_000):
+    _validate_slug(slug)
+    limit = _bounded_limit(limit)
     try:
-        max_limit = 50000
-        limit = min(limit, max_limit)
-
-        cursor = (
-            history_coll
-            .find({"roulette_id": slug})
-            .sort("timestamp", -1)
-            .limit(limit)
-        )
-
-        docs = await cursor.to_list(length=limit)
-        numbers = [doc["value"] for doc in docs]
-        return {"results": numbers}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        docs = await history_coll.find({"roulette_id": slug}).sort("timestamp", -1).limit(limit).to_list(length=limit)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Banco de dados indisponível") from exc
+    return {"results": [int(doc["value"]) for doc in docs]}

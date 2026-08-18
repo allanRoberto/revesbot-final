@@ -1,0 +1,4 @@
+.live-status { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); }
+.live-status__dot { width: 9px; height: 9px; border-radius: 50%; background: #e9ad4c; box-shadow: 0 0 0 4px rgb(233 173 76 / 14%); }
+.live-status[data-state="online"] .live-status__dot { background: var(--accent); box-shadow: 0 0 0 4px rgb(119 224 173 / 14%); }
+.live-status[data-state="offline"] .live-status__dot { background: var(--danger); box-shadow: 0 0 0 4px rgb(239 83 80 / 14%); }

@@ -3,6 +3,9 @@ try:
 
     class Settings(BaseSettings):
         mongo_url: str | None = None
+        mongo_database: str = "roleta_db"
+        pixgo_mongo_url: str | None = None
+        pixgo_mongo_database: str = "roleta_db"
         redis_connect: str | None = None
         port: int = 8080
         bot_automation_enabled: bool = False
@@ -23,6 +26,9 @@ except Exception:  # pragma: no cover - fallback for older envs
 
     class Settings(BaseSettings):
         mongo_url: str | None = None
+        mongo_database: str = "roleta_db"
+        pixgo_mongo_url: str | None = None
+        pixgo_mongo_database: str = "roleta_db"
         redis_connect: str | None = None
         port: int = 8080
         bot_automation_enabled: bool = False

@@ -1,0 +1,9 @@
+.result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 10px; }
+.result-card { position: relative; min-height: 92px; display: grid; place-items: center; align-content: center; gap: 4px; border-radius: 12px; color: #fff; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%); }
+.result-card--red { background: var(--roulette-red); }
+.result-card--black { background: var(--roulette-black); }
+.result-card--green { background: var(--roulette-green); }
+.result-card__number { font-size: 30px; line-height: 1; font-weight: 900; }
+.result-card__time { color: rgb(255 255 255 / 72%); font-size: 11px; }
+.result-card__multiplier { position: absolute; top: 7px; right: 7px; padding: 2px 6px; border-radius: 999px; color: #3b2700; background: #ffd769; font-size: 10px; font-weight: 900; }
+.result-card__slots { max-width: 76px; overflow: hidden; color: rgb(255 255 255 / 72%); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }

@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pymongo.errors import DuplicateKeyError
 
 from api.core.config import settings
-from api.core.db import mongo_db
+from api.core.runtime_db import billing_db
 
 
 router = APIRouter(prefix="/webhooks", tags=["pixgo"])
@@ -23,11 +23,11 @@ logger = logging.getLogger(__name__)
 # assinatura HMAC continua obrigatória e a coleção de eventos impede replay.
 WEBHOOK_TOLERANCE_SECONDS = 24 * 60 * 60
 
-payment_orders_coll = mongo_db["commission_payment_orders"]
-automation_invoices_coll = mongo_db["automation_invoices"]
-billing_accounts_coll = mongo_db["automation_billing_accounts"]
-automation_runs_coll = mongo_db["automation_runs"]
-webhook_events_coll = mongo_db["payment_webhook_events"]
+payment_orders_coll = billing_db["commission_payment_orders"]
+automation_invoices_coll = billing_db["automation_invoices"]
+billing_accounts_coll = billing_db["automation_billing_accounts"]
+automation_runs_coll = billing_db["automation_runs"]
+webhook_events_coll = billing_db["payment_webhook_events"]
 
 _indexes_ready = False
 
