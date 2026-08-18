@@ -27,7 +27,12 @@ ROULETTE_NAMES = {
     "234": "pragmatic-roulette-italian", "237": "pragmatic-brazilian-roulette",
     "222": "pragmatic-german-roulette", "221": "pragmatic-russian-roulette",
     "223": "pragmatic-roulette-italia-tricolore", "262": "pragmatic-vietnamese-roulette",
-    "206": "pragmatic-roulette-macao",
+    "206": "pragmatic-roulette-macao", "240": "pragmatic-powerup-roulette",
+    "2501": "pragmatic-crystal-roulette", "270": "pragmatic-fortune-roulette",
+    "12501": "pragmatic-speed-roulette-latina",
+    "28301": "pragmatic-prive-lounge-roulette-deluxe",
+    "28201": "pragmatic-prive-lounge-roulette",
+    "211": "pragmatic-lucky-6-roulette",
 }
 
 
@@ -295,7 +300,12 @@ class PragmaticCollector:
 
         raw_table_id = data.get("tableId", data.get("key"))
         results = data.get("last20Results")
-        if raw_table_id is None or not isinstance(results, list) or not results:
+        if (
+            data.get("tableType") != "ROULETTE"
+            or raw_table_id is None
+            or not isinstance(results, list)
+            or not results
+        ):
             return 0
         table_id = str(raw_table_id)
         roulette_id = ROULETTE_NAMES.get(table_id, f"pragmatic-table-{table_id}")

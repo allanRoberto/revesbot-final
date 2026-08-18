@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.collector.collector.config import CollectorSettings
+from apps.collector.collector.config import DEFAULT_SUBSCRIBE_KEYS, CollectorSettings
 
 
 def test_requires_connection_strings(monkeypatch):
@@ -20,3 +20,12 @@ def test_uses_isolated_database_from_environment(monkeypatch):
     settings = CollectorSettings.from_env()
     assert settings.mongo_database == "roleta_db_collector_test"
     assert settings.subscribe_keys == ("225", "237")
+
+
+def test_default_subscription_contains_only_selected_roulette_tables():
+    assert DEFAULT_SUBSCRIBE_KEYS == (
+        "237", "204", "225", "292", "2501", "545", "270", "12501",
+        "28301", "28201", "266", "230", "211", "203", "206", "287",
+    )
+    assert "240" not in DEFAULT_SUBSCRIBE_KEYS
+    assert "950" not in DEFAULT_SUBSCRIBE_KEYS

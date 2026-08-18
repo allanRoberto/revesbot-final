@@ -66,6 +66,7 @@ def test_empty_database_starts_with_only_the_newest_result(monkeypatch):
     collector = PragmaticCollector(settings(monkeypatch), repository, publisher, state)
     message = json.dumps({
         "tableId": "225",
+        "tableType": "ROULETTE",
         "last20Results": [
             {
                 "gameId": "new", "result": "17", "time": "Aug 18, 2026 6:11:14 PM",
@@ -104,6 +105,7 @@ def test_reconnect_recovers_only_missing_ids_using_provider_times(monkeypatch):
     collector = PragmaticCollector(settings(monkeypatch), repository, publisher, state)
     message = json.dumps({
         "tableId": "225",
+        "tableType": "ROULETTE",
         "last20Results": [
             {"gameId": "missing-5", "result": "8", "time": "Aug 18, 2026 6:14:34 PM"},
             {"gameId": "missing-4", "result": "8", "time": "Aug 18, 2026 6:13:54 PM"},
@@ -148,12 +150,14 @@ def test_live_capture_resumes_after_snapshot_reconciliation(monkeypatch):
     subscription = {"sent": False}
     known = json.dumps({
         "tableId": "225",
+        "tableType": "ROULETTE",
         "last20Results": [
             {"gameId": "known", "result": "3", "time": "Aug 18, 2026 6:11:14 PM"}
         ],
     })
     live = json.dumps({
         "tableId": "225",
+        "tableType": "ROULETTE",
         "last20Results": [
             {"gameId": "live", "result": "4", "time": "Aug 18, 2026 6:11:54 PM"},
             {"gameId": "known", "result": "3", "time": "Aug 18, 2026 6:11:14 PM"},
@@ -182,6 +186,7 @@ def test_exhausted_recovery_window_is_marked_and_salvages_snapshot(monkeypatch):
     )
     message = json.dumps({
         "tableId": "225",
+        "tableType": "ROULETTE",
         "last20Results": [
             {"gameId": "available-2", "result": "4", "time": "Aug 18, 2026 6:11:54 PM"},
             {"gameId": "available-1", "result": "3", "time": "Aug 18, 2026 6:11:14 PM"},
@@ -205,6 +210,7 @@ def test_slots_are_saved_without_false_multiplier_payment(monkeypatch):
     )
     message = json.dumps({
         "tableId": "204",
+        "tableType": "ROULETTE",
         "last20Results": [{
             "gameId": "mega-1",
             "result": "3",
@@ -226,6 +232,7 @@ def test_invalid_slots_are_ignored(monkeypatch):
     )
     message = json.dumps({
         "tableId": "204",
+        "tableType": "ROULETTE",
         "last20Results": [{
             "gameId": "mega-2",
             "result": "2",
@@ -247,6 +254,7 @@ def test_missing_provider_time_uses_auditable_capture_fallback(monkeypatch):
     )
     message = json.dumps({
         "tableId": "225",
+        "tableType": "ROULETTE",
         "last20Results": [{"gameId": "missing-time", "result": "2"}],
     })
 
@@ -265,6 +273,7 @@ def test_future_provider_time_is_rejected(monkeypatch):
     )
     message = json.dumps({
         "tableId": "225",
+        "tableType": "ROULETTE",
         "last20Results": [{
             "gameId": "future-time",
             "result": "2",
@@ -278,7 +287,7 @@ def test_future_provider_time_is_rejected(monkeypatch):
     assert "reason=future" in (state.last_error or "")
 
 
-def test_null_result_from_non_roulette_table_is_ignored(monkeypatch):
+def test_non_roulette_table_is_ignored_even_with_numeric_result(monkeypatch):
     repository = FakeRepository()
     state = CollectorState()
     collector = PragmaticCollector(
@@ -286,9 +295,10 @@ def test_null_result_from_non_roulette_table_is_ignored(monkeypatch):
     )
     message = json.dumps({
         "tableId": "2101",
+        "tableType": "MEGASICBAC",
         "last20Results": [{
             "gameId": "non-roulette",
-            "result": None,
+            "result": "6",
             "time": "Aug 18, 2026 8:19:18 PM",
         }],
     })
@@ -299,6 +309,25 @@ def test_null_result_from_non_roulette_table_is_ignored(monkeypatch):
     assert state.last_error is None
 
 
+def test_american_roulette_type_is_ignored(monkeypatch):
+    repository = FakeRepository()
+    collector = PragmaticCollector(
+        settings(monkeypatch), repository, FakePublisher(), CollectorState()
+    )
+    message = json.dumps({
+        "tableId": "950",
+        "tableType": "AMERICANROULETTE",
+        "last20Results": [{
+            "gameId": "american-roulette",
+            "result": "17",
+            "time": "Aug 18, 2026 8:19:18 PM",
+        }],
+    })
+
+    assert collector.process_message(FakeWebSocket(), message, {"sent": False}) == 0
+    assert repository.documents == []
+
+
 def test_catalog_response_sends_subscription(monkeypatch):
     collector = PragmaticCollector(settings(monkeypatch), FakeRepository(), FakePublisher(), CollectorState())
     socket = FakeWebSocket()
@@ -306,4 +335,6 @@ def test_catalog_response_sends_subscription(monkeypatch):
     collector.process_message(socket, json.dumps({"tableKey": ["225"]}), subscription)
     assert subscription["sent"] is True
     assert socket.messages[0]["type"] == "subscribe"
-    assert "225" in socket.messages[0]["key"]
+    assert socket.messages[0]["key"] == list(collector.settings.subscribe_keys)
+    assert len(socket.messages[0]["key"]) == 16
+    assert "240" not in socket.messages[0]["key"]
