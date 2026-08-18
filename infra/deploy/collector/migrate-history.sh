@@ -8,6 +8,7 @@ database="${MIGRATION_DATABASE:-roleta_db}"
 collection="${MIGRATION_COLLECTION:-history}"
 container="${MIGRATION_TARGET_CONTAINER:-revesbot-mongo-prod}"
 allowed_root="${MIGRATION_ARCHIVE_ROOT:-/var/tmp/revesbot-history-migration}"
+delta_collection="${collection}_migration_delta"
 
 usage() {
   echo "Uso: $0 source-full|source-delta|target-full|target-delta ARQUIVO [OBJECT_ID]" >&2
@@ -15,6 +16,7 @@ usage() {
 }
 
 [[ -n "$phase" && -n "$archive" ]] || usage
+[[ "$database" =~ ^[A-Za-z0-9_]+$ && "$collection" =~ ^[A-Za-z0-9_]+$ ]] || usage
 [[ "$archive" == "$allowed_root/"* ]] || {
   echo "Arquivo deve estar dentro de $allowed_root." >&2
   exit 2
@@ -77,18 +79,30 @@ case "$phase" in
       --authenticationDatabase admin
       --archive="$container_archive"
       --gzip
-      --nsInclude "$database.$collection"
     )
     if [[ "$phase" == target-full ]]; then
       [[ "${MIGRATION_ALLOW_DROP:-}" == "$database.$collection" ]] || {
         echo "Defina MIGRATION_ALLOW_DROP=$database.$collection para a carga inicial." >&2
         exit 1
       }
-      restore_args+=(--drop)
+      restore_args+=(--nsInclude "$database.$collection" --drop)
     else
-      restore_args+=(--mode=upsert --noIndexRestore)
+      restore_args+=(
+        --nsInclude "$database.$collection"
+        --nsFrom "$database.$collection"
+        --nsTo "$database.$delta_collection"
+        --drop
+        --noIndexRestore
+      )
     fi
     docker exec "$container" "${restore_args[@]}"
+    if [[ "$phase" == target-delta ]]; then
+      docker exec "$container" mongosh --quiet \
+        --username "$MONGO_INITDB_ROOT_USERNAME" \
+        --password "$MONGO_INITDB_ROOT_PASSWORD" \
+        --authenticationDatabase admin \
+        --eval "const targetDb=db.getSiblingDB('$database'); const delta=targetDb.getCollection('$delta_collection'); const deltaCount=delta.countDocuments({}); delta.aggregate([{\$merge:{into:'$collection',on:'_id',whenMatched:'keepExisting',whenNotMatched:'insert'}}]).toArray(); printjson({delta_documents:deltaCount,target_documents:targetDb.getCollection('$collection').countDocuments({})}); delta.drop();"
+    fi
     docker exec "$container" rm -f "$container_archive"
     ;;
   *)
