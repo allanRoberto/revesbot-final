@@ -67,7 +67,7 @@ class MongoResultRepository:
                     "external_game_id": {"$type": "string"},
                 },
                 {"_id": 0, "external_game_id": 1, "timestamp": 1},
-                sort=[("timestamp", DESCENDING)],
+                sort=[("_id", DESCENDING)],
                 limit=limit,
             )
         )

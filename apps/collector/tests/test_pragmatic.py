@@ -27,13 +27,12 @@ class FakeRepository:
 
     def recent_results(self, roulette_id, limit=20):
         rows = [item for item in self.documents if item.roulette_id == roulette_id]
-        rows.sort(key=lambda item: item.timestamp, reverse=True)
         return [
             {
                 "external_game_id": item.external_game_id,
                 "timestamp": item.timestamp,
             }
-            for item in rows[:limit]
+            for item in reversed(rows[-limit:])
         ]
 
 
@@ -165,8 +164,8 @@ def test_live_capture_resumes_after_snapshot_reconciliation(monkeypatch):
     assert collector.process_message(FakeWebSocket(), live, subscription) == 1
     assert repository.documents[-1].external_game_id == "live"
     assert repository.documents[-1].recovered is False
-    assert repository.documents[-1].timestamp == datetime(2026, 8, 18, 18, 11, 54, tzinfo=UTC)
-    assert repository.documents[-1].timestamp_source == "provider"
+    assert repository.documents[-1].timestamp == repository.documents[-1].captured_at
+    assert repository.documents[-1].timestamp_source == "captured"
     assert publisher.payloads[0]["full_result"]["recovered"] is False
 
 
@@ -255,7 +254,28 @@ def test_missing_provider_time_uses_auditable_capture_fallback(monkeypatch):
     assert repository.documents[0].timestamp_source == "captured_fallback"
     assert repository.documents[0].timestamp == repository.documents[0].captured_at
     assert state.invalid_messages_total == 1
-    assert "provider_timestamp_missing" in (state.last_error or "")
+    assert "provider_timestamp_unusable" in (state.last_error or "")
+
+
+def test_future_provider_time_is_rejected(monkeypatch):
+    repository = FakeRepository()
+    state = CollectorState()
+    collector = PragmaticCollector(
+        settings(monkeypatch), repository, FakePublisher(), state
+    )
+    message = json.dumps({
+        "tableId": "225",
+        "last20Results": [{
+            "gameId": "future-time",
+            "result": "2",
+            "time": "Aug 18, 2099 8:19:18 PM",
+        }],
+    })
+
+    assert collector.process_message(FakeWebSocket(), message, {"sent": False}) == 1
+    assert repository.documents[0].timestamp_source == "captured_fallback"
+    assert repository.documents[0].timestamp == repository.documents[0].captured_at
+    assert "reason=future" in (state.last_error or "")
 
 
 def test_catalog_response_sends_subscription(monkeypatch):

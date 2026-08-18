@@ -4,7 +4,7 @@ import json
 import logging
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import websocket
@@ -141,12 +141,16 @@ class PragmaticCollector:
         recovered: bool,
     ) -> tuple[datetime, str]:
         provider_timestamp = _provider_timestamp(item)
-        if provider_timestamp is not None:
+        if (
+            provider_timestamp is not None
+            and provider_timestamp <= captured_at + timedelta(minutes=5)
+        ):
             return provider_timestamp, "provider"
         game_id = _game_id(item) or "unknown"
+        reason = "future" if provider_timestamp is not None else "missing_or_invalid"
         message = (
-            f"provider_timestamp_missing roulette_id={roulette_id} "
-            f"game_id={game_id} recovered={recovered}"
+            f"provider_timestamp_unusable roulette_id={roulette_id} "
+            f"game_id={game_id} recovered={recovered} reason={reason}"
         )
         if recovered:
             self.state.record_recovery_failure(message)
@@ -307,16 +311,13 @@ class PragmaticCollector:
         newest = next((item for item in results if isinstance(item, dict)), None)
         if newest is None:
             return 0
-        timestamp, source = self._timestamp_for_item(
-            roulette_id, newest, captured_at, recovered=False
-        )
         result = self._build_result(
             roulette_id,
             newest,
-            timestamp,
+            captured_at,
             captured_at,
             recovered=False,
-            timestamp_source=source,
+            timestamp_source="captured",
         )
         return self._persist(result, publish_live=True) if result else 0
 
