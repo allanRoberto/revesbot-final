@@ -63,6 +63,8 @@ install -m 0644 "$base_dir/current/infra/systemd/revesbot-collector-watchdog.ser
   /etc/systemd/system/revesbot-collector-watchdog.service
 install -m 0644 "$base_dir/current/infra/systemd/revesbot-collector-watchdog.timer" \
   /etc/systemd/system/revesbot-collector-watchdog.timer
+install -m 0644 "$base_dir/current/infra/systemd/revesbot-redis-tunnel.service" \
+  /etc/systemd/system/revesbot-redis-tunnel.service
 install -m 0644 "$base_dir/current/infra/logrotate/revesbot-collector" \
   /etc/logrotate.d/revesbot-collector
 systemctl daemon-reload

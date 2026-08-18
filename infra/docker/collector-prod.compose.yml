@@ -1,0 +1,30 @@
+services:
+  mongo-prod:
+    image: mongo:7.0
+    container_name: revesbot-mongo-prod
+    restart: unless-stopped
+    command:
+      - mongod
+      - --bind_ip_all
+      - --auth
+      - --wiredTigerCacheSizeGB
+      - "2"
+    env_file:
+      - /etc/revesbot/collector-data-prod.env
+    ports:
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - /var/www/revesbot/data/mongo-prod:/data/db
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "mongosh --quiet --host 127.0.0.1 --username '$${MONGO_INITDB_ROOT_USERNAME}' --password '$${MONGO_INITDB_ROOT_PASSWORD}' --authenticationDatabase admin --eval 'quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)'"
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
