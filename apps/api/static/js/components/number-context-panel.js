@@ -51,12 +51,11 @@ export function buildNumberContexts(items, selectedValue, behindCount, aheadCoun
     matches.push(index);
 
     const hasCompleteAhead = index >= aheadCount;
-    const hasCompleteBehind = index + behindCount < items.length;
-    if (!hasCompleteAhead || !hasCompleteBehind) return;
+    if (!hasCompleteAhead) return;
 
     contexts.push({
       index,
-      behind: items.slice(index + 1, index + 1 + behindCount).reverse().map(itemValue),
+      behind: items.slice(index + 1, index + 1 + behindCount).map(itemValue),
       ahead: items.slice(index - aheadCount, index).reverse().map(itemValue),
     });
   });
@@ -71,25 +70,24 @@ function renderRanking(container, contexts, aheadCount) {
     return;
   }
 
-  const leaders = mostFrequentAheadValues(contexts);
-  if (!leaders.length) {
+  const rankedValues = rankedAheadValues(contexts);
+  if (!rankedValues.length) {
     container.textContent = "Ainda não há ocorrências com uma janela completa para analisar.";
     return;
   }
 
-  leaders.forEach((value) => container.append(numberChip(value, "context-ranking__number")));
+  rankedValues.forEach((value) => container.append(numberChip(value, "context-ranking__number")));
 }
 
-export function mostFrequentAheadValues(contexts) {
+export function rankedAheadValues(contexts) {
   const counts = new Map();
   contexts.forEach(({ ahead }) => ahead.forEach((value) => counts.set(value, (counts.get(value) || 0) + 1)));
-  if (!counts.size) return [];
 
-  const highestCount = Math.max(...counts.values());
   return [...counts.entries()]
-    .filter(([, count]) => count === highestCount)
-    .map(([value]) => value)
-    .sort((left, right) => left - right);
+    .sort(([leftValue, leftCount], [rightValue, rightCount]) => (
+      rightCount - leftCount || leftValue - rightValue
+    ))
+    .map(([value]) => value);
 }
 
 export function createNumberContextPanel({ root, closeButton, behindInput, aheadInput, ranking, title, onClose }) {
