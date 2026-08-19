@@ -39,9 +39,15 @@ function numberChip(value, className = "context-number") {
 export function buildNumberContexts(items, selectedValue, behindCount, aheadCount) {
   const matches = [];
   const contexts = [];
+  let latestOccurrenceSkipped = false;
 
   items.forEach((item, index) => {
     if (itemValue(item) !== selectedValue) return;
+
+    if (!latestOccurrenceSkipped) {
+      latestOccurrenceSkipped = true;
+      return;
+    }
     matches.push(index);
 
     const hasCompleteAhead = index >= aheadCount;
@@ -65,82 +71,28 @@ function renderRanking(container, contexts, aheadCount) {
     return;
   }
 
-  const counts = new Map();
-  contexts.forEach(({ ahead }) => ahead.forEach((value) => counts.set(value, (counts.get(value) || 0) + 1)));
-  const total = contexts.length * aheadCount;
-
-  if (!total) {
+  const leaders = mostFrequentAheadValues(contexts);
+  if (!leaders.length) {
     container.textContent = "Ainda não há ocorrências com uma janela completa para analisar.";
     return;
   }
 
-  [...counts.entries()]
-    .sort((left, right) => right[1] - left[1] || left[0] - right[0])
-    .forEach(([value, count]) => {
-      const item = document.createElement("div");
-      item.className = "context-ranking__item";
-      item.append(numberChip(value, "context-ranking__number"));
-
-      const metric = document.createElement("span");
-      metric.textContent = `${count}× · ${((count / total) * 100).toFixed(1).replace(".", ",")}%`;
-      item.append(metric);
-      container.append(item);
-    });
+  leaders.forEach((value) => container.append(numberChip(value, "context-ranking__number")));
 }
 
-function appendSequence(group, values) {
-  if (!values.length) {
-    const empty = document.createElement("span");
-    empty.className = "context-sequence__empty";
-    empty.textContent = "—";
-    group.append(empty);
-    return;
-  }
-  values.forEach((value) => group.append(numberChip(value)));
+export function mostFrequentAheadValues(contexts) {
+  const counts = new Map();
+  contexts.forEach(({ ahead }) => ahead.forEach((value) => counts.set(value, (counts.get(value) || 0) + 1)));
+  if (!counts.size) return [];
+
+  const highestCount = Math.max(...counts.values());
+  return [...counts.entries()]
+    .filter(([, count]) => count === highestCount)
+    .map(([value]) => value)
+    .sort((left, right) => left - right);
 }
 
-function renderOccurrences(container, contexts, selectedValue) {
-  container.replaceChildren();
-  if (!contexts.length) {
-    container.textContent = "Aumente a quantidade de resultados ou reduza a janela escolhida.";
-    return;
-  }
-
-  contexts.forEach((context, occurrenceIndex) => {
-    const row = document.createElement("article");
-    row.className = "context-occurrence";
-
-    const label = document.createElement("span");
-    label.className = "context-occurrence__label";
-    label.textContent = `Ocorrência ${occurrenceIndex + 1}`;
-    row.append(label);
-
-    const sequence = document.createElement("div");
-    sequence.className = "context-sequence";
-
-    const behind = document.createElement("div");
-    behind.className = "context-sequence__group";
-    behind.setAttribute("aria-label", "Números anteriores");
-    appendSequence(behind, context.behind);
-    sequence.append(behind);
-
-    const selected = numberChip(selectedValue);
-    selected.classList.add("context-number--selected");
-    selected.setAttribute("aria-label", `Número analisado: ${selectedValue}`);
-    sequence.append(selected);
-
-    const ahead = document.createElement("div");
-    ahead.className = "context-sequence__group";
-    ahead.setAttribute("aria-label", "Números seguintes");
-    appendSequence(ahead, context.ahead);
-    sequence.append(ahead);
-
-    row.append(sequence);
-    container.append(row);
-  });
-}
-
-export function createNumberContextPanel({ root, closeButton, behindInput, aheadInput, summary, ranking, occurrences, title, onClose }) {
+export function createNumberContextPanel({ root, closeButton, behindInput, aheadInput, ranking, title, onClose }) {
   let selectedValue = null;
   let currentItems = [];
 
@@ -151,11 +103,9 @@ export function createNumberContextPanel({ root, closeButton, behindInput, ahead
     behindInput.value = String(behindCount);
     aheadInput.value = String(aheadCount);
 
-    const { contexts, totalMatches } = buildNumberContexts(currentItems, selectedValue, behindCount, aheadCount);
+    const { contexts } = buildNumberContexts(currentItems, selectedValue, behindCount, aheadCount);
     title.textContent = `Análise do número ${selectedValue}`;
-    summary.textContent = `${contexts.length} janelas completas de ${totalMatches} ocorrências em ${currentItems.length} resultados carregados.`;
     renderRanking(ranking, contexts, aheadCount);
-    renderOccurrences(occurrences, contexts, selectedValue);
   }
 
   function close({ notify = true } = {}) {
@@ -167,15 +117,15 @@ export function createNumberContextPanel({ root, closeButton, behindInput, ahead
 
   function select(value, items) {
     selectedValue = Number(value);
-    currentItems = items;
+    currentItems = items.slice();
     root.classList.add("number-context-panel--open");
     root.setAttribute("aria-hidden", "false");
     render();
   }
 
   function update(items) {
-    currentItems = items;
-    render();
+    if (selectedValue !== null) return;
+    currentItems = items.slice();
   }
 
   behindInput.value = String(readPreference(storageKeys.behind, DEFAULT_BEHIND));

@@ -90,6 +90,11 @@
         <button class="icon-button" id="number-context-close" type="button" aria-label="Fechar análise">×</button>
       </header>
 
+      <section class="number-context-panel__section" aria-labelledby="context-ranking-title">
+        <h3 id="context-ranking-title">Números que mais apareceram à frente</h3>
+        <div class="context-ranking" id="context-ranking"></div>
+      </section>
+
       <div class="number-context-panel__controls">
         <label class="field field--compact">
           <span>Números atrás</span>
@@ -99,18 +104,7 @@
           <span>Números à frente</span>
           <input id="context-ahead" type="number" min="0" max="20" step="1" value="5">
         </label>
-        <p class="number-context-panel__summary" id="context-summary"></p>
       </div>
-
-      <section class="number-context-panel__section" aria-labelledby="context-ranking-title">
-        <h3 id="context-ranking-title">Números que mais apareceram à frente</h3>
-        <div class="context-ranking" id="context-ranking"></div>
-      </section>
-
-      <section class="number-context-panel__section" aria-labelledby="context-occurrences-title">
-        <h3 id="context-occurrences-title">Ocorrências anteriores</h3>
-        <div class="context-occurrences" id="context-occurrences"></div>
-      </section>
     </div>
   </aside>
   <script type="module" src="/static/js/pages/history.js?v={{ asset_version }}"></script>
