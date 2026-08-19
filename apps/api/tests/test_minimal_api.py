@@ -36,5 +36,7 @@ def test_history_html_uses_external_assets_and_docs_are_disabled() -> None:
     assert 'id="number-context-panel"' in response.text
     assert "Números atrás" in response.text
     assert "Números à frente" in response.text
+    assert 'id="context-summary"' not in response.text
+    assert 'id="context-occurrences"' not in response.text
     assert "<style" not in response.text
     assert client.get("/docs").status_code == 404

@@ -61,6 +61,6 @@ export function bindResultHighlight(container, onSelectionChange = () => {}) {
     if (!card || !container.contains(card)) return;
     const value = Number(card.dataset.value);
     setResultHighlight(container, highlightedValue === value ? null : value);
-    onSelectionChange(highlightedValue);
+    onSelectionChange(highlightedValue, card);
   });
 }
