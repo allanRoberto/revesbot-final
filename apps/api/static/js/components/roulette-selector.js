@@ -1,14 +1,20 @@
-export function bindRouletteSelector(select) {
-  select.addEventListener("change", () => {
-    location.assign(`/history/${encodeURIComponent(select.value)}`);
+export function bindRoulettePicker({ dialog, openButton, closeButton }) {
+  openButton.addEventListener("click", () => {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  });
+
+  closeButton.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
   });
 }
 
-export function fillRouletteCounts(select, roulettes) {
+export function fillRouletteCounts(list, roulettes) {
   const counts = new Map(roulettes.map((item) => [item.id, item.count]));
-  [...select.options].forEach((option) => {
-    const base = option.textContent.replace(/\s+\([\d.]+ resultados\)$/, "");
-    const count = counts.get(option.value);
-    option.textContent = count == null ? base : `${base} (${count.toLocaleString("pt-BR")} resultados)`;
+  list.querySelectorAll("[data-roulette-slug]").forEach((item) => {
+    const count = counts.get(item.dataset.rouletteSlug);
+    const target = item.querySelector("[data-roulette-count]");
+    if (target) target.textContent = count == null ? "Sem dados" : `${count.toLocaleString("pt-BR")} resultados`;
   });
 }

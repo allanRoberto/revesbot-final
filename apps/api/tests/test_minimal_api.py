@@ -33,6 +33,11 @@ def test_history_html_uses_external_assets_and_docs_are_disabled() -> None:
     assert '<script type="module" src="/static/js/pages/history.js?v=' in response.text
     assert 'id="grid-columns"' in response.text
     assert "Números por linha" in response.text
+    assert 'id="history-settings"' in response.text
+    assert 'id="roulette-picker"' in response.text
+    assert 'id="roulette-picker-open"' in response.text
+    assert 'id="roulette-select"' not in response.text
+    assert 'id="socket-toggle-icon"' in response.text
     assert 'id="number-context-panel"' in response.text
     assert "Números atrás" in response.text
     assert "Números à frente" in response.text

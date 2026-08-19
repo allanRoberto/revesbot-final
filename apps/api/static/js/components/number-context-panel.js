@@ -85,7 +85,7 @@ export function rankedAheadValues(contexts) {
     .map(([value]) => value);
 }
 
-export function createNumberContextPanel({ root, closeButton, behindInput, aheadInput, ranking, title, onClose }) {
+export function createNumberContextPanel({ root, closeButton, behindInput, aheadInput, ranking, title, onClose, onVisibilityChange }) {
   let selectedValue = null;
   let selectedIndex = 0;
   let currentItems = [];
@@ -107,6 +107,7 @@ export function createNumberContextPanel({ root, closeButton, behindInput, ahead
     selectedIndex = 0;
     root.classList.remove("number-context-panel--open");
     root.setAttribute("aria-hidden", "true");
+    onVisibilityChange?.(false);
     if (notify) onClose?.();
   }
 
@@ -116,6 +117,7 @@ export function createNumberContextPanel({ root, closeButton, behindInput, ahead
     currentItems = items.slice();
     root.classList.add("number-context-panel--open");
     root.setAttribute("aria-hidden", "false");
+    onVisibilityChange?.(true);
     render();
   }
 
