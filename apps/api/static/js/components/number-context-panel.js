@@ -36,18 +36,13 @@ function numberChip(value, className = "context-number") {
   return chip;
 }
 
-export function buildNumberContexts(items, selectedValue, behindCount, aheadCount) {
+export function buildNumberContexts(items, selectedValue, behindCount, aheadCount, selectedIndex = 0) {
   const matches = [];
   const contexts = [];
-  let latestOccurrenceSkipped = false;
 
   items.forEach((item, index) => {
     if (itemValue(item) !== selectedValue) return;
-
-    if (!latestOccurrenceSkipped) {
-      latestOccurrenceSkipped = true;
-      return;
-    }
+    if (index <= selectedIndex) return;
     matches.push(index);
 
     const hasCompleteAhead = index >= aheadCount;
@@ -92,6 +87,7 @@ export function rankedAheadValues(contexts) {
 
 export function createNumberContextPanel({ root, closeButton, behindInput, aheadInput, ranking, title, onClose }) {
   let selectedValue = null;
+  let selectedIndex = 0;
   let currentItems = [];
 
   function render() {
@@ -101,20 +97,22 @@ export function createNumberContextPanel({ root, closeButton, behindInput, ahead
     behindInput.value = String(behindCount);
     aheadInput.value = String(aheadCount);
 
-    const { contexts } = buildNumberContexts(currentItems, selectedValue, behindCount, aheadCount);
+    const { contexts } = buildNumberContexts(currentItems, selectedValue, behindCount, aheadCount, selectedIndex);
     title.textContent = `Análise do número ${selectedValue}`;
     renderRanking(ranking, contexts, aheadCount);
   }
 
   function close({ notify = true } = {}) {
     selectedValue = null;
+    selectedIndex = 0;
     root.classList.remove("number-context-panel--open");
     root.setAttribute("aria-hidden", "true");
     if (notify) onClose?.();
   }
 
-  function select(value, items) {
+  function select(value, items, index = 0) {
     selectedValue = Number(value);
+    selectedIndex = Math.max(0, Math.min(items.length - 1, Number(index) || 0));
     currentItems = items.slice();
     root.classList.add("number-context-panel--open");
     root.setAttribute("aria-hidden", "false");
