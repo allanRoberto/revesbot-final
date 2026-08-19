@@ -11,102 +11,125 @@
   <link rel="stylesheet" href="/static/css/components/live-status.css?v={{ asset_version }}">
   <link rel="stylesheet" href="/static/css/components/result-grid.css?v={{ asset_version }}">
   <link rel="stylesheet" href="/static/css/components/number-context-panel.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/action-toolbar.css?v={{ asset_version }}">
   <link rel="stylesheet" href="/static/css/pages/history.css?v={{ asset_version }}">
 </head>
 <body>
   <main class="history-page" id="history-app" data-slug="{{ slug }}">
     <header class="page-header">
-      <div>
+      <div class="page-header__title">
         <p class="eyebrow">Resultados ao vivo</p>
-        <h1 id="roulette-title">{{ roulette.name }}</h1>
+        <h1 id="roulette-title">
+          <button class="roulette-selector__trigger" id="roulette-picker-open" type="button" aria-haspopup="dialog" aria-controls="roulette-picker">
+            <span>{{ roulette.name }}</span>
+            <span aria-hidden="true">⌄</span>
+          </button>
+        </h1>
       </div>
-      <button class="icon-button" id="theme-toggle" type="button" aria-label="Alternar tema">◐</button>
+      <div class="action-toolbar" aria-label="Ações do histórico">
+        <div class="live-status live-status--compact" id="live-status" role="status" aria-live="polite" title="Status da conexão">
+          <span class="live-status__dot"></span>
+          <span class="live-status__text" id="live-status-text">Conectando</span>
+        </div>
+
+        <details class="toolbar-menu" id="history-settings">
+          <summary class="icon-button" aria-label="Ajustar quantidade e números por linha" title="Ajustar exibição">⚙</summary>
+          <div class="toolbar-menu__popover">
+            <label class="field field--compact">
+              <span>Quantidade</span>
+              <select id="result-limit">
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+              </select>
+            </label>
+
+            <label class="field field--compact">
+              <span>Números por linha</span>
+              <select id="grid-columns" aria-label="Selecionar números por linha">
+                <option value="auto">Automático</option>
+                <option value="5">5</option>
+                <option value="8">8</option>
+                <option value="10">10</option>
+                <option value="12">12</option>
+                <option value="15">15</option>
+                <option value="20">20</option>
+              </select>
+            </label>
+          </div>
+        </details>
+
+        <button class="icon-button" id="socket-toggle" type="button" aria-label="Pausar resultados ao vivo" title="Pausar resultados ao vivo"><span id="socket-toggle-icon" aria-hidden="true">⏸</span></button>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Alternar tema" title="Alternar tema">◐</button>
+        <button class="icon-button" id="copy-results" type="button" aria-label="Copiar números" title="Copiar números">⧉</button>
+        {% if roulette.url %}
+        <a class="icon-button action-toolbar__link" href="{{ roulette.url }}" target="_blank" rel="noopener noreferrer" aria-label="Abrir mesa" title="Abrir mesa">↗</a>
+        {% endif %}
+      </div>
     </header>
 
-    <section class="toolbar" aria-label="Controles do histórico">
-      <label class="field roulette-selector">
-        <span>Mesa</span>
-        <select id="roulette-select" aria-label="Selecionar roleta">
-          {% for item in all_roulettes %}
-          <option value="{{ item.slug }}"{% if item.slug == slug %} selected{% endif %}>{{ item.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label class="field field--compact">
-        <span>Quantidade</span>
-        <select id="result-limit">
-          <option value="50">50</option>
-          <option value="100" selected>100</option>
-          <option value="200">200</option>
-          <option value="500">500</option>
-        </select>
-      </label>
-
-      <label class="field field--compact">
-        <span>Números por linha</span>
-        <select id="grid-columns" aria-label="Selecionar números por linha">
-          <option value="auto">Automático</option>
-          <option value="5">5</option>
-          <option value="8">8</option>
-          <option value="10">10</option>
-          <option value="12">12</option>
-          <option value="15">15</option>
-          <option value="20">20</option>
-        </select>
-      </label>
-
-      <div class="live-status" id="live-status" role="status" aria-live="polite">
-        <span class="live-status__dot"></span>
-        <span id="live-status-text">Conectando</span>
-      </div>
-
-      <button class="button" id="socket-toggle" type="button">Pausar ao vivo</button>
-      <button class="button button--secondary" id="copy-results" type="button">Copiar números</button>
-      {% if roulette.url %}
-      <a class="button button--secondary open-table-link" href="{{ roulette.url }}" target="_blank" rel="noopener noreferrer">Abrir mesa ↗</a>
-      {% endif %}
-    </section>
-
-    <section class="results-panel" aria-labelledby="results-heading">
-      <div class="results-panel__header">
-        <h2 id="results-heading">Últimos resultados</h2>
-        <span id="results-summary">Carregando…</span>
-      </div>
-      <div class="result-grid-viewport">
-        <div class="result-grid" id="result-grid" aria-live="polite"></div>
-      </div>
-      <p class="empty-state" id="empty-state" hidden>Nenhum resultado encontrado.</p>
-    </section>
-  </main>
-
-  <aside class="number-context-panel" id="number-context-panel" aria-hidden="true" aria-labelledby="number-context-title">
-    <div class="number-context-panel__surface">
-      <header class="number-context-panel__header">
-        <div>
-          <p class="eyebrow">Histórico de ocorrências</p>
-          <h2 id="number-context-title">Análise do número</h2>
+    <div class="history-layout">
+      <section class="results-panel" aria-labelledby="results-heading">
+        <div class="results-panel__header">
+          <h2 id="results-heading">Últimos resultados</h2>
+          <span id="results-summary">Carregando…</span>
         </div>
-        <button class="icon-button" id="number-context-close" type="button" aria-label="Fechar análise">×</button>
-      </header>
-
-      <section class="number-context-panel__section" aria-labelledby="context-ranking-title">
-        <h3 id="context-ranking-title">Números que mais apareceram à frente</h3>
-        <div class="context-ranking" id="context-ranking"></div>
+        <div class="result-grid-viewport">
+          <div class="result-grid" id="result-grid" aria-live="polite"></div>
+        </div>
+        <p class="empty-state" id="empty-state" hidden>Nenhum resultado encontrado.</p>
       </section>
 
-      <div class="number-context-panel__controls">
-        <label class="field field--compact">
-          <span>Números atrás</span>
-          <input id="context-behind" type="number" min="0" max="20" step="1" value="3">
-        </label>
-        <label class="field field--compact">
-          <span>Números à frente</span>
-          <input id="context-ahead" type="number" min="0" max="20" step="1" value="5">
-        </label>
-      </div>
+      <aside class="number-context-panel" id="number-context-panel" aria-hidden="true" aria-labelledby="number-context-title">
+        <div class="number-context-panel__surface">
+          <header class="number-context-panel__header">
+            <div>
+              <p class="eyebrow">Histórico de ocorrências</p>
+              <h2 id="number-context-title">Análise do número</h2>
+            </div>
+            <button class="icon-button" id="number-context-close" type="button" aria-label="Fechar análise">×</button>
+          </header>
+
+          <section class="number-context-panel__section" aria-labelledby="context-ranking-title">
+            <h3 id="context-ranking-title">Números que mais apareceram à frente</h3>
+            <div class="context-ranking" id="context-ranking"></div>
+          </section>
+
+          <div class="number-context-panel__controls">
+            <label class="field field--compact">
+              <span>Números atrás</span>
+              <input id="context-behind" type="number" min="0" max="20" step="1" value="3">
+            </label>
+            <label class="field field--compact">
+              <span>Números à frente</span>
+              <input id="context-ahead" type="number" min="0" max="20" step="1" value="5">
+            </label>
+          </div>
+        </div>
+      </aside>
     </div>
-  </aside>
+  </main>
+
+  <dialog class="roulette-picker" id="roulette-picker" aria-labelledby="roulette-picker-title">
+    <div class="roulette-picker__surface">
+      <header class="roulette-picker__header">
+        <div>
+          <p class="eyebrow">Mesas monitoradas</p>
+          <h2 id="roulette-picker-title">Escolha uma roleta</h2>
+        </div>
+        <button class="icon-button" id="roulette-picker-close" type="button" aria-label="Fechar lista de roletas">×</button>
+      </header>
+      <nav class="roulette-picker__list" id="roulette-list" aria-label="Roletas disponíveis">
+        {% for item in all_roulettes %}
+        <a class="roulette-picker__item{% if item.slug == slug %} roulette-picker__item--current{% endif %}" href="/history/{{ item.slug }}" data-roulette-slug="{{ item.slug }}"{% if item.slug == slug %} aria-current="page"{% endif %}>
+          <span>{{ item.name }}</span>
+          <small data-roulette-count>—</small>
+        </a>
+        {% endfor %}
+      </nav>
+    </div>
+  </dialog>
   <script type="module" src="/static/js/pages/history.js?v={{ asset_version }}"></script>
 </body>
 </html>

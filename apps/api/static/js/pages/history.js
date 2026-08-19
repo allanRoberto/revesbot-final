@@ -2,9 +2,9 @@ import { fetchHistory, fetchRoulettes } from "../core/api-client.js?v=3";
 import { ResultsSocket } from "../core/results-socket.js?v=3";
 import { copyResults } from "../components/copy-results.js?v=3";
 import { setLiveStatus } from "../components/live-status.js?v=3";
-import { createNumberContextPanel } from "../components/number-context-panel.js?v=4";
+import { createNumberContextPanel } from "../components/number-context-panel.js?v=5";
 import { bindResultHighlight, prependResult, renderResults, setResultHighlight } from "../components/result-grid.js?v=6";
-import { bindRouletteSelector, fillRouletteCounts } from "../components/roulette-selector.js?v=3";
+import { bindRoulettePicker, fillRouletteCounts } from "../components/roulette-selector.js?v=4";
 
 const app = document.querySelector("#history-app");
 const slug = app.dataset.slug;
@@ -16,6 +16,8 @@ const columnsSelect = document.querySelector("#grid-columns");
 const status = document.querySelector("#live-status");
 const statusText = document.querySelector("#live-status-text");
 const socketToggle = document.querySelector("#socket-toggle");
+const socketToggleIcon = document.querySelector("#socket-toggle-icon");
+const settingsMenu = document.querySelector("#history-settings");
 let items = [];
 let paused = false;
 
@@ -27,6 +29,7 @@ const contextPanel = createNumberContextPanel({
   ranking: document.querySelector("#context-ranking"),
   title: document.querySelector("#number-context-title"),
   onClose: () => setResultHighlight(grid, null),
+  onVisibilityChange: (open) => document.body.classList.toggle("number-context-panel-open", open),
 });
 
 const columnsStorageKey = "revesbot-history-columns";
@@ -92,7 +95,11 @@ const socket = new ResultsSocket({
   },
 });
 
-bindRouletteSelector(document.querySelector("#roulette-select"));
+bindRoulettePicker({
+  dialog: document.querySelector("#roulette-picker"),
+  openButton: document.querySelector("#roulette-picker-open"),
+  closeButton: document.querySelector("#roulette-picker-close"),
+});
 bindResultHighlight(grid, (value, card, index) => {
   if (value === null) contextPanel.close({ notify: false });
   else {
@@ -103,24 +110,44 @@ bindResultHighlight(grid, (value, card, index) => {
   }
 });
 
-limitSelect.addEventListener("change", loadHistory);
+limitSelect.addEventListener("change", () => {
+  settingsMenu.open = false;
+  loadHistory();
+});
 columnsSelect.addEventListener("change", () => {
   applyGridColumns(columnsSelect.value);
   try { localStorage.setItem(columnsStorageKey, columnsSelect.value); }
   catch (_) { /* The preference remains active for this page load. */ }
+  settingsMenu.open = false;
 });
 socketToggle.addEventListener("click", async () => {
   paused = !paused;
-  socketToggle.textContent = paused ? "Retomar ao vivo" : "Pausar ao vivo";
+  const label = paused ? "Retomar resultados ao vivo" : "Pausar resultados ao vivo";
+  socketToggleIcon.textContent = paused ? "▶" : "⏸";
+  socketToggle.setAttribute("aria-label", label);
+  socketToggle.title = label;
   if (paused) { socket.disconnect(); setLiveStatus(status, statusText, "paused"); }
   else { await loadHistory(); socket.resume(); }
 });
 
 document.querySelector("#copy-results").addEventListener("click", async (event) => {
-  const original = event.currentTarget.textContent;
-  try { await copyResults(items); event.currentTarget.textContent = "Copiado"; }
-  catch (_) { event.currentTarget.textContent = "Falha ao copiar"; }
-  window.setTimeout(() => { event.currentTarget.textContent = original; }, 1400);
+  const button = event.currentTarget;
+  const original = button.textContent;
+  try {
+    await copyResults(items);
+    button.textContent = "✓";
+    button.setAttribute("aria-label", "Números copiados");
+    button.title = "Números copiados";
+  } catch (_) {
+    button.textContent = "!";
+    button.setAttribute("aria-label", "Falha ao copiar números");
+    button.title = "Falha ao copiar números";
+  }
+  window.setTimeout(() => {
+    button.textContent = original;
+    button.setAttribute("aria-label", "Copiar números");
+    button.title = "Copiar números";
+  }, 1400);
 });
 
 const root = document.documentElement;
@@ -131,7 +158,7 @@ document.querySelector("#theme-toggle").addEventListener("click", () => {
   localStorage.setItem("revesbot-theme", root.dataset.theme);
 });
 
-fetchRoulettes().then((data) => fillRouletteCounts(document.querySelector("#roulette-select"), data)).catch(() => {});
+fetchRoulettes().then((data) => fillRouletteCounts(document.querySelector("#roulette-list"), data)).catch(() => {});
 applyGridColumns(readSavedGridColumns());
 await loadHistory();
 socket.connect();
