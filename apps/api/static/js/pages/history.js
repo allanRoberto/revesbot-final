@@ -3,6 +3,7 @@ import { ResultsSocket } from "../core/results-socket.js?v=3";
 import { copyResults } from "../components/copy-results.js?v=3";
 import { setLiveStatus } from "../components/live-status.js?v=3";
 import { createNumberContextPanel } from "../components/number-context-panel.js?v=6";
+import { createRouletteSelectionPanel } from "../components/roulette-selection-panel.js?v=1";
 import { bindResultHighlight, prependResult, renderResults, setResultHighlight } from "../components/result-grid.js?v=6";
 import { bindRoulettePicker, fillRouletteCounts } from "../components/roulette-selector.js?v=4";
 
@@ -31,6 +32,18 @@ const contextPanel = createNumberContextPanel({
   count: document.querySelector("#number-context-count"),
   onClose: () => setResultHighlight(grid, null),
   onVisibilityChange: (open) => document.body.classList.toggle("number-context-panel-open", open),
+});
+
+createRouletteSelectionPanel({
+  root: document.querySelector("#roulette-selection-panel"),
+  openButton: document.querySelector("#roulette-selection-open"),
+  closeButton: document.querySelector("#roulette-selection-close"),
+  backdrop: document.querySelector("#roulette-selection-backdrop"),
+  clearButton: document.querySelector("#roulette-selection-clear"),
+  count: document.querySelector("#roulette-selection-count"),
+  selectedList: document.querySelector("#roulette-selection-selected"),
+  racetrackContainer: document.querySelector("#roulette-racetrack-picker"),
+  feltContainer: document.querySelector("#roulette-felt-picker"),
 });
 
 const columnsStorageKey = "revesbot-history-columns";

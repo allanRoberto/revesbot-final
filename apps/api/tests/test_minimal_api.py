@@ -39,6 +39,12 @@ def test_history_html_uses_external_assets_and_docs_are_disabled() -> None:
     assert 'id="roulette-select"' not in response.text
     assert 'id="socket-toggle-icon"' in response.text
     assert 'id="number-context-panel"' in response.text
+    assert 'href="/static/css/components/roulette-selection-panel.css?v=' in response.text
+    assert 'id="roulette-selection-open"' in response.text
+    assert 'id="roulette-selection-panel"' in response.text
+    assert 'data-widget-id="number-selector"' in response.text
+    assert 'id="roulette-racetrack-picker"' in response.text
+    assert 'id="roulette-felt-picker"' in response.text
     assert "Números atrás" in response.text
     assert "Números à frente" in response.text
     assert 'id="context-summary"' not in response.text
