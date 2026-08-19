@@ -2,8 +2,8 @@ import { fetchHistory, fetchRoulettes } from "../core/api-client.js?v=3";
 import { ResultsSocket } from "../core/results-socket.js?v=3";
 import { copyResults } from "../components/copy-results.js?v=3";
 import { setLiveStatus } from "../components/live-status.js?v=3";
-import { createNumberContextPanel } from "../components/number-context-panel.js?v=3";
-import { bindResultHighlight, prependResult, renderResults, setResultHighlight } from "../components/result-grid.js?v=5";
+import { createNumberContextPanel } from "../components/number-context-panel.js?v=4";
+import { bindResultHighlight, prependResult, renderResults, setResultHighlight } from "../components/result-grid.js?v=6";
 import { bindRouletteSelector, fillRouletteCounts } from "../components/roulette-selector.js?v=3";
 
 const app = document.querySelector("#history-app");
@@ -93,10 +93,10 @@ const socket = new ResultsSocket({
 });
 
 bindRouletteSelector(document.querySelector("#roulette-select"));
-bindResultHighlight(grid, (value, card) => {
+bindResultHighlight(grid, (value, card, index) => {
   if (value === null) contextPanel.close({ notify: false });
   else {
-    contextPanel.select(value, items);
+    contextPanel.select(value, items, index);
     if (window.matchMedia("(max-width: 640px)").matches) {
       card.scrollIntoView({ behavior: "smooth", block: "center" });
     }

@@ -60,7 +60,8 @@ export function bindResultHighlight(container, onSelectionChange = () => {}) {
     const card = event.target.closest(".result-card");
     if (!card || !container.contains(card)) return;
     const value = Number(card.dataset.value);
-    setResultHighlight(container, highlightedValue === value ? null : value);
-    onSelectionChange(highlightedValue, card);
+    const index = Array.prototype.indexOf.call(container.children, card);
+    setResultHighlight(container, value);
+    onSelectionChange(value, card, index);
   });
 }
