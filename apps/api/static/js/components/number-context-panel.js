@@ -182,11 +182,18 @@ export function createNumberContextPanel({ root, closeButton, behindInput, ahead
   aheadInput.value = String(readPreference(storageKeys.ahead, DEFAULT_AHEAD));
 
   [[behindInput, storageKeys.behind, DEFAULT_BEHIND], [aheadInput, storageKeys.ahead, DEFAULT_AHEAD]].forEach(([input, key, fallback]) => {
-    input.addEventListener("change", () => {
+    function applyInput() {
+      if (input.value === "") return;
       const value = normalizeWindow(input.value, fallback);
       input.value = String(value);
       savePreference(key, value);
       render();
+    }
+
+    input.addEventListener("input", applyInput);
+    input.addEventListener("change", () => {
+      if (input.value === "") input.value = String(fallback);
+      applyInput();
     });
   });
 
