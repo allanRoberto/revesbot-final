@@ -85,7 +85,7 @@ export function rankedAheadValues(contexts) {
     .map(([value]) => value);
 }
 
-export function createNumberContextPanel({ root, closeButton, behindInput, aheadInput, ranking, title, onClose, onVisibilityChange }) {
+export function createNumberContextPanel({ root, closeButton, behindInput, aheadInput, ranking, title, count, onClose, onVisibilityChange }) {
   let selectedValue = null;
   let selectedIndex = 0;
   let currentItems = [];
@@ -97,8 +97,11 @@ export function createNumberContextPanel({ root, closeButton, behindInput, ahead
     behindInput.value = String(behindCount);
     aheadInput.value = String(aheadCount);
 
-    const { contexts } = buildNumberContexts(currentItems, selectedValue, behindCount, aheadCount, selectedIndex);
+    const { contexts, totalMatches } = buildNumberContexts(currentItems, selectedValue, behindCount, aheadCount, selectedIndex);
     title.textContent = `Análise do número ${selectedValue}`;
+    count.textContent = totalMatches === 1
+      ? "1 ocorrência anterior"
+      : `${totalMatches.toLocaleString("pt-BR")} ocorrências anteriores`;
     renderRanking(ranking, contexts, aheadCount);
   }
 
