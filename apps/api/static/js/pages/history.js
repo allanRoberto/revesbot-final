@@ -2,7 +2,7 @@ import { fetchHistory, fetchRoulettes } from "../core/api-client.js?v=3";
 import { ResultsSocket } from "../core/results-socket.js?v=3";
 import { copyResults } from "../components/copy-results.js?v=3";
 import { setLiveStatus } from "../components/live-status.js?v=3";
-import { createNumberContextPanel } from "../components/number-context-panel.js?v=5";
+import { createNumberContextPanel } from "../components/number-context-panel.js?v=6";
 import { bindResultHighlight, prependResult, renderResults, setResultHighlight } from "../components/result-grid.js?v=6";
 import { bindRoulettePicker, fillRouletteCounts } from "../components/roulette-selector.js?v=4";
 
@@ -28,6 +28,7 @@ const contextPanel = createNumberContextPanel({
   aheadInput: document.querySelector("#context-ahead"),
   ranking: document.querySelector("#context-ranking"),
   title: document.querySelector("#number-context-title"),
+  count: document.querySelector("#number-context-count"),
   onClose: () => setResultHighlight(grid, null),
   onVisibilityChange: (open) => document.body.classList.toggle("number-context-panel-open", open),
 });
