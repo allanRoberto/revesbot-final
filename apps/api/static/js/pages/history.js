@@ -2,7 +2,7 @@ import { fetchHistory, fetchRoulettes } from "../core/api-client.js?v=3";
 import { ResultsSocket } from "../core/results-socket.js?v=3";
 import { copyResults } from "../components/copy-results.js?v=3";
 import { setLiveStatus } from "../components/live-status.js?v=3";
-import { createNumberContextPanel } from "../components/number-context-panel.js?v=2";
+import { createNumberContextPanel } from "../components/number-context-panel.js?v=3";
 import { bindResultHighlight, prependResult, renderResults, setResultHighlight } from "../components/result-grid.js?v=5";
 import { bindRouletteSelector, fillRouletteCounts } from "../components/roulette-selector.js?v=3";
 
