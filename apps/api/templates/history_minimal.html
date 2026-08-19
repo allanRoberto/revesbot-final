@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/static/css/components/live-status.css?v={{ asset_version }}">
   <link rel="stylesheet" href="/static/css/components/result-grid.css?v={{ asset_version }}">
   <link rel="stylesheet" href="/static/css/components/number-context-panel.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/roulette-selection-panel.css?v={{ asset_version }}">
   <link rel="stylesheet" href="/static/css/components/action-toolbar.css?v={{ asset_version }}">
   <link rel="stylesheet" href="/static/css/pages/history.css?v={{ asset_version }}">
 </head>
@@ -61,6 +62,7 @@
         </details>
 
         <button class="icon-button" id="socket-toggle" type="button" aria-label="Pausar resultados ao vivo" title="Pausar resultados ao vivo"><span id="socket-toggle-icon" aria-hidden="true">⏸</span></button>
+        <button class="icon-button" id="roulette-selection-open" type="button" aria-label="Selecionar números" title="Selecionar números" aria-controls="roulette-selection-panel" aria-expanded="false">◎</button>
         <button class="icon-button" id="theme-toggle" type="button" aria-label="Alternar tema" title="Alternar tema">◐</button>
         <button class="icon-button" id="copy-results" type="button" aria-label="Copiar números" title="Copiar números">⧉</button>
         {% if roulette.url %}
@@ -111,6 +113,39 @@
       </aside>
     </div>
   </main>
+
+  <aside class="roulette-selection-panel" id="roulette-selection-panel" data-widget-id="number-selector" data-widget-type="number-selector" aria-hidden="true" aria-labelledby="roulette-selection-title">
+    <button class="roulette-selection-panel__backdrop" id="roulette-selection-backdrop" type="button" tabindex="-1" aria-label="Fechar seleção de números"></button>
+    <div class="roulette-selection-panel__surface" role="dialog" aria-modal="true">
+      <header class="roulette-selection-panel__header" data-widget-handle>
+        <div>
+          <p class="eyebrow">Seleção de números</p>
+          <h2 id="roulette-selection-title">Monte sua seleção</h2>
+        </div>
+        <button class="icon-button" id="roulette-selection-close" type="button" aria-label="Fechar seleção">×</button>
+      </header>
+
+      <div class="roulette-selection-panel__body">
+        <div class="roulette-selection-panel__summary">
+          <div class="roulette-selection-panel__selection">
+            <span class="roulette-selection-panel__count" id="roulette-selection-count">0 números selecionados</span>
+            <div class="roulette-selection-panel__selected" id="roulette-selection-selected" aria-live="polite"></div>
+          </div>
+          <button class="button button--secondary roulette-selection-panel__clear" id="roulette-selection-clear" type="button">Limpar</button>
+        </div>
+
+        <section class="roulette-selection-panel__board" aria-labelledby="roulette-racetrack-title">
+          <h3 id="roulette-racetrack-title">Racetrack</h3>
+          <div class="roulette-selection-panel__board-frame" id="roulette-racetrack-picker"></div>
+        </section>
+
+        <section class="roulette-selection-panel__board" aria-labelledby="roulette-felt-title">
+          <h3 id="roulette-felt-title">Pano da roleta</h3>
+          <div class="roulette-selection-panel__board-frame" id="roulette-felt-picker"></div>
+        </section>
+      </div>
+    </div>
+  </aside>
 
   <dialog class="roulette-picker" id="roulette-picker" aria-labelledby="roulette-picker-title">
     <div class="roulette-picker__surface">
