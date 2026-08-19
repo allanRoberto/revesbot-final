@@ -11,39 +11,17 @@ const TABLE_ROWS = Object.freeze([
   [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
 ]);
 
+const RACETRACK_TOP = Object.freeze([15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11]);
+const RACETRACK_BOTTOM = Object.freeze([12, 28, 7, 29, 18, 22, 9, 31, 14, 20, 1, 33, 16]);
+const RACETRACK_LEFT = Object.freeze([32, 0, 26, 3, 35]);
+const RACETRACK_RIGHT = Object.freeze([30, 8, 23, 10, 5, 24]);
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function svgElement(name, attributes = {}) {
   const element = document.createElementNS(SVG_NS, name);
   Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, String(value)));
   return element;
-}
-
-function ellipsePoint(cx, cy, rx, ry, angle) {
-  return { x: cx + (rx * Math.cos(angle)), y: cy + (ry * Math.sin(angle)) };
-}
-
-function racetrackSectorPath(index, total) {
-  const cx = 380;
-  const cy = 160;
-  const outerRx = 350;
-  const outerRy = 145;
-  const innerRx = 248;
-  const innerRy = 72;
-  const startAngle = (-Math.PI / 2) + ((Math.PI * 2 * index) / total);
-  const endAngle = (-Math.PI / 2) + ((Math.PI * 2 * (index + 1)) / total);
-  const outerStart = ellipsePoint(cx, cy, outerRx, outerRy, startAngle);
-  const outerEnd = ellipsePoint(cx, cy, outerRx, outerRy, endAngle);
-  const innerEnd = ellipsePoint(cx, cy, innerRx, innerRy, endAngle);
-  const innerStart = ellipsePoint(cx, cy, innerRx, innerRy, startAngle);
-
-  return [
-    `M ${outerStart.x} ${outerStart.y}`,
-    `A ${outerRx} ${outerRy} 0 0 1 ${outerEnd.x} ${outerEnd.y}`,
-    `L ${innerEnd.x} ${innerEnd.y}`,
-    `A ${innerRx} ${innerRy} 0 0 0 ${innerStart.x} ${innerStart.y}`,
-    "Z",
-  ].join(" ");
 }
 
 function bindActivation(element, callback) {
@@ -55,53 +33,123 @@ function bindActivation(element, callback) {
   });
 }
 
+function racetrackNumberGroup(number, onToggle) {
+  const group = svgElement("g", {
+    class: `roulette-racetrack-picker__number roulette-number--${rouletteColor(number)}`,
+    "data-number": number,
+    role: "button",
+    tabindex: 0,
+    "aria-label": `Selecionar número ${number}`,
+    "aria-pressed": "false",
+  });
+  bindActivation(group, () => onToggle(number));
+  return group;
+}
+
+function appendRacetrackLabel(group, number, x, y) {
+  const text = svgElement("text", { x, y, "text-anchor": "middle" });
+  text.textContent = String(number);
+  group.append(text);
+}
+
+function appendStraightNumber(svg, number, x, y, width, height, onToggle) {
+  const group = racetrackNumberGroup(number, onToggle);
+  group.append(svgElement("rect", { x, y, width, height }));
+  appendRacetrackLabel(group, number, x + (width / 2), y + (height / 2) + 5);
+  svg.append(group);
+}
+
+function appendCurveNumbers(svg, numbers, centerX, centerY, outerRadius, innerRadius, side, onToggle) {
+  numbers.forEach((number, index) => {
+    const startAngle = (90 - ((index * 180) / numbers.length)) * Math.PI / 180;
+    const endAngle = (90 - (((index + 1) * 180) / numbers.length)) * Math.PI / 180;
+    const sign = side === "left" ? -1 : 1;
+    const outerSweep = side === "left" ? 0 : 1;
+    const innerSweep = side === "left" ? 1 : 0;
+    const outerStartX = centerX + (sign * outerRadius * Math.cos(startAngle));
+    const outerStartY = centerY - (outerRadius * Math.sin(startAngle));
+    const outerEndX = centerX + (sign * outerRadius * Math.cos(endAngle));
+    const outerEndY = centerY - (outerRadius * Math.sin(endAngle));
+    const innerStartX = centerX + (sign * innerRadius * Math.cos(startAngle));
+    const innerStartY = centerY - (innerRadius * Math.sin(startAngle));
+    const innerEndX = centerX + (sign * innerRadius * Math.cos(endAngle));
+    const innerEndY = centerY - (innerRadius * Math.sin(endAngle));
+    const path = [
+      `M ${outerStartX} ${outerStartY}`,
+      `A ${outerRadius} ${outerRadius} 0 0 ${outerSweep} ${outerEndX} ${outerEndY}`,
+      `L ${innerEndX} ${innerEndY}`,
+      `A ${innerRadius} ${innerRadius} 0 0 ${innerSweep} ${innerStartX} ${innerStartY}`,
+      "Z",
+    ].join(" ");
+    const middleAngle = (startAngle + endAngle) / 2;
+    const labelRadius = (innerRadius + outerRadius) / 2;
+    const labelX = centerX + (sign * labelRadius * Math.cos(middleAngle));
+    const labelY = centerY - (labelRadius * Math.sin(middleAngle)) + 5;
+    const group = racetrackNumberGroup(number, onToggle);
+    group.append(svgElement("path", { d: path }));
+    appendRacetrackLabel(group, number, labelX, labelY);
+    svg.append(group);
+  });
+}
+
+function appendRacetrackCenter(svg) {
+  svg.append(svgElement("path", {
+    class: "roulette-racetrack-picker__center",
+    d: "M 90 90 H 584 A 50 50 0 0 1 584 190 H 90 A 50 50 0 0 1 90 90 Z",
+  }));
+
+  [184, 316, 448].forEach((x) => svg.append(svgElement("line", {
+    class: "roulette-racetrack-picker__divider",
+    x1: x,
+    y1: 90,
+    x2: x,
+    y2: 190,
+  })));
+
+  [
+    [112, "JEU ZERO"],
+    [250, "VOISINS"],
+    [382, "ORPHELINS"],
+    [522, "TIERS"],
+  ].forEach(([x, label]) => {
+    const text = svgElement("text", {
+      class: "roulette-racetrack-picker__section-label",
+      x,
+      y: 146,
+      "text-anchor": "middle",
+    });
+    text.textContent = label;
+    svg.append(text);
+  });
+}
+
 function createRacetrack(container, onToggle) {
   const svg = svgElement("svg", {
     class: "roulette-racetrack-picker",
-    viewBox: "0 0 760 320",
+    viewBox: "0 0 680 280",
     role: "group",
     "aria-label": "Racetrack da roleta europeia",
   });
 
-  svg.append(svgElement("ellipse", {
-    class: "roulette-racetrack-picker__center",
-    cx: 380,
-    cy: 160,
-    rx: 236,
-    ry: 62,
-  }));
+  const cellWidth = 38;
+  const cellHeight = 36;
+  const centerY = 140;
+  const outerRadius = 88;
+  const innerRadius = 50;
+  const straightStartX = 90;
+  const topY = centerY - outerRadius;
+  const bottomY = centerY + outerRadius - cellHeight;
+  const straightEndX = straightStartX + (RACETRACK_TOP.length * cellWidth);
 
-  const centerLabel = svgElement("text", {
-    class: "roulette-racetrack-picker__label",
-    x: 380,
-    y: 164,
-    "text-anchor": "middle",
-  });
-  centerLabel.textContent = "RACETRACK EUROPEIA";
-  svg.append(centerLabel);
-
-  EUROPEAN_WHEEL.forEach((number, index) => {
-    const middleAngle = (-Math.PI / 2) + ((Math.PI * 2 * (index + 0.5)) / EUROPEAN_WHEEL.length);
-    const labelPoint = ellipsePoint(380, 160, 299, 108, middleAngle);
-    const group = svgElement("g", {
-      class: `roulette-racetrack-picker__number roulette-number--${rouletteColor(number)}`,
-      "data-number": number,
-      role: "button",
-      tabindex: 0,
-      "aria-label": `Selecionar número ${number}`,
-      "aria-pressed": "false",
-    });
-    group.append(svgElement("path", { d: racetrackSectorPath(index, EUROPEAN_WHEEL.length) }));
-    const text = svgElement("text", {
-      x: labelPoint.x,
-      y: labelPoint.y + 4,
-      "text-anchor": "middle",
-    });
-    text.textContent = String(number);
-    group.append(text);
-    bindActivation(group, () => onToggle(number));
-    svg.append(group);
-  });
+  appendRacetrackCenter(svg);
+  RACETRACK_TOP.forEach((number, index) => appendStraightNumber(
+    svg, number, straightStartX + (index * cellWidth), topY, cellWidth, cellHeight, onToggle,
+  ));
+  RACETRACK_BOTTOM.forEach((number, index) => appendStraightNumber(
+    svg, number, straightStartX + (index * cellWidth), bottomY, cellWidth, cellHeight, onToggle,
+  ));
+  appendCurveNumbers(svg, RACETRACK_LEFT, straightStartX, centerY, outerRadius, innerRadius, "left", onToggle);
+  appendCurveNumbers(svg, RACETRACK_RIGHT, straightEndX, centerY, outerRadius, innerRadius, "right", onToggle);
 
   container.replaceChildren(svg);
   return svg;

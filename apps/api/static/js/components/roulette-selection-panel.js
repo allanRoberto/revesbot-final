@@ -1,5 +1,5 @@
 import { rouletteColor } from "../core/roulette-colors.js?v=3";
-import { createRouletteSelectionBoards } from "./roulette-selection-boards.js?v=1";
+import { createRouletteSelectionBoards } from "./roulette-selection-boards.js?v=2";
 
 function selectionChip(number, onRemove) {
   const button = document.createElement("button");
