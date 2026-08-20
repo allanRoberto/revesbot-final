@@ -1,6 +1,16 @@
 name: Test and deploy Revesbot auth
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/auth_api/**"
+      - "infra/deploy/auth/**"
+      - "infra/logrotate/revesbot-auth"
+      - "infra/nginx/auth-revesbot.conf"
+      - "infra/pm2/auth-api.config.js"
+      - "infra/systemd/revesbot-auth-health.*"
+      - ".github/workflows/deploy-auth.yml"
   push:
     branches: [main]
     paths:
@@ -45,6 +55,7 @@ jobs:
           exit 1
 
   deploy:
+    if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
     environment: auth-production

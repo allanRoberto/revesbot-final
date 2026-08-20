@@ -1,6 +1,18 @@
 name: Test and deploy Revesbot app
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/app/**"
+      - "apps/bet_ws/**"
+      - "apps/house_agent/**"
+      - "infra/deploy/app/**"
+      - "infra/logrotate/revesbot-app"
+      - "infra/nginx/app-revesbot.conf"
+      - "infra/pm2/app-stack.config.js"
+      - "infra/systemd/revesbot-app-health.*"
+      - ".github/workflows/deploy-app.yml"
   push:
     branches: [main]
     paths:
@@ -61,6 +73,7 @@ jobs:
         run: npm --prefix apps/app run build
 
   deploy:
+    if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
     environment: app-production
