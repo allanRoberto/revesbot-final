@@ -30,25 +30,25 @@ source "$env_file"
 set +a
 : "${APP_ORIGINS:?APP_ORIGINS nao configurado}"
 
-sudo -u "$runtime_user" git -C "$repository" fetch --prune origin "$deploy_ref"
-if ! sudo -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}" 2>/dev/null; then
-  sudo -u "$runtime_user" git -C "$repository" fetch origin "$commit_sha"
+sudo -H -u "$runtime_user" git -C "$repository" fetch --prune origin "$deploy_ref"
+if ! sudo -H -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}" 2>/dev/null; then
+  sudo -H -u "$runtime_user" git -C "$repository" fetch origin "$commit_sha"
 fi
-sudo -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}"
+sudo -H -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}"
 
 if [[ ! -d "$release_dir" ]]; then
-  sudo -u "$runtime_user" git -C "$repository" worktree add --detach "$release_dir" "$commit_sha"
+  sudo -H -u "$runtime_user" git -C "$repository" worktree add --detach "$release_dir" "$commit_sha"
 fi
 
-sudo -u "$runtime_user" npm ci --prefix "$release_dir/apps/auth_api" --cache "$npm_cache"
-sudo -u "$runtime_user" npm --prefix "$release_dir/apps/auth_api" run build
+sudo -H -u "$runtime_user" npm ci --prefix "$release_dir/apps/auth_api" --cache "$npm_cache"
+sudo -H -u "$runtime_user" npm --prefix "$release_dir/apps/auth_api" run build
 
 ln -sfn "$release_dir" "$base_dir/auth-current.next"
 mv -Tf "$base_dir/auth-current.next" "$base_dir/auth-current"
 chown -h "$runtime_user:$runtime_user" "$base_dir/auth-current"
 
 pm2_config="$base_dir/auth-current/infra/pm2/auth-api.config.js"
-if ! sudo -u "$runtime_user" --preserve-env \
+if ! sudo -H -u "$runtime_user" --preserve-env \
     env PM2_HOME="/home/$runtime_user/.pm2" REVESBOT_AUTH_CURRENT="$base_dir/auth-current" \
     pm2 startOrReload "$pm2_config" --update-env; then
   [[ -n "$previous_target" ]] && ln -sfn "$previous_target" "$base_dir/auth-current"
@@ -58,7 +58,7 @@ fi
 if ! "$base_dir/auth-current/infra/deploy/auth/healthcheck.sh"; then
   if [[ -n "$previous_target" && -d "$previous_target" ]]; then
     ln -sfn "$previous_target" "$base_dir/auth-current"
-    sudo -u "$runtime_user" --preserve-env \
+    sudo -H -u "$runtime_user" --preserve-env \
       env PM2_HOME="/home/$runtime_user/.pm2" REVESBOT_AUTH_CURRENT="$base_dir/auth-current" \
       pm2 startOrReload "$base_dir/auth-current/infra/pm2/auth-api.config.js" --update-env
   fi
@@ -72,12 +72,12 @@ install -m 0644 "$base_dir/auth-current/infra/logrotate/revesbot-auth" /etc/logr
 systemctl daemon-reload
 systemctl enable --now revesbot-auth-health.timer
 
-sudo -u "$runtime_user" env PM2_HOME="/home/$runtime_user/.pm2" pm2 save
+sudo -H -u "$runtime_user" env PM2_HOME="/home/$runtime_user/.pm2" pm2 save
 
 mapfile -t old_releases < <(find "$base_dir/auth-releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +4 | cut -d' ' -f2-)
 for old_release in "${old_releases[@]}"; do
   [[ "$old_release" == "$(readlink -f "$base_dir/auth-current")" ]] && continue
-  sudo -u "$runtime_user" git -C "$repository" worktree remove --force "$old_release" || true
+  sudo -H -u "$runtime_user" git -C "$repository" worktree remove --force "$old_release" || true
 done
 
 install -m 0755 "$base_dir/auth-current/infra/deploy/auth/deploy.sh" /usr/local/sbin/revesbot-auth-deploy.next

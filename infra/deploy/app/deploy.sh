@@ -39,29 +39,29 @@ set +a
 : "${HOUSE_AGENT_TOKEN:?HOUSE_AGENT_TOKEN nao configurado}"
 : "${NEXT_PUBLIC_VIDEO_BASE:?NEXT_PUBLIC_VIDEO_BASE nao configurada}"
 
-sudo -u "$runtime_user" git -C "$repository" fetch --prune origin "$deploy_ref"
-if ! sudo -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}" 2>/dev/null; then
-  sudo -u "$runtime_user" git -C "$repository" fetch origin "$commit_sha"
+sudo -H -u "$runtime_user" git -C "$repository" fetch --prune origin "$deploy_ref"
+if ! sudo -H -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}" 2>/dev/null; then
+  sudo -H -u "$runtime_user" git -C "$repository" fetch origin "$commit_sha"
 fi
-sudo -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}"
+sudo -H -u "$runtime_user" git -C "$repository" cat-file -e "$commit_sha^{commit}"
 
 if [[ ! -d "$release_dir" ]]; then
-  sudo -u "$runtime_user" git -C "$repository" worktree add --detach "$release_dir" "$commit_sha"
+  sudo -H -u "$runtime_user" git -C "$repository" worktree add --detach "$release_dir" "$commit_sha"
 fi
 
 for app_name in app bet_ws house_agent; do
   app_dir="$release_dir/apps/$app_name"
   test -f "$app_dir/package-lock.json"
-  sudo -u "$runtime_user" env PUPPETEER_SKIP_DOWNLOAD=true \
+  sudo -H -u "$runtime_user" env PUPPETEER_SKIP_DOWNLOAD=true \
     npm ci --prefix "$app_dir" --cache "$npm_cache"
 done
 
-sudo -u "$runtime_user" npm --prefix "$release_dir/apps/bet_ws" test
-sudo -u "$runtime_user" npm --prefix "$release_dir/apps/house_agent" test
-sudo -u "$runtime_user" --preserve-env npm --prefix "$release_dir/apps/app" run lint
-sudo -u "$runtime_user" --preserve-env npm --prefix "$release_dir/apps/app" run build
+sudo -H -u "$runtime_user" npm --prefix "$release_dir/apps/bet_ws" test
+sudo -H -u "$runtime_user" npm --prefix "$release_dir/apps/house_agent" test
+sudo -H -u "$runtime_user" --preserve-env npm --prefix "$release_dir/apps/app" run lint
+sudo -H -u "$runtime_user" --preserve-env npm --prefix "$release_dir/apps/app" run build
 
-sudo -u "$runtime_user" --preserve-env node -e \
+sudo -H -u "$runtime_user" --preserve-env node -e \
   "const {MongoClient}=require('$release_dir/apps/app/node_modules/mongodb'); (async()=>{const c=new MongoClient(process.env.MONGO_URL); await c.connect(); await c.db(process.env.MONGO_DB||'roleta_db').command({ping:1}); await c.close(); console.log('database-ok')})().catch(e=>{console.error(e.message);process.exit(1)})"
 
 ln -sfn "$release_dir" "$base_dir/app-current.next"
@@ -69,7 +69,7 @@ mv -Tf "$base_dir/app-current.next" "$base_dir/app-current"
 chown -h "$runtime_user:$runtime_user" "$base_dir/app-current"
 
 pm2_config="$base_dir/app-current/infra/pm2/app-stack.config.js"
-if ! sudo -u "$runtime_user" --preserve-env \
+if ! sudo -H -u "$runtime_user" --preserve-env \
     env PM2_HOME="/home/$runtime_user/.pm2" REVESBOT_APP_CURRENT="$base_dir/app-current" \
     pm2 startOrReload "$pm2_config" --only revesbot-app --update-env; then
   [[ -n "$previous_target" ]] && ln -sfn "$previous_target" "$base_dir/app-current"
@@ -77,7 +77,7 @@ if ! sudo -u "$runtime_user" --preserve-env \
 fi
 
 if [[ "${DEPLOY_AUX_SERVICES:-0}" == "1" ]]; then
-  sudo -u "$runtime_user" --preserve-env \
+  sudo -H -u "$runtime_user" --preserve-env \
     env PM2_HOME="/home/$runtime_user/.pm2" REVESBOT_APP_CURRENT="$base_dir/app-current" \
     pm2 startOrReload "$pm2_config" --only revesbot-bet-ws,revesbot-house-agent --update-env
 fi
@@ -85,7 +85,7 @@ fi
 if ! "$base_dir/app-current/infra/deploy/app/healthcheck.sh"; then
   if [[ -n "$previous_target" && -d "$previous_target" ]]; then
     ln -sfn "$previous_target" "$base_dir/app-current"
-    sudo -u "$runtime_user" --preserve-env \
+    sudo -H -u "$runtime_user" --preserve-env \
       env PM2_HOME="/home/$runtime_user/.pm2" REVESBOT_APP_CURRENT="$base_dir/app-current" \
       pm2 startOrReload "$base_dir/app-current/infra/pm2/app-stack.config.js" --only revesbot-app --update-env
   fi
@@ -99,12 +99,12 @@ install -m 0644 "$base_dir/app-current/infra/logrotate/revesbot-app" /etc/logrot
 systemctl daemon-reload
 systemctl enable --now revesbot-app-health.timer
 
-sudo -u "$runtime_user" env PM2_HOME="/home/$runtime_user/.pm2" pm2 save
+sudo -H -u "$runtime_user" env PM2_HOME="/home/$runtime_user/.pm2" pm2 save
 
 mapfile -t old_releases < <(find "$base_dir/app-releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +4 | cut -d' ' -f2-)
 for old_release in "${old_releases[@]}"; do
   [[ "$old_release" == "$(readlink -f "$base_dir/app-current")" ]] && continue
-  sudo -u "$runtime_user" git -C "$repository" worktree remove --force "$old_release" || true
+  sudo -H -u "$runtime_user" git -C "$repository" worktree remove --force "$old_release" || true
 done
 
 install -m 0755 "$base_dir/app-current/infra/deploy/app/deploy.sh" /usr/local/sbin/revesbot-app-deploy.next
