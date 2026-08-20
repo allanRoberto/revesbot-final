@@ -27,7 +27,10 @@ export default function RaceTrack({
   const rtRef = useRef<InstanceType<typeof RouletteRacetrack> | null>(null);
   // callbacks/estado mais recentes sem recriar o plugin a cada render
   const liveRef = useRef({ onNumber, onSection, disabled });
-  liveRef.current = { onNumber, onSection, disabled };
+
+  useEffect(() => {
+    liveRef.current = { onNumber, onSection, disabled };
+  }, [onNumber, onSection, disabled]);
 
   useEffect(() => {
     if (!boxRef.current) return;

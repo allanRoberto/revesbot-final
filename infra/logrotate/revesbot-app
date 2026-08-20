@@ -1,0 +1,12 @@
+/home/revesbot/.pm2/logs/revesbot-app-*.log
+/home/revesbot/.pm2/logs/revesbot-bet-ws-*.log
+/home/revesbot/.pm2/logs/revesbot-house-agent-*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su revesbot revesbot
+}

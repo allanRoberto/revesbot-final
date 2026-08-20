@@ -160,7 +160,8 @@ function CasinoCard({ game }: { game: CasinoGame }) {
   }, [game.gameId]);
 
   useEffect(() => {
-    fetchLink();
+    const timer = window.setTimeout(() => void fetchLink(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchLink]);
 
   // Mantém o link fresco: se o usuário voltar à aba do dashboard depois de muito

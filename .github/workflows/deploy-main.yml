@@ -5,6 +5,20 @@ on:
     branches:
       - main
     paths-ignore:
+      - "apps/app/**"
+      - "apps/auth_api/**"
+      - "apps/bet_ws/**"
+      - "apps/house_agent/**"
+      - "infra/deploy/app/**"
+      - "infra/deploy/auth/**"
+      - "infra/nginx/app-revesbot.conf"
+      - "infra/nginx/auth-revesbot.conf"
+      - "infra/pm2/app-stack.config.js"
+      - "infra/pm2/auth-api.config.js"
+      - "infra/systemd/revesbot-app-health.*"
+      - "infra/systemd/revesbot-auth-health.*"
+      - ".github/workflows/deploy-app.yml"
+      - ".github/workflows/deploy-auth.yml"
       - "apps/collector/**"
       - "infra/deploy/collector/**"
       - "infra/docker/collector-test.compose.yml"

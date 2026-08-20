@@ -7,6 +7,7 @@ const { randomUUID } = require('crypto');
 const { EventEmitter } = require('events');
 const WebSocket = require('ws');
 const { captureGameWsUrl } = require('./capture');
+const { AutomationRunner } = require('./automationRunner');
 const {
   parseWinningNumber,
   parseBetsOpen,
@@ -41,6 +42,7 @@ class Session extends EventEmitter {
     this.closedByUser = false;
     this.clientKey = null;
     this.kicked = false; // derrubado por conexão duplicada (não reconectar em loop)
+    this.automation = null;
   }
 
   // Aposta é aceita enquanto ABERTA e também na janela de "encerrando" — o
@@ -108,6 +110,7 @@ class Session extends EventEmitter {
       const secs = parseCountdownSeconds(text);
       this.setPhase('open', secs !== null ? secs : this.secondsLeft);
       this.emitState();
+      void this.automation?.onBetsOpen();
       return;
     }
     if (isBetsClosingSoon(text)) {
@@ -139,6 +142,7 @@ class Session extends EventEmitter {
     if (secs !== null) {
       this.setPhase('open', secs);
       this.emitState();
+      void this.automation?.onBetsOpen();
       return;
     }
 
@@ -152,12 +156,29 @@ class Session extends EventEmitter {
         this.lastNumbers = [n, ...this.lastNumbers].slice(0, MAX_HISTORY);
         this.emit('result', n);
         this.emitState();
+        void this.automation?.onResult(n);
       }
     }
   }
 
   emitState() {
     this.emit('state', this.state());
+  }
+
+  startAutomation(config) {
+    if (this.automation && ['running', 'stopping'].includes(this.automation.status)) {
+      throw new Error('O automático já está ligado nesta mesa.');
+    }
+    this.automation = new AutomationRunner(this, config);
+    this.emitState();
+    // Se a chamada aconteceu durante uma rodada já aberta, não espera a próxima.
+    if (this.betsOpen) void this.automation.onBetsOpen();
+    return this.automation.state();
+  }
+
+  async stopAutomation(reason = 'user_stop') {
+    if (!this.automation) return null;
+    return this.automation.stop(reason);
   }
 
   // bets: { numero: valor } — o slip completo com o valor acumulado por número.
@@ -193,6 +214,7 @@ class Session extends EventEmitter {
       lastResult: this.lastResult,
       lastNumbers: this.lastNumbers,
       rouletteId: this.rouletteId,
+      automation: this.automation?.state() || null,
     };
   }
 
@@ -202,6 +224,9 @@ class Session extends EventEmitter {
     this.removeAllListeners();
     try { if (this.ws) this.ws.close(); } catch (_) { /* noop */ }
     this.ws = null;
+    if (this.automation && ['running', 'stopping'].includes(this.automation.status)) {
+      void this.automation.stop('error');
+    }
   }
 }
 
@@ -240,8 +265,9 @@ class SessionManager {
     return session;
   }
 
-  get(id) {
+  get(id, clientKey) {
     const s = this.sessions.get(id);
+    if (s && clientKey && s.clientKey !== clientKey) return null;
     if (s) s.touch();
     return s || null;
   }
@@ -252,6 +278,10 @@ class SessionManager {
     s.destroy();
     this.sessions.delete(id);
     return true;
+  }
+
+  destroyAll() {
+    for (const id of [...this.sessions.keys()]) this.destroy(id);
   }
 
   reapIdle() {

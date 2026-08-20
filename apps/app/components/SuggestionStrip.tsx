@@ -12,26 +12,35 @@ const POLL_MS = 15000;
 
 export default function SuggestionStrip({ gameId }: { gameId: string }) {
   const [numbers, setNumbers] = useState<number[] | null>(null);
+  const [motorNumbers, setMotorNumbers] = useState<number[] | null>(null);
   const [last, setLast] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [auto, setAuto] = useState(true);
   const [recalcing, setRecalcing] = useState(false);
   const [locked, setLocked] = useState(false);
 
+  // As duas sugestões rodam lado a lado para comparação de assertividade:
+  // ensemble (algoritmo atual) e motor de correlações (porte do HTML).
   async function refresh() {
     try {
-      const res = await fetch(`/api/games/${gameId}/suggestion`, {
-        cache: 'no-store',
-      });
+      const [res, resMotor] = await Promise.all([
+        fetch(`/api/games/${gameId}/suggestion`, { cache: 'no-store' }),
+        fetch(`/api/games/${gameId}/suggestion-motor`, { cache: 'no-store' }),
+      ]);
       if (res.status === 402) {
         setLocked(true);
         return;
       }
-      if (!res.ok) return;
-      setLocked(false);
-      const data = await res.json();
-      if (Array.isArray(data.numbers)) setNumbers(data.numbers);
-      if (Array.isArray(data.last)) setLast(data.last);
+      if (res.ok) {
+        setLocked(false);
+        const data = await res.json();
+        if (Array.isArray(data.numbers)) setNumbers(data.numbers);
+        if (Array.isArray(data.last)) setLast(data.last);
+      }
+      if (resMotor.ok) {
+        const dataMotor = await resMotor.json();
+        if (Array.isArray(dataMotor.numbers)) setMotorNumbers(dataMotor.numbers);
+      }
     } catch {
       /* mantém último valor */
     } finally {
@@ -41,7 +50,8 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
 
   // Carrega uma vez ao abrir.
   useEffect(() => {
-    refresh();
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId]);
 
@@ -87,8 +97,8 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
             </div>
           </div>
         )}
-        <div className="suggestion-group">
-          <span className="suggestion-label">Sugestão</span>
+        <div className="suggestion-group" title="Sugestão por ensemble (algoritmo atual)">
+          <span className="suggestion-label">Ensemble</span>
           <div className="suggestion-chips">
             {locked ? (
               <span className="suggestion-empty">🔒 assine para ver</span>
@@ -105,6 +115,27 @@ export default function SuggestionStrip({ gameId }: { gameId: string }) {
             )}
           </div>
         </div>
+        {!locked && (
+          <div
+            className="suggestion-group"
+            title="Motor de correlações (porte do HTML) — em comparação com o ensemble"
+          >
+            <span className="suggestion-label">Motor</span>
+            <div className="suggestion-chips">
+              {loading && motorNumbers === null ? (
+                <span className="suggestion-empty">calculando…</span>
+              ) : motorNumbers && motorNumbers.length ? (
+                motorNumbers.map((n) => (
+                  <span key={n} className={`sug-chip ${colorClass(n)}`}>
+                    {n}
+                  </span>
+                ))
+              ) : (
+                <span className="suggestion-empty">sem dados suficientes</span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="suggestion-controls">

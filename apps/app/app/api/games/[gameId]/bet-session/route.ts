@@ -8,6 +8,7 @@ import { decrypt } from '@/lib/crypto';
 import { getHouseGameLink } from '@/lib/houseAgent';
 import { isActive } from '@/lib/subscription';
 import { createBetSession, getBetSessionState } from '@/lib/betws';
+import { automationOwnerKey } from '@/lib/automation';
 
 // Resolve o link jogável (playGame.do) conforme o modo da casa.
 async function resolveGameLink(
@@ -76,7 +77,7 @@ export async function POST(
   try {
     // Chave estável por usuário+casa+mesa: o bet_ws reusa a conexão viva em vez
     // de recapturar (evita DOUBLE_SUBSCRIPTION da Pragmatic em reloads).
-    const clientKey = `${g.user!.email}:${g.house}:${gameId}`;
+    const clientKey = automationOwnerKey(g.user!.email, g.house!, gameId);
     const state = await createBetSession(resolved.link, g.game!.rouletteId, clientKey);
     return NextResponse.json(state);
   } catch (err) {
@@ -102,7 +103,8 @@ export async function GET(
   }
 
   try {
-    const state = await getBetSessionState(sessionId);
+    const ownerKey = automationOwnerKey(g.user!.email, g.house!, gameId);
+    const state = await getBetSessionState(sessionId, ownerKey);
     if (!state) return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
     return NextResponse.json(state);
   } catch (err) {

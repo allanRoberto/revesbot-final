@@ -1,0 +1,86 @@
+name: Test and deploy Revesbot app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/app/**"
+      - "apps/bet_ws/**"
+      - "apps/house_agent/**"
+      - "infra/deploy/app/**"
+      - "infra/logrotate/revesbot-app"
+      - "infra/nginx/app-revesbot.conf"
+      - "infra/pm2/app-stack.config.js"
+      - "infra/systemd/revesbot-app-health.*"
+      - ".github/workflows/deploy-app.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: app-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.0"
+          cache: npm
+          cache-dependency-path: |
+            apps/app/package-lock.json
+            apps/bet_ws/package-lock.json
+            apps/house_agent/package-lock.json
+      - name: Install dependencies
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+        run: |
+          npm ci --prefix apps/app
+          npm ci --prefix apps/bet_ws
+          npm ci --prefix apps/house_agent
+      - name: Run service tests
+        run: |
+          npm --prefix apps/bet_ws test
+          npm --prefix apps/house_agent test
+      - name: Lint app
+        run: npm --prefix apps/app run lint
+      - name: Build app
+        env:
+          MONGO_URL: mongodb://127.0.0.1:27017/roleta_db
+          MONGO_DB: roleta_db
+          JWT_SECRET: ci-only-secret
+          ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+          EXPRESS_URL: http://127.0.0.1:3090
+          BET_WS_URL: http://127.0.0.1:4060
+          BET_WS_TOKEN: ci-only-token
+          AUTOMATION_INTERNAL_TOKEN: ci-only-token
+          HOUSE_AGENT_URL: http://127.0.0.1:4080
+          HOUSE_AGENT_TOKEN: ci-only-token
+          NEXT_PUBLIC_VIDEO_BASE: https://video.revesbot.com.br
+        run: npm --prefix apps/app run build
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: app-production
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.APP_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.APP_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Deploy exact commit
+        env:
+          DEPLOY_HOST: ${{ vars.APP_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.APP_DEPLOY_USER }}
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "${GITHUB_SHA}"

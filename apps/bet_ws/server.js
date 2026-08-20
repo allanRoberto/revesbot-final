@@ -13,8 +13,13 @@ const express = require('express');
 const { SessionManager } = require('./lib/sessionManager');
 
 const PORT = Number(process.env.BET_WS_PORT || 4060);
+const HOST = process.env.BET_WS_HOST || '127.0.0.1';
 const BASE_CHIP = Number(process.env.BASE_CHIP || 0.5);
 const SHARED_TOKEN = process.env.BET_WS_TOKEN || null;
+
+if (process.env.NODE_ENV === 'production' && !SHARED_TOKEN) {
+  throw new Error('BET_WS_TOKEN é obrigatório em produção.');
+}
 
 const manager = new SessionManager();
 const app = express();
@@ -29,7 +34,21 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'bet-ws' }));
+
+function ownedSession(req, res) {
+  const ownerKey = req.get('X-Bet-Owner');
+  if (!ownerKey) {
+    res.status(403).json({ error: 'owner_required' });
+    return null;
+  }
+  const session = manager.get(req.params.id, ownerKey);
+  if (!session) {
+    res.status(404).json({ error: 'session_not_found' });
+    return null;
+  }
+  return session;
+}
 
 app.post('/session', async (req, res) => {
   try {
@@ -46,15 +65,15 @@ app.post('/session', async (req, res) => {
 });
 
 app.get('/session/:id/state', (req, res) => {
-  const session = manager.get(req.params.id);
-  if (!session) return res.status(404).json({ error: 'session_not_found' });
+  const session = ownedSession(req, res);
+  if (!session) return;
   return res.json(session.state());
 });
 
 // SSE: empurra o estado da mesa (fase, últimos números) em tempo real.
 app.get('/session/:id/events', (req, res) => {
-  const session = manager.get(req.params.id);
-  if (!session) return res.status(404).json({ error: 'session_not_found' });
+  const session = ownedSession(req, res);
+  if (!session) return;
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -88,8 +107,11 @@ app.get('/session/:id/events', (req, res) => {
 });
 
 app.post('/session/:id/bet', (req, res) => {
-  const session = manager.get(req.params.id);
-  if (!session) return res.status(404).json({ error: 'session_not_found' });
+  const session = ownedSession(req, res);
+  if (!session) return;
+  if (session.automation && ['running', 'stopping'].includes(session.automation.status)) {
+    return res.status(409).json({ error: 'Desligue o automático antes de apostar manualmente.' });
+  }
   try {
     const { bets, numbers, chipValue } = req.body || {};
     // Formato novo: { bets: { numero: valor } }. Legado: { numbers, chipValue }.
@@ -105,12 +127,44 @@ app.post('/session/:id/bet', (req, res) => {
   }
 });
 
+app.post('/session/:id/automation/start', (req, res) => {
+  const session = ownedSession(req, res);
+  if (!session) return;
+  try {
+    const state = session.startAutomation(req.body || {});
+    return res.json({ ok: true, automation: state, state: session.state() });
+  } catch (err) {
+    return res.status(409).json({ error: err.message });
+  }
+});
+
+app.post('/session/:id/automation/stop', async (req, res) => {
+  const session = ownedSession(req, res);
+  if (!session) return;
+  try {
+    const state = await session.stopAutomation('user_stop');
+    return res.json({ ok: true, automation: state, state: session.state() });
+  } catch (err) {
+    return res.status(409).json({ error: err.message });
+  }
+});
+
 app.delete('/session/:id', (req, res) => {
+  const session = ownedSession(req, res);
+  if (!session) return;
   const ok = manager.destroy(req.params.id);
   return res.json({ ok });
 });
 
-app.listen(PORT, () => {
-  console.log(`bet_ws ouvindo em http://127.0.0.1:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`bet_ws ouvindo em http://${HOST}:${PORT}`);
   console.log(`BASE_CHIP=${BASE_CHIP} | auth=${SHARED_TOKEN ? 'on' : 'off'}`);
 });
+
+function shutdown(signal) {
+  console.log(`[shutdown] ${signal}`);
+  server.close(() => manager.destroyAll());
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

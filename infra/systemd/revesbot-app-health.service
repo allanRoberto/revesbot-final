@@ -1,0 +1,7 @@
+[Unit]
+Description=Revesbot app readiness check
+After=network-online.target pm2-revesbot.service
+
+[Service]
+Type=oneshot
+ExecStart=/var/www/revesbot/app-current/infra/deploy/app/healthcheck.sh

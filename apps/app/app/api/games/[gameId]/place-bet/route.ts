@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session';
 import { findRoulette } from '@/lib/games';
 import { isActive } from '@/lib/subscription';
 import { placeBet } from '@/lib/betws';
+import { automationOwnerKey } from '@/lib/automation';
 
 // Aposta o slip completo no tabuleiro (números cheios; vizinhos já vêm
 // expandidos). body: { sessionId, bets: { numero: valor } } — cada número com
@@ -48,7 +49,8 @@ export async function POST(
   }
 
   try {
-    const result = await placeBet(body.sessionId, bets);
+    const ownerKey = automationOwnerKey(session.email, session.house, gameId);
+    const result = await placeBet(body.sessionId, bets, ownerKey);
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

@@ -1,0 +1,17 @@
+{
+  "name": "bet-ws",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Serviço que captura o WebSocket da mesa (Pragmatic) e envia apostas (lpbet) por sessão.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "puppeteer": "^24.34.0",
+    "ws": "^8.18.3"
+  }
+}
