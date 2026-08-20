@@ -41,12 +41,11 @@ class CookieManager {
 
 
 router.get('/health', (_, res:Response) => {
-
     res.json({
       status: 'ok',
-      isLogged : false,
+      service: 'auth-api',
     });
-  });
+});
 
 
 // Rota de autenticação para login de usuários
@@ -106,7 +105,7 @@ router.post('/auth/login', async (req, res) => {
             token,
             {
                 httpOnly: true,
-                secure: false,
+                secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 maxAge: 1000 * 60 * 60 * 24 * 30 // 30 dias
             }

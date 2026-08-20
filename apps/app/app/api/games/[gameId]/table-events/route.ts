@@ -2,6 +2,7 @@ import { getSession } from '@/lib/session';
 import { findRoulette } from '@/lib/games';
 import { isActive } from '@/lib/subscription';
 import { openSessionEvents } from '@/lib/betws';
+import { automationOwnerKey } from '@/lib/automation';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,8 @@ export async function GET(
   const sessionId = new URL(req.url).searchParams.get('sessionId');
   if (!sessionId) return new Response('sessionId obrigatório', { status: 400 });
 
-  const upstream = await openSessionEvents(sessionId);
+  const ownerKey = automationOwnerKey(session.email, session.house, gameId);
+  const upstream = await openSessionEvents(sessionId, ownerKey);
   if (!upstream.ok || !upstream.body) {
     return new Response('sessão não encontrada', { status: upstream.status || 502 });
   }

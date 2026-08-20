@@ -17,7 +17,10 @@ export default function BetTable({ placed, disabled, onNumber }: Props) {
   const boxRef = useRef<HTMLDivElement>(null);
   const ftRef = useRef<InstanceType<typeof RouletteBetTable> | null>(null);
   const liveRef = useRef({ onNumber, disabled });
-  liveRef.current = { onNumber, disabled };
+
+  useEffect(() => {
+    liveRef.current = { onNumber, disabled };
+  }, [onNumber, disabled]);
 
   useEffect(() => {
     if (!boxRef.current) return;

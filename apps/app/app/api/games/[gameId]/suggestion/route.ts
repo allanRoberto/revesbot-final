@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getRecentNumbers } from '@/lib/mongo';
 import { findRoulette } from '@/lib/games';
-import { ensembleSuggestion } from '@/lib/suggestion';
+import { ensembleSuggestionWithConfidence } from '@/lib/suggestionConfidence';
 import { isActive } from '@/lib/subscription';
 
-// Sugestão por ENSEMBLE (9 números): combina a sugestão de 8 das janelas
+// Sugestão por ENSEMBLE (SUGGESTION_COUNT números, hoje 9 — mesmo critério do
+// motor de correlações para comparação): combina a sugestão de 8 das janelas
 // 50/100/200/300/360, pontuando cada número e seus vizinhos de roda, e pega o
-// top 9. + os 3 últimos números da mesa (base). Algoritmo roda só no servidor.
+// topo do ranking. + os 3 últimos números da mesa (base) + confiança do sinal
+// (forte/medio/fraco, calibrada nos 9 primeiros — não altera os números).
+// Roda só no servidor. Comparativo: /suggestion-motor (motor de correlações).
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ gameId: string }> },
@@ -33,12 +36,16 @@ export async function GET(
   }
 
   const numbers = await getRecentNumbers(game.rouletteId, 360);
-  const suggestion = ensembleSuggestion(numbers, undefined, 9);
+  const { picks, confidence } = ensembleSuggestionWithConfidence(
+    numbers,
+    game.rouletteId,
+  );
 
   return NextResponse.json({
-    numbers: suggestion.map((s) => s.num),
+    numbers: picks.map((s) => s.num),
     // 3 últimos números da mesa (mais recente primeiro) — base da análise.
     last: numbers.slice(0, 3),
     sampleSize: numbers.length,
+    confidence,
   });
 }

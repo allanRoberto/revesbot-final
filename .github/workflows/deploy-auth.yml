@@ -1,0 +1,81 @@
+name: Test and deploy Revesbot auth
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/auth_api/**"
+      - "infra/deploy/auth/**"
+      - "infra/logrotate/revesbot-auth"
+      - "infra/nginx/auth-revesbot.conf"
+      - "infra/pm2/auth-api.config.js"
+      - "infra/systemd/revesbot-auth-health.*"
+      - ".github/workflows/deploy-auth.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/auth_api/**"
+      - "infra/deploy/auth/**"
+      - "infra/logrotate/revesbot-auth"
+      - "infra/nginx/auth-revesbot.conf"
+      - "infra/pm2/auth-api.config.js"
+      - "infra/systemd/revesbot-auth-health.*"
+      - ".github/workflows/deploy-auth.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: auth-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.0"
+          cache: npm
+          cache-dependency-path: apps/auth_api/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefix apps/auth_api
+      - name: Build auth
+        run: npm --prefix apps/auth_api run build
+      - name: Smoke test auth healthcheck
+        run: |
+          HOST=127.0.0.1 PORT=3090 NODE_ENV=production \
+            node apps/auth_api/dist/main.js > /tmp/revesbot-auth-ci.log 2>&1 &
+          auth_pid=$!
+          trap 'kill "$auth_pid" 2>/dev/null || true' EXIT
+          for attempt in 1 2 3 4 5; do
+            curl -fsS http://127.0.0.1:3090/health && exit 0
+            sleep 1
+          done
+          cat /tmp/revesbot-auth-ci.log
+          exit 1
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: auth-production
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.AUTH_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.AUTH_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Deploy exact commit
+        env:
+          DEPLOY_HOST: ${{ vars.AUTH_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.AUTH_DEPLOY_USER }}
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "${GITHUB_SHA}"

@@ -13,21 +13,25 @@ export default function GameIframe({ gameId }: { gameId: string }) {
 
   useEffect(() => {
     let alive = true;
-    setLink(null);
-    setErr(null);
-    (async () => {
-      try {
-        const res = await fetch(`/api/games/${gameId}/start`, { method: 'POST' });
-        const data = await res.json();
-        if (!alive) return;
-        if (!res.ok || !data.link) throw new Error(data.error ?? 'Falha ao abrir o jogo.');
-        setLink(data.link);
-      } catch (e) {
-        if (alive) setErr(e instanceof Error ? e.message : 'Erro ao abrir o jogo.');
-      }
-    })();
+    const timer = window.setTimeout(() => {
+      if (!alive) return;
+      setLink(null);
+      setErr(null);
+      void (async () => {
+        try {
+          const res = await fetch(`/api/games/${gameId}/start`, { method: 'POST' });
+          const data = await res.json();
+          if (!alive) return;
+          if (!res.ok || !data.link) throw new Error(data.error ?? 'Falha ao abrir o jogo.');
+          setLink(data.link);
+        } catch (e) {
+          if (alive) setErr(e instanceof Error ? e.message : 'Erro ao abrir o jogo.');
+        }
+      })();
+    }, 0);
     return () => {
       alive = false;
+      window.clearTimeout(timer);
     };
   }, [gameId]);
 

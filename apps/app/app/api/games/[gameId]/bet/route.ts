@@ -3,8 +3,10 @@ import { getSession } from '@/lib/session';
 import { getRecentNumbers } from '@/lib/mongo';
 import { findRoulette } from '@/lib/games';
 import { ensembleSuggestion } from '@/lib/suggestion';
+import { SUGGESTION_COUNT } from '@/lib/suggestionConfidence';
 import { isActive } from '@/lib/subscription';
 import { placeBet } from '@/lib/betws';
+import { automationOwnerKey } from '@/lib/automation';
 
 // Marca (aposta) os números sugeridos na mesa.
 // A sugestão é RECALCULADA no servidor — não confiamos em números do cliente.
@@ -42,7 +44,9 @@ export async function POST(
   }
 
   const recent = await getRecentNumbers(game.rouletteId, 360);
-  const suggestion = ensembleSuggestion(recent, undefined, 9).map((s) => s.num);
+  const suggestion = ensembleSuggestion(recent, undefined, SUGGESTION_COUNT).map(
+    (s) => s.num,
+  );
   if (suggestion.length === 0) {
     return NextResponse.json(
       { error: 'Sem dados suficientes para sugerir números.' },
@@ -55,7 +59,8 @@ export async function POST(
   const bets = Object.fromEntries(suggestion.map((n) => [n, chip]));
 
   try {
-    const result = await placeBet(body.sessionId, bets);
+    const ownerKey = automationOwnerKey(session.email, session.house, gameId);
+    const result = await placeBet(body.sessionId, bets, ownerKey);
     return NextResponse.json(result);
   } catch (err) {
     // bet_ws devolve mensagens de negócio (apostas fechadas, sessão inexistente…).
