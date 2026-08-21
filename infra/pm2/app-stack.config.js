@@ -51,8 +51,9 @@ module.exports = {
     {
       name: 'revesbot-bet-ws',
       cwd: betWsDir,
-      script: 'server.js',
-      interpreter: 'node',
+      script: '/usr/bin/xvfb-run',
+      args: ['-a', '-s', '-screen 0 1280x720x24', '/usr/bin/node', 'server.js'],
+      interpreter: 'none',
       autorestart: true,
       exp_backoff_restart_delay: 1000,
       restart_delay: 2000,
@@ -69,6 +70,7 @@ module.exports = {
         AUTOMATION_INTERNAL_TOKEN: process.env.AUTOMATION_INTERNAL_TOKEN,
         AUTOMATION_APP_URL: process.env.AUTOMATION_APP_URL || 'http://127.0.0.1:3002',
         PUPPETEER_EXECUTABLE_PATH: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
+        PUPPETEER_HEADLESS: '0',
       },
     },
     {

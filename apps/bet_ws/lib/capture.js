@@ -61,9 +61,23 @@ function pickGameWs(urls) {
 
 async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
   const browser = await puppeteer.launch({
-    headless: true,
+    // A Pragmatic não inicializa o socket do jogo no Chromium headless deste
+    // servidor. Em produção o processo roda dentro do Xvfb e abre uma janela
+    // gráfica virtual, sem depender de uma sessão desktop real.
+    headless: process.env.PUPPETEER_HEADLESS !== '0',
     executablePath: resolveExecutablePath(),
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--autoplay-policy=no-user-gesture-required',
+      '--use-gl=swiftshader',
+      '--enable-unsafe-swiftshader',
+      '--window-size=1280,720',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+    ],
   });
 
   try {
