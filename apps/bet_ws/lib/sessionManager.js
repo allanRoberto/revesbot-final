@@ -13,6 +13,7 @@ const {
   parseBetsOpen,
   isBetsClosingSoon,
   isBetsClosed,
+  parseTimerValue,
   parseCountdownSeconds,
   parseHistory,
   classify,
@@ -34,6 +35,7 @@ class Session extends EventEmitter {
     this.gameInfo = null; // { game, table }
     this.phase = 'idle'; // idle | open | closing | closed
     this.secondsLeft = null; // segundos restantes na fase de aposta (se a mesa informar)
+    this.timerDeadline = null; // timestamp absoluto calculado do snapshot timer
     this.phaseAt = Date.now(); // quando entrou na fase atual (p/ derivar countdown)
     this.lastResult = null;
     this.lastResultAt = 0;
@@ -58,6 +60,16 @@ class Session extends EventEmitter {
     if (seconds !== undefined) this.secondsLeft = seconds;
   }
 
+  setCountdown(seconds) {
+    this.secondsLeft = seconds;
+    this.timerDeadline = Date.now() + seconds * 1000;
+  }
+
+  clearCountdown() {
+    this.secondsLeft = null;
+    this.timerDeadline = null;
+  }
+
   touch() {
     this.lastActivity = Date.now();
   }
@@ -68,7 +80,11 @@ class Session extends EventEmitter {
     this.ws.on('message', (data) => this.handleMessage(data));
     this.ws.on('close', (code) => {
       console.log(`[${this.id}] mesa desconectada (code=${code})`);
-      if (this.phase !== 'idle') { this.setPhase('closed', null); this.emitState(); }
+      if (this.phase !== 'idle') {
+        this.clearCountdown();
+        this.setPhase('closed', null);
+        this.emitState();
+      }
       // Se foi kick por duplicação, NÃO reconectar (senão entra em loop de
       // expulsão com a outra conexão da mesma conta).
       if (!this.closedByUser && !this.kicked) {
@@ -108,7 +124,8 @@ class Session extends EventEmitter {
       // o timer (segundos) costuma chegar logo antes do betsopen — se o betsopen
       // não trouxer o tempo, preserva o que o timer já informou.
       const secs = parseCountdownSeconds(text);
-      this.setPhase('open', secs !== null ? secs : this.secondsLeft);
+      if (secs !== null) this.setCountdown(secs);
+      this.setPhase('open');
       this.emitState();
       void this.automation?.onBetsOpen();
       return;
@@ -139,11 +156,29 @@ class Session extends EventEmitter {
       return;
     }
 
+    // O snapshot timer é assinado: ao entrar no meio da rodada ele pode ser
+    // positivo (ainda há apostas) ou negativo (o prazo já expirou).
+    const timerValue = parseTimerValue(text);
+    if (timerValue !== null) {
+      if (timerValue > 0) {
+        this.setCountdown(timerValue);
+        this.setPhase('open');
+        this.emitState();
+        void this.automation?.onBetsOpen();
+      } else {
+        this.clearCountdown();
+        this.setPhase('closed', null);
+        this.emitState();
+      }
+      return;
+    }
+
     // Countdown ao vivo (mensagem timer type=auto): indica rodada de aposta
     // começando/em andamento. Abre a fase e atualiza os segundos.
     const secs = parseCountdownSeconds(text);
     if (secs !== null) {
-      this.setPhase('open', secs);
+      this.setCountdown(secs);
+      this.setPhase('open');
       this.emitState();
       void this.automation?.onBetsOpen();
       return;
@@ -205,12 +240,16 @@ class Session extends EventEmitter {
   }
 
   state() {
+    const secondsLeft = this.timerDeadline == null
+      ? null
+      : Math.max(0, Math.ceil((this.timerDeadline - Date.now()) / 1000));
     return {
       sessionId: this.id,
       connected: !!this.ws && this.ws.readyState === WebSocket.OPEN,
       phase: this.phase,
       betsOpen: this.betsOpen,
-      secondsLeft: this.secondsLeft,
+      secondsLeft,
+      timerDeadline: this.timerDeadline,
       phaseAt: this.phaseAt,
       kicked: this.kicked,
       gameInfo: this.gameInfo,

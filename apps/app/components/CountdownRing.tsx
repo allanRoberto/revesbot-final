@@ -7,14 +7,15 @@
 interface Props {
   seconds: number;
   total: number;
+  alert?: boolean;
 }
 
 const R = 34; // raio do anel
 const C = 2 * Math.PI * R; // circunferência
 
-export default function CountdownRing({ seconds, total }: Props) {
+export default function CountdownRing({ seconds, total, alert = false }: Props) {
   const frac = total > 0 ? Math.max(0, Math.min(1, seconds / total)) : 0;
-  const urgent = seconds <= 5;
+  const urgent = alert || seconds <= 5;
   const ringColor = urgent ? '#e5342f' : '#3ddc84';
 
   return (

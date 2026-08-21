@@ -42,6 +42,18 @@ function isBetsClosed(message) {
   return /<betsclosed/i.test(message.toString());
 }
 
+// Snapshot assinado do relógio da mesa. Positivo = segundos restantes;
+// zero/negativo = janela já encerrada. Diferente de parseCountdownSeconds,
+// este parser preserva valores negativos para sincronização ao conectar.
+function parseTimerValue(message) {
+  const j = tryJson(message);
+  if (!j || !j.timer || j.timer.value === undefined) return null;
+  let value = parseInt(j.timer.value, 10);
+  if (Number.isNaN(value)) return null;
+  if (Math.abs(value) > 1000) value = Math.round(value / 1000);
+  return value >= -120 && value <= 120 ? value : null;
+}
+
 // Número sorteado. JSON: { gameresult: { score } } ou { sc: { gameresult: { score } } }.
 function parseWinningNumber(message) {
   const j = tryJson(message);
@@ -66,12 +78,8 @@ function parseWinningNumber(message) {
 function parseCountdownSeconds(message) {
   const j = tryJson(message);
   if (j) {
-    const t = j.timer;
-    if (t && t.value !== undefined) {
-      let v = parseInt(t.value, 10);
-      if (v > 1000) v = Math.round(v / 1000);
-      if (v >= 0 && v <= 120) return v;
-    }
+    const timerValue = parseTimerValue(message);
+    if (timerValue !== null) return timerValue >= 0 ? timerValue : null;
     const o = j.betsopen || j.betsOpen;
     if (o && o.time !== undefined) {
       let v = parseInt(o.time, 10);
@@ -143,6 +151,7 @@ module.exports = {
   parseBetsOpen,
   isBetsClosingSoon,
   isBetsClosed,
+  parseTimerValue,
   parseCountdownSeconds,
   parseHistory,
   parsePhase,

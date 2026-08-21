@@ -49,6 +49,7 @@ interface TableState {
   connected: boolean;
   phase: 'idle' | 'open' | 'closing' | 'closed';
   secondsLeft: number | null;
+  timerDeadline?: number | null;
   kicked?: boolean;
   lastResult: number | null;
   lastNumbers: number[];
@@ -78,7 +79,8 @@ export default function RouletteBoard({
   const [conn, setConn] = useState<'connecting' | 'ready' | 'error'>('connecting');
   const [phase, setPhase] = useState<TableState['phase']>('idle');
   const [kicked, setKicked] = useState(false);
-  const [seconds, setSeconds] = useState<number | null>(null);
+  const [timerDeadline, setTimerDeadline] = useState<number | null>(null);
+  const [timerNow, setTimerNow] = useState(() => Date.now());
   const [log, setLog] = useState<LogEntry[]>([]);
   const [lastNumbers, setLastNumbers] = useState<number[]>([]);
   const [lastResult, setLastResult] = useState<number | null>(null);
@@ -160,14 +162,16 @@ export default function RouletteBoard({
         setConn('ready');
         setPhase(s.phase);
         setKicked(!!s.kicked);
-        setSeconds((current) => {
-          if (typeof s.secondsLeft === 'number') return s.secondsLeft;
-          // A mesa confirma betsClosed antes de terminar a animação visual do
-          // contador. Mantém o último valor apenas para concluir a exibição;
-          // o bloqueio de apostas continua sendo controlado pela fase.
-          if (s.phase === 'closed' && current != null && current > 0) return current;
-          return null;
-        });
+        if (typeof s.timerDeadline === 'number' && Number.isFinite(s.timerDeadline)) {
+          setTimerDeadline(s.timerDeadline);
+          setTimerNow(Date.now());
+        } else if (s.timerDeadline === null) {
+          setTimerDeadline(null);
+        } else if (s.phase === 'open' && typeof s.secondsLeft === 'number' && s.secondsLeft > 0) {
+          // Compatibilidade durante atualização gradual do bet_ws.
+          setTimerDeadline(Date.now() + s.secondsLeft * 1000);
+          setTimerNow(Date.now());
+        }
         if (Array.isArray(s.lastNumbers)) setLastNumbers(s.lastNumbers);
       } catch { /* ignora */ }
     });
@@ -195,17 +199,25 @@ export default function RouletteBoard({
     return () => es.close();
   }, [sessionId, gameId]);
 
-  // Countdown local: continua durante "encerrando" e conclui visualmente após
-  // betsClosed, que a Pragmatic envia antes de a animação chegar a zero.
+  const seconds = timerDeadline == null
+    ? null
+    : Math.max(0, Math.ceil((timerDeadline - timerNow) / 1000));
+
+  // Atualiza a apresentação usando um prazo absoluto. Assim throttling da aba
+  // e eventos de fase não acumulam atraso nem reiniciam o número.
   useEffect(() => {
-    if ((phase !== 'open' && phase !== 'closing' && phase !== 'closed') || seconds == null) return;
-    if (seconds <= 0) {
-      const clear = setTimeout(() => setSeconds(null), 700);
-      return () => clearTimeout(clear);
-    }
-    const t = setInterval(() => setSeconds((s) => (s == null || s <= 0 ? s : s - 1)), 1000);
-    return () => clearInterval(t);
-  }, [phase, seconds]);
+    if (timerDeadline == null) return;
+    setTimerNow(Date.now());
+    const tick = setInterval(() => setTimerNow(Date.now()), 250);
+    const clear = setTimeout(
+      () => setTimerDeadline((current) => (current === timerDeadline ? null : current)),
+      Math.max(0, timerDeadline - Date.now()) + 700,
+    );
+    return () => {
+      clearInterval(tick);
+      clearTimeout(clear);
+    };
+  }, [timerDeadline]);
 
   // Ao ENTRAR na fase aberta, o primeiro secondsLeft é o total da rodada
   // (base para a fração do anel). Guardamos o maior visto no ciclo.
@@ -349,7 +361,11 @@ export default function RouletteBoard({
   const centerHud = (
     <div className="st-centerhud">
       {(phase === 'open' || phase === 'closing' || phase === 'closed') && seconds != null && (
-        <CountdownRing seconds={seconds} total={roundTotal} />
+        <CountdownRing
+          seconds={seconds}
+          total={roundTotal}
+          alert={phase === 'closing' || phase === 'closed'}
+        />
       )}
       {lastResult == null && seconds == null && (phase === 'idle' || phase === 'closed') && (
         <div className="st-waitbanner">Aguarde o próximo jogo</div>
