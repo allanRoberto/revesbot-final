@@ -83,23 +83,26 @@ export default function TableVideo({ gameId }: { gameId: string }) {
       video.load();
       video.currentTime = 0;
       video.playbackRate = 1;
-      if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = src;
-        video.addEventListener('loadedmetadata', () => {
-          if (video.seekable.length) {
-            video.currentTime = Math.max(
-              video.seekable.start(video.seekable.length - 1),
-              video.seekable.end(video.seekable.length - 1) - 0.35,
-            );
-          }
-          video.play().catch(() => {});
-        }, { once: true });
-        video.addEventListener('error', () => setStatus('error'), { once: true });
-        return;
-      }
       const Hls = (await import('hls.js')).default;
       if (cancelled) return;
       if (!Hls.isSupported()) {
+        // Safari/iOS reproduz HLS nativamente. O Chrome também pode anunciar
+        // suporte, mas nem sempre acompanha corretamente uma playlist ao vivo;
+        // por isso o caminho nativo fica restrito ao fallback sem MSE.
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = src;
+          video.addEventListener('loadedmetadata', () => {
+            if (video.seekable.length) {
+              video.currentTime = Math.max(
+                video.seekable.start(video.seekable.length - 1),
+                video.seekable.end(video.seekable.length - 1) - 0.35,
+              );
+            }
+            video.play().catch(() => {});
+          }, { once: true });
+          video.addEventListener('error', () => setStatus('error'), { once: true });
+          return;
+        }
         setStatus('error');
         return;
       }
