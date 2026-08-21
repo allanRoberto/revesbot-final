@@ -160,7 +160,14 @@ export default function RouletteBoard({
         setConn('ready');
         setPhase(s.phase);
         setKicked(!!s.kicked);
-        setSeconds(typeof s.secondsLeft === 'number' ? s.secondsLeft : null);
+        setSeconds((current) => {
+          if (typeof s.secondsLeft === 'number') return s.secondsLeft;
+          // A mesa confirma betsClosed antes de terminar a animação visual do
+          // contador. Mantém o último valor apenas para concluir a exibição;
+          // o bloqueio de apostas continua sendo controlado pela fase.
+          if (s.phase === 'closed' && current != null && current > 0) return current;
+          return null;
+        });
         if (Array.isArray(s.lastNumbers)) setLastNumbers(s.lastNumbers);
       } catch { /* ignora */ }
     });
@@ -188,11 +195,14 @@ export default function RouletteBoard({
     return () => es.close();
   }, [sessionId, gameId]);
 
-  // Countdown local: continua durante o aviso "encerrando", pois a Pragmatic
-  // ainda mantém uma curta janela de aposta antes do fechamento efetivo.
+  // Countdown local: continua durante "encerrando" e conclui visualmente após
+  // betsClosed, que a Pragmatic envia antes de a animação chegar a zero.
   useEffect(() => {
-    if ((phase !== 'open' && phase !== 'closing') || seconds == null) return;
-    if (seconds <= 0) return;
+    if ((phase !== 'open' && phase !== 'closing' && phase !== 'closed') || seconds == null) return;
+    if (seconds <= 0) {
+      const clear = setTimeout(() => setSeconds(null), 700);
+      return () => clearTimeout(clear);
+    }
     const t = setInterval(() => setSeconds((s) => (s == null || s <= 0 ? s : s - 1)), 1000);
     return () => clearInterval(t);
   }, [phase, seconds]);
@@ -338,10 +348,10 @@ export default function RouletteBoard({
   // "Aguarde o próximo jogo" (entre rodadas). Fica logo acima do centro.
   const centerHud = (
     <div className="st-centerhud">
-      {(phase === 'open' || phase === 'closing') && seconds != null && (
+      {(phase === 'open' || phase === 'closing' || phase === 'closed') && seconds != null && (
         <CountdownRing seconds={seconds} total={roundTotal} />
       )}
-      {lastResult == null && (phase === 'idle' || phase === 'closed') && (
+      {lastResult == null && seconds == null && (phase === 'idle' || phase === 'closed') && (
         <div className="st-waitbanner">Aguarde o próximo jogo</div>
       )}
     </div>
