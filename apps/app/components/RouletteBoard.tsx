@@ -46,27 +46,27 @@ function CasinoChip({ value, index }: { value: number; index: number }) {
           <stop offset="100%" stopColor="#151515" stopOpacity="0.72" />
         </radialGradient>
       </defs>
-      <circle cx="50" cy="50" r="47" fill={`url(#${gradientId})`} stroke="#222" strokeWidth="2" />
+      <circle cx="50" cy="50" r="45.5" fill={`url(#${gradientId})`} stroke="#242424" strokeWidth="1.5" />
       {Array.from({ length: 8 }, (_, marker) => (
         <rect
           key={marker}
-          x="45"
-          y="3"
-          width="10"
-          height="15"
-          rx="2"
+          x="46"
+          y="5"
+          width="8"
+          height="11"
+          rx="1.5"
           fill={palette.edge}
           transform={`rotate(${marker * 45} 50 50)`}
         />
       ))}
-      <circle cx="50" cy="50" r="35" fill={palette.inner} stroke="rgba(0,0,0,.42)" strokeWidth="2" />
-      <circle cx="50" cy="50" r="31.5" fill="none" stroke="rgba(255,255,255,.10)" strokeWidth="1" />
+      <circle cx="50" cy="50" r="35.5" fill={palette.inner} stroke="rgba(0,0,0,.42)" strokeWidth="1.5" />
+      <circle cx="50" cy="50" r="32.5" fill="none" stroke="rgba(255,255,255,.10)" strokeWidth="1" />
       <text
         x="50"
-        y="57"
+        y="58"
         textAnchor="middle"
         fill={palette.text}
-        fontSize={value >= 2500 ? 24 : 27}
+        fontSize={value >= 2500 ? 26 : 30}
         fontWeight="800"
         letterSpacing="-1"
       >

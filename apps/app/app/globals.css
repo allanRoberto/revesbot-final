@@ -1615,8 +1615,8 @@ a {
 .cb-round:not(:disabled):hover { color: #fff; border-color: rgba(255, 255, 255, 0.38); }
 .cb-round:disabled { color: #777; opacity: 0.56; cursor: default; }
 .cb-chip {
-  width: clamp(54px, 4.3vw, 84px);
-  height: clamp(54px, 4.3vw, 84px);
+  width: clamp(46px, 3.55vw, 68px);
+  height: clamp(46px, 3.55vw, 68px);
   border: 0;
   background: transparent !important;
   box-shadow: none;
@@ -1639,7 +1639,7 @@ a {
   box-shadow: none;
 }
 .cb-chip.on .cb-chip-art {
-  transform: translateY(-5px) scale(1.07);
+  transform: translateY(-3px) scale(1.055);
   filter: drop-shadow(0 0 3px #ffba16) drop-shadow(0 5px 4px rgba(0, 0, 0, 0.7));
 }
 .st-chipbar .rb-msg {
