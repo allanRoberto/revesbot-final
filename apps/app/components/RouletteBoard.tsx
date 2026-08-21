@@ -110,6 +110,7 @@ export default function RouletteBoard({
     let alive = true;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let controller: AbortController | null = null;
+    let failedAttempts = 0;
 
     const connect = async () => {
       controller = new AbortController();
@@ -130,11 +131,14 @@ export default function RouletteBoard({
         sidRef.current = data.sessionId;
         setSessionId(data.sessionId);
         setMsg(null);
+        failedAttempts = 0;
       } catch (e) {
         if (!alive || (e instanceof DOMException && e.name === 'AbortError')) return;
         setConn('error');
         setMsg(e instanceof Error ? e.message : 'Falha ao conectar à mesa.');
-        retryTimer = setTimeout(connect, 5000);
+        const retryMs = Math.min(5000 * (2 ** failedAttempts), 60000);
+        failedAttempts += 1;
+        retryTimer = setTimeout(connect, retryMs);
       }
     };
 

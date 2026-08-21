@@ -59,7 +59,16 @@ function pickGameWs(urls) {
   return urls[0];
 }
 
-async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
+function safeUrl(raw) {
+  try {
+    const url = new URL(raw);
+    return `${url.origin}${url.pathname}`;
+  } catch (_) {
+    return 'URL inválida';
+  }
+}
+
+async function captureGameWsUrl(gameLink, { waitMs = 45000 } = {}) {
   const browser = await puppeteer.launch({
     // A Pragmatic não inicializa o socket do jogo no Chromium headless deste
     // servidor. Em produção o processo roda dentro do Xvfb e abre uma janela
@@ -71,8 +80,6 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--autoplay-policy=no-user-gesture-required',
-      '--use-gl=swiftshader',
-      '--enable-unsafe-swiftshader',
       '--window-size=1280,720',
       '--disable-background-timer-throttling',
       '--disable-backgrounding-occluded-windows',
@@ -81,13 +88,6 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
   });
 
   try {
-    const page = await browser.newPage();
-    const cdp = await page.target().createCDPSession();
-    await cdp.send('Network.enable');
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    );
-
     const wsUrls = [];
     let resolveGameWs;
     const gameWsFound = new Promise((resolve) => { resolveGameWs = resolve; });
@@ -98,6 +98,33 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
         resolveGameWs(url);
       }
     };
+
+    // A Pragmatic pode criar o socket num worker ou numa página/iframe isolado.
+    // Observar apenas a sessão CDP da página principal perde esses sockets. Cada
+    // alvo novo recebe sua própria sessão Network enquanto a captura estiver viva.
+    const watchedTargets = new WeakSet();
+    const targetSessions = new Set();
+    const watchTarget = async (target) => {
+      if (watchedTargets.has(target) || target.type() === 'browser') return;
+      watchedTargets.add(target);
+      try {
+        const session = await target.createCDPSession();
+        targetSessions.add(session);
+        session.on('Network.webSocketCreated', ({ url }) => recordWs(url));
+        await session.send('Network.enable');
+      } catch (_) {
+        // Alvos efêmeros podem desaparecer antes de a sessão CDP ser anexada.
+      }
+    };
+    const onTargetCreated = (target) => { void watchTarget(target); };
+    browser.on('targetcreated', onTargetCreated);
+    await Promise.all(browser.targets().map(watchTarget));
+
+    const page = await browser.newPage();
+    await watchTarget(page.target());
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    );
 
     // (1) Proxy em window.WebSocket, injetado antes de qualquer script rodar.
     await page.evaluateOnNewDocument(() => {
@@ -114,17 +141,15 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
     // (2) Evento nativo do Puppeteer.
     page.on('websocket', (ws) => recordWs(ws.url()));
 
-    // (3) CDP captura sockets de todos os frames, inclusive o iframe interno
-    // da Pragmatic. É a fonte mais confiável no Chromium do servidor.
-    cdp.on('Network.webSocketCreated', ({ url }) => recordWs(url));
-
     // Uma mesa ao vivo nunca fica realmente ociosa: vídeo, telemetria e
     // WebSockets mantêm requisições abertas. Esperar por `networkidle2` fazia
     // toda criação de sessão terminar em timeout. Basta carregar o documento e
     // aguardar diretamente o socket do jogo aparecer.
     let navigationError = null;
+    let navigationStatus = null;
     const navigation = page
       .goto(gameLink, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      .then((response) => { navigationStatus = response?.status() ?? null; })
       .catch((err) => { navigationError = err; });
 
     // O socket costuma surgir antes mesmo de o DOM terminar. Não fazemos
@@ -151,14 +176,18 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
 
     if (all.length === 0) {
       if (navigationError) throw navigationError;
-      throw new Error('Nenhuma URL de WebSocket encontrada na página do jogo.');
+      const status = navigationStatus == null ? 'sem resposta' : navigationStatus;
+      throw new Error(
+        `Nenhuma URL de WebSocket encontrada na página do jogo ` +
+        `(HTTP ${status}, página ${safeUrl(page.url())}).`,
+      );
     }
 
     console.log(`[capture] candidatos WS (${all.length}):`);
-    all.forEach((u) => console.log(`[capture]   - ${u}`));
+    all.forEach((u) => console.log(`[capture]   - ${safeUrl(u)}`));
 
     const gameWs = pickGameWs(all);
-    console.log(`[capture] escolhido: ${gameWs}`);
+    console.log(`[capture] escolhido: ${safeUrl(gameWs)}`);
 
     return { gameWsUrl: gameWs, allWsUrls: all };
   } finally {
