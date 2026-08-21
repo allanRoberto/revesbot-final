@@ -73,6 +73,8 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
     );
 
     const wsUrls = [];
+    let resolveGameWs;
+    const gameWsFound = new Promise((resolve) => { resolveGameWs = resolve; });
 
     // (1) Proxy em window.WebSocket, injetado antes de qualquer script rodar.
     await page.evaluateOnNewDocument(() => {
@@ -87,29 +89,44 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
     });
 
     // (2) Evento nativo do Puppeteer.
-    page.on('websocket', (ws) => wsUrls.push(ws.url()));
+    page.on('websocket', (ws) => {
+      const url = ws.url();
+      wsUrls.push(url);
+      if (/pragmaticplaylive/i.test(url) && /\/game\b|game\?/i.test(url)) {
+        resolveGameWs(url);
+      }
+    });
 
     // Uma mesa ao vivo nunca fica realmente ociosa: vídeo, telemetria e
     // WebSockets mantêm requisições abertas. Esperar por `networkidle2` fazia
     // toda criação de sessão terminar em timeout. Basta carregar o documento e
     // aguardar diretamente o socket do jogo aparecer.
     let navigationError = null;
-    try {
-      await page.goto(gameLink, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    } catch (err) {
-      navigationError = err;
+    const navigation = page
+      .goto(gameLink, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      .catch((err) => { navigationError = err; });
+
+    // O socket costuma surgir antes mesmo de o DOM terminar. Não fazemos
+    // page.evaluate em loop: páginas do provedor podem manter a thread principal
+    // ocupada e deixar essa chamada presa indefinidamente.
+    await Promise.race([navigation, gameWsFound]);
+    if (!wsUrls.some((u) => /pragmaticplaylive/i.test(u) && /\/game\b|game\?/i.test(u))) {
+      await Promise.race([
+        gameWsFound,
+        new Promise((resolve) => setTimeout(resolve, waitMs)),
+      ]);
     }
 
-    const deadline = Date.now() + waitMs;
-    let all = [];
-    do {
-      const injected = await page.evaluate(() => window.__wsUrls || []).catch(() => []);
-      all = [...new Set([...injected, ...wsUrls])];
-      if (all.some((u) => /pragmaticplaylive/i.test(u) && /\/game\b|game\?/i.test(u))) {
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 250));
-    } while (Date.now() < deadline);
+    // O proxy injetado é apenas fallback. Sua leitura tem limite próprio para
+    // nunca segurar a resposta da API nem acumular Chromiums no servidor.
+    let injected = [];
+    if (wsUrls.length === 0) {
+      injected = await Promise.race([
+        page.evaluate(() => window.__wsUrls || []).catch(() => []),
+        new Promise((resolve) => setTimeout(() => resolve([]), 1000)),
+      ]);
+    }
+    const all = [...new Set([...injected, ...wsUrls])];
 
     if (all.length === 0) {
       if (navigationError) throw navigationError;
@@ -124,7 +141,13 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
 
     return { gameWsUrl: gameWs, allWsUrls: all };
   } finally {
-    await browser.close();
+    // `browser.close()` também pode ficar aguardando uma página congestionada.
+    // Depois de 3s encerramos somente o Chromium criado por esta captura.
+    await Promise.race([
+      browser.close().catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
+    if (browser.connected) browser.process()?.kill('SIGKILL');
   }
 }
 
