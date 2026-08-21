@@ -68,6 +68,8 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
 
   try {
     const page = await browser.newPage();
+    const cdp = await page.target().createCDPSession();
+    await cdp.send('Network.enable');
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     );
@@ -75,6 +77,13 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
     const wsUrls = [];
     let resolveGameWs;
     const gameWsFound = new Promise((resolve) => { resolveGameWs = resolve; });
+    const recordWs = (url) => {
+      if (!url) return;
+      wsUrls.push(url);
+      if (/pragmaticplaylive/i.test(url) && /\/game\b|game\?/i.test(url)) {
+        resolveGameWs(url);
+      }
+    };
 
     // (1) Proxy em window.WebSocket, injetado antes de qualquer script rodar.
     await page.evaluateOnNewDocument(() => {
@@ -89,13 +98,11 @@ async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
     });
 
     // (2) Evento nativo do Puppeteer.
-    page.on('websocket', (ws) => {
-      const url = ws.url();
-      wsUrls.push(url);
-      if (/pragmaticplaylive/i.test(url) && /\/game\b|game\?/i.test(url)) {
-        resolveGameWs(url);
-      }
-    });
+    page.on('websocket', (ws) => recordWs(ws.url()));
+
+    // (3) CDP captura sockets de todos os frames, inclusive o iframe interno
+    // da Pragmatic. É a fonte mais confiável no Chromium do servidor.
+    cdp.on('Network.webSocketCreated', ({ url }) => recordWs(url));
 
     // Uma mesa ao vivo nunca fica realmente ociosa: vídeo, telemetria e
     // WebSockets mantêm requisições abertas. Esperar por `networkidle2` fazia
