@@ -69,7 +69,11 @@ module.exports = {
         SESSION_IDLE_TTL_MS: process.env.SESSION_IDLE_TTL_MS || '1800000',
         AUTOMATION_INTERNAL_TOKEN: process.env.AUTOMATION_INTERNAL_TOKEN,
         AUTOMATION_APP_URL: process.env.AUTOMATION_APP_URL || 'http://127.0.0.1:3002',
-        PUPPETEER_EXECUTABLE_PATH: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
+        // O Chromium do sistema não inicializa corretamente o player Pragmatic
+        // neste servidor ARM64. O binário do Snap é o mesmo já validado pelos
+        // processos de ingestão de vídeo. Override dedicado via BET_WS_CHROME_BIN.
+        PUPPETEER_EXECUTABLE_PATH: process.env.BET_WS_CHROME_BIN ||
+          '/snap/chromium/current/usr/lib/chromium-browser/chrome',
         PUPPETEER_HEADLESS: '0',
       },
     },

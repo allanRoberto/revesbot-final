@@ -80,7 +80,10 @@ async function captureGameWsUrl(gameLink, { waitMs = 45000 } = {}) {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--autoplay-policy=no-user-gesture-required',
+      '--use-gl=desktop',
       '--window-size=1280,720',
+      '--disable-site-isolation-trials',
+      '--disable-features=IsolateOrigins,site-per-process,CalculateNativeWinOcclusion',
       '--disable-background-timer-throttling',
       '--disable-backgrounding-occluded-windows',
       '--disable-renderer-backgrounding',
@@ -125,6 +128,19 @@ async function captureGameWsUrl(gameLink, { waitMs = 45000 } = {}) {
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     );
+
+    // Sob o Xvfb o Chromium pode considerar a aba oculta e a Pragmatic adia a
+    // inicialização do jogo. Espelha o comportamento já validado no ingest de
+    // vídeo, mantendo a página visível e focada para os scripts do provedor.
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+      Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
+      Object.defineProperty(document, 'webkitHidden', { get: () => false, configurable: true });
+      try { document.hasFocus = () => true; } catch (_) { /* somente fallback */ }
+      window.addEventListener('visibilitychange', (event) => {
+        event.stopImmediatePropagation();
+      }, true);
+    });
 
     // (1) Proxy em window.WebSocket, injetado antes de qualquer script rodar.
     await page.evaluateOnNewDocument(() => {
