@@ -60,15 +60,18 @@ export default function TableVideo({ gameId }: { gameId: string }) {
     }
     let cancelled = false;
     let cleanup: (() => void) | null = null;
-    let wsFailures = 0;
 
     const onPlaying = () => setStatus('playing');
     video.addEventListener('playing', onPlaying);
 
     const startHls = async () => {
+      setStatus('loading');
       const src = `${VIDEO_BASE}/hls/${gameId}/stream.m3u8`;
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = src;
+        video.addEventListener('loadedmetadata', () => {
+          video.play().catch(() => {});
+        }, { once: true });
         video.addEventListener('error', () => setStatus('error'), { once: true });
         return;
       }
@@ -102,6 +105,8 @@ export default function TableVideo({ gameId }: { gameId: string }) {
       let objUrl = '';
       let dead = false;
       const queue: ArrayBuffer[] = [];
+      let stagnantTicks = 0;
+      let lastVideoTime = -1;
 
       const teardown = () => {
         dead = true;
@@ -113,12 +118,12 @@ export default function TableVideo({ gameId }: { gameId: string }) {
       const fail = () => {
         if (dead || cancelled) return;
         teardown();
-        wsFailures += 1;
-        if (wsFailures >= 3) startHls();
-        else setTimeout(() => { if (!cancelled) startWs(); }, 1500);
+        // Conexão aberta não significa vídeo válido: se o MSE não formar buffer
+        // ou não avançar, o HLS é mais confiável que repetir o mesmo relay.
+        void startHls();
       };
 
-      // Sem init em 8s = relay fora do ar → tenta de novo / cai pro HLS.
+      // Sem init em 8s = relay fora do ar → cai para o HLS.
       const watchdog = setTimeout(() => { if (!sb) fail(); }, 8000);
 
       const pump = () => {
@@ -136,7 +141,6 @@ export default function TableVideo({ gameId }: { gameId: string }) {
           let mime = '';
           try { mime = JSON.parse(ev.data).mime || ''; } catch { /* ignora */ }
           if (!('MediaSource' in window) || !mime || !MediaSource.isTypeSupported(mime)) {
-            wsFailures = 99; // sem MSE não adianta insistir no WS
             fail();
             return;
           }
@@ -147,6 +151,8 @@ export default function TableVideo({ gameId }: { gameId: string }) {
             if (dead) return;
             sb = ms.addSourceBuffer(mime);
             sb.addEventListener('updateend', pump);
+            sb.addEventListener('error', fail, { once: true });
+            sb.addEventListener('abort', fail, { once: true });
             pump();
           });
           return;
@@ -162,7 +168,10 @@ export default function TableVideo({ gameId }: { gameId: string }) {
         if (!sb || dead) return;
         try {
           const b = sb.buffered;
-          if (!b.length) return;
+          if (!b.length) {
+            if (++stagnantTicks >= 6) fail();
+            return;
+          }
           const start = b.start(b.length - 1);
           const end = b.end(b.length - 1);
           if (video.currentTime < start) video.currentTime = Math.max(start, end - 0.7);
@@ -171,6 +180,13 @@ export default function TableVideo({ gameId }: { gameId: string }) {
           else if (lag > 1.5) video.playbackRate = 1.12;
           else video.playbackRate = 1;
           if (video.paused) video.play().catch(() => {});
+          if (Math.abs(video.currentTime - lastVideoTime) >= 0.05) {
+            stagnantTicks = 0;
+            lastVideoTime = video.currentTime;
+          } else if (++stagnantTicks >= 8) {
+            fail();
+            return;
+          }
           if (!sb.updating && video.currentTime - b.start(0) > 30) {
             sb.remove(b.start(0), video.currentTime - 10);
           }
