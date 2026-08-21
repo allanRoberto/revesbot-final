@@ -964,7 +964,7 @@ a {
 /* Moldura exclusiva da Auto Roulette: cobre somente o entorno da roda e deixa
    o vídeo visível pela abertura central, como na interface original da mesa. */
 .auto-roulette-stage .table-video {
-  transform: scale(0.66);
+  transform: translateY(-58px) scale(0.66);
   transform-origin: 50% 43%;
 }
 .auto-wheel-frame {
@@ -982,14 +982,14 @@ a {
 }
 .auto-wheel-frame::before {
   background: linear-gradient(180deg, #315986 0%, #173d69 55%, #0b284a 100%);
-  -webkit-mask: radial-gradient(circle 17.1vw at 50% 16.7vw, transparent 0 98.5%, #000 100%);
-  mask: radial-gradient(circle 17.1vw at 50% 16.7vw, transparent 0 98.5%, #000 100%);
+  -webkit-mask: radial-gradient(ellipse 18.1vw 16.7vw at 50% 18vw, transparent 0 98.5%, #000 100%);
+  mask: radial-gradient(ellipse 18.1vw 16.7vw at 50% 18vw, transparent 0 98.5%, #000 100%);
 }
 .auto-wheel-frame::after {
   background-image: url('/auto-roulette-background.avif');
   background-position: center top;
   background-repeat: no-repeat;
-  background-size: 84% auto;
+  background-size: 92% auto;
 }
 
 /* ---------- Modo "jogo original": iframe da Pragmatic (abaixo da topbar) ---------- */
@@ -1685,6 +1685,75 @@ a {
   padding: 6px 10px;
   border-radius: 7px;
   background: rgba(0, 0, 0, 0.8);
+}
+
+/* Calibração da Auto Roulette contra o palco original (desktop 16:9).
+   Mantém os demais jogos e o layout mobile independentes destes ajustes. */
+@media (min-width: 1281px) {
+  .auto-roulette-stage .st-slot-center {
+    left: 50%;
+    bottom: 70px;
+    width: min(45vw, 900px);
+  }
+
+  .auto-roulette-stage .st-slot-side {
+    left: clamp(12px, 1vw, 20px);
+    bottom: 70px;
+    width: min(25.5vw, 510px);
+  }
+
+  .auto-roulette-stage .st-side {
+    right: clamp(12px, 1vw, 20px);
+    bottom: 70px;
+    width: min(25.5vw, 510px);
+  }
+
+  .auto-roulette-stage .st-wallet {
+    left: clamp(12px, 1vw, 20px);
+    bottom: 10px;
+    min-height: 48px;
+    padding-left: 12px;
+  }
+
+  .auto-roulette-stage .st-wallet-ico {
+    width: 24px;
+    height: 24px;
+  }
+
+  .auto-roulette-stage .st-wallet-ico::before,
+  .auto-roulette-stage .st-wallet-ico::after {
+    left: 15px;
+    width: 15px;
+    height: 4px;
+  }
+
+  .auto-roulette-stage .st-wallet-ico::before { top: -2px; }
+  .auto-roulette-stage .st-wallet-ico::after { top: 11px; }
+
+  .auto-roulette-stage .st-wallet-seg {
+    min-width: 130px;
+    padding: 4px 14px;
+  }
+
+  .auto-roulette-stage .st-wallet-lbl { font-size: 11px; }
+  .auto-roulette-stage .st-wallet-val { font-size: 20px; }
+
+  .auto-roulette-stage .st-chipbar {
+    left: 50%;
+    bottom: 10px;
+    gap: 7px;
+    padding: 6px 10px;
+  }
+
+  .auto-roulette-stage .st-chipbar .cb-chip {
+    width: 50px;
+    height: 50px;
+  }
+
+  .auto-roulette-stage .st-chipbar .cb-round {
+    width: 52px;
+    height: 52px;
+  }
 }
 
 @media (max-width: 1280px) and (min-width: 901px) {
