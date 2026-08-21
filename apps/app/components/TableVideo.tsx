@@ -75,9 +75,23 @@ export default function TableVideo({ gameId }: { gameId: string }) {
     const startHls = async () => {
       setStatus('loading');
       const src = `${VIDEO_BASE}/hls/${gameId}/stream.m3u8`;
+      // O MSE/WS e o HLS usam linhas do tempo diferentes. Sem limpar o estado
+      // anterior, o currentTime pode ficar depois do novo buffer e o elemento
+      // permanece "tocando" sem avançar.
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      video.currentTime = 0;
+      video.playbackRate = 1;
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = src;
         video.addEventListener('loadedmetadata', () => {
+          if (video.seekable.length) {
+            video.currentTime = Math.max(
+              video.seekable.start(video.seekable.length - 1),
+              video.seekable.end(video.seekable.length - 1) - 0.35,
+            );
+          }
           video.play().catch(() => {});
         }, { once: true });
         video.addEventListener('error', () => setStatus('error'), { once: true });
@@ -94,9 +108,20 @@ export default function TableVideo({ gameId }: { gameId: string }) {
         maxLiveSyncPlaybackRate: 1.5,
         lowLatencyMode: true,
       });
+      let positionedAtLiveEdge = false;
       inst.loadSource(src);
       inst.attachMedia(video);
       inst.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {});
+      });
+      inst.on(Hls.Events.FRAG_BUFFERED, () => {
+        if (positionedAtLiveEdge || !video.buffered.length) return;
+        positionedAtLiveEdge = true;
+        const last = video.buffered.length - 1;
+        video.currentTime = Math.max(
+          video.buffered.start(last),
+          video.buffered.end(last) - 0.35,
+        );
         video.play().catch(() => {});
       });
       inst.on(Hls.Events.ERROR, (_e, data) => {
