@@ -158,20 +158,20 @@ class RouletteRacetrack {
 
         defs.innerHTML = `
             <linearGradient id="rt-red" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#e63946"/>
-                <stop offset="100%" stop-color="#9d0208"/>
+                <stop offset="0%" stop-color="#c3261d"/>
+                <stop offset="100%" stop-color="#a91510"/>
             </linearGradient>
             <linearGradient id="rt-black" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#2b2d42"/>
-                <stop offset="100%" stop-color="#14213d"/>
+                <stop offset="0%" stop-color="#171714"/>
+                <stop offset="100%" stop-color="#080907"/>
             </linearGradient>
             <linearGradient id="rt-green" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#2a9d8f"/>
-                <stop offset="100%" stop-color="#1a7f72"/>
+                <stop offset="0%" stop-color="#329042"/>
+                <stop offset="100%" stop-color="#227432"/>
             </linearGradient>
             <linearGradient id="rt-inner" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#1a1a2e"/>
-                <stop offset="100%" stop-color="#16162a"/>
+                <stop offset="0%" stop-color="#181a18"/>
+                <stop offset="100%" stop-color="#0e100e"/>
             </linearGradient>
         `;
         svg.appendChild(defs);
@@ -192,6 +192,8 @@ class RouletteRacetrack {
         // Grupo de fichas apostadas (desenhadas por cima dos números)
         this.chipsGroup = this.createEl('g', { id: 'rt-chips', 'pointer-events': 'none' });
         svg.appendChild(this.chipsGroup);
+        this.resultGroup = this.createEl('g', { class: 'rt-result-marker', 'pointer-events': 'none' });
+        svg.appendChild(this.resultGroup);
 
         this.svg = svg;
         this.wrapper.appendChild(svg);
@@ -305,9 +307,9 @@ class RouletteRacetrack {
                 x: x,
                 y: 147,
                 'text-anchor': 'middle',
-                fill: '#cccccc',
-                'font-size': 15,
-                'font-weight': 600,
+                fill: '#ffffff',
+                'font-size': 18,
+                'font-weight': 800,
                 'pointer-events': 'none'
             });
             text.textContent = label;
@@ -358,7 +360,7 @@ class RouletteRacetrack {
         const text = this.createEl('text', {
             class: 'number-text',
             x: x + w / 2, y: y + h / 2 + 5, 'text-anchor': 'middle',
-            fill: '#fff', 'font-size': 13, 'font-weight': 'bold', 'pointer-events': 'none'
+            fill: '#fff', 'font-size': 19, 'font-weight': 'bold', 'pointer-events': 'none'
         });
         text.textContent = n;
         g.appendChild(text);
@@ -410,7 +412,7 @@ class RouletteRacetrack {
         const text = this.createEl('text', {
             class: 'number-text',
             x: textX, y: textY, 'text-anchor': 'middle',
-            fill: '#fff', 'font-size': 13, 'font-weight': 'bold', 'pointer-events': 'none'
+            fill: '#fff', 'font-size': 19, 'font-weight': 'bold', 'pointer-events': 'none'
         });
         text.textContent = n;
         g.appendChild(text);
@@ -538,6 +540,25 @@ class RouletteRacetrack {
         this.setBets({});
     }
 
+    setResult(number) {
+        this.clearResult();
+        const c = this.cellCenters[number];
+        if (!c || !this.resultGroup) return;
+        const glow = this.createEl('circle', {
+            cx: c.x, cy: c.y, r: 21,
+            fill: 'rgba(0,0,0,0.08)',
+            stroke: '#ffb700',
+            'stroke-width': 5
+        });
+        glow.setAttribute('style', 'filter: drop-shadow(0 0 5px rgba(255,183,0,.95))');
+        this.resultGroup.appendChild(glow);
+    }
+
+    clearResult() {
+        if (!this.resultGroup) return;
+        while (this.resultGroup.firstChild) this.resultGroup.removeChild(this.resultGroup.firstChild);
+    }
+
     applyHeatmap(heatmap = {}) {
         const map = heatmap || {};
         this.svg.querySelectorAll('.number-cell').forEach((cell) => {
@@ -610,7 +631,7 @@ class RouletteBetTable {
             ? document.querySelector(selector) : selector;
         if (!this.container) throw new Error('Container não encontrado');
 
-        this.options = { width: 648, height: 220, onNumberClick: null, ...options };
+        this.options = { width: 648, height: 220, onNumberClick: null, onSectionClick: null, ...options };
         this.reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
         this.cellCenters = {};
 
@@ -620,6 +641,8 @@ class RouletteBetTable {
         this.getColorName = RouletteRacetrack.prototype.getColorName;
         this.setBets = RouletteRacetrack.prototype.setBets;
         this.clearBets = RouletteRacetrack.prototype.clearBets;
+        this.setResult = RouletteRacetrack.prototype.setResult;
+        this.clearResult = RouletteRacetrack.prototype.clearResult;
 
         this._build();
     }
@@ -638,9 +661,9 @@ class RouletteBetTable {
 
         const defs = this.createEl('defs');
         defs.innerHTML = `
-            <linearGradient id="rt-red" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#e63946"/><stop offset="100%" stop-color="#9d0208"/></linearGradient>
-            <linearGradient id="rt-black" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2b2d42"/><stop offset="100%" stop-color="#14213d"/></linearGradient>
-            <linearGradient id="rt-green" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2a9d8f"/><stop offset="100%" stop-color="#1a7f72"/></linearGradient>
+            <linearGradient id="rt-red" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#c3261d"/><stop offset="100%" stop-color="#a91510"/></linearGradient>
+            <linearGradient id="rt-black" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#171714"/><stop offset="100%" stop-color="#080907"/></linearGradient>
+            <linearGradient id="rt-green" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#329042"/><stop offset="100%" stop-color="#227432"/></linearGradient>
         `;
         svg.appendChild(defs);
 
@@ -650,6 +673,8 @@ class RouletteBetTable {
         svg.appendChild(this.outsideGroup);
         this.chipsGroup = this.createEl('g', { id: 'rt-chips', 'pointer-events': 'none' });
         svg.appendChild(this.chipsGroup);
+        this.resultGroup = this.createEl('g', { class: 'rt-result-marker', 'pointer-events': 'none' });
+        svg.appendChild(this.resultGroup);
 
         this.svg = svg;
         this._buildNumbers();
@@ -677,8 +702,11 @@ class RouletteBetTable {
         this.numbersGroup.appendChild(g);
     }
 
-    _outCell(label, x, y, w, h, colorSquare) {
-        const g = this.createEl('g', { class: 'outside-cell' });
+    _outCell(label, x, y, w, h, colorSquare, numbers = []) {
+        const g = this.createEl('g', {
+            class: 'outside-cell',
+            'data-numbers': numbers.join(','),
+        });
         g.appendChild(this.createEl('rect', {
             x, y, width: w, height: h, rx: 3, ry: 3,
             fill: 'rgba(10,18,30,0.5)', stroke: 'rgba(255,255,255,0.4)', 'stroke-width': 1
@@ -739,21 +767,27 @@ class RouletteBetTable {
         const x0 = 48, y0 = 4, cw = 46, ch = 44;
         const right = this._gridRight, bottom = this._gridBottom;
         // coluna 2:1
-        for (let i = 0; i < 3; i++) this._outCell('2:1', right, y0 + i * ch, 40, ch);
+        const columns = [
+            [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
+            [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
+            [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
+        ];
+        for (let i = 0; i < 3; i++) this._outCell('2:1', right, y0 + i * ch, 40, ch, null, columns[i]);
         // dúzias
         const dozW = (right - x0) / 3;
         ['1.ª 12', '2.ª 12', '3.ª 12'].forEach((d, i) => {
-            this._outCell(d, x0 + i * dozW, bottom + 4, dozW, 34);
+            this._outCell(d, x0 + i * dozW, bottom + 4, dozW, 34, null,
+                Array.from({ length: 12 }, (_, offset) => i * 12 + offset + 1));
         });
         // even money
         const evW = (right - x0) / 6;
         const evy = bottom + 42;
-        this._outCell('1-18', x0 + 0 * evW, evy, evW, 34);
-        this._outCell('PAR', x0 + 1 * evW, evy, evW, 34);
-        this._outCell('', x0 + 2 * evW, evy, evW, 34, 'red');
-        this._outCell('', x0 + 3 * evW, evy, evW, 34, 'black');
-        this._outCell('ÍMPAR', x0 + 4 * evW, evy, evW, 34);
-        this._outCell('19-36', x0 + 5 * evW, evy, evW, 34);
+        this._outCell('1-18', x0 + 0 * evW, evy, evW, 34, null, Array.from({ length: 18 }, (_, i) => i + 1));
+        this._outCell('PAR', x0 + 1 * evW, evy, evW, 34, null, Array.from({ length: 18 }, (_, i) => (i + 1) * 2));
+        this._outCell('', x0 + 2 * evW, evy, evW, 34, 'red', this.reds);
+        this._outCell('', x0 + 3 * evW, evy, evW, 34, 'black', Array.from({ length: 36 }, (_, i) => i + 1).filter((n) => !this.reds.includes(n)));
+        this._outCell('ÍMPAR', x0 + 4 * evW, evy, evW, 34, null, Array.from({ length: 18 }, (_, i) => i * 2 + 1));
+        this._outCell('19-36', x0 + 5 * evW, evy, evW, 34, null, Array.from({ length: 18 }, (_, i) => i + 19));
     }
 
     _attach() {
@@ -761,6 +795,15 @@ class RouletteBetTable {
             const n = parseInt(cell.getAttribute('data-n'), 10);
             cell.addEventListener('click', () => {
                 if (this.options.onNumberClick) this.options.onNumberClick({ number: n });
+            });
+        });
+        this.outsideGroup.querySelectorAll('.outside-cell').forEach((cell) => {
+            cell.addEventListener('click', () => {
+                const numbers = (cell.getAttribute('data-numbers') || '')
+                    .split(',').map(Number).filter(Number.isFinite);
+                if (numbers.length && this.options.onSectionClick) {
+                    this.options.onSectionClick({ numbers });
+                }
             });
         });
     }

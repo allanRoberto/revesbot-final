@@ -61,13 +61,12 @@ export default function RaceTrack({
     rt.setBets(placed);
   }, [placed]);
 
-  // Número sorteado brilha por alguns segundos (heatmap do plugin).
+  // Número sorteado recebe o aro dourado igual ao jogo original.
   useEffect(() => {
     const rt = rtRef.current;
-    if (!rt || lastResult === null) return;
-    rt.applyHeatmap({ [lastResult]: 1 });
-    const t = setTimeout(() => rtRef.current?.clearHeatmap(), 6000);
-    return () => clearTimeout(t);
+    if (!rt) return;
+    if (lastResult === null) rt.clearResult();
+    else rt.setResult(lastResult);
   }, [lastResult]);
 
   return (

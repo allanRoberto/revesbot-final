@@ -5,7 +5,6 @@ import { formatBRL } from '@/lib/format';
 import RaceTrack from '@/components/RaceTrack';
 import BetTable from '@/components/BetTable';
 import CountdownRing from '@/components/CountdownRing';
-import ResultFan from '@/components/ResultFan';
 
 // Ordem física da roda europeia (para calcular vizinhos e a pista).
 const WHEEL = [
@@ -17,7 +16,7 @@ const REDS = new Set([
 ]);
 const color = (n: number) => (n === 0 ? 'g' : REDS.has(n) ? 'r' : 'b');
 
-const CHIPS = [0.5, 2.5, 5, 25, 100, 500, 2500, 5000];
+const CHIPS = [0.5, 5, 10, 50, 250, 1000, 2500, 5000];
 const chipLabel = (c: number) =>
   c >= 1000
     ? `${(c / 1000).toString().replace('.', ',')}K`
@@ -35,15 +34,6 @@ function neighborsOf(n: number, k: number): number[] {
   return [...new Set(out)];
 }
 
-// [vizinho esquerdo, vencedor, vizinho direito] na ordem física da roda — para o leque.
-function resultCells(n: number): { n: number; color: 'r' | 'b' | 'g' }[] | null {
-  const i = WHEEL.indexOf(n);
-  if (i < 0) return null;
-  const L = WHEEL[(i - 1 + WHEEL.length) % WHEEL.length];
-  const R = WHEEL[(i + 1) % WHEEL.length];
-  return [L, n, R].map((x) => ({ n: x, color: color(x) as 'r' | 'b' | 'g' }));
-}
-
 interface TableState {
   sessionId: string;
   connected: boolean;
@@ -54,19 +44,6 @@ interface TableState {
   lastResult: number | null;
   lastNumbers: number[];
 }
-
-interface LogEntry {
-  at: number;
-  kind: string;
-  label: string;
-}
-
-const PHASE_LABEL: Record<string, string> = {
-  idle: 'Aguardando próxima rodada…',
-  open: 'Apostas abertas',
-  closing: 'Encerrando…',
-  closed: 'Apostas fechadas',
-};
 
 export default function RouletteBoard({
   gameId,
@@ -81,7 +58,6 @@ export default function RouletteBoard({
   const [kicked, setKicked] = useState(false);
   const [timerDeadline, setTimerDeadline] = useState<number | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
-  const [log, setLog] = useState<LogEntry[]>([]);
   const [lastNumbers, setLastNumbers] = useState<number[]>([]);
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [chip, setChip] = useState(5);
@@ -96,6 +72,8 @@ export default function RouletteBoard({
   const [placed, setPlaced] = useState<Record<number, number>>({});
   const [balance, setBalance] = useState<number | null>(initialBalance);
   const [msg, setMsg] = useState<string | null>(null);
+  const [undoStack, setUndoStack] = useState<Record<number, number>[]>([]);
+  const [repeatSlip, setRepeatSlip] = useState<Record<number, number> | null>(null);
   const sidRef = useRef<string | null>(null);
   // A mesa trata cada comando lpbet como o "slip" completo (substitui o anterior),
   // então mantemos o conjunto acumulado e reenviamos tudo a cada clique.
@@ -179,6 +157,10 @@ export default function RouletteBoard({
       try {
         const { number } = JSON.parse((ev as MessageEvent).data);
         setLastResult(number);
+        if (Object.keys(placedRef.current).length > 0) {
+          setRepeatSlip({ ...placedRef.current });
+        }
+        setUndoStack([]);
         placedRef.current = {};
         setPlaced({}); // nova rodada: limpa as fichas do pano
         // rodada liquidada: ressincroniza o saldo real (ganho/perda já debitado)
@@ -187,12 +169,6 @@ export default function RouletteBoard({
           .then((d) => { if (typeof d.balance === 'number') setBalance(d.balance); })
           .catch(() => {});
         setTimeout(() => setLastResult((r) => (r === number ? null : r)), 6000);
-      } catch { /* ignora */ }
-    });
-    es.addEventListener('log', (ev) => {
-      try {
-        const l: LogEntry = JSON.parse((ev as MessageEvent).data);
-        setLog((prev) => [l, ...prev].slice(0, 20));
       } catch { /* ignora */ }
     });
     es.onerror = () => setConn((c) => (c === 'ready' ? c : 'error'));
@@ -278,6 +254,7 @@ export default function RouletteBoard({
       });
       placedRef.current = next;
       setPlaced(next);
+      setUndoStack((stack) => [...stack, { ...prev }]);
       setMsg(null);
 
       // Apostas fechadas → guarda para a próxima rodada (não envia agora).
@@ -299,6 +276,7 @@ export default function RouletteBoard({
         // reverte para o estado anterior a esta marcação
         placedRef.current = prev;
         setPlaced(prev);
+        setUndoStack((stack) => stack.slice(0, -1));
         setMsg(e instanceof Error ? e.message : 'Erro ao apostar.');
       }
     },
@@ -335,6 +313,69 @@ export default function RouletteBoard({
     (n: number) => commit(neighborsOf(n, neigh)),
     [commit, neigh],
   );
+
+  const replaceSlip = useCallback(async (
+    next: Record<number, number>,
+    previous: Record<number, number>,
+  ) => {
+    const sid = sidRef.current;
+    if (!sid || conn !== 'ready') {
+      setMsg('Ainda conectando à mesa… aguarde.');
+      return false;
+    }
+
+    placedRef.current = next;
+    setPlaced(next);
+    setMsg(null);
+
+    if (phase !== 'open' && phase !== 'closing') {
+      pendingRef.current = Object.keys(next).length > 0;
+      return true;
+    }
+
+    try {
+      const res = await fetch(`/api/games/${gameId}/place-bet`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sessionId: sid, bets: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Falha ao atualizar a aposta.');
+      pendingRef.current = false;
+      return true;
+    } catch (e) {
+      placedRef.current = previous;
+      setPlaced(previous);
+      setMsg(e instanceof Error ? e.message : 'Erro ao atualizar a aposta.');
+      return false;
+    }
+  }, [conn, phase, gameId]);
+
+  const undoBet = useCallback(async () => {
+    const previous = undoStack.at(-1);
+    if (!previous) return;
+    const current = { ...placedRef.current };
+    if (await replaceSlip(previous, current)) {
+      setUndoStack((stack) => stack.slice(0, -1));
+      setRepeatSlip(current);
+    }
+  }, [replaceSlip, undoStack]);
+
+  const repeatBet = useCallback(async () => {
+    if (!repeatSlip || Object.keys(repeatSlip).length === 0) return;
+    const previous = { ...placedRef.current };
+    if (balance != null) {
+      const repeatedCents = Math.round(Object.values(repeatSlip).reduce((sum, value) => sum + value, 0) * 100);
+      if (repeatedCents > balance) {
+        setMsg('Saldo insuficiente para repetir esta aposta.');
+        return;
+      }
+    }
+    if (await replaceSlip({ ...repeatSlip }, previous)) {
+      setUndoStack((stack) => [...stack, previous]);
+      setRepeatSlip(null);
+    }
+  }, [balance, repeatSlip, replaceSlip]);
 
   // "Marcar sugeridos": o SuggestionStrip dispara este evento com os números;
   // simulamos o clique deles no tabuleiro (fichas aparecem, aposta é enviada).
@@ -374,11 +415,6 @@ export default function RouletteBoard({
 
   return (
     <div className={`st-overlay${betsClosed ? ' bets-closed' : ''}`}>
-      {/* leque de resultado (vencedor + vizinhos) — mostrado ~6s após o giro */}
-      {lastResult != null && resultCells(lastResult) && (
-        <ResultFan cells={resultCells(lastResult)!} />
-      )}
-
       {/* pano de apostas — objeto do mesmo plugin, fichas sincronizadas */}
       <div className={`st-felt ${center === 'felt' ? 'st-slot-center' : 'st-slot-side'}`}>
         {center === 'felt' && (
@@ -391,7 +427,13 @@ export default function RouletteBoard({
           </button>
         )}
         {center === 'felt' && centerHud}
-        <BetTable placed={placed} disabled={disabled} onNumber={placeOn} />
+        <BetTable
+          placed={placed}
+          lastResult={lastResult}
+          disabled={disabled}
+          onNumber={placeOn}
+          onSection={commit}
+        />
       </div>
 
       {/* pista oval (racetrack) */}
@@ -433,7 +475,7 @@ export default function RouletteBoard({
         </div>
       </div>
 
-      {/* painel lateral direito (conteúdo definitivo virá depois) */}
+      {/* painel compacto de resultados recentes */}
       <div className="st-side">
         <div className="st-panel">
           <div className="st-tabs">
@@ -442,29 +484,14 @@ export default function RouletteBoard({
             <span className="st-tab">★</span>
             <span className="st-tab">▥</span>
           </div>
-          <div className="st-panel-body">
-            {log.length > 0 ? (
-              <ul className="rb-log-list">
-                {log.map((l, i) => (
-                  <li key={`${l.at}-${i}`} className={`rb-log-item lg-${l.kind}`}>
-                    <span className="rb-log-time">
-                      {new Date(l.at).toLocaleTimeString('pt-BR', { hour12: false })}
-                    </span>
-                    <span className="rb-log-label">{l.label}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <span className="st-panel-empty">Aguardando a mesa…</span>
-            )}
+          <div className="st-lastrow">
+            {lastNumbers.slice(0, 11).map((n, i) => (
+              <span key={`${n}-${i}`} className={`st-last-n ${color(n)}${i === 0 ? ' first' : ''}`}>
+                {n}
+              </span>
+            ))}
+            {lastNumbers.length === 0 && <span className="st-panel-empty">Aguardando a mesa…</span>}
           </div>
-        </div>
-        <div className="st-lastrow">
-          {lastNumbers.slice(0, 11).map((n, i) => (
-            <span key={`${n}-${i}`} className={`st-last-n ${color(n)}${i === 0 ? ' first' : ''}`}>
-              {n}
-            </span>
-          ))}
         </div>
       </div>
 
@@ -487,17 +514,33 @@ export default function RouletteBoard({
 
       {/* seletor de fichas + vizinhos (centro inferior, estilo Pragmatic) */}
       <div className="st-chipbar">
-        <button className="cb-round" disabled title="Em breve">↺</button>
+        <button
+          className="cb-round"
+          disabled={disabled || undoStack.length === 0}
+          title="Desfazer última aposta"
+          aria-label="Desfazer última aposta"
+          onClick={undoBet}
+        >
+          ↶
+        </button>
         {CHIPS.map((c, i) => (
           <button
             key={c}
             className={`cb-chip c${i}${chip === c ? ' on' : ''}`}
             onClick={() => setChip(c)}
           >
-            {chipLabel(c)}
+            <span>{chipLabel(c)}</span>
           </button>
         ))}
-        <button className="cb-round" disabled title="Em breve">⟳</button>
+        <button
+          className="cb-round"
+          disabled={disabled || !repeatSlip}
+          title="Repetir aposta"
+          aria-label="Repetir aposta"
+          onClick={repeatBet}
+        >
+          ↻
+        </button>
         {msg && <span className="rb-msg">{msg}</span>}
       </div>
 
