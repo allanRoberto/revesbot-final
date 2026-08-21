@@ -973,11 +973,23 @@ a {
   z-index: 9;
   overflow: hidden;
   pointer-events: none;
-  background-color: #102f55;
+}
+.auto-wheel-frame::before,
+.auto-wheel-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.auto-wheel-frame::before {
+  background: linear-gradient(180deg, #315986 0%, #173d69 55%, #0b284a 100%);
+  -webkit-mask: radial-gradient(circle 17.1vw at 50% 16.7vw, transparent 0 98.5%, #000 100%);
+  mask: radial-gradient(circle 17.1vw at 50% 16.7vw, transparent 0 98.5%, #000 100%);
+}
+.auto-wheel-frame::after {
   background-image: url('/auto-roulette-background.avif');
   background-position: center top;
   background-repeat: no-repeat;
-  background-size: 100% auto;
+  background-size: 84% auto;
 }
 
 /* ---------- Modo "jogo original": iframe da Pragmatic (abaixo da topbar) ---------- */
