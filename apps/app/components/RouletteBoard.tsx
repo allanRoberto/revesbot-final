@@ -23,6 +23,76 @@ const chipLabel = (c: number) =>
     : c.toString().replace('.', ',');
 const POLL_MS = 15000;
 
+const CHIP_COLORS = [
+  { outer: '#525361', inner: '#3a3b48', edge: '#8f9099', text: '#bfc0c5' },
+  { outer: '#99630d', inner: '#754600', edge: '#bd934b', text: '#a9a9a6' },
+  { outer: '#08719a', inner: '#07516d', edge: '#4a8fa9', text: '#a9a9a6' },
+  { outer: '#9c4014', inner: '#722805', edge: '#bd704b', text: '#a9a9a6' },
+  { outer: '#277c2d', inner: '#185820', edge: '#62a164', text: '#a9a9a6' },
+  { outer: '#224d91', inner: '#15366d', edge: '#5d7fb2', text: '#a9a9a6' },
+  { outer: '#8c1b62', inner: '#650b43', edge: '#ad5c8e', text: '#a9a9a6' },
+  { outer: '#98610a', inner: '#714300', edge: '#bc9147', text: '#a9a9a6' },
+];
+
+function CasinoChip({ value, index }: { value: number; index: number }) {
+  const palette = CHIP_COLORS[index];
+  const gradientId = `casino-chip-${index}`;
+  return (
+    <svg className="cb-chip-art" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <radialGradient id={gradientId} cx="42%" cy="35%" r="70%">
+          <stop offset="0%" stopColor={palette.outer} stopOpacity="1" />
+          <stop offset="72%" stopColor={palette.inner} stopOpacity="1" />
+          <stop offset="100%" stopColor="#151515" stopOpacity="0.72" />
+        </radialGradient>
+      </defs>
+      <circle cx="50" cy="50" r="47" fill={`url(#${gradientId})`} stroke="#222" strokeWidth="2" />
+      {Array.from({ length: 8 }, (_, marker) => (
+        <rect
+          key={marker}
+          x="45"
+          y="3"
+          width="10"
+          height="15"
+          rx="2"
+          fill={palette.edge}
+          transform={`rotate(${marker * 45} 50 50)`}
+        />
+      ))}
+      <circle cx="50" cy="50" r="35" fill={palette.inner} stroke="rgba(0,0,0,.42)" strokeWidth="2" />
+      <circle cx="50" cy="50" r="31.5" fill="none" stroke="rgba(255,255,255,.10)" strokeWidth="1" />
+      <text
+        x="50"
+        y="57"
+        textAnchor="middle"
+        fill={palette.text}
+        fontSize={value >= 2500 ? 24 : 27}
+        fontWeight="800"
+        letterSpacing="-1"
+      >
+        {chipLabel(value)}
+      </text>
+    </svg>
+  );
+}
+
+function UndoIcon() {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M19 14 9 23l10 9v-6h8c6 0 10 3 12 9 1-11-4-17-14-17h-6v-4Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function RepeatIcon() {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M35 12v6h-5c-7 0-12 3-15 9 1-10 6-15 15-15h5Zm-22 24v-6h5c7 0 12-3 15-9-1 10-6 15-15 15h-5Z" fill="currentColor" />
+      <path d="m34 9 7 6-7 6V9ZM14 27 7 33l7 6V27Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 function neighborsOf(n: number, k: number): number[] {
   const i = WHEEL.indexOf(n);
   if (i < 0) return [n];
@@ -521,15 +591,16 @@ export default function RouletteBoard({
           aria-label="Desfazer última aposta"
           onClick={undoBet}
         >
-          ↶
+          <UndoIcon />
         </button>
         {CHIPS.map((c, i) => (
           <button
             key={c}
             className={`cb-chip c${i}${chip === c ? ' on' : ''}`}
             onClick={() => setChip(c)}
+            aria-label={`Selecionar ficha de ${chipLabel(c)}`}
           >
-            <span>{chipLabel(c)}</span>
+            <CasinoChip value={c} index={i} />
           </button>
         ))}
         <button
@@ -539,7 +610,7 @@ export default function RouletteBoard({
           aria-label="Repetir aposta"
           onClick={repeatBet}
         >
-          ↻
+          <RepeatIcon />
         </button>
         {msg && <span className="rb-msg">{msg}</span>}
       </div>
