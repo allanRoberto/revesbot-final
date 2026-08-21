@@ -62,7 +62,15 @@ export default function TableVideo({ gameId }: { gameId: string }) {
     let cleanup: (() => void) | null = null;
 
     const onPlaying = () => setStatus('playing');
+    const resumePlayback = () => {
+      if (document.visibilityState === 'visible' && video.paused) {
+        video.play().catch(() => {});
+      }
+    };
     video.addEventListener('playing', onPlaying);
+    video.addEventListener('canplay', resumePlayback);
+    document.addEventListener('visibilitychange', resumePlayback);
+    window.addEventListener('focus', resumePlayback);
 
     const startHls = async () => {
       setStatus('loading');
@@ -202,6 +210,9 @@ export default function TableVideo({ gameId }: { gameId: string }) {
     return () => {
       cancelled = true;
       video.removeEventListener('playing', onPlaying);
+      video.removeEventListener('canplay', resumePlayback);
+      document.removeEventListener('visibilitychange', resumePlayback);
+      window.removeEventListener('focus', resumePlayback);
       if (cleanup) cleanup();
     };
   }, [gameId]);
@@ -216,6 +227,7 @@ export default function TableVideo({ gameId }: { gameId: string }) {
         autoPlay
         muted
         playsInline
+        onClick={() => videoRef.current?.play().catch(() => {})}
       />
       {/* fallback: poster borrado da mesa (sem tela preta quando trava/cai) */}
       {showPoster && posterUrl && (
