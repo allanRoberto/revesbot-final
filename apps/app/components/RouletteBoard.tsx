@@ -188,9 +188,10 @@ export default function RouletteBoard({
     return () => es.close();
   }, [sessionId, gameId]);
 
-  // Countdown local: decrementa 1/s enquanto a mesa está aberta.
+  // Countdown local: continua durante o aviso "encerrando", pois a Pragmatic
+  // ainda mantém uma curta janela de aposta antes do fechamento efetivo.
   useEffect(() => {
-    if (phase !== 'open' || seconds == null) return;
+    if ((phase !== 'open' && phase !== 'closing') || seconds == null) return;
     if (seconds <= 0) return;
     const t = setInterval(() => setSeconds((s) => (s == null || s <= 0 ? s : s - 1)), 1000);
     return () => clearInterval(t);
@@ -337,7 +338,7 @@ export default function RouletteBoard({
   // "Aguarde o próximo jogo" (entre rodadas). Fica logo acima do centro.
   const centerHud = (
     <div className="st-centerhud">
-      {phase === 'open' && seconds != null && (
+      {(phase === 'open' || phase === 'closing') && seconds != null && (
         <CountdownRing seconds={seconds} total={roundTotal} />
       )}
       {lastResult == null && (phase === 'idle' || phase === 'closed') && (

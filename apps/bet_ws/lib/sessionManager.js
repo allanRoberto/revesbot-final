@@ -114,7 +114,10 @@ class Session extends EventEmitter {
       return;
     }
     if (isBetsClosingSoon(text)) {
-      this.setPhase('closing', 0);
+      // A Pragmatic costuma avisar "closing soon" quando ainda restam cerca
+      // de 6 segundos. Preserva o último valor do timer para a interface
+      // continuar a contagem até o fechamento efetivo das apostas.
+      this.setPhase('closing');
       this.emitState();
       return;
     }
