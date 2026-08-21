@@ -207,7 +207,6 @@ export default function RouletteBoard({
   // e eventos de fase não acumulam atraso nem reiniciam o número.
   useEffect(() => {
     if (timerDeadline == null) return;
-    setTimerNow(Date.now());
     const tick = setInterval(() => setTimerNow(Date.now()), 250);
     const clear = setTimeout(
       () => setTimerDeadline((current) => (current === timerDeadline ? null : current)),
