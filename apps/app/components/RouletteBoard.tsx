@@ -17,7 +17,6 @@ const REDS = new Set([
 ]);
 const color = (n: number) => (n === 0 ? 'g' : REDS.has(n) ? 'r' : 'b');
 
-const VIDEO_BASE = process.env.NEXT_PUBLIC_VIDEO_BASE || '';
 const CHIPS = [0.5, 2.5, 5, 25, 100, 500, 2500, 5000];
 const chipLabel = (c: number) =>
   c >= 1000
@@ -109,19 +108,42 @@ export default function RouletteBoard({
   // Cria a sessão da mesa (nosso WS via bet_ws) uma vez.
   useEffect(() => {
     let alive = true;
-    (async () => {
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let controller: AbortController | null = null;
+
+    const connect = async () => {
+      controller = new AbortController();
+      if (alive) setConn('connecting');
       try {
-        const res = await fetch(`/api/games/${gameId}/bet-session`, { method: 'POST' });
-        const data = await res.json();
+        const res = await fetch(`/api/games/${gameId}/bet-session`, {
+          method: 'POST',
+          signal: controller.signal,
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Servidor da mesa respondeu em formato inválido (${res.status}).`);
+        }
+        const data: { sessionId?: string; error?: string } = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Falha ao conectar.');
+        if (!data.sessionId) throw new Error('A sessão da mesa não foi criada.');
         if (!alive) return;
         sidRef.current = data.sessionId;
         setSessionId(data.sessionId);
+        setMsg(null);
       } catch (e) {
-        if (alive) { setConn('error'); setMsg(e instanceof Error ? e.message : 'Erro'); }
+        if (!alive || (e instanceof DOMException && e.name === 'AbortError')) return;
+        setConn('error');
+        setMsg(e instanceof Error ? e.message : 'Falha ao conectar à mesa.');
+        retryTimer = setTimeout(connect, 5000);
       }
-    })();
-    return () => { alive = false; };
+    };
+
+    void connect();
+    return () => {
+      alive = false;
+      controller?.abort();
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [gameId]);
 
   // Assina o SSE de estado quando houver sessão.
@@ -304,7 +326,6 @@ export default function RouletteBoard({
   // Só bloqueia a marcação quando a mesa não está utilizável (sem conexão/kick).
   // Com apostas fechadas a pessoa PODE marcar para a próxima jogada (pré-marca).
   const disabled = conn !== 'ready' || kicked;
-  const posterUrl = VIDEO_BASE ? `${VIDEO_BASE}/hls/${gameId}/poster.jpg` : '';
   // Apostas fechadas: apenas ENCOLHE o tabuleiro central (sem sumir/bloquear).
   const betsClosed = conn === 'ready' && !kicked && (phase === 'closed' || phase === 'idle');
 
@@ -450,22 +471,17 @@ export default function RouletteBoard({
         {msg && <span className="rb-msg">{msg}</span>}
       </div>
 
-      {/* GATE: mesa não conectada → cobre a tela com poster borrado + mensagem.
-          Só some (revela a mesa) quando a conexão fica pronta. */}
+      {/* A transmissão é independente da conexão de apostas. Este aviso não
+          bloqueia mais o vídeo enquanto a sessão da mesa é reconectada. */}
       {(conn !== 'ready' || kicked) && (
-        <div
-          className="st-gate"
-          style={posterUrl ? { backgroundImage: `url(${posterUrl})` } : undefined}
-        >
-          <div className="st-gate-inner">
-            {!kicked && <div className="st-spinner" aria-hidden />}
-            <div className="st-gate-msg">
-              {kicked
-                ? 'Conta conectada em outro lugar'
-                : conn === 'error'
-                  ? 'Reconectando à mesa…'
-                  : 'Conectando à mesa…'}
-            </div>
+        <div className={`st-connection-status ${conn === 'error' ? 'is-error' : ''}`}>
+          {!kicked && <div className="st-spinner" aria-hidden />}
+          <div className="st-connection-msg">
+            {kicked
+              ? 'Conta conectada em outro lugar'
+              : conn === 'error'
+                ? 'Reconectando apostas…'
+                : 'Conectando apostas…'}
           </div>
         </div>
       )}

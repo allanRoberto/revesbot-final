@@ -59,7 +59,7 @@ function pickGameWs(urls) {
   return urls[0];
 }
 
-async function captureGameWsUrl(gameLink, { waitMs = 3500 } = {}) {
+async function captureGameWsUrl(gameLink, { waitMs = 15000 } = {}) {
   const browser = await puppeteer.launch({
     headless: true,
     executablePath: resolveExecutablePath(),
@@ -89,13 +89,30 @@ async function captureGameWsUrl(gameLink, { waitMs = 3500 } = {}) {
     // (2) Evento nativo do Puppeteer.
     page.on('websocket', (ws) => wsUrls.push(ws.url()));
 
-    await page.goto(gameLink, { waitUntil: 'networkidle2', timeout: 60000 });
-    await new Promise((r) => setTimeout(r, waitMs));
+    // Uma mesa ao vivo nunca fica realmente ociosa: vídeo, telemetria e
+    // WebSockets mantêm requisições abertas. Esperar por `networkidle2` fazia
+    // toda criação de sessão terminar em timeout. Basta carregar o documento e
+    // aguardar diretamente o socket do jogo aparecer.
+    let navigationError = null;
+    try {
+      await page.goto(gameLink, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    } catch (err) {
+      navigationError = err;
+    }
 
-    const injected = await page.evaluate(() => window.__wsUrls || []);
-    const all = [...new Set([...injected, ...wsUrls])];
+    const deadline = Date.now() + waitMs;
+    let all = [];
+    do {
+      const injected = await page.evaluate(() => window.__wsUrls || []).catch(() => []);
+      all = [...new Set([...injected, ...wsUrls])];
+      if (all.some((u) => /pragmaticplaylive/i.test(u) && /\/game\b|game\?/i.test(u))) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 250));
+    } while (Date.now() < deadline);
 
     if (all.length === 0) {
+      if (navigationError) throw navigationError;
       throw new Error('Nenhuma URL de WebSocket encontrada na página do jogo.');
     }
 

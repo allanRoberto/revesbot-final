@@ -1059,46 +1059,39 @@ a {
   to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 
-/* ----- GATE: mesa não conectada (poster borrado + "Conectando à mesa") ----- */
-.st-gate {
+/* ----- Estado da conexão de apostas (não bloqueia a transmissão) ----- */
+.st-connection-status {
   position: absolute;
-  inset: 0;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 28;
-  background-color: #0a0f16;
-  background-size: cover;
-  background-position: center;
-  display: grid;
-  place-items: center;
-}
-.st-gate::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(4, 8, 14, 0.5);
-  backdrop-filter: blur(6px);
-}
-.st-gate-inner {
-  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 9px;
   text-align: center;
-  padding: 24px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(6, 10, 16, 0.78);
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.42);
+  pointer-events: none;
 }
-.st-gate-msg {
+.st-connection-status.is-error { border-color: rgba(255, 209, 90, 0.45); }
+.st-connection-msg {
   color: #fff;
-  font-size: 17px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
 }
 .st-spinner {
-  width: 44px;
-  height: 44px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 4px solid rgba(255, 255, 255, 0.22);
+  border: 2px solid rgba(255, 255, 255, 0.22);
   border-top-color: #ffd15a;
   animation: st-spin 0.8s linear infinite;
 }
