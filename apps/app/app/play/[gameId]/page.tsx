@@ -53,7 +53,7 @@ export default async function PlayPage({
   const bookmaker = await getBookmakerUser(user.lotogreenToken, session.house);
 
   return (
-    <div className="stage">
+    <div className={`stage${gameId === '373' ? ' auto-roulette-stage' : ''}`}>
       {/* barra superior translúcida sobre o vídeo/iframe */}
       <header className="topbar play-topbar stage-topbar">
         <div className="play-head-left">
