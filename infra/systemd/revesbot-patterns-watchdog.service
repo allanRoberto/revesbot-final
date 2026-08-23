@@ -1,0 +1,7 @@
+[Unit]
+Description=Revesbot patterns MongoDB health watchdog
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/var/www/revesbot/patterns-current/infra/deploy/patterns/watchdog.sh

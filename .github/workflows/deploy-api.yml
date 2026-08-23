@@ -11,12 +11,15 @@ on:
       - "apps/api/start_minimal.py"
       - "apps/api/requirements-minimal.txt"
       - "apps/api/routes/pixgo_webhook.py"
+      - "apps/api/routes/pattern_monitoring.py"
       - "apps/api/routes/results_websocket.py"
       - "apps/api/routes/roulette_history.py"
       - "apps/api/templates/history_minimal.html"
+      - "apps/api/templates/pattern_monitoring.html"
       - "apps/api/static/css/**"
       - "apps/api/static/js/**"
       - "apps/api/tests/test_minimal_api.py"
+      - "apps/api/tests/test_pattern_monitoring.py"
       - "apps/api/tests/test_pixgo_webhook.py"
       - "apps/api/tests/test_results_websocket.py"
       - "apps/api/tests/test_roulette_history_route.py"
@@ -53,6 +56,7 @@ jobs:
           apps/api/tests/test_roulette_history_route.py
           apps/api/tests/test_results_websocket.py
           apps/api/tests/test_minimal_api.py
+          apps/api/tests/test_pattern_monitoring.py
           apps/api/tests/test_pixgo_webhook.py
 
   deploy:
