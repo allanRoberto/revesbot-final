@@ -2,7 +2,11 @@ from datetime import datetime, timedelta, timezone
 
 from apps.monitoring.patterns import load_pattern
 from apps.monitoring.patterns.core.contracts import Spin
-from apps.monitoring.patterns.core.runtime import apply_spin_to_signal, build_signal_document
+from apps.monitoring.patterns.core.runtime import (
+    PatternRuntime,
+    apply_spin_to_signal,
+    build_signal_document,
+)
 
 
 def _spins(raw):
@@ -138,3 +142,65 @@ def test_attempt_finance_uses_real_number_count_and_profile():
     assert signal["financial"]["total_wagered"] == 20.0
     assert signal["financial"]["gross_return"] == 54.0
     assert signal["financial"]["net_profit"] == 34.0
+
+
+def test_restart_normalizes_naive_mongo_state_timestamp():
+    loaded = load_pattern("nera")
+    naive_timestamp = datetime(2026, 8, 22, 16, 0)
+
+    class FakeRepository:
+        def ensure_indexes(self):
+            pass
+
+        def upsert_definition(self, definition):
+            return {"_id": "pattern-nera"}
+
+        def acquire_lease(self, pattern_key, owner, *, ttl_seconds):
+            return True
+
+        def load_state(self, pattern_key, roulette_id):
+            return {
+                "last_history_id": "stored-cursor",
+                "last_history_timestamp": naive_timestamp,
+            }
+
+        def load_active_signal(self, pattern_key, roulette_id):
+            return None
+
+        def save_state(self, document):
+            pass
+
+        def dashboard_snapshot(self, pattern_key):
+            return {"pattern_key": pattern_key}
+
+    class FakeHistorySource:
+        calls = 0
+
+        def ending_at(self, roulette_id, source_id, timestamp, limit):
+            assert timestamp.tzinfo is not None
+            assert timestamp.utcoffset() == timedelta(0)
+            self.calls += 1
+            return [
+                Spin(
+                    history_id=f"history-{roulette_id}",
+                    source_id=source_id,
+                    roulette_id=roulette_id,
+                    value=1,
+                    timestamp=timestamp,
+                )
+            ]
+
+    history_source = FakeHistorySource()
+    runtime = PatternRuntime(
+        loaded=loaded,
+        repository=FakeRepository(),
+        history_source=history_source,
+    )
+
+    runtime.initialize()
+
+    assert history_source.calls == len(loaded.definition.roulette_ids)
+    assert all(
+        context.last_timestamp.tzinfo is not None
+        for context in runtime.tables.values()
+    )

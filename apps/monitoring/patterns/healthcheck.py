@@ -24,6 +24,7 @@ def main() -> None:
     client = MongoClient(
         mongo_url,
         serverSelectionTimeoutMS=5_000,
+        tz_aware=True,
         **_mongo_kwargs(mongo_url),
     )
     database = client[database_name]

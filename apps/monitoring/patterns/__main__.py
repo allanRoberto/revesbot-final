@@ -53,7 +53,11 @@ def main() -> None:
     database_name = (
         os.getenv("MONGO_DATABASE") or os.getenv("MONGO_DB") or "roleta_db"
     ).strip()
-    mongo_client = MongoClient(mongo_url, **_mongo_kwargs(mongo_url))
+    mongo_client = MongoClient(
+        mongo_url,
+        tz_aware=True,
+        **_mongo_kwargs(mongo_url),
+    )
     database = mongo_client[database_name]
 
     redis_client = None
