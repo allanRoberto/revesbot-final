@@ -1,0 +1,11 @@
+/home/revesbot/.pm2/logs/pattern-nera-prod-*.log /home/revesbot/.pm2/logs/pattern-last-hope-prod-*.log {
+    daily
+    rotate 7
+    size 20M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su revesbot revesbot
+}

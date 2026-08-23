@@ -15,6 +15,11 @@ def test_minimal_api_exposes_only_expected_functional_routes() -> None:
         "/history-app/{slug}",
         "/ws",
         "/webhooks/pixgo",
+        "/patterns/{pattern_key}",
+        "/api/patterns",
+        "/api/patterns/{pattern_key}/dashboard",
+        "/api/patterns/{pattern_key}/signals",
+        "/api/patterns/{pattern_key}/simulation",
         "/static",
     }
     assert app.docs_url is None

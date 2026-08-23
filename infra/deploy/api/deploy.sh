@@ -42,6 +42,7 @@ sudo -u "$runtime_user" env PYTHONPATH=apps "$release_dir/.venv/bin/python" -m p
   apps/api/tests/test_roulette_history_route.py \
   apps/api/tests/test_results_websocket.py \
   apps/api/tests/test_minimal_api.py \
+  apps/api/tests/test_pattern_monitoring.py \
   apps/api/tests/test_pixgo_webhook.py
 
 set -a

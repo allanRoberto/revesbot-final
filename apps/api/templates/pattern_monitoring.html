@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ pattern_name }} — Monitoramento</title>
+  <link rel="stylesheet" href="/static/css/pattern_monitoring.css?v={{ asset_version }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body data-pattern-key="{{ pattern_key }}">
+<main class="container">
+  <header>
+    <div>
+      <h1 id="pattern-name">{{ pattern_name }}</h1>
+      <p class="muted" id="pattern-description">Carregando definição do padrão…</p>
+    </div>
+    <div class="actions">
+      <a class="button secondary" href="/">API de resultados</a>
+      <button class="button" id="refresh" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <section class="card stats">
+    <div class="stat"><span>Processo</span><strong id="runtime-status">—</strong></div>
+    <div class="stat"><span>Jogadas atuais</span><strong id="active-count">—</strong></div>
+    <div class="stat"><span>Resolvidos</span><strong id="resolved-count">—</strong></div>
+    <div class="stat"><span>Assertividade</span><strong id="accuracy">—</strong></div>
+    <div class="stat"><span>Resultado padrão</span><strong id="default-profit">—</strong></div>
+    <div class="stat"><span>ROI apostado</span><strong id="default-roi">—</strong></div>
+  </section>
+
+  <section class="card">
+    <div class="section-title"><h2>Jogadas atuais</h2><span class="source" id="dashboard-source">—</span></div>
+    <div class="active-grid" id="active-signals"><div class="empty">Nenhuma jogada atual.</div></div>
+  </section>
+
+  <section class="card">
+    <div class="section-title"><h2>Resultado acumulado por mesa</h2><span class="muted">Gestão padrão do pattern</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Mesa</th><th>Ativos</th><th>Resolvidos</th><th>Acertos</th><th>Assertividade</th><th>Resultado</th><th>ROI</th></tr></thead>
+        <tbody id="roulette-breakdown"><tr><td colspan="7" class="empty">Aguardando sinais…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title"><h2>Histórico auditável</h2><span class="muted" id="signal-total">—</span></div>
+    <div class="filters">
+      <label>Mesa<select id="roulette-filter"><option value="">Todas</option></select></label>
+      <label>Status
+        <select id="status-filter">
+          <option value="all">Todos</option><option value="active">Ativos</option>
+          <option value="won">Acertos</option><option value="lost">Erros</option>
+          <option value="cancelled_gap">Cancelados por buraco</option>
+          <option value="skipped_outside_schedule">Fora do horário</option>
+        </select>
+      </label>
+      <label>Horários<select id="eligible-filter"><option value="true">Somente validados</option><option value="false">Incluir descartados</option></select></label>
+      <label>Quantidade de números<select id="bet-count-filter"><option value="">Todas</option></select></label>
+      <label>Hora<select id="hour-filter"><option value="">Todas</option></select></label>
+      <label>De<input id="start-date-filter" type="date"></label>
+      <label>Até<input id="end-date-filter" type="date"></label>
+      <button class="button" id="apply-filters" type="button">Aplicar</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Mesa</th><th>Status</th><th>Gatilho</th><th>Aposta</th><th>Tentativas</th><th>Resultado</th></tr></thead>
+        <tbody id="signals-body"><tr><td colspan="7" class="empty">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title"><h2>Simulação de banca</h2><span class="muted">Valores por número apostado</span></div>
+    <div class="sim-grid">
+      <div class="sim-config">
+        <label>Banca inicial<input id="starting-bankroll" type="number" min="1" step="1" value="1000"></label>
+        <label>Mesa<select id="simulation-roulette"><option value="">Todas</option></select></label>
+        <label>Quantidade de números<select id="simulation-bet-count"><option value="">Todas</option></select></label>
+        <div class="attempt-inputs" id="attempt-inputs"></div>
+        <button class="button" id="simulate" type="button">Simular</button>
+        <div class="stats" id="simulation-stats"></div>
+      </div>
+      <div class="chart-wrap"><canvas id="bankroll-chart"></canvas></div>
+    </div>
+  </section>
+</main>
+<script src="/static/js/pages/pattern_monitoring.js?v={{ asset_version }}"></script>
+</body>
+</html>
