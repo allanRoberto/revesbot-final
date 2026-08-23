@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
-from .contracts import LoadedPattern, PatternCandidate, Spin
+from .contracts import LoadedPattern, PatternCandidate, Spin, utc_datetime
 from .mongo_history import MongoHistorySource
 from .redis_projection import RedisProjection
 from .repository import PatternRepository
@@ -241,18 +241,16 @@ class PatternRuntime:
             if (
                 state
                 and state.get("last_history_id") is not None
-                and isinstance(state.get("last_history_timestamp"), datetime)
+                and state.get("last_history_timestamp") is not None
             ):
+                last_timestamp = utc_datetime(state["last_history_timestamp"])
                 history = self.history_source.ending_at(
                     roulette_id,
                     state["last_history_id"],
-                    state["last_history_timestamp"],
+                    last_timestamp,
                     self.loaded.definition.history_size,
                 )
                 cursor_id = state["last_history_id"]
-                last_timestamp = state.get("last_history_timestamp")
-                if not isinstance(last_timestamp, datetime):
-                    last_timestamp = history[0].timestamp if history else datetime.now(timezone.utc)
             else:
                 history = self.history_source.latest(
                     roulette_id,
