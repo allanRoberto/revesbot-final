@@ -20,7 +20,16 @@ releases_dir="$base_dir/pattern-releases"
 release_dir="$releases_dir/$commit_sha"
 env_file="${PATTERNS_ENV_FILE:-/etc/revesbot/patterns.env}"
 lock_file="$base_dir/shared/patterns-deploy.lock"
-previous_target="$(readlink -f "$base_dir/patterns-current" 2>/dev/null || true)"
+previous_target=""
+
+if [[ -L "$base_dir/patterns-current" ]]; then
+  candidate_target="$(readlink -f "$base_dir/patterns-current" 2>/dev/null || true)"
+  if [[ -n "$candidate_target" \
+      && -d "$candidate_target" \
+      && "$candidate_target" == "$releases_dir/"* ]]; then
+    previous_target="$candidate_target"
+  fi
+fi
 
 [[ "$base_dir" == /var/www/revesbot || "$base_dir" == /var/www/revesbot/* ]] || {
   echo "REVESBOT_BASE_DIR fora do escopo permitido." >&2
