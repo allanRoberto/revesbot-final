@@ -19,6 +19,7 @@ on:
       - "infra/deploy/patterns/**"
       - "infra/nginx/app-revesbot.conf"
       - "infra/nginx/auth-revesbot.conf"
+      - "infra/nginx/api-revesbot.conf"
       - "infra/pm2/app-stack.config.js"
       - "infra/pm2/auth-api.config.js"
       - "infra/pm2/api-minimal.config.js"
