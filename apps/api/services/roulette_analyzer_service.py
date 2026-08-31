@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from api.core.runtime_db import history_coll
@@ -51,19 +52,15 @@ async def analyze_roulette(roulette_id: str, quantidade: int) -> dict[str, Any]:
 async def list_analyzer_roulettes() -> list[dict[str, Any]]:
     """Lista diretamente do histórico as roletas disponíveis para a página."""
     try:
-        roulette_ids = await history_coll.distinct(
-            "roulette_id",
-            {
-                "roulette_id": {
-                    "$type": "string",
-                    "$regex": r"^[a-z0-9][a-z0-9-]*$",
-                }
-            },
-        )
+        roulette_ids = await history_coll.distinct("roulette_id")
     except Exception as exc:
         raise RouletteHistoryUnavailableError from exc
 
-    normalized_ids = sorted(str(value) for value in roulette_ids)
+    normalized_ids = sorted(
+        value
+        for value in roulette_ids
+        if isinstance(value, str) and re.fullmatch(r"[a-z0-9][a-z0-9-]*", value)
+    )
     return [
         {
             "roulette_id": roulette_id,

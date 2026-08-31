@@ -66,16 +66,16 @@ def test_roulette_list_uses_distinct_ids_without_counting_entire_history(
         def __init__(self):
             self.call = None
 
-        async def distinct(self, key, query):
-            self.call = (key, query)
-            return ["roulette-b", "roulette-a"]
+        async def distinct(self, key):
+            self.call = key
+            return ["roulette-b", "_technical_", "roulette-a"]
 
     collection = _DistinctCollection()
     monkeypatch.setattr(roulette_analyzer_service, "history_coll", collection)
 
     result = asyncio.run(roulette_analyzer_service.list_analyzer_roulettes())
 
-    assert collection.call[0] == "roulette_id"
+    assert collection.call == "roulette_id"
     assert [row["roulette_id"] for row in result] == ["roulette-a", "roulette-b"]
     assert result[0] == {
         "roulette_id": "roulette-a",
