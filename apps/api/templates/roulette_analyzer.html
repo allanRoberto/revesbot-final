@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Analisador de gatilhos</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07110e; --surface: #10211b; --surface-2: #162c24;
+      --border: #29483d; --text: #f1f7f4; --muted: #9eb6ad;
+      --accent: #39d98a; --trigger: #ffb84d; --danger: #ff7474;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: radial-gradient(circle at top, #143629, var(--bg) 48%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    main { width: min(960px, calc(100% - 32px)); margin: 0 auto; padding: 44px 0 72px; }
+    a { color: var(--accent); text-decoration: none; }
+    h1 { margin: 22px 0 8px; font-size: clamp(30px, 5vw, 48px); letter-spacing: -.04em; }
+    .lead { margin: 0 0 28px; color: var(--muted); max-width: 720px; line-height: 1.55; }
+    .panel, .result-card { background: rgba(16,33,27,.94); border: 1px solid var(--border); border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,.25); }
+    form { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(160px, .35fr) auto; gap: 14px; align-items: end; }
+    label { display: grid; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    select, input, button { min-height: 46px; border-radius: 10px; font: inherit; }
+    select, input { width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); padding: 0 13px; }
+    button { border: 0; background: var(--accent); color: #052016; padding: 0 22px; font-weight: 800; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    #message { min-height: 22px; margin: 14px 2px 0; color: var(--muted); }
+    #message.error { color: var(--danger); }
+    #results { display: none; margin-top: 20px; gap: 16px; }
+    #results.visible { display: grid; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 18px; color: var(--muted); font-size: 13px; }
+    .meta strong { color: var(--text); }
+    h2 { margin: 0 0 14px; font-size: 17px; }
+    .numbers { display: flex; flex-wrap: wrap; gap: 9px; }
+    .number { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--accent); font-weight: 900; }
+    .number.trigger { border-color: var(--trigger); color: var(--trigger); background: #322413; }
+    .note { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    @media (max-width: 720px) { form { grid-template-columns: 1fr; } button { width: 100%; } }
+  </style>
+</head>
+<body>
+  <main>
+    <a href="/">← Início</a>
+    <h1>Analisador de gatilhos</h1>
+    <p class="lead">Escolha uma roleta e quantos resultados recentes serão enviados ao motor determinístico de <code>gatilhos/roulette_analyzer.py</code>.</p>
+
+    <section class="panel">
+      <form id="analyzer-form">
+        <label>Roleta
+          <select id="roulette-id" required><option value="">Carregando roletas…</option></select>
+        </label>
+        <label>Quantidade de números
+          <input id="quantidade" type="number" min="1" max="50000" step="1" value="500" required>
+        </label>
+        <button id="submit" type="submit">Analisar</button>
+      </form>
+      <div id="message" role="status" aria-live="polite"></div>
+    </section>
+
+    <section id="results">
+      <article class="result-card">
+        <div class="meta">
+          <span>Roleta: <strong id="result-roulette"></strong></span>
+          <span>Solicitados: <strong id="requested-count"></strong></span>
+          <span>Analisados: <strong id="analyzed-count"></strong></span>
+        </div>
+      </article>
+      <article class="result-card">
+        <h2>Gatilhos</h2>
+        <div class="numbers" id="triggers"></div>
+      </article>
+      <article class="result-card">
+        <h2>Números que estão puxando</h2>
+        <div class="numbers" id="pulling-numbers"></div>
+        <p class="note">Estes são os <code>numeros_fortes</code> retornados diretamente pelo analisador.</p>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('analyzer-form');
+    const rouletteSelect = document.getElementById('roulette-id');
+    const quantityInput = document.getElementById('quantidade');
+    const submitButton = document.getElementById('submit');
+    const message = document.getElementById('message');
+    const results = document.getElementById('results');
+
+    function chips(values, kind = '') {
+      return values.map(value => `<span class="number ${kind}">${Number(value)}</span>`).join('');
+    }
+
+    async function loadRoulettes() {
+      try {
+        const response = await fetch('/api/roulette-analyzer/roulettes');
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || 'Não foi possível carregar as roletas.');
+        rouletteSelect.replaceChildren();
+        payload.roulettes.forEach((item, index) => {
+          const option = document.createElement('option');
+          option.value = item.roulette_id;
+          option.textContent = `${item.name} (${item.result_count})`;
+          option.selected = index === 0;
+          rouletteSelect.append(option);
+        });
+        if (!payload.roulettes.length) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'Nenhuma roleta encontrada';
+          rouletteSelect.append(option);
+        }
+      } catch (error) {
+        rouletteSelect.innerHTML = '<option value="">Falha ao carregar</option>';
+        message.className = 'error';
+        message.textContent = error.message;
+      }
+    }
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      results.classList.remove('visible');
+      message.className = '';
+      message.textContent = 'Analisando histórico…';
+      submitButton.disabled = true;
+      try {
+        const params = new URLSearchParams({
+          roulette_id: rouletteSelect.value,
+          quantidade: quantityInput.value,
+        });
+        const response = await fetch(`/api/roulette-analyzer?${params}`);
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || 'Não foi possível realizar a análise.');
+        document.getElementById('result-roulette').textContent = payload.roulette_id;
+        document.getElementById('requested-count').textContent = payload.quantidade_solicitada;
+        document.getElementById('analyzed-count').textContent = payload.quantidade_analisada;
+        document.getElementById('triggers').innerHTML = chips(payload.gatilhos, 'trigger');
+        document.getElementById('pulling-numbers').innerHTML = chips(payload.numeros_puxando);
+        results.classList.add('visible');
+        message.textContent = payload.quantidade_analisada < payload.quantidade_solicitada
+          ? 'A roleta tinha menos resultados do que o solicitado; todo o histórico disponível foi analisado.'
+          : 'Análise concluída.';
+      } catch (error) {
+        message.className = 'error';
+        message.textContent = error.message;
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    loadRoulettes();
+  </script>
+</body>
+</html>

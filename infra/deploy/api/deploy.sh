@@ -40,6 +40,7 @@ sudo -u "$runtime_user" "$release_dir/.venv/bin/pip" install --disable-pip-versi
 cd "$release_dir"
 sudo -u "$runtime_user" env PYTHONPATH=apps "$release_dir/.venv/bin/python" -m pytest -q \
   apps/api/tests/test_roulette_history_route.py \
+  apps/api/tests/test_roulette_analyzer_route.py \
   apps/api/tests/test_results_websocket.py \
   apps/api/tests/test_minimal_api.py \
   apps/api/tests/test_pixgo_webhook.py

@@ -12,7 +12,12 @@ on:
       - "apps/api/requirements-minimal.txt"
       - "apps/api/routes/pixgo_webhook.py"
       - "apps/api/routes/results_websocket.py"
+      - "apps/api/routes/roulette_analyzer.py"
       - "apps/api/routes/roulette_history.py"
+      - "apps/api/services/roulette_analyzer_service.py"
+      - "apps/api/templates/roulette_analyzer.html"
+      - "apps/api/tests/test_roulette_analyzer_route.py"
+      - "gatilhos/**"
       - "apps/api/templates/history_minimal.html"
       - "apps/api/static/css/**"
       - "apps/api/static/js/**"
@@ -51,6 +56,7 @@ jobs:
         run: >-
           python -m pytest -q
           apps/api/tests/test_roulette_history_route.py
+          apps/api/tests/test_roulette_analyzer_route.py
           apps/api/tests/test_results_websocket.py
           apps/api/tests/test_minimal_api.py
           apps/api/tests/test_pixgo_webhook.py

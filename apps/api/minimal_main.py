@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.routes.pixgo_webhook import router as pixgo_webhook_router
 from api.routes.results_websocket import router as results_websocket_router
+from api.routes.roulette_analyzer import router as roulette_analyzer_router
 from api.routes.roulette_history import router as roulette_history_router
 
 
@@ -50,6 +51,7 @@ app.add_middleware(
 )
 
 app.include_router(roulette_history_router)
+app.include_router(roulette_analyzer_router)
 app.include_router(results_websocket_router)
 app.include_router(pixgo_webhook_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
