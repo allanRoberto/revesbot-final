@@ -14,6 +14,7 @@ on:
       - "apps/api/routes/results_websocket.py"
       - "apps/api/routes/roulette_analyzer.py"
       - "apps/api/routes/roulette_history.py"
+      - "apps/api/services/roulette_analyzer_backtest_service.py"
       - "apps/api/services/roulette_analyzer_service.py"
       - "apps/api/templates/roulette_analyzer.html"
       - "apps/api/tests/test_roulette_analyzer_route.py"

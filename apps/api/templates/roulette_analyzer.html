@@ -18,8 +18,11 @@
     h1 { margin: 22px 0 8px; font-size: clamp(30px, 5vw, 48px); letter-spacing: -.04em; }
     .lead { margin: 0 0 28px; color: var(--muted); max-width: 720px; line-height: 1.55; }
     .panel, .result-card { background: rgba(16,33,27,.94); border: 1px solid var(--border); border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,.25); }
-    form { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(160px, .35fr) auto; gap: 14px; align-items: end; }
-    label { display: grid; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    form { display: grid; gap: 14px; align-items: end; }
+    .analysis-form { grid-template-columns: minmax(220px, 1fr) minmax(160px, .35fr) auto; }
+    .backtest-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .form-wide { grid-column: 1 / -1; }
+    label, .field { display: grid; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; }
     select, input, button { min-height: 46px; border-radius: 10px; font: inherit; }
     select, input { width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); padding: 0 13px; }
     button { border: 0; background: var(--accent); color: #052016; padding: 0 22px; font-weight: 800; cursor: pointer; }
@@ -35,7 +38,38 @@
     .number { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--accent); font-weight: 900; }
     .number.trigger { border-color: var(--trigger); color: var(--trigger); background: #322413; }
     .note { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-    @media (max-width: 720px) { form { grid-template-columns: 1fr; } button { width: 100%; } }
+    .section-heading { margin: 44px 0 8px; font-size: 28px; }
+    .roulette-options { max-height: 220px; overflow: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+    .roulette-option { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text); font-weight: 500; }
+    .roulette-option input { width: 17px; min-height: 17px; margin: 0; flex: 0 0 auto; }
+    .roulette-option span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #backtest-message { min-height: 22px; margin: 14px 2px 0; color: var(--muted); }
+    #backtest-message.error { color: var(--danger); }
+    #backtest-results { display: none; margin-top: 20px; gap: 18px; }
+    #backtest-results.visible { display: grid; }
+    .table-result { background: rgba(16,33,27,.94); border: 1px solid var(--border); border-radius: 18px; padding: 22px; overflow: hidden; }
+    .table-result h3 { margin: 0; font-size: 20px; }
+    .table-result header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .metrics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .metric-block { padding: 15px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+    .metric-block h4 { margin: 0 0 10px; color: var(--accent); }
+    .metric-block.trigger-metrics h4 { color: var(--trigger); }
+    .metric-list { display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; color: var(--muted); font-size: 13px; }
+    .metric-list strong { color: var(--text); text-align: right; }
+    .attempt-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+    .attempt-table { width: 100%; border-collapse: collapse; min-width: 620px; font-size: 13px; }
+    .attempt-table th, .attempt-table td { padding: 9px 11px; border-bottom: 1px solid var(--border); text-align: right; }
+    .attempt-table th:first-child, .attempt-table td:first-child { text-align: left; }
+    .attempt-table th { color: var(--muted); background: var(--surface-2); }
+    .attempt-table tr:last-child td { border-bottom: 0; }
+    .attempt-table tr.recommended { background: rgba(57,217,138,.10); }
+    .backtest-summary { color: var(--muted); font-size: 13px; }
+    @media (max-width: 720px) {
+      .analysis-form, .backtest-form { grid-template-columns: 1fr; }
+      .form-wide { grid-column: auto; }
+      button { width: 100%; }
+      .roulette-options, .metrics-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -45,7 +79,7 @@
     <p class="lead">Escolha uma roleta e quantos resultados recentes serão enviados ao motor determinístico de <code>gatilhos/roulette_analyzer.py</code>.</p>
 
     <section class="panel">
-      <form id="analyzer-form">
+      <form id="analyzer-form" class="analysis-form">
         <label>Roleta
           <select id="roulette-id" required><option value="">Carregando roletas…</option></select>
         </label>
@@ -75,6 +109,41 @@
         <p class="note">Estes são os <code>numeros_fortes</code> retornados diretamente pelo analisador.</p>
       </article>
     </section>
+
+    <h2 class="section-heading">Backtest walk-forward</h2>
+    <p class="lead">Reproduza análises antigas sem acesso ao futuro e descubra em qual tentativa ocorreu o primeiro acerto. Cada mesa é calculada separadamente.</p>
+    <section class="panel">
+      <form id="backtest-form" class="backtest-form">
+        <div class="field form-wide"><span>Mesas</span>
+          <span class="roulette-options" id="backtest-roulettes">Carregando mesas…</span>
+        </div>
+        <label>Janela da análise
+          <input id="analysis-window" type="number" min="20" max="5000" value="500" required>
+        </label>
+        <label>Números para trás
+          <input id="backtest-limit" type="number" min="100" max="50000" value="5000" required>
+        </label>
+        <label>Máximo de tentativas
+          <input id="max-attempts" type="number" min="1" max="100" value="10" required>
+        </label>
+        <label>Renovar análise por
+          <select id="renewal-mode">
+            <option value="spins">Quantidade de giros</option>
+            <option value="minutes">Tempo em minutos</option>
+          </select>
+        </label>
+        <label><span id="renewal-value-label">Intervalo em giros</span>
+          <input id="renewal-value" type="number" min="1" max="10000" value="5" required>
+        </label>
+        <label>Meta acumulada (%)
+          <input id="target-rate" type="number" min="1" max="100" step="0.1" value="90" required>
+        </label>
+        <button class="form-wide" id="backtest-submit" type="submit">Executar backtest</button>
+      </form>
+      <p class="note">A compatibilidade de regressão fica desativada no backtest para não memorizar respostas históricas. Ciclos finais sem observação completa são censurados, não contabilizados como loss.</p>
+      <div id="backtest-message" role="status" aria-live="polite"></div>
+    </section>
+    <section id="backtest-results"></section>
   </main>
 
   <script>
@@ -84,6 +153,12 @@
     const submitButton = document.getElementById('submit');
     const message = document.getElementById('message');
     const results = document.getElementById('results');
+    const backtestForm = document.getElementById('backtest-form');
+    const backtestButton = document.getElementById('backtest-submit');
+    const backtestMessage = document.getElementById('backtest-message');
+    const backtestResults = document.getElementById('backtest-results');
+    const backtestRoulettes = document.getElementById('backtest-roulettes');
+    const renewalMode = document.getElementById('renewal-mode');
 
     function chips(values, kind = '') {
       return values.map(value => `<span class="number ${kind}">${Number(value)}</span>`).join('');
@@ -108,10 +183,25 @@
           option.textContent = 'Nenhuma roleta encontrada';
           rouletteSelect.append(option);
         }
+        backtestRoulettes.replaceChildren();
+        payload.roulettes.forEach((item, index) => {
+          const label = document.createElement('label');
+          label.className = 'roulette-option';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = item.roulette_id;
+          checkbox.checked = index === 0;
+          const text = document.createElement('span');
+          text.textContent = `${item.name} (${item.result_count})`;
+          label.append(checkbox, text);
+          backtestRoulettes.append(label);
+        });
       } catch (error) {
         rouletteSelect.innerHTML = '<option value="">Falha ao carregar</option>';
         message.className = 'error';
         message.textContent = error.message;
+        backtestMessage.className = 'error';
+        backtestMessage.textContent = error.message;
       }
     }
 
@@ -143,6 +233,128 @@
         message.textContent = error.message;
       } finally {
         submitButton.disabled = false;
+      }
+    });
+
+    function percent(value) {
+      return `${(Number(value || 0) * 100).toFixed(2)}%`;
+    }
+
+    function decimal(value, digits = 2) {
+      return value === null || value === undefined ? '—' : Number(value).toFixed(digits);
+    }
+
+    function duration(value) {
+      if (value === null || value === undefined) return '—';
+      const seconds = Number(value);
+      return seconds >= 60 ? `${(seconds / 60).toFixed(2)} min` : `${seconds.toFixed(1)} s`;
+    }
+
+    function escapeHtml(value) {
+      const node = document.createElement('span');
+      node.textContent = String(value ?? '');
+      return node.innerHTML;
+    }
+
+    function metricBlock(title, metrics, cssClass) {
+      const recommendation = metrics.recommended_attempt_for_target
+        ? `G${metrics.recommended_attempt_for_target}`
+        : 'Meta não alcançada';
+      return `<section class="metric-block ${cssClass}">
+        <h4>${title}</h4>
+        <div class="metric-list">
+          <span>Assertividade dos ciclos</span><strong>${percent(metrics.hit_rate)}</strong>
+          <span>Acertos / ciclos avaliados</span><strong>${metrics.hit_cycles} / ${metrics.evaluated_cycles}</strong>
+          <span>Tentativa para a meta</span><strong>${recommendation}</strong>
+          <span>Mediana do primeiro acerto</span><strong>${metrics.median_first_hit_attempt === null ? '—' : `G${decimal(metrics.median_first_hit_attempt, 1)}`}</strong>
+          <span>P90 entre os acertos</span><strong>${metrics.p90_first_hit_attempt ? `G${metrics.p90_first_hit_attempt}` : '—'}</strong>
+          <span>Maior sequência sem acerto</span><strong>${metrics.longest_no_hit_streak}</strong>
+          <span>Renovações sem acerto</span><strong>${metrics.renewed_without_hit}</strong>
+          <span>Ciclos censurados</span><strong>${metrics.censored_cycles}</strong>
+          <span>Tempo médio até acerto</span><strong>${duration(metrics.average_time_to_hit_seconds)}</strong>
+          <span>Referência aleatória em G1</span><strong>${percent(metrics.random_single_spin_rate)}</strong>
+        </div>
+      </section>`;
+    }
+
+    function attemptRows(table) {
+      const triggers = table.gatilhos.attempts;
+      const pulling = table.numeros_puxando.attempts;
+      const marked = new Set([
+        table.gatilhos.recommended_attempt_for_target,
+        table.numeros_puxando.recommended_attempt_for_target,
+      ]);
+      return triggers.map((row, index) => `<tr class="${marked.has(row.attempt) ? 'recommended' : ''}">
+        <td>G${row.attempt}</td>
+        <td>${row.hits_at_attempt}</td>
+        <td>${percent(row.cumulative_hit_rate)}</td>
+        <td>${pulling[index].hits_at_attempt}</td>
+        <td>${percent(pulling[index].cumulative_hit_rate)}</td>
+      </tr>`).join('');
+    }
+
+    function renderBacktest(payload) {
+      backtestResults.innerHTML = payload.tables.map(table => `
+        <article class="table-result">
+          <header>
+            <div><h3>${escapeHtml(table.roulette_name)}</h3><span class="backtest-summary">${escapeHtml(table.roulette_id)}</span></div>
+            <span class="backtest-summary">${table.analysis_count} análises · ${table.backtest_results_used} resultados · renovação média ${duration(table.average_actual_renewal_seconds)}</span>
+          </header>
+          <div class="metrics-grid">
+            ${metricBlock('Gatilhos (6 números)', table.gatilhos, 'trigger-metrics')}
+            ${metricBlock('Números puxando (13)', table.numeros_puxando, '')}
+          </div>
+          <div class="attempt-table-wrap">
+            <table class="attempt-table">
+              <thead><tr><th>Tentativa</th><th>Gatilhos: acertos</th><th>Gatilhos: acumulado</th><th>Puxando: acertos</th><th>Puxando: acumulado</th></tr></thead>
+              <tbody>${attemptRows(table)}</tbody>
+            </table>
+          </div>
+        </article>`).join('');
+      backtestResults.classList.add('visible');
+    }
+
+    renewalMode.addEventListener('change', () => {
+      document.getElementById('renewal-value-label').textContent = renewalMode.value === 'minutes'
+        ? 'Intervalo em minutos'
+        : 'Intervalo em giros';
+    });
+
+    backtestForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const rouletteIds = Array.from(backtestRoulettes.querySelectorAll('input:checked')).map(input => input.value);
+      if (!rouletteIds.length) {
+        backtestMessage.className = 'error';
+        backtestMessage.textContent = 'Selecione ao menos uma mesa.';
+        return;
+      }
+      backtestResults.classList.remove('visible');
+      backtestMessage.className = '';
+      backtestMessage.textContent = 'Executando replay cronológico. Isso pode levar alguns segundos…';
+      backtestButton.disabled = true;
+      try {
+        const response = await fetch('/api/roulette-analyzer/backtest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roulette_ids: rouletteIds,
+            analysis_window: Number(document.getElementById('analysis-window').value),
+            backtest_limit: Number(document.getElementById('backtest-limit').value),
+            max_attempts: Number(document.getElementById('max-attempts').value),
+            renewal_mode: renewalMode.value,
+            renewal_value: Number(document.getElementById('renewal-value').value),
+            target_hit_rate: Number(document.getElementById('target-rate').value) / 100,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || 'Não foi possível executar o backtest.');
+        renderBacktest(payload);
+        backtestMessage.textContent = `Backtest concluído em ${(payload.duration_ms / 1000).toFixed(2)} s. As mesas foram avaliadas separadamente.`;
+      } catch (error) {
+        backtestMessage.className = 'error';
+        backtestMessage.textContent = error.message;
+      } finally {
+        backtestButton.disabled = false;
       }
     });
 
