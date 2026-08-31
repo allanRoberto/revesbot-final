@@ -59,6 +59,31 @@ def test_service_sends_newest_first_history_to_source_of_truth(monkeypatch) -> N
     assert result["quantidade_analisada"] == 3
 
 
+def test_roulette_list_uses_distinct_ids_without_counting_entire_history(
+    monkeypatch,
+) -> None:
+    class _DistinctCollection:
+        def __init__(self):
+            self.call = None
+
+        async def distinct(self, key, query):
+            self.call = (key, query)
+            return ["roulette-b", "roulette-a"]
+
+    collection = _DistinctCollection()
+    monkeypatch.setattr(roulette_analyzer_service, "history_coll", collection)
+
+    result = asyncio.run(roulette_analyzer_service.list_analyzer_roulettes())
+
+    assert collection.call[0] == "roulette_id"
+    assert [row["roulette_id"] for row in result] == ["roulette-a", "roulette-b"]
+    assert result[0] == {
+        "roulette_id": "roulette-a",
+        "name": "Roulette A",
+        "result_count": None,
+    }
+
+
 def test_route_returns_analyzer_result_without_other_engines(monkeypatch) -> None:
     expected = {
         "roulette_id": "roulette-a",

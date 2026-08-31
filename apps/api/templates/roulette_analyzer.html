@@ -164,6 +164,12 @@
       return values.map(value => `<span class="number ${kind}">${Number(value)}</span>`).join('');
     }
 
+    function rouletteLabel(item) {
+      return item.result_count === null
+        ? item.name
+        : `${item.name} (${item.result_count})`;
+    }
+
     async function loadRoulettes() {
       try {
         const response = await fetch('/api/roulette-analyzer/roulettes');
@@ -173,7 +179,7 @@
         payload.roulettes.forEach((item, index) => {
           const option = document.createElement('option');
           option.value = item.roulette_id;
-          option.textContent = `${item.name} (${item.result_count})`;
+          option.textContent = rouletteLabel(item);
           option.selected = index === 0;
           rouletteSelect.append(option);
         });
@@ -192,7 +198,7 @@
           checkbox.value = item.roulette_id;
           checkbox.checked = index === 0;
           const text = document.createElement('span');
-          text.textContent = `${item.name} (${item.result_count})`;
+          text.textContent = rouletteLabel(item);
           label.append(checkbox, text);
           backtestRoulettes.append(label);
         });

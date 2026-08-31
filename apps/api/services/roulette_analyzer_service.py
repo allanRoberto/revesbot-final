@@ -50,34 +50,25 @@ async def analyze_roulette(roulette_id: str, quantidade: int) -> dict[str, Any]:
 
 async def list_analyzer_roulettes() -> list[dict[str, Any]]:
     """Lista diretamente do histórico as roletas disponíveis para a página."""
-    pipeline = [
-        {
-            "$group": {
-                "_id": "$roulette_id",
-                "name": {"$first": "$roulette_name"},
-                "result_count": {"$sum": 1},
-            }
-        },
-        {
-            "$match": {
-                "_id": {
+    try:
+        roulette_ids = await history_coll.distinct(
+            "roulette_id",
+            {
+                "roulette_id": {
                     "$type": "string",
                     "$regex": r"^[a-z0-9][a-z0-9-]*$",
                 }
-            }
-        },
-        {"$sort": {"name": 1, "_id": 1}},
-    ]
-    try:
-        rows = await history_coll.aggregate(pipeline).to_list(length=500)
+            },
+        )
     except Exception as exc:
         raise RouletteHistoryUnavailableError from exc
 
+    normalized_ids = sorted(str(value) for value in roulette_ids)
     return [
         {
-            "roulette_id": str(row["_id"]),
-            "name": str(row.get("name") or row["_id"]),
-            "result_count": int(row.get("result_count") or 0),
+            "roulette_id": roulette_id,
+            "name": roulette_id.replace("-", " ").title(),
+            "result_count": None,
         }
-        for row in rows
+        for roulette_id in normalized_ids
     ]
