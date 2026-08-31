@@ -58,7 +58,14 @@ async def list_analyzer_roulettes() -> list[dict[str, Any]]:
                 "result_count": {"$sum": 1},
             }
         },
-        {"$match": {"_id": {"$type": "string", "$ne": ""}}},
+        {
+            "$match": {
+                "_id": {
+                    "$type": "string",
+                    "$regex": r"^[a-z0-9][a-z0-9-]*$",
+                }
+            }
+        },
         {"$sort": {"name": 1, "_id": 1}},
     ]
     try:
