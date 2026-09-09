@@ -392,9 +392,15 @@ Diferença entre cleanup de sinais e hard reset:
 2. Se a ausência de publish em Pragmatic é intencional por estratégia de coleta ou dívida técnica.
 3. Se há jobs externos de limpeza Redis que compensam a divergência `signal:*` vs `signals:*`.
 
-## 11) Desenvolvimento Local com SSH Tunnel (API)
+## 11) Redis local de producao e desenvolvimento
 
-Objetivo: permitir que a API local conecte no Redis remoto sem acesso direto de rede ao host do Redis.
+Em producao, API, collector e workers usam o container `revesbot-redis-prod`,
+publicado somente em `127.0.0.1:6380`. O volume persistente fica em
+`/var/www/revesbot/data/redis-prod`.
+
+O runtime de producao nao usa tunel SSH nem Redis hospedado em outro servidor.
+Um tunel pode ser criado manualmente apenas para desenvolvimento local, sem
+fazer parte da infraestrutura do servidor:
 
 ### 11.1 Exemplo de túnel
 
@@ -402,8 +408,7 @@ Objetivo: permitir que a API local conecte no Redis remoto sem acesso direto de 
 ssh -N -L 6380:127.0.0.1:6379 usuario@servidor
 ```
 
-Com isso:
-- `127.0.0.1:6380` (máquina local) aponta para `127.0.0.1:6379` no servidor remoto.
+Esse exemplo nao deve ser instalado como servico no ambiente de producao.
 
 ### 11.2 Prioridade de configuração da conexão Redis na API
 
@@ -452,7 +457,8 @@ Esta mudança altera apenas a forma de conexão da API e **não altera contratos
 
 ### 11.6 Desenvolvimento Híbrido (Signals/Monitoring)
 
-Objetivo: em desenvolvimento local, manter **sinais no Redis local** e consumir **resultados via túnel SSH**.
+Objetivo: quando necessario em desenvolvimento, manter **sinais no Redis
+local** e consumir resultados de outro ambiente por um tunel temporario.
 
 Exemplo de túnel:
 

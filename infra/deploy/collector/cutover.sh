@@ -23,8 +23,9 @@ test -s "$active_env"
 test -s "$prod_env"
 test -f "$pm2_config"
 test -x "$healthcheck"
-systemctl is-active --quiet revesbot-redis-tunnel.service
 docker inspect revesbot-mongo-prod >/dev/null
+docker inspect revesbot-redis-prod >/dev/null
+docker exec revesbot-redis-prod redis-cli ping | grep -qx PONG
 
 if [[ ! -e "$rollback_env" ]]; then
   install -m 0640 -o root -g "$runtime_user" "$active_env" "$rollback_env"

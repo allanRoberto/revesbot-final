@@ -1,5 +1,14 @@
 # Deploy da API e Auth API
 
+## Dependencias locais de producao
+
+O ambiente Oracle e autocontido. O MongoDB de producao roda em
+`127.0.0.1:27018` e o Redis persistente em `127.0.0.1:6380`, ambos via Docker.
+API, collector, workers e webhook PixGo nao dependem de tuneis SSH ou do
+servidor legado. O provisionamento idempotente e feito por
+`infra/deploy/collector/bootstrap-data-prod.sh` e
+`infra/deploy/api/bootstrap.sh`.
+
 Esta etapa cobre apenas:
 
 - `apps/api`

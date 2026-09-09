@@ -18,6 +18,7 @@ test -f "$compose_file"
 
 install -d -m 0750 -o root -g "$runtime_user" /etc/revesbot
 install -d -o 999 -g 999 "$base_dir/data/mongo-prod"
+install -d -o 999 -g 999 "$base_dir/data/redis-prod"
 
 if [[ ! -s "$data_env" ]]; then
   mongo_root_password="$(openssl rand -hex 24)"
@@ -44,9 +45,9 @@ set +a
 
 docker compose -f "$compose_file" up -d
 
-install -m 0644 "$base_dir/current/infra/systemd/revesbot-redis-tunnel.service" \
-  /etc/systemd/system/revesbot-redis-tunnel.service
-systemctl daemon-reload
+# O Redis de producao e local. O tunel legado deve permanecer desativado
+# mesmo se o servidor antigo voltar a responder.
+systemctl disable --now revesbot-redis-tunnel.service >/dev/null 2>&1 || true
 
 mongo_ready=false
 for _attempt in $(seq 1 45); do
@@ -62,6 +63,19 @@ for _attempt in $(seq 1 45); do
 done
 if [[ "$mongo_ready" != true ]]; then
   echo "MongoDB de producao nao autenticou dentro do prazo." >&2
+  exit 1
+fi
+
+redis_ready=false
+for _attempt in $(seq 1 30); do
+  if docker exec revesbot-redis-prod redis-cli ping 2>/dev/null | grep -qx PONG; then
+    redis_ready=true
+    break
+  fi
+  sleep 1
+done
+if [[ "$redis_ready" != true ]]; then
+  echo "Redis de producao nao respondeu dentro do prazo." >&2
   exit 1
 fi
 
@@ -103,4 +117,4 @@ chmod 0640 "$collector_env_next"
 mv "$collector_env_next" "$collector_env"
 trap - EXIT
 
-echo "MongoDB de producao pronto em 127.0.0.1:27018; credenciais nao exibidas."
+echo "MongoDB e Redis de producao prontos localmente; credenciais nao exibidas."
