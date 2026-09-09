@@ -23,7 +23,7 @@ chown revesbot:revesbot "$state_file"
 logger -t revesbot-patterns-watchdog "health failure $failures/$max_failures"
 
 if (( failures >= max_failures )); then
-  sudo -u revesbot env PM2_HOME=/home/revesbot/.pm2 \
+  sudo -H -u revesbot env HOME=/home/revesbot PM2_HOME=/home/revesbot/.pm2 \
     pm2 restart pattern-nera-prod pattern-last-hope-prod
   printf '0\n' > "$state_file"
   chown revesbot:revesbot "$state_file"

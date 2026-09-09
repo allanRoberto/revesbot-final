@@ -40,6 +40,7 @@ printf '%s\n' "$failures" > "$state_file"
 logger -t revesbot-collector-watchdog "health failure $failures/$max_failures: ${response:-endpoint unavailable}"
 
 if (( failures >= max_failures )); then
-  sudo -u revesbot env PM2_HOME=/home/revesbot/.pm2 pm2 restart "$process_name" --update-env
+  sudo -H -u revesbot env HOME=/home/revesbot PM2_HOME=/home/revesbot/.pm2 \
+    pm2 restart "$process_name" --update-env
   printf '0\n' > "$state_file"
 fi

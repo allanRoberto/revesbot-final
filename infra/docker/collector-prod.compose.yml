@@ -33,3 +33,32 @@ services:
       options:
         max-size: "20m"
         max-file: "3"
+
+  redis-prod:
+    image: redis:7-alpine
+    container_name: revesbot-redis-prod
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - "60"
+      - "1000"
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - /var/www/revesbot/data/redis-prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 18
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
