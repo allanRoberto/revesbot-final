@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Painel operacional dos sinais de comportamento da Auto-Roulette">
+  <title>Behavior Lab | Revesbot</title>
+  <link rel="stylesheet" href="/static/css/pages/behavior-lab.css?v={{ asset_version }}">
+</head>
+<body>
+  <a class="skip-link" href="#live-decision">Ir para a decisão atual</a>
+
+  <main
+    class="behavior-lab"
+    id="behavior-lab-app"
+    data-roulette-id="{{ roulette_id }}"
+    data-max-attempts="{{ max_attempts }}"
+    data-live-url="/api/patterns/behavior-lab/live"
+    data-signals-url="/api/patterns/behavior-lab/signals"
+    data-health-url="/api/patterns/behavior-lab/health"
+    data-backtest-url="/api/patterns/behavior-lab/backtest"
+  >
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Pragmatic Auto-Roulette</p>
+        <h1>Behavior Lab</h1>
+      </div>
+      <div class="connection-status" aria-label="Estado dos serviços">
+        <div class="status-pill" id="socket-status" data-state="loading" role="status" aria-live="polite">
+          <span class="status-pill__mark" aria-hidden="true"></span>
+          <span id="socket-status-text">WebSocket conectando</span>
+        </div>
+        <div class="status-pill" id="worker-status" data-state="loading" role="status" aria-live="polite">
+          <span class="status-pill__mark" aria-hidden="true"></span>
+          <span id="worker-status-text">Worker verificando</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="live-console" aria-labelledby="live-console-title">
+      <div class="section-heading section-heading--live">
+        <div>
+          <p class="eyebrow">Leitura atual</p>
+          <h2 id="live-console-title">Decisão para o próximo giro</h2>
+        </div>
+        <p class="freshness" id="live-updated-at">Aguardando o primeiro estado…</p>
+      </div>
+
+      <div class="live-grid">
+        <article class="latest-result" aria-labelledby="latest-result-title">
+          <h3 id="latest-result-title">Último número</h3>
+          <div class="roulette-number roulette-number--empty" id="last-result" aria-live="polite">—</div>
+          <p id="last-result-time">Nenhum resultado recebido</p>
+        </article>
+
+        <article class="decision-card" id="live-decision" data-decision="loading" aria-labelledby="decision-title" tabindex="-1">
+          <p class="decision-card__label">Ação</p>
+          <h3 id="decision-title" aria-live="assertive">CARREGANDO</h3>
+          <p class="decision-card__reason" id="decision-reason">Consultando sinais ativos.</p>
+          <div class="number-chips" id="suggested-numbers" aria-label="Números sugeridos"></div>
+        </article>
+
+        <article class="active-signals" aria-labelledby="active-signals-title">
+          <div class="active-signals__heading">
+            <div>
+              <h3 id="active-signals-title">Sinais ativos</h3>
+              <p>Válidos por até {{ max_attempts }} giros</p>
+            </div>
+            <strong class="count-badge" id="active-signals-count">0</strong>
+          </div>
+          <div class="signal-stack" id="active-signals-list" aria-live="polite">
+            <div class="state-message state-message--loading">Carregando sinais…</div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="metrics-section" aria-labelledby="metrics-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Desempenho prospectivo</p>
+          <h2 id="metrics-title">Métricas ao vivo</h2>
+        </div>
+      </div>
+      <div class="metric-grid" id="live-metrics">
+        <article class="metric-card"><span>Resolvidos</span><strong id="metric-resolved">—</strong></article>
+        <article class="metric-card"><span>Sinais pagos em até 10 giros</span><strong id="metric-hit-rate">—</strong></article>
+        <article class="metric-card"><span>Acerto do grupo exibido por giro</span><strong id="metric-decision-hit-rate">—</strong></article>
+        <article class="metric-card"><span>Acertos exatos</span><strong id="metric-exact">—</strong></article>
+        <article class="metric-card"><span>Por vizinho</span><strong id="metric-neighbor">—</strong></article>
+        <article class="metric-card"><span>Por espelho</span><strong id="metric-mirror">—</strong></article>
+        <article class="metric-card"><span>Sem entrada</span><strong id="metric-abstention">—</strong></article>
+      </div>
+    </section>
+
+    <div class="detail-grid">
+      <section class="panel" aria-labelledby="results-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Sequência observada</p>
+            <h2 id="results-title">Resultados recentes</h2>
+          </div>
+          <span class="panel-count" id="recent-results-count">0 giros</span>
+        </div>
+        <div class="recent-results" id="recent-results" aria-live="polite">
+          <div class="state-message state-message--loading">Carregando resultados…</div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="signal-history-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Auditoria</p>
+            <h2 id="signal-history-title">Sinais recentes</h2>
+          </div>
+          <span class="panel-count" id="signal-history-count">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Regra</th>
+                <th scope="col">Alvos</th>
+                <th scope="col">Tentativa</th>
+                <th scope="col">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="signal-history-body">
+              <tr><td colspan="4"><span class="state-message state-message--loading">Carregando sinais…</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel backtest-panel" aria-labelledby="backtest-title">
+      <div class="backtest-panel__intro">
+        <div>
+          <p class="eyebrow">Validação histórica</p>
+          <h2 id="backtest-title">Backtest causal</h2>
+          <p>Reproduz o motor com a configuração ativa, sem olhar resultados futuros. Números repetidos contam como novos giros.</p>
+        </div>
+        <form class="backtest-form" id="backtest-form">
+          <label for="backtest-limit">Quantidade de resultados</label>
+          <div class="backtest-form__controls">
+            <input id="backtest-limit" name="limit" type="number" min="100" max="{{ max_backtest_results }}" step="100" value="2000" inputmode="numeric">
+            <button type="submit" id="backtest-submit">Executar backtest</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="backtest-status state-message" id="backtest-status" role="status" aria-live="polite">
+        Escolha a amostra e execute quando quiser validar a configuração atual.
+      </div>
+      <div class="backtest-results" id="backtest-results" hidden>
+        <article><span>Resultados usados</span><strong id="backtest-used">—</strong></article>
+        <article><span>Sinais resolvidos</span><strong id="backtest-resolved">—</strong></article>
+        <article><span>Sinais pagos em até 10 giros</span><strong id="backtest-hit-rate">—</strong></article>
+        <article><span>Baseline aleatório (mesma cobertura / 10 giros)</span><strong id="backtest-baseline">—</strong></article>
+        <article><span>Acerto do grupo exibido por giro</span><strong id="backtest-decision-hit-rate">—</strong></article>
+        <article><span>ROI teórico</span><strong id="backtest-roi">—</strong></article>
+        <article><span>Maior sequência de perdas</span><strong id="backtest-loss-streak">—</strong></article>
+      </div>
+    </section>
+
+    <p class="page-note">Análise experimental. Um sinal indica apenas a leitura do modelo e não garante resultado.</p>
+  </main>
+
+  <script type="module" src="/static/js/pages/behavior-lab.js?v={{ asset_version }}"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "roulette_id": "pragmatic-auto-roulette",
+  "context_size": 500,
+  "signal_horizon": 10,
+  "neighbor_span": 1,
+  "max_suggested_numbers": 12,
+  "exhaustion_window": 8,
+  "pair_tail_size": 3,
+  "double_tail_size": 3,
+  "structural_tail_size": 4,
+  "structural_max_gap": 1,
+  "terminal_one_numbers": [1, 11, 31],
+  "mirrors": [[13, 31]],
+  "redis_namespace": "behavior_lab:v1"
+}
