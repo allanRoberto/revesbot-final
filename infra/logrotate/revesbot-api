@@ -1,4 +1,4 @@
-/home/revesbot/.pm2/logs/revesbot-api-*.log {
+/home/revesbot/.pm2/logs/revesbot-api-*.log /home/revesbot/.pm2/logs/revesbot-behavior-lab-*.log {
     daily
     rotate 7
     size 20M

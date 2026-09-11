@@ -4,4 +4,4 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/var/www/revesbot/api-current/infra/deploy/api/watchdog.sh
+ExecStart=/usr/local/sbin/revesbot-api-watchdog

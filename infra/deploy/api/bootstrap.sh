@@ -20,9 +20,11 @@ test -d "$repository/.git"
 test -f "$source_root/infra/pm2/api-minimal.config.js"
 test -s "$mongo_data_env"
 
-install -d -o "$runtime_user" -g "$runtime_user" "$base_dir/api-releases"
+install -d -m 0755 -o root -g root "$base_dir"
+install -d -m 0755 -o root -g root "$base_dir/api-releases"
 install -d -o "$runtime_user" -g "$runtime_user" "$base_dir/shared/state"
 install -d -m 0750 -o root -g "$runtime_user" /etc/revesbot
+install -d -m 0700 -o root -g root /var/lib/revesbot-api-deploy
 
 set -a
 # shellcheck disable=SC1090
@@ -90,7 +92,8 @@ fi
 systemctl disable --now revesbot-pixgo-mongo-tunnel.service >/dev/null 2>&1 || true
 
 install -m 0755 "$source_root/infra/deploy/api/ssh-dispatch.sh" /usr/local/sbin/revesbot-api-deploy-dispatch
-install -m 0755 "$source_root/infra/deploy/api/deploy.sh" /usr/local/sbin/revesbot-api-deploy
+install -m 0755 "$source_root/infra/deploy/api/driver.sh" /usr/local/sbin/revesbot-api-deploy
+install -m 0755 "$source_root/infra/deploy/api/watchdog.sh" /usr/local/sbin/revesbot-api-watchdog
 install -m 0644 "$source_root/infra/systemd/revesbot-api-watchdog.service" /etc/systemd/system/
 install -m 0644 "$source_root/infra/systemd/revesbot-api-watchdog.timer" /etc/systemd/system/
 install -m 0644 "$source_root/infra/logrotate/revesbot-api" /etc/logrotate.d/revesbot-api
