@@ -162,3 +162,59 @@ def test_live_retention_archives_resolved_signals_without_losing_metrics() -> No
         resolved_signal_retention=3,
     )
     assert restored.snapshot()["metrics"]["signals"] == retained_metrics
+
+
+def test_distance_metrics_include_retained_and_archived_signals() -> None:
+    config = BehaviorLabConfig()
+    engine = BehaviorEngine(config, rules=[], resolved_signal_retention=1)
+
+    def add_signal(signal_id: str, distance: int, status: SignalStatus) -> None:
+        from behavior_lab.contracts import Signal
+
+        engine.ledger.signals.append(
+            Signal(
+                signal_id=signal_id,
+                rule="distance_test",
+                roulette_id=config.roulette_id,
+                targets=(7,),
+                suggested_numbers=(7,),
+                exhausted_targets=(),
+                evidence={"prior_start_index": 10, "current_start_index": 10 + distance},
+                activated_at_index=10 + distance,
+                activated_event_id=signal_id,
+                activated_value=1,
+                status=status,
+                attempts=1 if status == SignalStatus.WON else 10,
+                payment_type="exact" if status == SignalStatus.WON else None,
+            )
+        )
+
+    add_signal("won-near", 25, SignalStatus.WON)
+    add_signal("lost-far", 325, SignalStatus.LOST)
+    engine._prune_resolved_signals()
+
+    metrics = engine.snapshot()["metrics"]["signals"]["distance_analysis"]
+    assert metrics["resolved"] == 2
+    assert metrics["with_distance"] == 2
+    assert metrics["distance_unavailable"] == 0
+    assert metrics["by_rule"]["distance_test"]["buckets"]["11-50"]["won"] == 1
+    assert metrics["by_rule"]["distance_test"]["buckets"]["301-400"]["lost"] == 1
+
+
+def test_legacy_archive_is_counted_as_distance_unavailable() -> None:
+    config = BehaviorLabConfig()
+    engine = BehaviorEngine(
+        config,
+        rules=[],
+        archived_signal_metrics={
+            "activated": 476,
+            "statuses": {"won": 350, "lost": 126},
+            "by_rule": {
+                "legacy": {"activated": 476, "won": 350, "lost": 126}
+            },
+        },
+    )
+    metrics = engine.snapshot()["metrics"]["signals"]["distance_analysis"]
+    assert metrics["resolved"] == 476
+    assert metrics["with_distance"] == 0
+    assert metrics["distance_unavailable"] == 476
