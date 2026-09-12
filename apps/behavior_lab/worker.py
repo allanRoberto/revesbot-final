@@ -16,7 +16,9 @@ from .state_store import RedisStateStore
 
 LOGGER = logging.getLogger("behavior_lab.worker")
 MAX_RECONCILE_RESULTS = 50_000
-RESOLVED_SIGNAL_RETENTION = 500
+RESOLVED_SIGNAL_RETENTION = max(
+    1, int(os.getenv("BEHAVIOR_LAB_RESOLVED_SIGNAL_RETENTION", "50000"))
+)
 IDENTITY_RETENTION = 1_200
 
 
