@@ -39,6 +39,25 @@ O ranking é consultado em lote, preservando os pontos e o desempate já publica
 
 A assertividade exibida é `vitórias / (vitórias + derrotas) × 100`. Sem entradas encerradas, fica indisponível, não 0%. Os demais estados são contados separadamente; nenhuma regra de superaquecimento, repetição de candidatos ou seleção de gatilhos é aplicada.
 
+## Catálogo de qualidade dos rankings
+
+Cada sinal com um trio válido recebe métricas derivadas exclusivamente dos dados já gravados no catálogo. Elas são diagnósticas: nesta etapa não excluem nem alteram nenhuma entrada.
+
+- **Suporte:** ocorrências históricas do trio.
+- **Cobertura completa:** `complete_occurrences / occurrences`.
+- **Cobertura do contexto:** `context_events / (occurrences × depth)`.
+- **Taxa direta do top K:** soma de `direct_hits` dos selecionados dividida pelos eventos de contexto.
+- **Lift direto:** taxa direta do top K dividida por `K / 37`.
+- **Concentração do score:** score do top K dividido pelo score dos 37 números.
+- **Concentração relativa:** concentração do score dividida por `K / 37`.
+- **Margem do corte:** diferença entre o score do candidato K e o K+1, dividida pelos eventos de contexto. Não existe no top 37.
+- **Força do líder:** diferença entre primeiro e segundo colocados, também normalizada pelos eventos.
+- **Dominância da ordem:** no modo sem ordem, maior contagem entre as seis permutações dividida pelas ocorrências totais.
+
+O painel permite alternar entre suporte, cobertura, lift, concentração, margem e dominância. Para cada faixa mostra rankings formados, entradas encerradas, bloqueios por sobreposição, vitórias, derrotas, assertividade, saldo conforme a progressão financeira atual e maior sequência de derrotas. Rankings sem dados suficientes permanecem visíveis em uma faixa própria.
+
+Cada linha da tabela de sinais também oferece os detalhes de qualidade do ranking correspondente. Rankings bloqueados por sobreposição continuam catalogados, mas não simulam uma aposta. Trios repetidos não possuem ranking e, portanto, não possuem métricas de qualidade.
+
 ## Depois da derrota
 
 A ferramenta busca o primeiro acerto do **mesmo conjunto de K números** até o fim da amostra selecionada. A derrota original permanece derrota. O relatório mostra a tentativa total desde a entrada e quantos giros adicionais foram necessários depois de T.

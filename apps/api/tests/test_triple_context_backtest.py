@@ -2,6 +2,7 @@ import asyncio
 import json
 import subprocess
 from datetime import datetime, timedelta, timezone
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ from pymongo.errors import PyMongoError
 from api.routes import triple_context_backtest as route_module
 from api.routes.triple_context_backtest import get_backtest_db, router
 from api.services.triple_context_backtest_service import (
-    CatalogNotFound, CatalogUnavailable, build_signals, normalize_history,
+    CatalogNotFound, CatalogUnavailable, build_signals, normalize_history, ranking_quality,
     run_catalog_backtest,
 )
 
@@ -88,20 +89,29 @@ def _matches(document, query):
     return True
 
 
-def _ranking(seed=0):
+def _ranking(seed=0, events=10):
     order = list(range(37))
     order = order[seed:] + order[:seed]
-    return [{"number": number, "score": float(37 - position), "direct_hits": position}
+    return [{"number": number, "score": float(37 - position),
+             "direct_hits": events if position == 0 else 0}
             for position, number in enumerate(order)]
 
 
 def _catalog_doc(key, combination, *, events=10, direction="forward", seed=0,
                  mode="ordered"):
     depth = 20 if direction == "forward" else 10
-    return {"build_id": "build-a", "roulette_id": ROULETTE,
+    document = {"build_id": "build-a", "roulette_id": ROULETTE,
             "mode": mode, "key": key, "combination": combination,
             "occurrences": 4, direction: {"depth": depth, "context_events": events,
-                                          "ranking": _ranking(seed)}}
+                "complete_occurrences": min(4, events // depth),
+                "position_counts": [events // depth + (index < events % depth)
+                                    for index in range(depth)],
+                "ranking": _ranking(seed, events)}}
+    if mode == "unordered":
+        document["permutation_counts"] = [
+            {"combination": list(order), "occurrences": 4 if index == 0 else 0}
+            for index, order in enumerate(permutations(combination))]
+    return document
 
 
 def _db(values, catalog, *, status="ready", active=True):
@@ -239,14 +249,35 @@ def test_run_can_prevent_overlapping_bets_without_removing_formed_signals():
 def test_build_signals_selects_requested_side_mode_and_top_k():
     rows = [{"value": value, "timestamp": f"t{i}", "source_id": str(i)}
             for i, value in enumerate([3, 2, 1])]
-    ranking = _ranking(9)
-    unordered = {"1,2,3": {"key": "1,2,3", "combination": [1, 2, 3],
-        "occurrences": 8, "backward": {"depth": 10, "context_events": 4,
-                                         "ranking": ranking}}}
+    document = _catalog_doc("1,2,3", [1, 2, 3], events=4, direction="backward",
+                            seed=9, mode="unordered")
+    unordered = {"1,2,3": document}
     signals = build_signals(rows, unordered, ordered=False, direction="backward", top_k=3)
     assert signals[0]["key"] == "1,2,3"
     assert signals[0]["selected_numbers"] == [9, 10, 11]
     assert signals[0]["context_events"] == 4
+    assert signals[0]["quality"]["direct_lift"] == pytest.approx(37 / 3)
+    assert signals[0]["quality"]["order_dominance"] == 1
+
+
+def test_ranking_quality_normalizes_support_direct_hits_and_score_margins():
+    document = _catalog_doc("1,2,3", [1, 2, 3], events=20, seed=7)
+    side = document["forward"]
+    quality = ranking_quality(
+        document, side, side["ranking"], top_k=1, ordered=True)
+
+    assert quality["occurrences"] == 4
+    assert quality["context_coverage"] == pytest.approx(0.25)
+    assert quality["complete_coverage"] == pytest.approx(0.25)
+    assert quality["top_k_direct_hits"] == 20
+    assert quality["direct_hit_rate"] == 1
+    assert quality["direct_lift"] == 37
+    assert quality["score_concentration"] == pytest.approx(37 / sum(range(1, 38)))
+    assert quality["score_concentration_lift"] == pytest.approx(
+        quality["score_concentration"] * 37)
+    assert quality["cutoff_margin_per_event"] == pytest.approx(0.05)
+    assert quality["leader_margin_per_event"] == pytest.approx(0.05)
+    assert quality["order_dominance"] is None
 
 
 def test_zero_evidence_is_skipped_and_missing_or_corrupt_catalog_fails():
@@ -291,6 +322,9 @@ def test_backtest_html_is_independent_of_mongo_and_has_versioned_controls_and_as
     assert 'id="calculate-financial"' in response.text
     assert 'id="financial-projection-body"' in response.text
     assert 'id="financial-chart"' in response.text
+    assert 'id="quality-report-heading"' in response.text
+    assert 'id="quality-dimension"' in response.text
+    assert 'id="quality-buckets-body"' in response.text
     assert "csv" not in response.text.lower()
 
 

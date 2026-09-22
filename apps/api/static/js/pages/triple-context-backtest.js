@@ -50,6 +50,7 @@
   ];
   const integer = new Intl.NumberFormat("pt-BR");
   const percentage = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const decimal = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
   const datetime = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo",
@@ -57,6 +58,73 @@
   const PAGE_SIZE = 50;
   const REQUEST_TIMEOUT_MS = 60000;
   const statusLabels = { win: "Vitória", loss: "Derrota", incomplete: "Incompleto", repeated_trio: "Números repetidos", no_evidence: "Sem evidência", overlap_skipped: "Ignorado por sobreposição" };
+  const qualityDimensions = {
+    support: {
+      field: "occurrences",
+      description: "Quantidade de vezes que o trio apareceu na base do catálogo.",
+      bins: [
+        { label: "1–2 ocorrências", test: (value) => value >= 1 && value <= 2 },
+        { label: "3–5 ocorrências", test: (value) => value >= 3 && value <= 5 },
+        { label: "6–10 ocorrências", test: (value) => value >= 6 && value <= 10 },
+        { label: "11–20 ocorrências", test: (value) => value >= 11 && value <= 20 },
+        { label: "21 ou mais", test: (value) => value >= 21 },
+        { label: "Sem ocorrências", test: (value) => value === 0 },
+      ],
+    },
+    complete_coverage: {
+      field: "complete_coverage",
+      description: "Proporção das ocorrências que possuíam toda a profundidade de contexto escolhida.",
+      bins: [
+        { label: "Abaixo de 50%", test: (value) => value < 0.5 },
+        { label: "50% a 74,99%", test: (value) => value >= 0.5 && value < 0.75 },
+        { label: "75% a 89,99%", test: (value) => value >= 0.75 && value < 0.9 },
+        { label: "90% a 100%", test: (value) => value >= 0.9 },
+      ],
+    },
+    direct_lift: {
+      field: "direct_lift",
+      description: "Taxa de acertos exatos do top K dividida pela cobertura aleatória K/37. Valor acima de 1 indica concentração superior à base uniforme.",
+      bins: [
+        { label: "Abaixo de 1,00×", test: (value) => value < 1 },
+        { label: "1,00× a 1,09×", test: (value) => value >= 1 && value < 1.1 },
+        { label: "1,10× a 1,24×", test: (value) => value >= 1.1 && value < 1.25 },
+        { label: "1,25× a 1,49×", test: (value) => value >= 1.25 && value < 1.5 },
+        { label: "1,50× ou mais", test: (value) => value >= 1.5 },
+      ],
+    },
+    score_concentration_lift: {
+      field: "score_concentration_lift",
+      description: "Parcela do score no top K comparada à participação uniforme K/37.",
+      bins: [
+        { label: "Abaixo de 1,00×", test: (value) => value < 1 },
+        { label: "1,00× a 1,09×", test: (value) => value >= 1 && value < 1.1 },
+        { label: "1,10× a 1,24×", test: (value) => value >= 1.1 && value < 1.25 },
+        { label: "1,25× a 1,49×", test: (value) => value >= 1.25 && value < 1.5 },
+        { label: "1,50× ou mais", test: (value) => value >= 1.5 },
+      ],
+    },
+    cutoff_margin_per_event: {
+      field: "cutoff_margin_per_event",
+      description: "Diferença normalizada entre o score do último selecionado e o primeiro excluído. Top 37 não possui corte.",
+      bins: [
+        { label: "Empatado", test: (value) => value === 0 },
+        { label: "Acima de 0 até 0,10", test: (value) => value > 0 && value <= 0.1 },
+        { label: "Acima de 0,10 até 0,25", test: (value) => value > 0.1 && value <= 0.25 },
+        { label: "Acima de 0,25 até 0,50", test: (value) => value > 0.25 && value <= 0.5 },
+        { label: "Acima de 0,50", test: (value) => value > 0.5 },
+      ],
+    },
+    order_dominance: {
+      field: "order_dominance",
+      description: "No modo sem ordem, mostra quanto das ocorrências veio da permutação mais frequente. Não se aplica à ordem exata.",
+      bins: [
+        { label: "Até 25%", test: (value) => value <= 0.25 },
+        { label: "Acima de 25% até 40%", test: (value) => value > 0.25 && value <= 0.4 },
+        { label: "Acima de 40% até 60%", test: (value) => value > 0.4 && value <= 0.6 },
+        { label: "Acima de 60%", test: (value) => value > 0.6 },
+      ],
+    },
+  };
   let requestId = 0;
   let activeController = null;
   let currentReport = null;
@@ -92,6 +160,7 @@
     $("financial-projection").hidden = true;
     if (currentReport) {
       renderFinancialReport(currentReport);
+      renderQualityReport(currentReport);
       renderPage(currentPage);
     }
   }
@@ -142,6 +211,7 @@
       renderFinancialProjection(currentFinancialPlan);
       if (currentReport) {
         renderFinancialReport(currentReport);
+        renderQualityReport(currentReport);
         renderPage(currentPage);
       }
       return currentFinancialPlan;
@@ -236,6 +306,81 @@
     renderFinancialChart(balances);
   }
 
+  function median(values) {
+    if (!values.length) return null;
+    const ordered = values.slice().sort((left, right) => left - right);
+    const middle = Math.floor(ordered.length / 2);
+    return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+  }
+
+  function qualityValue(value, suffix = "") {
+    return value === null ? "—" : `${decimal.format(value)}${suffix}`;
+  }
+
+  function longestLossSequence(signals) {
+    let longest = 0;
+    let current = 0;
+    signals.forEach((signal) => {
+      if (signal.status === "loss") {
+        current += 1;
+        longest = Math.max(longest, current);
+      } else if (signal.status === "win") current = 0;
+    });
+    return longest;
+  }
+
+  function renderQualityBuckets(data) {
+    const dimension = qualityDimensions[$("quality-dimension").value] || qualityDimensions.support;
+    $("quality-dimension-description").textContent = dimension.description;
+    const bins = [...dimension.bins.map((bin) => ({ ...bin, signals: [] })),
+      { label: "Sem dados para esta métrica", test: (value) => value === null, signals: [] }];
+    data.signals.forEach((signal) => {
+      if (!signal.quality) return;
+      const value = signal.quality[dimension.field];
+      const bin = bins.find((candidate) => candidate.test(value));
+      if (bin) bin.signals.push(signal);
+    });
+    const fragment = document.createDocumentFragment();
+    bins.forEach((bin) => {
+      const closed = bin.signals.filter((signal) => signal.status === "win" || signal.status === "loss");
+      const wins = closed.filter((signal) => signal.status === "win").length;
+      const losses = closed.length - wins;
+      const blocked = bin.signals.filter((signal) => signal.status === "overlap_skipped").length;
+      let pnlCents = 0;
+      let hasFinancial = Boolean(currentFinancialPlan
+        && currentFinancialPlan.topK === data.config.top_k
+        && currentFinancialPlan.attempts === data.config.attempts);
+      if (hasFinancial) {
+        closed.forEach((signal) => { pnlCents += financialOutcome(signal, currentFinancialPlan).pnlCents; });
+      }
+      const row = element("tr");
+      row.append(
+        element("td", "", bin.label),
+        element("td", "", integer.format(bin.signals.length)),
+        element("td", "", integer.format(closed.length)),
+        element("td", "", integer.format(blocked)),
+        element("td", "", integer.format(wins)),
+        element("td", "", integer.format(losses)),
+        element("td", "", closed.length ? `${percentage.format(wins * 100 / closed.length)}%` : "—"),
+        element("td", hasFinancial ? (pnlCents >= 0 ? "financial-positive" : "financial-negative") : "", hasFinancial ? money(pnlCents, true) : "—"),
+        element("td", "", integer.format(longestLossSequence(closed))),
+      );
+      fragment.append(row);
+    });
+    $("quality-buckets-body").replaceChildren(fragment);
+  }
+
+  function renderQualityReport(data) {
+    const qualitySignals = data.signals.filter((signal) => signal.quality);
+    const directLifts = qualitySignals.map((signal) => signal.quality.direct_lift).filter((value) => value !== null);
+    const concentrationLifts = qualitySignals.map((signal) => signal.quality.score_concentration_lift).filter((value) => value !== null);
+    $("quality-signals").textContent = integer.format(qualitySignals.length);
+    $("quality-median-occurrences").textContent = qualityValue(median(qualitySignals.map((signal) => signal.quality.occurrences)));
+    $("quality-median-direct-lift").textContent = qualityValue(median(directLifts), "×");
+    $("quality-median-concentration").textContent = qualityValue(median(concentrationLifts), "×");
+    renderQualityBuckets(data);
+  }
+
   function setBusy(busy) {
     $("backtest-results-region").setAttribute("aria-busy", String(busy));
     $("run-button").disabled = busy;
@@ -301,6 +446,8 @@
     const count = (value) => Number.isSafeInteger(value) && value >= 0;
     const number = (value) => count(value) && value <= 36;
     const optionalCount = (value) => value === null || count(value);
+    const finite = (value) => Number.isFinite(value) && value >= 0;
+    const optionalFinite = (value) => value === null || finite(value);
     const validDate = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
     const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     const fail = () => { throw new Error("A API retornou um resultado incompleto ou inconsistente. Tente novamente."); };
@@ -347,6 +494,25 @@
           || !(signal.blocked_by_signal_id === null || count(signal.blocked_by_signal_id))) fail();
       const noRanking = signal.status === "repeated_trio" || signal.status === "no_evidence";
       if (signal.selected_numbers.length !== (noRanking ? 0 : request.top_k)) fail();
+      if (signal.status === "repeated_trio") {
+        if (signal.quality !== null) fail();
+      } else {
+        const quality = signal.quality;
+        const qualityCounts = ["occurrences", "depth", "context_events", "complete_occurrences", "top_k_direct_hits"];
+        const qualityNumbers = ["context_coverage", "complete_coverage", "direct_hit_rate", "direct_lift",
+          "top_k_score", "total_score", "score_concentration", "score_concentration_lift", "cutoff_score",
+          "next_score", "cutoff_margin_per_event", "leader_margin_per_event", "order_dominance"];
+        if (!object(quality) || !qualityCounts.every((key) => count(quality[key]))
+            || !qualityNumbers.every((key) => optionalFinite(quality[key]))
+            || quality.depth !== (request.direction === "forward" ? 20 : 10)
+            || quality.complete_occurrences > quality.occurrences
+            || quality.top_k_direct_hits > quality.context_events
+            || [quality.context_coverage, quality.complete_coverage, quality.direct_hit_rate,
+              quality.score_concentration, quality.order_dominance]
+              .some((value) => value !== null && value > 1)
+            || (request.top_k === 37) !== (quality.next_score === null)
+            || (request.ordered && quality.order_dominance !== null)) fail();
+      }
       if (signal.status === "overlap_skipped" && (signal.available_attempts !== 0
           || signal.checked_numbers.length !== 0 || signal.blocked_by_signal_id === null
           || signal.blocked_until_position === null || signal.first_hit_attempt !== null)) fail();
@@ -441,6 +607,30 @@
         disclosure.append(numbers);
         picksCell.append(disclosure);
       } else picksCell.textContent = "Sem ranking";
+      if (signal.quality) {
+        const quality = signal.quality;
+        const qualityDisclosure = element("details", "signal-details quality-details");
+        qualityDisclosure.append(element("summary", "", "Ver qualidade"));
+        const facts = element("div", "quality-facts");
+        const factRows = [
+          ["Ocorrências", integer.format(quality.occurrences)],
+          ["Cobertura completa", quality.complete_coverage === null ? "—" : `${percentage.format(quality.complete_coverage * 100)}%`],
+          ["Cobertura do contexto", quality.context_coverage === null ? "—" : `${percentage.format(quality.context_coverage * 100)}%`],
+          ["Lift direto", qualityValue(quality.direct_lift, "×")],
+          ["Concentração relativa", qualityValue(quality.score_concentration_lift, "×")],
+          ["Margem do corte", qualityValue(quality.cutoff_margin_per_event)],
+        ];
+        if (quality.order_dominance !== null) {
+          factRows.push(["Dominância da ordem", `${percentage.format(quality.order_dominance * 100)}%`]);
+        }
+        factRows.forEach(([label, value]) => {
+          const fact = element("span");
+          fact.append(element("small", "", label), element("strong", "", value));
+          facts.append(fact);
+        });
+        qualityDisclosure.append(facts);
+        picksCell.append(qualityDisclosure);
+      }
       const stateCell = element("td");
       stateCell.append(element("span", `status-chip status-${signal.status}`, statusLabels[signal.status]));
       if (currentFinancialPlan && currentFinancialPlan.topK === currentReport.config.top_k
@@ -529,6 +719,7 @@
     $("catalog-period").textContent = `${datetime.format(new Date(data.catalog.source.first_timestamp))} — ${datetime.format(new Date(data.catalog.source.last_timestamp))}`;
     $("catalog-build").textContent = data.catalog.build_id;
     renderFinancialReport(data);
+    renderQualityReport(data);
     renderPage(1);
     $("backtest-empty").hidden = true;
     $("backtest-error").hidden = true;
@@ -615,6 +806,7 @@
       $("financial-projection").hidden = true;
       if (currentReport) {
         renderFinancialReport(currentReport);
+        renderQualityReport(currentReport);
         renderPage(currentPage);
       }
       return;
@@ -635,5 +827,6 @@
   $("page-go").addEventListener("click", goToPage);
   $("page-number").addEventListener("input", clearPageError);
   $("page-number").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); goToPage(); } });
+  $("quality-dimension").addEventListener("change", () => { if (currentReport) renderQualityBuckets(currentReport); });
   calculateFinancialPlan({ focusOnError: false });
 })();

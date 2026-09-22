@@ -70,6 +70,52 @@ def trio_key(trio, ordered):
     return ",".join(map(str, trio if ordered else sorted(trio)))
 
 
+def ranking_quality(document, side, ranking, *, top_k, ordered):
+    """Build comparable support and concentration metrics from stored catalog facts."""
+    occurrences = document["occurrences"]
+    depth = side["depth"]
+    context_events = side["context_events"]
+    complete_occurrences = side["complete_occurrences"]
+    selected = ranking[:top_k]
+    total_score = sum(row["score"] for row in ranking)
+    selected_score = sum(row["score"] for row in selected)
+    selected_direct_hits = sum(row["direct_hits"] for row in selected)
+    baseline = top_k / 37
+    direct_hit_rate = selected_direct_hits / context_events if context_events else None
+    score_concentration = selected_score / total_score if total_score else None
+    cutoff_margin = (
+        (ranking[top_k - 1]["score"] - ranking[top_k]["score"]) / context_events
+        if context_events and top_k < 37 else None
+    )
+    leader_margin = (
+        (ranking[0]["score"] - ranking[1]["score"]) / context_events
+        if context_events else None
+    )
+    order_dominance = None
+    if not ordered and occurrences:
+        order_dominance = max(row["occurrences"] for row in document["permutation_counts"]) / occurrences
+    return {
+        "occurrences": occurrences,
+        "depth": depth,
+        "context_events": context_events,
+        "complete_occurrences": complete_occurrences,
+        "context_coverage": context_events / (occurrences * depth) if occurrences else None,
+        "complete_coverage": complete_occurrences / occurrences if occurrences else None,
+        "top_k_direct_hits": selected_direct_hits,
+        "direct_hit_rate": direct_hit_rate,
+        "direct_lift": direct_hit_rate / baseline if direct_hit_rate is not None else None,
+        "top_k_score": selected_score,
+        "total_score": total_score,
+        "score_concentration": score_concentration,
+        "score_concentration_lift": score_concentration / baseline if score_concentration is not None else None,
+        "cutoff_score": ranking[top_k - 1]["score"],
+        "next_score": ranking[top_k]["score"] if top_k < 37 else None,
+        "cutoff_margin_per_event": cutoff_margin,
+        "leader_margin_per_event": leader_margin,
+        "order_dominance": order_dominance,
+    }
+
+
 def build_signals(rows, documents, *, ordered, direction, top_k):
     signals = []
     depth = 20 if direction == "forward" else 10
@@ -79,6 +125,7 @@ def build_signals(rows, documents, *, ordered, direction, top_k):
             "signal_id": len(signals) + 1, "end_index": end, "trio": trio,
             "trigger_timestamp": rows[end]["timestamp"], "trigger_position": end + 1,
             "selected_numbers": [], "catalog_occurrences": 0, "context_events": 0,
+            "quality": None,
         }
         if len(set(trio)) != 3:
             signals.append({**signal, "status": "repeated_trio", "key": None})
@@ -96,18 +143,40 @@ def build_signals(rows, documents, *, ordered, direction, top_k):
                 and type(document["occurrences"]) is int and document["occurrences"] >= 0
                 and side["depth"] == depth
                 and type(side["context_events"]) is int and side["context_events"] >= 0
+                and type(side["complete_occurrences"]) is int
+                and 0 <= side["complete_occurrences"] <= document["occurrences"]
+                and isinstance(side["position_counts"], list)
+                and len(side["position_counts"]) == depth
+                and all(type(count) is int and count >= 0 for count in side["position_counts"])
+                and sum(side["position_counts"]) == side["context_events"]
                 and len(ranking) == 37
                 and all(type(row["number"]) is int and 0 <= row["number"] <= 36
                         and type(row["score"]) in (int, float) and math.isfinite(row["score"])
-                        and row["score"] >= 0 for row in ranking)
+                        and row["score"] >= 0
+                        and type(row["direct_hits"]) is int and row["direct_hits"] >= 0
+                        for row in ranking)
+                and sum(row["direct_hits"] for row in ranking) == side["context_events"]
                 and len({row["number"] for row in ranking}) == 37
                 and ranking == sorted(ranking, key=lambda row: (-row["score"], row["number"]))
             )
+            if not ordered:
+                permutations = document["permutation_counts"]
+                valid = valid and isinstance(permutations, list) and len(permutations) == 6
+                valid = valid and all(
+                    isinstance(row, dict) and isinstance(row.get("combination"), list)
+                    and len(row["combination"]) == 3
+                    and sorted(row["combination"]) == document["combination"]
+                    and type(row.get("occurrences")) is int and row["occurrences"] >= 0
+                    for row in permutations)
+                valid = valid and len({tuple(row["combination"]) for row in permutations}) == 6
+                valid = valid and sum(row["occurrences"] for row in permutations) == document["occurrences"]
             if not valid:
                 raise CatalogUnavailable("O catálogo retornou um ranking inconsistente.")
         except (KeyError, TypeError, ValueError) as error:
             raise CatalogUnavailable("O catálogo retornou um ranking inconsistente.") from error
         signal.update(key=key, catalog_occurrences=document["occurrences"], context_events=side["context_events"])
+        signal["quality"] = ranking_quality(
+            document, side, ranking, top_k=top_k, ordered=ordered)
         if side["context_events"] == 0:
             signal["status"] = "no_evidence"
         else:
@@ -164,7 +233,8 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
         batch = await db["triple_context_rankings_v1"].find(
             {"build_id": build_id, "roulette_id": ROULETTE,
              "mode": "ordered" if ordered else "unordered", "key": {"$in": keys[offset:offset + 500]}},
-            {"_id": 0, "key": 1, "combination": 1, "occurrences": 1, direction: 1},
+            {"_id": 0, "key": 1, "combination": 1, "occurrences": 1,
+             "permutation_counts": 1, direction: 1},
         ).max_time_ms(15000).to_list(length=501)
         for document in batch:
             key = document.get("key")
