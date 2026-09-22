@@ -6,6 +6,12 @@ GET https://api.revesbot.com.br/api/triple-context-ranking
 
 A rota consulta o catálogo publicado no MongoDB e retorna **os 37 candidatos somente da direção escolhida**, na ordem e com os pontos já gravados. Não recalcula o histórico.
 
+## Interface web
+
+A consulta visual está disponível em `https://api.revesbot.com.br/ranking-trios`. A rota que entrega o HTML não acessa o MongoDB. No navegador, a página usa o endpoint JSON na mesma origem e abre consultando o trio de exemplo já preenchido; novas consultas ocorrem ao enviar o formulário.
+
+Os controles permitem informar os três números, escolher ordem exata ou independente da ordem, selecionar frente (20 posições) ou trás (10 posições) na Pragmatic Auto Roulette. O primeiro número informado é o mais recente. A lista apresenta todos os 37 números e suas pontuações; os pontos são pesos históricos, **não probabilidades**. Nenhum filtro de calor, seleção de gatilhos ou exclusão por resultado anterior é aplicado pela interface.
+
 ## Parâmetros
 
 | Parâmetro | Obrigatório | Valores / significado |
