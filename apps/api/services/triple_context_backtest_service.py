@@ -116,77 +116,113 @@ def ranking_quality(document, side, ranking, *, top_k, ordered):
     }
 
 
+def catalog_selection(trio, documents, *, ordered, direction, top_k):
+    """Return one validated catalog selection without calculating new ranking weights."""
+    depth = 20 if direction == "forward" else 10
+    if len(set(trio)) != 3:
+        return {"trio": trio, "key": None, "selected_numbers": [], "catalog_occurrences": 0,
+                "context_events": 0, "quality": None, "status": "repeated_trio"}
+    key = trio_key(trio, ordered)
+    document = documents.get(key)
+    if document is None:
+        raise CatalogUnavailable("Uma combinação está ausente do catálogo publicado. A execução foi interrompida.")
+    try:
+        side = document[direction]
+        ranking = side["ranking"]
+        valid = (
+            document["key"] == key
+            and document["combination"] == (trio if ordered else sorted(trio))
+            and type(document["occurrences"]) is int and document["occurrences"] >= 0
+            and side["depth"] == depth
+            and type(side["context_events"]) is int and side["context_events"] >= 0
+            and type(side["complete_occurrences"]) is int
+            and 0 <= side["complete_occurrences"] <= document["occurrences"]
+            and isinstance(side["position_counts"], list)
+            and len(side["position_counts"]) == depth
+            and all(type(count) is int and count >= 0 for count in side["position_counts"])
+            and sum(side["position_counts"]) == side["context_events"]
+            and len(ranking) == 37
+            and all(type(row["number"]) is int and 0 <= row["number"] <= 36
+                    and type(row["score"]) in (int, float) and math.isfinite(row["score"])
+                    and row["score"] >= 0
+                    and type(row["direct_hits"]) is int and row["direct_hits"] >= 0
+                    for row in ranking)
+            and sum(row["direct_hits"] for row in ranking) == side["context_events"]
+            and len({row["number"] for row in ranking}) == 37
+            and ranking == sorted(ranking, key=lambda row: (-row["score"], row["number"]))
+        )
+        if not ordered:
+            permutations = document["permutation_counts"]
+            valid = valid and isinstance(permutations, list) and len(permutations) == 6
+            valid = valid and all(
+                isinstance(row, dict) and isinstance(row.get("combination"), list)
+                and len(row["combination"]) == 3
+                and sorted(row["combination"]) == document["combination"]
+                and type(row.get("occurrences")) is int and row["occurrences"] >= 0
+                for row in permutations)
+            valid = valid and len({tuple(row["combination"]) for row in permutations}) == 6
+            valid = valid and sum(row["occurrences"] for row in permutations) == document["occurrences"]
+        if not valid:
+            raise CatalogUnavailable("O catálogo retornou um ranking inconsistente.")
+    except (KeyError, TypeError, ValueError) as error:
+        raise CatalogUnavailable("O catálogo retornou um ranking inconsistente.") from error
+    selection = {
+        "trio": trio, "key": key, "selected_numbers": [],
+        "catalog_occurrences": document["occurrences"], "context_events": side["context_events"],
+        "quality": ranking_quality(document, side, ranking, top_k=top_k, ordered=ordered),
+    }
+    if side["context_events"] == 0:
+        selection["status"] = "no_evidence"
+    else:
+        selection["selected_numbers"] = [row["number"] for row in ranking[:top_k]]
+    return selection
+
+
 def build_signals(rows, documents, *, ordered, direction, top_k):
     signals = []
-    depth = 20 if direction == "forward" else 10
     for end in range(2, len(rows), 3):
         trio = [row["value"] for row in rows[end - 2:end + 1]]
         signal = {
-            "signal_id": len(signals) + 1, "end_index": end, "trio": trio,
+            "signal_id": len(signals) + 1, "end_index": end,
             "trigger_timestamp": rows[end]["timestamp"], "trigger_position": end + 1,
-            "selected_numbers": [], "catalog_occurrences": 0, "context_events": 0,
-            "quality": None,
+            **catalog_selection(trio, documents, ordered=ordered, direction=direction, top_k=top_k),
         }
-        if len(set(trio)) != 3:
-            signals.append({**signal, "status": "repeated_trio", "key": None})
-            continue
-        key = trio_key(trio, ordered)
-        document = documents.get(key)
-        if document is None:
-            raise CatalogUnavailable("Uma combinação está ausente do catálogo publicado. A execução foi interrompida.")
-        try:
-            side = document[direction]
-            ranking = side["ranking"]
-            valid = (
-                document["key"] == key
-                and document["combination"] == (trio if ordered else sorted(trio))
-                and type(document["occurrences"]) is int and document["occurrences"] >= 0
-                and side["depth"] == depth
-                and type(side["context_events"]) is int and side["context_events"] >= 0
-                and type(side["complete_occurrences"]) is int
-                and 0 <= side["complete_occurrences"] <= document["occurrences"]
-                and isinstance(side["position_counts"], list)
-                and len(side["position_counts"]) == depth
-                and all(type(count) is int and count >= 0 for count in side["position_counts"])
-                and sum(side["position_counts"]) == side["context_events"]
-                and len(ranking) == 37
-                and all(type(row["number"]) is int and 0 <= row["number"] <= 36
-                        and type(row["score"]) in (int, float) and math.isfinite(row["score"])
-                        and row["score"] >= 0
-                        and type(row["direct_hits"]) is int and row["direct_hits"] >= 0
-                        for row in ranking)
-                and sum(row["direct_hits"] for row in ranking) == side["context_events"]
-                and len({row["number"] for row in ranking}) == 37
-                and ranking == sorted(ranking, key=lambda row: (-row["score"], row["number"]))
-            )
-            if not ordered:
-                permutations = document["permutation_counts"]
-                valid = valid and isinstance(permutations, list) and len(permutations) == 6
-                valid = valid and all(
-                    isinstance(row, dict) and isinstance(row.get("combination"), list)
-                    and len(row["combination"]) == 3
-                    and sorted(row["combination"]) == document["combination"]
-                    and type(row.get("occurrences")) is int and row["occurrences"] >= 0
-                    for row in permutations)
-                valid = valid and len({tuple(row["combination"]) for row in permutations}) == 6
-                valid = valid and sum(row["occurrences"] for row in permutations) == document["occurrences"]
-            if not valid:
-                raise CatalogUnavailable("O catálogo retornou um ranking inconsistente.")
-        except (KeyError, TypeError, ValueError) as error:
-            raise CatalogUnavailable("O catálogo retornou um ranking inconsistente.") from error
-        signal.update(key=key, catalog_occurrences=document["occurrences"], context_events=side["context_events"])
-        signal["quality"] = ranking_quality(
-            document, side, ranking, top_k=top_k, ordered=ordered)
-        if side["context_events"] == 0:
-            signal["status"] = "no_evidence"
-        else:
-            signal["selected_numbers"] = [row["number"] for row in ranking[:top_k]]
         signals.append(signal)
     return signals
 
 
+def build_dynamic_rankings(rows, documents, *, ordered, direction, top_k):
+    """Map each target spin to the ranking formed by its three preceding results."""
+    windows = {}
+    active = None
+    for target in range(3, len(rows)):
+        trio = [row["value"] for row in rows[target - 3:target]]
+        selection = catalog_selection(
+            trio, documents, ordered=ordered, direction=direction, top_k=top_k)
+        status = selection.get("status")
+        if status is None:
+            active = selection
+            windows[target] = {
+                **selection, "ranking_trio": selection["trio"], "ranking_key": selection["key"],
+                "source": "recalculated", "reuse_reason": None,
+            }
+        elif active is not None:
+            windows[target] = {
+                **selection, "selected_numbers": active["selected_numbers"],
+                "quality": active["quality"], "ranking_trio": active["trio"],
+                "ranking_key": active["key"], "source": "reused", "reuse_reason": status,
+            }
+        else:
+            windows[target] = {
+                **selection, "ranking_trio": None, "ranking_key": None,
+                "source": "unavailable", "reuse_reason": status,
+            }
+    return windows
+
+
 async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, direction,
-                               prevent_overlapping_bets=False):
+                               prevent_overlapping_bets=False,
+                               recalculate_ranking_after_loss=False):
     active = await db["triple_context_active_v1"].find_one(
         {"_id": ROULETTE}, {"_id": 0, "build_id": 1})
     if active is None:
@@ -227,6 +263,11 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
         trio = [row["value"] for row in rows[end - 2:end + 1]]
         if len(set(trio)) == 3:
             keys.add(trio_key(trio, ordered))
+    if recalculate_ranking_after_loss:
+        for target in range(3, len(rows)):
+            trio = [row["value"] for row in rows[target - 3:target]]
+            if len(set(trio)) == 3:
+                keys.add(trio_key(trio, ordered))
     keys = sorted(keys)
     documents = {}
     for offset in range(0, len(keys), 500):
@@ -243,8 +284,34 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
             documents[key] = document
     signals = await asyncio.to_thread(build_signals, rows, documents, ordered=ordered,
                                       direction=direction, top_k=top_k)
+    dynamic_rankings = None
+    if recalculate_ranking_after_loss:
+        dynamic_rankings = await asyncio.to_thread(
+            build_dynamic_rankings, rows, documents, ordered=ordered,
+            direction=direction, top_k=top_k)
     evaluated = await asyncio.to_thread(
-        evaluate_signals, rows, signals, attempts, prevent_overlapping_bets)
+        evaluate_signals, rows, signals, attempts, prevent_overlapping_bets,
+        recalculate_ranking_after_loss, dynamic_rankings)
+    ranking_updates = []
+    if recalculate_ranking_after_loss:
+        used_positions = {
+            signal["end_index"] + attempt
+            for signal in evaluated["signals"]
+            for attempt in range(1, signal["attempt_ranking_count"] + 1)
+        }
+        ranking_updates = [
+            {
+                "target_index": position,
+                "trio": dynamic_rankings[position]["trio"],
+                "ranking_trio": dynamic_rankings[position]["ranking_trio"],
+                "ranking_key": dynamic_rankings[position]["ranking_key"],
+                "selected_numbers": dynamic_rankings[position]["selected_numbers"],
+                "quality": dynamic_rankings[position]["quality"],
+                "source": dynamic_rankings[position]["source"],
+                "reuse_reason": dynamic_rankings[position]["reuse_reason"],
+            }
+            for position in sorted(used_positions)
+        ]
     before_catalog_end = sum(
         signal["status"] not in {"repeated_trio", "no_evidence", "overlap_skipped"}
         and _catalog_date(signal["trigger_timestamp"]) < catalog_end
@@ -258,6 +325,7 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
         "config": {"history_limit": history_limit, "top_k": top_k, "attempts": attempts,
                    "ordered": ordered, "direction": direction,
                    "prevent_overlapping_bets": prevent_overlapping_bets,
+                   "recalculate_ranking_after_loss": recalculate_ranking_after_loss,
                    "sampling": "blocks_of_three",
                    "roulette_id": ROULETTE, "ranking_source": "published_catalog"},
         "source": history_source,
@@ -267,11 +335,20 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
                 "Análise retrospectiva com uma versão fixa do catálogo publicado. Blocos de três; "
                 + ("uma nova aposta só começa após o encerramento da anterior."
                    if prevent_overlapping_bets else "as apostas podem se sobrepor.")
+                + (" Após cada falha, o próximo ranking usa os três resultados mais recentes."
+                   if recalculate_ranking_after_loss
+                   else " Cada sinal mantém o ranking inicial durante as tentativas.")
             ),
             "warning": warning, "signals_with_potential_future_data": before_catalog_end,
-            "ranking_frozen": True, "exact_number_hits": True,
-            "followup": "Primeiro acerto do mesmo conjunto até o fim dos resultados selecionados; uma recuperação não altera a derrota.",
+            "ranking_frozen": not recalculate_ranking_after_loss,
+            "exact_number_hits": True,
+            "followup": (
+                "Primeiro acerto dos rankings recalculados até o fim dos resultados selecionados; uma recuperação não altera a derrota."
+                if recalculate_ranking_after_loss else
+                "Primeiro acerto do mesmo conjunto até o fim dos resultados selecionados; uma recuperação não altera a derrota."
+            ),
             "accuracy": "Vitórias / (vitórias + derrotas). Entradas sem ranking, sem desfecho ou bloqueadas por outra aposta são contabilizadas separadamente.",
         },
+        "ranking_updates": ranking_updates,
         **evaluated,
     }

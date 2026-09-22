@@ -17,7 +17,7 @@
   </header>
   <main class="page backtest-main">
     <div class="page-intro">
-      <div><p class="eyebrow">CONFERÊNCIA DO HISTÓRICO</p><h1>Backtest de trios<span>.</span></h1><p class="intro-copy">Confira os acertos de um conjunto fixo de números, sinal por sinal.</p></div>
+      <div><p class="eyebrow">CONFERÊNCIA DO HISTÓRICO</p><h1>Backtest de trios<span>.</span></h1><p class="intro-copy">Confira os acertos dos números selecionados, sinal por sinal.</p></div>
       <div class="intro-tags"><span class="retrospective-badge">Análise retrospectiva</span><span class="table-tag">Pragmatic Auto Roulette</span></div>
     </div>
 
@@ -27,7 +27,7 @@
       <div class="panel-heading"><span class="step-index">01</span><h2>Configure o backtest</h2><span class="blocks-tag">Trios em blocos de 3</span></div>
       <div class="parameter-grid">
         <div class="parameter-field"><label for="history-limit">Resultados do histórico</label><input id="history-limit" name="history_limit" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="5" value="5000" list="history-presets" required autocomplete="off" aria-describedby="history-help backtest-form-error"><datalist id="history-presets"><option value="500"></option><option value="5000"></option></datalist><p id="history-help">De 6 a 50.000 resultados mais recentes.</p></div>
-        <div class="parameter-field"><label for="top-k">Números do ranking · top K</label><input id="top-k" name="top_k" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="2" value="13" required autocomplete="off" aria-describedby="top-k-help backtest-form-error"><p id="top-k-help">De 1 a 37 números, fixos em cada sinal.</p></div>
+        <div class="parameter-field"><label for="top-k">Números do ranking · top K</label><input id="top-k" name="top_k" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="2" value="13" required autocomplete="off" aria-describedby="top-k-help backtest-form-error"><p id="top-k-help">De 1 a 37 números em cada ranking.</p></div>
         <div class="parameter-field"><label for="attempts">Limite de tentativas</label><input id="attempts" name="attempts" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="3" value="3" required autocomplete="off" aria-describedby="attempts-help backtest-form-error"><p id="attempts-help">De 1 a 100 giros após o terceiro número do trio.</p></div>
       </div>
       <div class="backtest-options">
@@ -40,7 +40,7 @@
           <label class="choice"><input type="radio" name="ordered" value="false"><span class="choice-content"><span class="choice-title">Qualquer ordem</span><small>As seis ordens dos mesmos três números.</small></span></label>
         </div></fieldset>
       </div>
-      <fieldset class="execution-rules"><legend>Como executar as entradas?</legend><label class="execution-choice"><input id="prevent-overlapping-bets" type="checkbox" name="prevent_overlapping_bets"><span class="execution-check" aria-hidden="true">✓</span><span><strong>Não sobrepor apostas</strong><small>Enquanto uma entrada estiver dentro das tentativas, os novos sinais serão ignorados. A próxima entrada só começa depois do acerto ou do fim do limite.</small></span></label></fieldset>
+      <fieldset class="execution-rules"><legend>Como executar as entradas?</legend><div class="execution-grid"><label class="execution-choice"><input id="prevent-overlapping-bets" type="checkbox" name="prevent_overlapping_bets"><span class="execution-check" aria-hidden="true">✓</span><span><strong>Não sobrepor apostas</strong><small>Enquanto uma entrada estiver dentro das tentativas, os novos sinais serão ignorados. A próxima entrada só começa depois do acerto ou do fim do limite.</small></span></label><label class="execution-choice"><input id="recalculate-ranking-after-loss" type="checkbox" name="recalculate_ranking_after_loss"><span class="execution-check" aria-hidden="true">✓</span><span><strong>Recalcular após cada falha</strong><small>A próxima tentativa consulta novamente o catálogo usando os três resultados mais recentes. Se o novo trio não formar ranking, mantém o último ranking válido.</small></span></label></div></fieldset>
       <section class="financial-config" aria-labelledby="financial-config-heading">
         <div class="financial-config-copy"><span class="step-index">$</span><div><h3 id="financial-config-heading">Progressão financeira</h3><p>Informe o lucro líquido mínimo por sinal. A ficha é calculada por número e arredondada para cima em múltiplos de R$ 0,50.</p></div></div>
         <div class="financial-action-row">
@@ -54,7 +54,7 @@
           <p class="financial-formula">Retorno considerado: 35:1 no número pleno, mais a devolução da ficha vencedora. Cada sinal reinicia na primeira tentativa.</p>
         </div>
       </section>
-      <div class="fixed-rules"><span class="block-example" aria-label="Primeiro bloco: resultados 1, 2 e 3. Segundo bloco: resultados 4, 5 e 6.">1–2–3 <span aria-hidden="true">/</span> 4–5–6 <span aria-hidden="true">/ …</span></span><p>Sem sobreposição na formação dos trios. Cada sinal mantém seu top K até o fim da conferência. Só conta acerto no número exato selecionado; vizinhos não ampliam o conjunto.</p></div>
+      <div class="fixed-rules"><span class="block-example" aria-label="Primeiro bloco: resultados 1, 2 e 3. Segundo bloco: resultados 4, 5 e 6.">1–2–3 <span aria-hidden="true">/</span> 4–5–6 <span aria-hidden="true">/ …</span></span><p>Sem sobreposição na formação dos trios. O top K fica fixo ou é recalculado após cada falha, conforme a opção escolhida. Só conta acerto no número exato selecionado; vizinhos não ampliam o conjunto.</p></div>
       <p id="backtest-form-error" class="form-error" role="alert" hidden></p>
       <div class="form-actions"><button id="run-button" class="submit-button backtest-submit" type="submit"><span id="run-label">Executar backtest</span><span aria-hidden="true">→</span></button><button id="cancel-button" class="quiet-button" type="button" hidden>Cancelar</button><p>As tentativas são conferidas após o trio, nas duas opções de ranking.</p></div>
     </form>
@@ -73,7 +73,7 @@
           <article class="metric"><p>Derrotas</p><strong id="summary-losses">—</strong><span>Limite completo, sem acerto</span></article>
           <article class="metric"><p>Incompletos</p><strong id="summary-incomplete">—</strong><span>Faltam giros para encerrar o sinal</span></article>
         </div>
-        <div class="summary-context"><p id="summary-denominator"></p><div><span id="summary-total"></span><span id="summary-skipped"></span><span id="summary-overlap"></span><span id="summary-repeated"></span><span id="summary-no-evidence"></span></div></div>
+        <div class="summary-context"><p id="summary-denominator"></p><div><span id="summary-total"></span><span id="summary-skipped"></span><span id="summary-overlap"></span><span id="summary-repeated"></span><span id="summary-no-evidence"></span><span id="summary-recalculations"></span><span id="summary-reuses"></span></div></div>
 
         <section class="backtest-panel quality-report" aria-labelledby="quality-report-heading">
           <div class="section-title"><div><h3 id="quality-report-heading">Qualidade dos rankings</h3><p class="panel-copy">Catalogação diagnóstica. Nenhum sinal é excluído por estas métricas.</p></div><span class="quality-observation-badge">Somente observação</span></div>
@@ -81,7 +81,7 @@
           <div class="quality-control"><label for="quality-dimension">Analisar o desempenho por</label><select id="quality-dimension"><option value="support">Quantidade de ocorrências</option><option value="complete_coverage">Cobertura completa</option><option value="direct_lift">Lift dos acertos diretos</option><option value="score_concentration_lift">Concentração relativa do score</option><option value="cutoff_margin_per_event">Margem entre o último selecionado e o primeiro excluído</option><option value="order_dominance">Dominância de uma ordem</option></select></div>
           <p id="quality-dimension-description" class="quality-description"></p>
           <div class="quality-table-scroll" tabindex="0" role="region" aria-label="Desempenho do backtest agrupado pela qualidade do ranking"><table class="quality-table"><thead><tr><th scope="col">Faixa</th><th scope="col">Rankings</th><th scope="col">Entradas encerradas</th><th scope="col">Bloqueados</th><th scope="col">Vitórias</th><th scope="col">Derrotas</th><th scope="col">Assertividade</th><th scope="col">Saldo</th><th scope="col">Maior sequência de derrotas</th></tr></thead><tbody id="quality-buckets-body"></tbody></table></div>
-          <p class="quality-note">O saldo usa a progressão financeira configurada. Incompletos e sinais sem ranking não entram em vitórias, derrotas ou saldo. Rankings bloqueados por sobreposição permanecem catalogados, mas não simulam apostas.</p>
+          <p id="quality-note" class="quality-note">O saldo usa a progressão financeira configurada. Incompletos e sinais sem ranking não entram em vitórias, derrotas ou saldo. Rankings bloqueados por sobreposição permanecem catalogados, mas não simulam apostas.</p>
         </section>
 
         <section id="financial-report" class="backtest-panel financial-report" aria-labelledby="financial-report-heading">
@@ -96,7 +96,7 @@
 
         <div class="distribution-grid">
           <section class="backtest-panel"><div class="section-title"><h3>Vitórias por tentativa</h3><span>Até o limite escolhido</span></div><p class="panel-copy">A tentativa em que cada sinal acertou pela primeira vez.</p><div id="win-distribution" class="distribution-list"></div></section>
-          <section class="backtest-panel"><div class="section-title"><h3>Acertos após as derrotas</h3><span>Mesmo conjunto de números</span></div><p class="panel-copy">O acompanhamento continua só para identificar o primeiro acerto posterior. A derrota permanece no resultado do teste.</p><div class="recovery-metrics"><div><strong id="recovered-losses">—</strong><span>Com acerto posterior</span></div><div><strong id="unresolved-losses">—</strong><span>Sem acerto posterior observado</span></div><div><strong id="max-recovery">—</strong><span>Maior tentativa total até o acerto</span></div></div><div id="recovery-distribution" class="distribution-list recovery-distribution"></div></section>
+          <section class="backtest-panel"><div class="section-title"><h3>Acertos após as derrotas</h3><span id="recovery-mode-label">Mesmo conjunto de números</span></div><p id="recovery-description" class="panel-copy">O acompanhamento continua só para identificar o primeiro acerto posterior. A derrota permanece no resultado do teste.</p><div class="recovery-metrics"><div><strong id="recovered-losses">—</strong><span>Com acerto posterior</span></div><div><strong id="unresolved-losses">—</strong><span>Sem acerto posterior observado</span></div><div><strong id="max-recovery">—</strong><span>Maior tentativa total até o acerto</span></div></div><div id="recovery-distribution" class="distribution-list recovery-distribution"></div></section>
         </div>
 
         <section class="backtest-panel signals-panel" aria-labelledby="signals-heading">

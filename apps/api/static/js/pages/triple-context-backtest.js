@@ -128,6 +128,7 @@
   let requestId = 0;
   let activeController = null;
   let currentReport = null;
+  let currentRankingUpdates = new Map();
   let currentPage = 1;
   let currentFinancialPlan = null;
 
@@ -405,6 +406,7 @@
     if (activeController) activeController.abort();
     activeController = null;
     currentReport = null;
+    currentRankingUpdates = new Map();
     currentPage = 1;
     clearValidation();
     clearPageError();
@@ -439,6 +441,7 @@
     config.direction = form.elements.direction.value;
     config.ordered = form.elements.ordered.value === "true";
     config.prevent_overlapping_bets = form.elements.prevent_overlapping_bets.checked;
+    config.recalculate_ranking_after_loss = form.elements.recalculate_ranking_after_loss.checked;
     return config;
   }
 
@@ -451,6 +454,22 @@
     const validDate = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
     const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     const fail = () => { throw new Error("A API retornou um resultado incompleto ou inconsistente. Tente novamente."); };
+    const validQuality = (quality) => {
+      const qualityCounts = ["occurrences", "depth", "context_events", "complete_occurrences", "top_k_direct_hits"];
+      const qualityNumbers = ["context_coverage", "complete_coverage", "direct_hit_rate", "direct_lift",
+        "top_k_score", "total_score", "score_concentration", "score_concentration_lift", "cutoff_score",
+        "next_score", "cutoff_margin_per_event", "leader_margin_per_event", "order_dominance"];
+      return object(quality) && qualityCounts.every((key) => count(quality[key]))
+        && qualityNumbers.every((key) => optionalFinite(quality[key]))
+        && quality.depth === (request.direction === "forward" ? 20 : 10)
+        && quality.complete_occurrences <= quality.occurrences
+        && quality.top_k_direct_hits <= quality.context_events
+        && ![quality.context_coverage, quality.complete_coverage, quality.direct_hit_rate,
+          quality.score_concentration, quality.order_dominance]
+          .some((value) => value !== null && value > 1)
+        && (request.top_k === 37) === (quality.next_score === null)
+        && (!request.ordered || quality.order_dominance === null);
+    };
     if (!object(data) || !object(data.config) || !Object.entries(request).every(([key, value]) => data.config[key] === value)
         || !object(data.source) || !count(data.source.records) || data.source.records > request.history_limit
         || data.source.requested_records !== request.history_limit || !count(data.source.gaps_over_300_seconds)
@@ -460,9 +479,10 @@
         || ![data.catalog.source.first_timestamp, data.catalog.source.last_timestamp].every(validDate)
         || !object(data.methodology) || typeof data.methodology.description !== "string" || !data.methodology.description
         || !(data.methodology.warning === null || typeof data.methodology.warning === "string")
-        || !object(data.summary) || !Array.isArray(data.signals)) fail();
+        || !object(data.summary) || !Array.isArray(data.signals)
+        || !Array.isArray(data.ranking_updates)) fail();
     const summary = data.summary;
-    const fields = ["total_signals", "evaluated", "wins", "losses", "incomplete", "repeated_trio", "no_evidence", "overlap_skipped", "recovered_losses", "unresolved_losses"];
+    const fields = ["total_signals", "evaluated", "wins", "losses", "incomplete", "repeated_trio", "no_evidence", "overlap_skipped", "recovered_losses", "unresolved_losses", "ranking_recalculations", "ranking_reuses"];
     if (!fields.every((key) => count(summary[key]))
         || !(summary.accuracy_pct === null || (Number.isFinite(summary.accuracy_pct) && summary.accuracy_pct >= 0 && summary.accuracy_pct <= 100))
         || !optionalCount(summary.max_recovery_attempt)
@@ -477,6 +497,23 @@
         || summary.win_attempts.reduce((sum, row) => sum + row.count, 0) !== summary.wins
         || summary.recovery_attempts.reduce((sum, row) => sum + row.count, 0) !== summary.recovered_losses) fail();
     const observedStatuses = { win: 0, loss: 0, incomplete: 0, repeated_trio: 0, no_evidence: 0, overlap_skipped: 0 };
+    let observedRecalculations = 0;
+    let observedReuses = 0;
+    const rankingUpdates = new Map();
+    for (const ranking of data.ranking_updates) {
+      if (!object(ranking) || !count(ranking.target_index) || ranking.target_index < 3
+          || ranking.target_index >= data.source.records || rankingUpdates.has(ranking.target_index)
+          || !["recalculated", "reused"].includes(ranking.source)
+          || !(ranking.reuse_reason === null || ["repeated_trio", "no_evidence"].includes(ranking.reuse_reason))
+          || !Array.isArray(ranking.trio) || ranking.trio.length !== 3 || !ranking.trio.every(number)
+          || !Array.isArray(ranking.ranking_trio) || ranking.ranking_trio.length !== 3
+          || !ranking.ranking_trio.every(number)
+          || !Array.isArray(ranking.selected_numbers) || ranking.selected_numbers.length !== request.top_k
+          || !ranking.selected_numbers.every(number) || new Set(ranking.selected_numbers).size !== request.top_k
+          || !validQuality(ranking.quality)) fail();
+      rankingUpdates.set(ranking.target_index, ranking);
+    }
+    if (!request.recalculate_ranking_after_loss && rankingUpdates.size) fail();
     for (const signal of data.signals) {
       if (!object(signal) || !Object.hasOwn(statusLabels, signal.status)
           || !(count(signal.signal_id) || (typeof signal.signal_id === "string" && signal.signal_id.length > 0))
@@ -490,29 +527,29 @@
           || !optionalCount(signal.first_hit_attempt) || !optionalCount(signal.hit_rank)
           || !(signal.hit_number === null || number(signal.hit_number))
           || !optionalCount(signal.recovery_extra_attempts) || !optionalCount(signal.followup_observed)
+          || !count(signal.attempt_ranking_count) || !count(signal.ranking_recalculations)
+          || !count(signal.ranking_reuses)
           || !optionalCount(signal.blocked_until_position)
           || !(signal.blocked_by_signal_id === null || count(signal.blocked_by_signal_id))) fail();
       const noRanking = signal.status === "repeated_trio" || signal.status === "no_evidence";
       if (signal.selected_numbers.length !== (noRanking ? 0 : request.top_k)) fail();
       if (signal.status === "repeated_trio") {
         if (signal.quality !== null) fail();
-      } else {
-        const quality = signal.quality;
-        const qualityCounts = ["occurrences", "depth", "context_events", "complete_occurrences", "top_k_direct_hits"];
-        const qualityNumbers = ["context_coverage", "complete_coverage", "direct_hit_rate", "direct_lift",
-          "top_k_score", "total_score", "score_concentration", "score_concentration_lift", "cutoff_score",
-          "next_score", "cutoff_margin_per_event", "leader_margin_per_event", "order_dominance"];
-        if (!object(quality) || !qualityCounts.every((key) => count(quality[key]))
-            || !qualityNumbers.every((key) => optionalFinite(quality[key]))
-            || quality.depth !== (request.direction === "forward" ? 20 : 10)
-            || quality.complete_occurrences > quality.occurrences
-            || quality.top_k_direct_hits > quality.context_events
-            || [quality.context_coverage, quality.complete_coverage, quality.direct_hit_rate,
-              quality.score_concentration, quality.order_dominance]
-              .some((value) => value !== null && value > 1)
-            || (request.top_k === 37) !== (quality.next_score === null)
-            || (request.ordered && quality.order_dominance !== null)) fail();
+      } else if (!validQuality(signal.quality)) fail();
+      const expectedRankings = request.recalculate_ranking_after_loss && !noRanking
+        && signal.status !== "overlap_skipped"
+        ? (signal.status === "win" ? signal.first_hit_attempt : signal.available_attempts) : 0;
+      if (signal.attempt_ranking_count !== expectedRankings) fail();
+      const signalUpdates = [];
+      for (let attempt = 1; attempt <= signal.attempt_ranking_count; attempt += 1) {
+        const ranking = rankingUpdates.get(signal.end_index + attempt);
+        if (!ranking) fail();
+        signalUpdates.push({ ...ranking, source: attempt === 1 ? "initial" : ranking.source });
       }
+      if (signal.ranking_recalculations !== signalUpdates.filter((row) => row.source === "recalculated").length
+          || signal.ranking_reuses !== signalUpdates.filter((row) => row.source === "reused").length) fail();
+      observedRecalculations += signal.ranking_recalculations;
+      observedReuses += signal.ranking_reuses;
       if (signal.status === "overlap_skipped" && (signal.available_attempts !== 0
           || signal.checked_numbers.length !== 0 || signal.blocked_by_signal_id === null
           || signal.blocked_until_position === null || signal.first_hit_attempt !== null)) fail();
@@ -526,7 +563,10 @@
     if (observedStatuses.win !== summary.wins || observedStatuses.loss !== summary.losses
         || observedStatuses.incomplete !== summary.incomplete || observedStatuses.repeated_trio !== summary.repeated_trio
         || observedStatuses.no_evidence !== summary.no_evidence
-        || observedStatuses.overlap_skipped !== summary.overlap_skipped) fail();
+        || observedStatuses.overlap_skipped !== summary.overlap_skipped
+        || observedRecalculations !== summary.ranking_recalculations
+        || observedReuses !== summary.ranking_reuses) fail();
+    if (request.recalculate_ranking_after_loss && data.ranking_updates.length !== rankingUpdates.size) fail();
     return data;
   }
 
@@ -580,6 +620,12 @@
     const offset = (currentPage - 1) * PAGE_SIZE;
     const fragment = document.createDocumentFragment();
     signals.slice(offset, offset + PAGE_SIZE).forEach((signal) => {
+      const attemptRankings = [];
+      for (let attempt = 1; attempt <= signal.attempt_ranking_count; attempt += 1) {
+        const ranking = currentRankingUpdates.get(signal.end_index + attempt);
+        if (ranking) attemptRankings.push({ ...ranking, attempt,
+          source: attempt === 1 ? "initial" : ranking.source });
+      }
       const row = element("tr");
       const idCell = element("td");
       idCell.append(element("strong", "", `#${signal.signal_id}`));
@@ -599,7 +645,30 @@
       trio.setAttribute("aria-label", `Trio cronológico: ${signal.trio.join(", ")}; ${signal.trio[2]} é o mais recente`);
       trioCell.append(trio, element("span", "cell-secondary", `Posições ${integer.format(signal.end_index - 1)}–${integer.format(signal.end_index + 1)}`));
       const picksCell = element("td");
-      if (signal.selected_numbers.length) {
+      if (currentReport.config.recalculate_ranking_after_loss && attemptRankings.length) {
+        const disclosure = element("details", "signal-details");
+        disclosure.append(element("summary", "", `${integer.format(attemptRankings.length)} rankings por tentativa`));
+        const rankingList = element("div", "attempt-ranking-list");
+        attemptRankings.forEach((ranking) => {
+          const item = element("div", "attempt-ranking");
+          const source = ranking.source === "initial" ? "ranking inicial"
+            : ranking.source === "recalculated" ? "recalculado" : "ranking anterior reutilizado";
+          item.append(element("strong", "", `${integer.format(ranking.attempt)}ª tentativa · ${source}`));
+          const numbers = element("div", "selected-numbers");
+          ranking.selected_numbers.forEach((number) => numbers.append(element("span", "selected-number", String(number))));
+          item.append(numbers);
+          if (ranking.source === "reused") {
+            const reason = ranking.reuse_reason === "repeated_trio" ? "o novo trio contém repetição"
+              : "o novo trio não possui evidência";
+            item.append(element("small", "", `Mantido o ranking de ${ranking.ranking_trio.join(" → ")} porque ${reason}.`));
+          } else {
+            item.append(element("small", "", `Trio usado: ${ranking.ranking_trio.join(" → ")}.`));
+          }
+          rankingList.append(item);
+        });
+        disclosure.append(rankingList);
+        picksCell.append(disclosure);
+      } else if (signal.selected_numbers.length) {
         const disclosure = element("details", "signal-details");
         disclosure.append(element("summary", "", `${integer.format(signal.selected_numbers.length)} números fixos`));
         const numbers = element("div", "selected-numbers");
@@ -610,7 +679,7 @@
       if (signal.quality) {
         const quality = signal.quality;
         const qualityDisclosure = element("details", "signal-details quality-details");
-        qualityDisclosure.append(element("summary", "", "Ver qualidade"));
+        qualityDisclosure.append(element("summary", "", currentReport.config.recalculate_ranking_after_loss ? "Ver qualidade inicial" : "Ver qualidade"));
         const facts = element("div", "quality-facts");
         const factRows = [
           ["Ocorrências", integer.format(quality.occurrences)],
@@ -640,7 +709,7 @@
       }
       const detailCell = element("td", "", signalDetails(signal, currentReport.config.attempts));
       if (signal.status === "win" && signal.hit_rank !== null) {
-        detailCell.append(element("span", "cell-secondary", `Posição ${signal.hit_rank} do ranking`));
+        detailCell.append(element("span", "cell-secondary", `Posição ${signal.hit_rank} do ranking${currentReport.config.recalculate_ranking_after_loss ? ` da ${signal.first_hit_attempt}ª tentativa` : ""}`));
       }
       if (signal.checked_numbers.length) {
         const checked = element("details", "signal-details");
@@ -653,7 +722,9 @@
       else if (signal.recovery_extra_attempts !== null) {
         const total = currentReport.config.attempts + signal.recovery_extra_attempts;
         recoveryCell.textContent = `${integer.format(total)}ª tentativa · +${integer.format(signal.recovery_extra_attempts)} após o limite`;
-        recoveryCell.append(element("span", "cell-secondary", "Acerto posterior; a derrota permanece."));
+        recoveryCell.append(element("span", "cell-secondary", currentReport.config.recalculate_ranking_after_loss
+          ? "Acerto posterior com ranking recalculado; a derrota permanece."
+          : "Acerto posterior; a derrota permanece."));
         if (signal.hit_number !== null) recoveryCell.append(element("span", "cell-secondary", `Número ${signal.hit_number}`));
       } else {
         recoveryCell.textContent = `Sem acerto em ${integer.format(signal.followup_observed)} giros adicionais observados`;
@@ -683,10 +754,11 @@
 
   function renderReport(data) {
     currentReport = data;
+    currentRankingUpdates = new Map(data.ranking_updates.map((ranking) => [ranking.target_index, ranking]));
     currentPage = 1;
     const summary = data.summary;
     const config = data.config;
-    $("backtest-recap").textContent = `${integer.format(data.source.records)} resultados · top ${config.top_k} fixo · ${config.attempts} tentativas · ${config.ordered ? "ordem exata" : "qualquer ordem"} · ranking ${config.direction === "forward" ? "à frente" : "de trás"} · ${config.prevent_overlapping_bets ? "sem apostas sobrepostas" : "apostas sobrepostas permitidas"}`;
+    $("backtest-recap").textContent = `${integer.format(data.source.records)} resultados · top ${config.top_k} ${config.recalculate_ranking_after_loss ? "recalculado após falhas" : "fixo"} · ${config.attempts} tentativas · ${config.ordered ? "ordem exata" : "qualquer ordem"} · ranking ${config.direction === "forward" ? "à frente" : "de trás"} · ${config.prevent_overlapping_bets ? "sem apostas sobrepostas" : "apostas sobrepostas permitidas"}`;
     $("methodology-description").textContent = data.methodology.description;
     $("methodology-warning").textContent = data.methodology.warning || "";
     $("methodology-warning").hidden = !data.methodology.warning;
@@ -701,6 +773,18 @@
     $("summary-overlap").textContent = `Ignorados por sobreposição: ${integer.format(summary.overlap_skipped)}`;
     $("summary-repeated").textContent = `Com número repetido no trio: ${integer.format(summary.repeated_trio)}`;
     $("summary-no-evidence").textContent = `Sem evidência: ${integer.format(summary.no_evidence)}`;
+    $("summary-recalculations").textContent = config.recalculate_ranking_after_loss
+      ? `Rankings recalculados: ${integer.format(summary.ranking_recalculations)}` : "";
+    $("summary-reuses").textContent = config.recalculate_ranking_after_loss
+      ? `Rankings reutilizados: ${integer.format(summary.ranking_reuses)}` : "";
+    $("quality-note").textContent = config.recalculate_ranking_after_loss
+      ? "Os agrupamentos usam a qualidade do ranking inicial de cada sinal. Os rankings das tentativas seguintes aparecem nos detalhes do sinal e não excluem entradas."
+      : "O saldo usa a progressão financeira configurada. Incompletos e sinais sem ranking não entram em vitórias, derrotas ou saldo. Rankings bloqueados por sobreposição permanecem catalogados, mas não simulam apostas.";
+    $("recovery-mode-label").textContent = config.recalculate_ranking_after_loss
+      ? "Rankings atualizados após cada falha" : "Mesmo conjunto de números";
+    $("recovery-description").textContent = config.recalculate_ranking_after_loss
+      ? "O acompanhamento continua recalculando os candidatos para identificar o primeiro acerto posterior. A derrota permanece no resultado do teste."
+      : "O acompanhamento continua só para identificar o primeiro acerto posterior. A derrota permanece no resultado do teste.";
     $("overlap-legend").textContent = config.prevent_overlapping_bets
       ? "Apostas não se sobrepõem: sinais formados durante uma entrada ativa aparecem como ignorados e não entram nas estatísticas ou no financeiro."
       : "Quando o limite é maior que três tentativas, sinais diferentes podem compartilhar giros na conferência.";
