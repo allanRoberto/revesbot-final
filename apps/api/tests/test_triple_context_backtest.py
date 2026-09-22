@@ -1,5 +1,8 @@
 import asyncio
+import json
+import subprocess
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -263,6 +266,55 @@ def test_backtest_html_is_independent_of_mongo_and_has_versioned_controls_and_as
     assert response.text.count('name="ordered"') == 2
     assert 'name="ordered" value="true"' in response.text
     assert 'name="ordered" value="false"' in response.text
+    assert 'id="minimum-profit"' in response.text
+    assert 'id="calculate-financial"' in response.text
+    assert 'id="financial-projection-body"' in response.text
+    assert 'id="financial-chart"' in response.text
+    assert "csv" not in response.text.lower()
+
+
+def test_financial_progression_uses_fifty_cent_steps_and_recovers_previous_stakes():
+    script_path = Path(__file__).parents[1] / "static/js/pages/triple-context-backtest.js"
+    javascript = """
+const { buildFinancialPlan } = require(process.argv[1]);
+const plan = buildFinancialPlan(13, 3, 1000);
+let unsupported;
+try { buildFinancialPlan(36, 3, 1000); } catch (error) { unsupported = error.message; }
+process.stdout.write(JSON.stringify({ plan, unsupported }));
+"""
+    result = subprocess.run(
+        ["node", "-e", javascript, str(script_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(result.stdout)
+
+    assert payload["plan"]["rows"] == [
+        {
+            "attempt": 1,
+            "stakePerNumberCents": 50,
+            "attemptStakeCents": 650,
+            "cumulativeStakeCents": 650,
+            "profitIfHitCents": 1150,
+        },
+        {
+            "attempt": 2,
+            "stakePerNumberCents": 100,
+            "attemptStakeCents": 1300,
+            "cumulativeStakeCents": 1950,
+            "profitIfHitCents": 1650,
+        },
+        {
+            "attempt": 3,
+            "stakePerNumberCents": 150,
+            "attemptStakeCents": 1950,
+            "cumulativeStakeCents": 3900,
+            "profitIfHitCents": 1500,
+        },
+    ]
+    assert payload["plan"]["maxExposureCents"] == 3900
+    assert "top K entre 1 e 35" in payload["unsupported"]
 
 
 @pytest.mark.parametrize("payload", [

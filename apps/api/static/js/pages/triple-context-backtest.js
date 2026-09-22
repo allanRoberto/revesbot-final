@@ -1,6 +1,46 @@
 (() => {
   "use strict";
 
+  const CHIP_STEP_CENTS = 50;
+  const MAX_PROFIT_CENTS = 100000000;
+
+  function ceilToStep(value, step = CHIP_STEP_CENTS) {
+    return Math.ceil(value / step) * step;
+  }
+
+  function buildFinancialPlan(topK, attempts, minimumProfitCents) {
+    if (!Number.isSafeInteger(topK) || topK < 1 || topK > 35) {
+      throw new Error("A progressão com lucro positivo exige um top K entre 1 e 35 números.");
+    }
+    if (!Number.isSafeInteger(attempts) || attempts < 1 || attempts > 100) {
+      throw new Error("O limite de tentativas deve estar entre 1 e 100.");
+    }
+    if (!Number.isSafeInteger(minimumProfitCents) || minimumProfitCents < 1 || minimumProfitCents > MAX_PROFIT_CENTS) {
+      throw new Error("O lucro mínimo deve ficar entre R$ 0,01 e R$ 1.000.000,00.");
+    }
+    const rows = [];
+    let previousExposureCents = 0;
+    const currentAttemptMargin = 36 - topK;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      const requiredStake = (minimumProfitCents + previousExposureCents) / currentAttemptMargin;
+      const stakePerNumberCents = Math.max(CHIP_STEP_CENTS, ceilToStep(requiredStake));
+      const attemptStakeCents = stakePerNumberCents * topK;
+      const cumulativeStakeCents = previousExposureCents + attemptStakeCents;
+      const profitIfHitCents = 36 * stakePerNumberCents - cumulativeStakeCents;
+      if (![stakePerNumberCents, attemptStakeCents, cumulativeStakeCents, profitIfHitCents].every(Number.isSafeInteger)) {
+        throw new Error(`A progressão ultrapassa o limite de cálculo na ${attempt}ª tentativa. Reduza o top K, o lucro ou as tentativas.`);
+      }
+      rows.push({ attempt, stakePerNumberCents, attemptStakeCents, cumulativeStakeCents, profitIfHitCents });
+      previousExposureCents = cumulativeStakeCents;
+    }
+    return { topK, attempts, minimumProfitCents, rows, maxExposureCents: previousExposureCents };
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { buildFinancialPlan };
+    return;
+  }
+
   const $ = (id) => document.getElementById(id);
   const form = $("backtest-form");
   const parameterFields = [
@@ -10,6 +50,7 @@
   ];
   const integer = new Intl.NumberFormat("pt-BR");
   const percentage = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
   const datetime = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo",
   });
@@ -20,12 +61,179 @@
   let activeController = null;
   let currentReport = null;
   let currentPage = 1;
+  let currentFinancialPlan = null;
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
     if (text !== undefined) node.textContent = text;
     return node;
+  }
+
+  function parseMoneyToCents(raw) {
+    const normalized = raw.trim().replace(/\s+/g, "").replace(/^R\$/i, "");
+    if (!/^\d{1,7}(?:[,.]\d{1,2})?$/.test(normalized)) return null;
+    const value = Number(normalized.replace(",", "."));
+    const cents = Math.round(value * 100);
+    return Number.isSafeInteger(cents) && cents >= 1 && cents <= MAX_PROFIT_CENTS ? cents : null;
+  }
+
+  function money(cents, signed = false) {
+    const value = cents / 100;
+    if (signed && value > 0) return `+${currency.format(value)}`;
+    return currency.format(value);
+  }
+
+  function showFinancialError(message) {
+    currentFinancialPlan = null;
+    $("financial-error").textContent = message;
+    $("financial-error").hidden = false;
+    $("minimum-profit").setAttribute("aria-invalid", "true");
+    $("financial-projection").hidden = true;
+    if (currentReport) {
+      renderFinancialReport(currentReport);
+      renderPage(currentPage);
+    }
+  }
+
+  function clearFinancialError() {
+    $("financial-error").textContent = "";
+    $("financial-error").hidden = true;
+    $("minimum-profit").removeAttribute("aria-invalid");
+  }
+
+  function renderFinancialProjection(plan) {
+    const fragment = document.createDocumentFragment();
+    plan.rows.forEach((row) => {
+      const tr = element("tr");
+      tr.append(
+        element("td", "", `${integer.format(row.attempt)}ª`),
+        element("td", "", money(row.stakePerNumberCents)),
+        element("td", "", money(row.attemptStakeCents)),
+        element("td", "", money(row.cumulativeStakeCents)),
+        element("td", "financial-profit-cell", money(row.profitIfHitCents, true)),
+      );
+      fragment.append(tr);
+    });
+    $("financial-projection-body").replaceChildren(fragment);
+    $("financial-projection-recap").textContent = `Top ${integer.format(plan.topK)} · ${integer.format(plan.attempts)} tentativas · lucro mínimo ${money(plan.minimumProfitCents)}`;
+    $("financial-max-exposure").textContent = `Exposição máxima ${money(plan.maxExposureCents)}`;
+    $("financial-projection").hidden = false;
+  }
+
+  function calculateFinancialPlan({ focusOnError = true } = {}) {
+    clearFinancialError();
+    const topKRaw = $("top-k").value.trim();
+    const attemptsRaw = $("attempts").value.trim();
+    const topK = Number(topKRaw);
+    const attempts = Number(attemptsRaw);
+    const minimumProfitCents = parseMoneyToCents($("minimum-profit").value);
+    try {
+      if (!/^\d+$/.test(topKRaw) || !Number.isSafeInteger(topK) || topK < 1 || topK > 37) {
+        throw new Error("Informe um top K válido antes de calcular as fichas.");
+      }
+      if (!/^\d+$/.test(attemptsRaw) || !Number.isSafeInteger(attempts) || attempts < 1 || attempts > 100) {
+        throw new Error("Informe um limite de tentativas válido antes de calcular as fichas.");
+      }
+      if (minimumProfitCents === null) {
+        throw new Error("O lucro mínimo deve ficar entre R$ 0,01 e R$ 1.000.000,00, com no máximo duas casas decimais.");
+      }
+      currentFinancialPlan = buildFinancialPlan(topK, attempts, minimumProfitCents);
+      renderFinancialProjection(currentFinancialPlan);
+      if (currentReport) {
+        renderFinancialReport(currentReport);
+        renderPage(currentPage);
+      }
+      return currentFinancialPlan;
+    } catch (error) {
+      showFinancialError(error.message);
+      if (focusOnError) $("minimum-profit").focus();
+      return null;
+    }
+  }
+
+  function financialOutcome(signal, plan) {
+    if (signal.status === "win") {
+      const row = plan.rows[signal.first_hit_attempt - 1];
+      return row ? { pnlCents: row.profitIfHitCents, stakedCents: row.cumulativeStakeCents } : null;
+    }
+    if (signal.status === "loss") {
+      return { pnlCents: -plan.maxExposureCents, stakedCents: plan.maxExposureCents };
+    }
+    return null;
+  }
+
+  function renderFinancialChart(balances) {
+    const container = $("financial-chart");
+    if (!balances.length) {
+      container.replaceChildren(element("p", "distribution-empty", "Nenhum sinal encerrado para formar a evolução financeira."));
+      container.setAttribute("aria-label", "Nenhum sinal encerrado para formar a evolução financeira");
+      return;
+    }
+    const values = [0, ...balances];
+    const width = 900;
+    const height = 250;
+    const padding = 22;
+    const minimum = Math.min(0, ...values);
+    const maximum = Math.max(0, ...values);
+    const range = Math.max(1, maximum - minimum);
+    const x = (index) => padding + index / Math.max(1, values.length - 1) * (width - padding * 2);
+    const y = (value) => padding + (maximum - value) / range * (height - padding * 2);
+    const namespace = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(namespace, "svg");
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    const zero = document.createElementNS(namespace, "line");
+    zero.setAttribute("x1", String(padding));
+    zero.setAttribute("x2", String(width - padding));
+    zero.setAttribute("y1", String(y(0)));
+    zero.setAttribute("y2", String(y(0)));
+    zero.setAttribute("class", "financial-zero-line");
+    const polyline = document.createElementNS(namespace, "polyline");
+    polyline.setAttribute("points", values.map((value, index) => `${x(index).toFixed(2)},${y(value).toFixed(2)}`).join(" "));
+    polyline.setAttribute("class", balances[balances.length - 1] >= 0 ? "financial-balance-line positive" : "financial-balance-line negative");
+    svg.append(zero, polyline);
+    const labels = element("div", "financial-chart-labels");
+    labels.append(element("span", "", `Mín. ${money(minimum)}`), element("span", "", `Máx. ${money(maximum)}`));
+    container.replaceChildren(svg, labels);
+    container.setAttribute("aria-label", `Evolução do saldo em ${integer.format(balances.length)} sinais encerrados; saldo final ${money(balances[balances.length - 1], true)}; mínimo ${money(minimum)}; máximo ${money(maximum)}.`);
+  }
+
+  function renderFinancialReport(data) {
+    const error = $("financial-report-error");
+    const content = $("financial-report-content");
+    if (!currentFinancialPlan || currentFinancialPlan.topK !== data.config.top_k || currentFinancialPlan.attempts !== data.config.attempts) {
+      error.textContent = "Calcule uma progressão válida para este top K e limite de tentativas.";
+      error.hidden = false;
+      content.hidden = true;
+      return;
+    }
+    error.hidden = true;
+    content.hidden = false;
+    let balanceCents = 0;
+    let totalStakedCents = 0;
+    let peakCents = 0;
+    let maxDrawdownCents = 0;
+    const balances = [];
+    let closedSignals = 0;
+    data.signals.forEach((signal) => {
+      const outcome = financialOutcome(signal, currentFinancialPlan);
+      if (!outcome) return;
+      closedSignals += 1;
+      totalStakedCents += outcome.stakedCents;
+      balanceCents += outcome.pnlCents;
+      peakCents = Math.max(peakCents, balanceCents);
+      maxDrawdownCents = Math.max(maxDrawdownCents, peakCents - balanceCents);
+      balances.push(balanceCents);
+    });
+    $("financial-report-recap").textContent = `${integer.format(closedSignals)} sinais encerrados · top ${integer.format(currentFinancialPlan.topK)} · lucro mínimo ${money(currentFinancialPlan.minimumProfitCents)} por sinal vencedor.`;
+    $("financial-net-result").textContent = money(balanceCents, true);
+    $("financial-net-result").className = balanceCents >= 0 ? "financial-positive" : "financial-negative";
+    $("financial-total-staked").textContent = money(totalStakedCents);
+    $("financial-report-exposure").textContent = money(currentFinancialPlan.maxExposureCents);
+    $("financial-max-drawdown").textContent = money(maxDrawdownCents);
+    renderFinancialChart(balances);
   }
 
   function setBusy(busy) {
@@ -225,6 +433,11 @@
       } else picksCell.textContent = "Sem ranking";
       const stateCell = element("td");
       stateCell.append(element("span", `status-chip status-${signal.status}`, statusLabels[signal.status]));
+      if (currentFinancialPlan && currentFinancialPlan.topK === currentReport.config.top_k
+          && currentFinancialPlan.attempts === currentReport.config.attempts) {
+        const outcome = financialOutcome(signal, currentFinancialPlan);
+        if (outcome) stateCell.append(element("span", `cell-secondary ${outcome.pnlCents >= 0 ? "financial-positive" : "financial-negative"}`, money(outcome.pnlCents, true)));
+      }
       const detailCell = element("td", "", signalDetails(signal, currentReport.config.attempts));
       if (signal.status === "win" && signal.hit_rank !== null) {
         detailCell.append(element("span", "cell-secondary", `Posição ${signal.hit_rank} do ranking`));
@@ -301,6 +514,7 @@
     $("catalog-records").textContent = integer.format(data.catalog.source.records);
     $("catalog-period").textContent = `${datetime.format(new Date(data.catalog.source.first_timestamp))} — ${datetime.format(new Date(data.catalog.source.last_timestamp))}`;
     $("catalog-build").textContent = data.catalog.build_id;
+    renderFinancialReport(data);
     renderPage(1);
     $("backtest-empty").hidden = true;
     $("backtest-error").hidden = true;
@@ -313,6 +527,7 @@
     clearValidation();
     const config = readConfig();
     if (!config) return;
+    calculateFinancialPlan({ focusOnError: false });
     if (activeController) activeController.abort();
     const thisRequest = ++requestId;
     const controller = new AbortController();
@@ -379,7 +594,24 @@
   }
 
   form.addEventListener("submit", run);
-  form.addEventListener("input", () => invalidate());
+  form.addEventListener("input", (event) => {
+    if (event.target === $("minimum-profit")) {
+      currentFinancialPlan = null;
+      clearFinancialError();
+      $("financial-projection").hidden = true;
+      if (currentReport) {
+        renderFinancialReport(currentReport);
+        renderPage(currentPage);
+      }
+      return;
+    }
+    if (event.target === $("top-k") || event.target === $("attempts")) {
+      currentFinancialPlan = null;
+      $("financial-projection").hidden = true;
+    }
+    invalidate();
+  });
+  $("calculate-financial").addEventListener("click", () => calculateFinancialPlan());
   $("cancel-button").addEventListener("click", () => invalidate("Execução cancelada. Nenhum resultado foi mantido."));
   $("backtest-retry").addEventListener("click", () => form.requestSubmit());
   $("page-first").addEventListener("click", () => renderPage(1));
@@ -389,4 +621,5 @@
   $("page-go").addEventListener("click", goToPage);
   $("page-number").addEventListener("input", clearPageError);
   $("page-number").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); goToPage(); } });
+  calculateFinancialPlan({ focusOnError: false });
 })();

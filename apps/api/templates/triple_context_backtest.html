@@ -40,6 +40,19 @@
           <label class="choice"><input type="radio" name="ordered" value="false"><span class="choice-content"><span class="choice-title">Qualquer ordem</span><small>As seis ordens dos mesmos três números.</small></span></label>
         </div></fieldset>
       </div>
+      <section class="financial-config" aria-labelledby="financial-config-heading">
+        <div class="financial-config-copy"><span class="step-index">$</span><div><h3 id="financial-config-heading">Progressão financeira</h3><p>Informe o lucro líquido mínimo por sinal. A ficha é calculada por número e arredondada para cima em múltiplos de R$ 0,50.</p></div></div>
+        <div class="financial-action-row">
+          <div class="parameter-field financial-target-field"><label for="minimum-profit">Lucro mínimo por sinal</label><div class="money-input"><span aria-hidden="true">R$</span><input id="minimum-profit" name="minimum_profit" type="text" inputmode="decimal" value="10,00" maxlength="12" autocomplete="off" aria-describedby="minimum-profit-help financial-error"></div><p id="minimum-profit-help">De R$ 0,01 a R$ 1.000.000,00.</p></div>
+          <button id="calculate-financial" class="secondary-button financial-button" type="button">Calcular fichas</button>
+        </div>
+        <p id="financial-error" class="form-error" role="alert" hidden></p>
+        <div id="financial-projection" class="financial-projection" hidden>
+          <div class="financial-projection-heading"><div><h4>Fichas por tentativa</h4><p id="financial-projection-recap"></p></div><strong id="financial-max-exposure">—</strong></div>
+          <div class="financial-table-scroll" tabindex="0" role="region" aria-label="Progressão financeira por tentativa"><table class="financial-table"><thead><tr><th scope="col">Tentativa</th><th scope="col">Ficha por número</th><th scope="col">Aposta da tentativa</th><th scope="col">Exposição acumulada</th><th scope="col">Lucro se acertar</th></tr></thead><tbody id="financial-projection-body"></tbody></table></div>
+          <p class="financial-formula">Retorno considerado: 35:1 no número pleno, mais a devolução da ficha vencedora. Cada sinal reinicia na primeira tentativa.</p>
+        </div>
+      </section>
       <div class="fixed-rules"><span class="block-example" aria-label="Primeiro bloco: resultados 1, 2 e 3. Segundo bloco: resultados 4, 5 e 6.">1–2–3 <span aria-hidden="true">/</span> 4–5–6 <span aria-hidden="true">/ …</span></span><p>Sem sobreposição na formação dos trios. Cada sinal mantém seu top K até o fim da conferência. Só conta acerto no número exato selecionado; vizinhos não ampliam o conjunto.</p></div>
       <p id="backtest-form-error" class="form-error" role="alert" hidden></p>
       <div class="form-actions"><button id="run-button" class="submit-button backtest-submit" type="submit"><span id="run-label">Executar backtest</span><span aria-hidden="true">→</span></button><button id="cancel-button" class="quiet-button" type="button" hidden>Cancelar</button><p>As tentativas são conferidas após o trio, nas duas opções de ranking.</p></div>
@@ -60,6 +73,16 @@
           <article class="metric"><p>Incompletos</p><strong id="summary-incomplete">—</strong><span>Faltam giros para encerrar o sinal</span></article>
         </div>
         <div class="summary-context"><p id="summary-denominator"></p><div><span id="summary-total"></span><span id="summary-skipped"></span><span id="summary-repeated"></span><span id="summary-no-evidence"></span></div></div>
+
+        <section id="financial-report" class="backtest-panel financial-report" aria-labelledby="financial-report-heading">
+          <div class="section-title"><div><h3 id="financial-report-heading">Evolução financeira</h3><p id="financial-report-recap" class="panel-copy"></p></div><span>Simulação por sinais encerrados</span></div>
+          <div id="financial-report-error" class="methodology-warning" hidden></div>
+          <div id="financial-report-content">
+            <div class="financial-metrics"><div><span>Saldo final</span><strong id="financial-net-result">—</strong></div><div><span>Total apostado</span><strong id="financial-total-staked">—</strong></div><div><span>Maior exposição por sinal</span><strong id="financial-report-exposure">—</strong></div><div><span>Maior queda do saldo</span><strong id="financial-max-drawdown">—</strong></div></div>
+            <div id="financial-chart" class="financial-chart" role="img" aria-label="Evolução do saldo acumulado por sinal encerrado"></div>
+            <p class="financial-report-note">Cada sinal é calculado separadamente e reinicia na primeira ficha. Sinais incompletos ou sem ranking não entram no saldo. Quando as conferências se sobrepõem, esta soma não representa o capital simultaneamente necessário.</p>
+          </div>
+        </section>
 
         <div class="distribution-grid">
           <section class="backtest-panel"><div class="section-title"><h3>Vitórias por tentativa</h3><span>Até o limite escolhido</span></div><p class="panel-copy">A tentativa em que cada sinal acertou pela primeira vez.</p><div id="win-distribution" class="distribution-list"></div></section>
