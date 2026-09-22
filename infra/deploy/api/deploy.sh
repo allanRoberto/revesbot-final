@@ -229,7 +229,8 @@ sudo -u "$runtime_user" env \
   apps/api/tests/test_results_websocket.py \
   apps/api/tests/test_minimal_api.py \
   apps/api/tests/test_pattern_monitoring.py \
-  apps/api/tests/test_pixgo_webhook.py
+  apps/api/tests/test_pixgo_webhook.py \
+  apps/api/tests/test_triple_context_ranking.py
 
 set -a
 # shellcheck disable=SC1090

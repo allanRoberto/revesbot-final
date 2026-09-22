@@ -15,6 +15,9 @@ on:
       - "apps/api/routes/pattern_monitoring.py"
       - "apps/api/routes/results_websocket.py"
       - "apps/api/routes/roulette_history.py"
+      - "apps/api/routes/triple_context_ranking.py"
+      - "apps/api/services/triple_context_ranking_service.py"
+      - "apps/api/tests/test_triple_context_ranking.py"
       - "apps/api/templates/history_minimal.html"
       - "apps/api/templates/pattern_monitoring.html"
       - "apps/api/static/css/**"
@@ -78,6 +81,7 @@ jobs:
           apps/api/tests/test_minimal_api.py
           apps/api/tests/test_pattern_monitoring.py
           apps/api/tests/test_pixgo_webhook.py
+          apps/api/tests/test_triple_context_ranking.py
 
   deploy:
     needs: test
