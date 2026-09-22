@@ -18,6 +18,16 @@
 .backtest-options .choice-fieldset { margin-bottom: 0; }
 .backtest-options .choice small { line-height: 1.6; }
 .backtest-options .choice-content { min-height: 82px; }
+.execution-rules { margin: 24px 0 0; padding: 0; border: 0; }
+.execution-rules legend { margin-bottom: 10px; font-size: 12px; font-weight: 600; }
+.execution-choice { display: flex; align-items: flex-start; gap: 12px; padding: 15px 17px; border: 1px solid #455449; border-radius: 7px; background: #131b16; cursor: pointer; }
+.execution-choice:hover { border-color: #6e8663; }
+.execution-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.execution-check { display: grid; place-items: center; flex: 0 0 22px; height: 22px; margin-top: 1px; border: 1px solid #60705d; border-radius: 4px; color: transparent; background: #0f1611; font-size: 13px; }
+.execution-choice input:checked + .execution-check { color: #10170f; border-color: var(--accent); background: var(--accent); }
+.execution-choice input:focus-visible + .execution-check { outline: 3px solid var(--accent); outline-offset: 3px; }
+.execution-choice strong { display: block; margin-bottom: 4px; color: #dbe6d5; font-size: 12px; }
+.execution-choice small { display: block; color: var(--muted); font-size: 10px; line-height: 1.7; }
 .financial-config { margin-top: 24px; padding: 20px; border: 1px solid #4f6249; border-radius: 9px; background: #172019; }
 .financial-config-copy { display: flex; align-items: flex-start; gap: 11px; }
 .financial-config-copy h3 { margin: 1px 0 6px; font-size: 14px; }
@@ -127,7 +137,7 @@
 .signal-trio { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font: 12px var(--mono); }
 .signal-trio .trio-arrow { color: #7d8f76; }
 .status-chip { display: inline-block; border: 1px solid #64715c; border-radius: 5px; padding: 4px 6px; font-size: 10px; white-space: nowrap; }
-.status-win { color: #c9f0ae; background: #263924; border-color: #536f45; }.status-loss { color: #f1bbb2; background: #352821; border-color: #735344; }.status-incomplete { color: #e7d6a7; background: #332f20; border-color: #6a6040; }.status-repeated_trio, .status-no_evidence { color: #bac6b6; background: #252d25; }
+.status-win { color: #c9f0ae; background: #263924; border-color: #536f45; }.status-loss { color: #f1bbb2; background: #352821; border-color: #735344; }.status-incomplete { color: #e7d6a7; background: #332f20; border-color: #6a6040; }.status-repeated_trio, .status-no_evidence { color: #bac6b6; background: #252d25; }.status-overlap_skipped { color: #cfcae8; background: #292737; border-color: #615b79; }
 .signal-details { margin-top: 5px; }.signal-details summary { color: #c8dcbd; cursor: pointer; font-size: 10px; padding: 3px 0; }.signal-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }.signal-details p { margin: 6px 0 0; font: 10px/1.9 var(--mono); color: #bcccb3; }
 .selected-numbers { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }.selected-number { border: 1px solid #4b5c45; background: #243120; border-radius: 4px; min-width: 23px; padding: 2px 3px; font: 10px var(--mono); text-align: center; }
 .pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding: 18px 22px; border-top: 1px solid var(--line); }

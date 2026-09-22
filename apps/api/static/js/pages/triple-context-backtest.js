@@ -56,7 +56,7 @@
   });
   const PAGE_SIZE = 50;
   const REQUEST_TIMEOUT_MS = 60000;
-  const statusLabels = { win: "Vitória", loss: "Derrota", incomplete: "Incompleto", repeated_trio: "Números repetidos", no_evidence: "Sem evidência" };
+  const statusLabels = { win: "Vitória", loss: "Derrota", incomplete: "Incompleto", repeated_trio: "Números repetidos", no_evidence: "Sem evidência", overlap_skipped: "Ignorado por sobreposição" };
   let requestId = 0;
   let activeController = null;
   let currentReport = null;
@@ -293,6 +293,7 @@
     }
     config.direction = form.elements.direction.value;
     config.ordered = form.elements.ordered.value === "true";
+    config.prevent_overlapping_bets = form.elements.prevent_overlapping_bets.checked;
     return config;
   }
 
@@ -314,12 +315,12 @@
         || !(data.methodology.warning === null || typeof data.methodology.warning === "string")
         || !object(data.summary) || !Array.isArray(data.signals)) fail();
     const summary = data.summary;
-    const fields = ["total_signals", "evaluated", "wins", "losses", "incomplete", "repeated_trio", "no_evidence", "recovered_losses", "unresolved_losses"];
+    const fields = ["total_signals", "evaluated", "wins", "losses", "incomplete", "repeated_trio", "no_evidence", "overlap_skipped", "recovered_losses", "unresolved_losses"];
     if (!fields.every((key) => count(summary[key]))
         || !(summary.accuracy_pct === null || (Number.isFinite(summary.accuracy_pct) && summary.accuracy_pct >= 0 && summary.accuracy_pct <= 100))
         || !optionalCount(summary.max_recovery_attempt)
         || summary.total_signals !== data.signals.length
-        || summary.total_signals !== summary.wins + summary.losses + summary.incomplete + summary.repeated_trio + summary.no_evidence
+        || summary.total_signals !== summary.wins + summary.losses + summary.incomplete + summary.repeated_trio + summary.no_evidence + summary.overlap_skipped
         || summary.recovered_losses + summary.unresolved_losses !== summary.losses
         || !Array.isArray(summary.win_attempts) || !Array.isArray(summary.recovery_attempts)) fail();
     if (!summary.win_attempts.every((row) => object(row) && count(row.attempt) && row.attempt >= 1
@@ -328,7 +329,7 @@
           && row.extra_attempts === row.attempt - request.attempts && count(row.count))
         || summary.win_attempts.reduce((sum, row) => sum + row.count, 0) !== summary.wins
         || summary.recovery_attempts.reduce((sum, row) => sum + row.count, 0) !== summary.recovered_losses) fail();
-    const observedStatuses = { win: 0, loss: 0, incomplete: 0, repeated_trio: 0, no_evidence: 0 };
+    const observedStatuses = { win: 0, loss: 0, incomplete: 0, repeated_trio: 0, no_evidence: 0, overlap_skipped: 0 };
     for (const signal of data.signals) {
       if (!object(signal) || !Object.hasOwn(statusLabels, signal.status)
           || !(count(signal.signal_id) || (typeof signal.signal_id === "string" && signal.signal_id.length > 0))
@@ -341,9 +342,16 @@
           || !Array.isArray(signal.checked_numbers) || !signal.checked_numbers.every(number)
           || !optionalCount(signal.first_hit_attempt) || !optionalCount(signal.hit_rank)
           || !(signal.hit_number === null || number(signal.hit_number))
-          || !optionalCount(signal.recovery_extra_attempts) || !optionalCount(signal.followup_observed)) fail();
-      const skipped = signal.status === "repeated_trio" || signal.status === "no_evidence";
-      if (signal.selected_numbers.length !== (skipped ? 0 : request.top_k)) fail();
+          || !optionalCount(signal.recovery_extra_attempts) || !optionalCount(signal.followup_observed)
+          || !optionalCount(signal.blocked_until_position)
+          || !(signal.blocked_by_signal_id === null || count(signal.blocked_by_signal_id))) fail();
+      const noRanking = signal.status === "repeated_trio" || signal.status === "no_evidence";
+      if (signal.selected_numbers.length !== (noRanking ? 0 : request.top_k)) fail();
+      if (signal.status === "overlap_skipped" && (signal.available_attempts !== 0
+          || signal.checked_numbers.length !== 0 || signal.blocked_by_signal_id === null
+          || signal.blocked_until_position === null || signal.first_hit_attempt !== null)) fail();
+      if (signal.status !== "overlap_skipped"
+          && (signal.blocked_by_signal_id !== null || signal.blocked_until_position !== null)) fail();
       if (signal.status === "loss" && signal.followup_observed === null) fail();
       if (signal.recovery_extra_attempts !== null && (signal.status !== "loss" || signal.recovery_extra_attempts < 1
           || signal.first_hit_attempt !== request.attempts + signal.recovery_extra_attempts)) fail();
@@ -351,7 +359,8 @@
     }
     if (observedStatuses.win !== summary.wins || observedStatuses.loss !== summary.losses
         || observedStatuses.incomplete !== summary.incomplete || observedStatuses.repeated_trio !== summary.repeated_trio
-        || observedStatuses.no_evidence !== summary.no_evidence) fail();
+        || observedStatuses.no_evidence !== summary.no_evidence
+        || observedStatuses.overlap_skipped !== summary.overlap_skipped) fail();
     return data;
   }
 
@@ -393,6 +402,7 @@
     if (signal.status === "loss") return `Sem acerto nas ${integer.format(attempts)} tentativas`;
     if (signal.status === "incomplete") return `${integer.format(signal.available_attempts)} de ${integer.format(attempts)} giros disponíveis`;
     if (signal.status === "repeated_trio") return "Trio fora do catálogo de três números distintos";
+    if (signal.status === "overlap_skipped") return `Bloqueado pelo sinal #${signal.blocked_by_signal_id} até a posição ${integer.format(signal.blocked_until_position)}`;
     return "Sem evidência no ranking escolhido";
   }
 
@@ -486,7 +496,7 @@
     currentPage = 1;
     const summary = data.summary;
     const config = data.config;
-    $("backtest-recap").textContent = `${integer.format(data.source.records)} resultados · top ${config.top_k} fixo · ${config.attempts} tentativas · ${config.ordered ? "ordem exata" : "qualquer ordem"} · ranking ${config.direction === "forward" ? "à frente" : "de trás"}`;
+    $("backtest-recap").textContent = `${integer.format(data.source.records)} resultados · top ${config.top_k} fixo · ${config.attempts} tentativas · ${config.ordered ? "ordem exata" : "qualquer ordem"} · ranking ${config.direction === "forward" ? "à frente" : "de trás"} · ${config.prevent_overlapping_bets ? "sem apostas sobrepostas" : "apostas sobrepostas permitidas"}`;
     $("methodology-description").textContent = data.methodology.description;
     $("methodology-warning").textContent = data.methodology.warning || "";
     $("methodology-warning").hidden = !data.methodology.warning;
@@ -494,12 +504,16 @@
     ["wins", "losses", "incomplete"].forEach((key) => { $(`summary-${key}`).textContent = integer.format(summary[key]); });
     const closed = summary.wins + summary.losses;
     $("summary-denominator").textContent = closed
-      ? `Assertividade: ${integer.format(summary.wins)} vitórias em ${integer.format(closed)} sinais encerrados. Incompletos e sinais sem ranking ficam fora desse denominador.`
-      : "Ainda não há vitórias ou derrotas para calcular a assertividade. Incompletos e sinais sem ranking ficam fora do denominador.";
+      ? `Assertividade: ${integer.format(summary.wins)} vitórias em ${integer.format(closed)} sinais encerrados. Incompletos, sinais sem ranking e entradas bloqueadas ficam fora desse denominador.`
+      : "Ainda não há vitórias ou derrotas para calcular a assertividade. Incompletos, sinais sem ranking e entradas bloqueadas ficam fora do denominador.";
     $("summary-total").textContent = `${integer.format(summary.total_signals)} sinais formados`;
     $("summary-skipped").textContent = `${integer.format(summary.repeated_trio + summary.no_evidence)} sem ranking`;
+    $("summary-overlap").textContent = `Ignorados por sobreposição: ${integer.format(summary.overlap_skipped)}`;
     $("summary-repeated").textContent = `Com número repetido no trio: ${integer.format(summary.repeated_trio)}`;
     $("summary-no-evidence").textContent = `Sem evidência: ${integer.format(summary.no_evidence)}`;
+    $("overlap-legend").textContent = config.prevent_overlapping_bets
+      ? "Apostas não se sobrepõem: sinais formados durante uma entrada ativa aparecem como ignorados e não entram nas estatísticas ou no financeiro."
+      : "Quando o limite é maior que três tentativas, sinais diferentes podem compartilhar giros na conferência.";
     renderDistribution("win-distribution", summary.win_attempts, (row) => `${integer.format(row.attempt)}ª tentativa`, "Nenhuma vitória dentro do limite escolhido.");
     $("recovered-losses").textContent = integer.format(summary.recovered_losses);
     $("unresolved-losses").textContent = integer.format(summary.unresolved_losses);
@@ -519,7 +533,7 @@
     $("backtest-empty").hidden = true;
     $("backtest-error").hidden = true;
     $("backtest-report").hidden = false;
-    $("backtest-status").textContent = `Backtest concluído: ${integer.format(summary.wins)} vitórias, ${integer.format(summary.losses)} derrotas e ${integer.format(summary.incomplete)} incompletos. Análise retrospectiva.`;
+    $("backtest-status").textContent = `Backtest concluído: ${integer.format(summary.wins)} vitórias, ${integer.format(summary.losses)} derrotas, ${integer.format(summary.incomplete)} incompletos e ${integer.format(summary.overlap_skipped)} ignorados por sobreposição. Análise retrospectiva.`;
   }
 
   async function run(event) {

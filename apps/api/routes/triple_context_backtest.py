@@ -30,6 +30,7 @@ class BacktestConfig(BaseModel):
     attempts: StrictInt = Field(default=3, ge=1, le=100)
     ordered: StrictBool = True
     direction: Literal["forward", "backward"] = "forward"
+    prevent_overlapping_bets: StrictBool = False
 
 
 def get_backtest_db():

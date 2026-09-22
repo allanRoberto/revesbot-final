@@ -116,7 +116,8 @@ def build_signals(rows, documents, *, ordered, direction, top_k):
     return signals
 
 
-async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, direction):
+async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, direction,
+                               prevent_overlapping_bets=False):
     active = await db["triple_context_active_v1"].find_one(
         {"_id": ROULETTE}, {"_id": 0, "build_id": 1})
     if active is None:
@@ -172,10 +173,12 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
             documents[key] = document
     signals = await asyncio.to_thread(build_signals, rows, documents, ordered=ordered,
                                       direction=direction, top_k=top_k)
-    evaluated = await asyncio.to_thread(evaluate_signals, rows, signals, attempts)
+    evaluated = await asyncio.to_thread(
+        evaluate_signals, rows, signals, attempts, prevent_overlapping_bets)
     before_catalog_end = sum(
-        bool(signal["selected_numbers"]) and _catalog_date(signal["trigger_timestamp"]) < catalog_end
-        for signal in signals)
+        signal["status"] not in {"repeated_trio", "no_evidence", "overlap_skipped"}
+        and _catalog_date(signal["trigger_timestamp"]) < catalog_end
+        for signal in evaluated["signals"])
     warning = (
         "O catálogo inclui dados posteriores à entrada de " + str(before_catalog_end)
         + " sinais desta amostra. A assertividade é retrospectiva e pode estar favorecida por informação futura."
@@ -183,16 +186,22 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
     )
     return {
         "config": {"history_limit": history_limit, "top_k": top_k, "attempts": attempts,
-                   "ordered": ordered, "direction": direction, "sampling": "blocks_of_three",
+                   "ordered": ordered, "direction": direction,
+                   "prevent_overlapping_bets": prevent_overlapping_bets,
+                   "sampling": "blocks_of_three",
                    "roulette_id": ROULETTE, "ranking_source": "published_catalog"},
         "source": history_source,
         "catalog": {"build_id": build_id, "source": catalog_source},
         "methodology": {
-            "description": "Análise retrospectiva com uma versão fixa do catálogo publicado. Blocos de três, sem sobreposição.",
+            "description": (
+                "Análise retrospectiva com uma versão fixa do catálogo publicado. Blocos de três; "
+                + ("uma nova aposta só começa após o encerramento da anterior."
+                   if prevent_overlapping_bets else "as apostas podem se sobrepor.")
+            ),
             "warning": warning, "signals_with_potential_future_data": before_catalog_end,
             "ranking_frozen": True, "exact_number_hits": True,
             "followup": "Primeiro acerto do mesmo conjunto até o fim dos resultados selecionados; uma recuperação não altera a derrota.",
-            "accuracy": "Vitórias / (vitórias + derrotas). Entradas sem ranking e sem desfecho são contabilizadas separadamente.",
+            "accuracy": "Vitórias / (vitórias + derrotas). Entradas sem ranking, sem desfecho ou bloqueadas por outra aposta são contabilizadas separadamente.",
         },
         **evaluated,
     }

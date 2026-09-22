@@ -40,6 +40,7 @@
           <label class="choice"><input type="radio" name="ordered" value="false"><span class="choice-content"><span class="choice-title">Qualquer ordem</span><small>As seis ordens dos mesmos três números.</small></span></label>
         </div></fieldset>
       </div>
+      <fieldset class="execution-rules"><legend>Como executar as entradas?</legend><label class="execution-choice"><input id="prevent-overlapping-bets" type="checkbox" name="prevent_overlapping_bets"><span class="execution-check" aria-hidden="true">✓</span><span><strong>Não sobrepor apostas</strong><small>Enquanto uma entrada estiver dentro das tentativas, os novos sinais serão ignorados. A próxima entrada só começa depois do acerto ou do fim do limite.</small></span></label></fieldset>
       <section class="financial-config" aria-labelledby="financial-config-heading">
         <div class="financial-config-copy"><span class="step-index">$</span><div><h3 id="financial-config-heading">Progressão financeira</h3><p>Informe o lucro líquido mínimo por sinal. A ficha é calculada por número e arredondada para cima em múltiplos de R$ 0,50.</p></div></div>
         <div class="financial-action-row">
@@ -72,7 +73,7 @@
           <article class="metric"><p>Derrotas</p><strong id="summary-losses">—</strong><span>Limite completo, sem acerto</span></article>
           <article class="metric"><p>Incompletos</p><strong id="summary-incomplete">—</strong><span>Faltam giros para encerrar o sinal</span></article>
         </div>
-        <div class="summary-context"><p id="summary-denominator"></p><div><span id="summary-total"></span><span id="summary-skipped"></span><span id="summary-repeated"></span><span id="summary-no-evidence"></span></div></div>
+        <div class="summary-context"><p id="summary-denominator"></p><div><span id="summary-total"></span><span id="summary-skipped"></span><span id="summary-overlap"></span><span id="summary-repeated"></span><span id="summary-no-evidence"></span></div></div>
 
         <section id="financial-report" class="backtest-panel financial-report" aria-labelledby="financial-report-heading">
           <div class="section-title"><div><h3 id="financial-report-heading">Evolução financeira</h3><p id="financial-report-recap" class="panel-copy"></p></div><span>Simulação por sinais encerrados</span></div>
@@ -92,7 +93,7 @@
         <section class="backtest-panel signals-panel" aria-labelledby="signals-heading">
           <div class="signals-heading"><div><h3 id="signals-heading">Todos os sinais</h3><p>50 por página. A paginação não altera as estatísticas acima.</p></div></div>
           <p class="signal-legend">Trios em ordem cronológica: antigo → recente. As posições referem-se ao histórico desta execução, começando em 1. “+” indica giros adicionais após o limite.</p>
-          <p class="signal-legend">Quando o limite é maior que três tentativas, sinais diferentes podem compartilhar giros na conferência.</p>
+          <p id="overlap-legend" class="signal-legend">Quando o limite é maior que três tentativas, sinais diferentes podem compartilhar giros na conferência.</p>
           <div class="signals-scroll" tabindex="0" role="region" aria-label="Tabela de sinais; role horizontalmente para ver todas as colunas"><table class="signals-table"><caption class="visually-hidden">Detalhes de todos os sinais do backtest, apresentados em páginas de 50.</caption><thead><tr><th scope="col">Sinal e horário</th><th scope="col">Trio e posições</th><th scope="col">Números selecionados</th><th scope="col">Resultado</th><th scope="col">Conferência</th><th scope="col">Após o limite</th></tr></thead><tbody id="signals-body"></tbody></table></div>
           <div class="pagination"><p id="page-range" role="status" aria-live="polite"></p><nav aria-label="Paginação dos sinais"><button id="page-first" class="page-button" type="button" aria-label="Primeira página">«</button><button id="page-previous" class="page-button" type="button">Anterior</button><label for="page-number">Página</label><input id="page-number" type="text" inputmode="numeric" pattern="[0-9]+" value="1" aria-describedby="page-total page-error"><span id="page-total"></span><button id="page-go" class="page-button" type="button">Ir</button><button id="page-next" class="page-button" type="button">Próxima</button><button id="page-last" class="page-button" type="button" aria-label="Última página">»</button></nav></div><p id="page-error" class="form-error page-error" role="alert" hidden></p>
         </section>
