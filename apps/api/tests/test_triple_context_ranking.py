@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pymongo.errors import PyMongoError
 
-from api.routes.triple_context_ranking import get_catalog_db, router
+from api.routes.triple_context_ranking import _ranking_asset_version, get_catalog_db, router
 
 
 ACTIVE = "triple_context_active_v1"
@@ -108,6 +108,18 @@ def _client(db):
     app.include_router(router)
     app.dependency_overrides[get_catalog_db] = lambda: db
     return TestClient(app)
+
+
+def test_html_page_does_not_query_mongo_and_references_versioned_assets():
+    db = FakeDB(_documents())
+    response = _client(db).get("/ranking-trios")
+
+    assert response.status_code == 200
+    assert db.calls == []
+    version = _ranking_asset_version()
+    assert len(version) == 64
+    assert f'href="/static/css/triple_context_ranking.css?v={version}"' in response.text
+    assert f'src="/static/js/pages/triple-context-ranking.js?v={version}"' in response.text
 
 
 def _get(client, *, ordered, direction, numbers="34,14,18", input_order=None):

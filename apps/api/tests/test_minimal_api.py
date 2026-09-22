@@ -11,6 +11,7 @@ def test_minimal_api_exposes_only_expected_functional_routes() -> None:
     assert paths == {
         "/api/roulettes-list",
         "/api/triple-context-ranking",
+        "/ranking-trios",
         "/history-detailed/{slug}",
         "/history/{slug}",
         "/history-app/{slug}",
@@ -62,3 +63,14 @@ def test_history_html_uses_external_assets_and_docs_are_disabled() -> None:
     assert 'id="context-occurrences"' not in response.text
     assert "<style" not in response.text
     assert client.get("/docs").status_code == 404
+
+
+def test_triple_ranking_page_uses_versioned_external_assets_without_mongo() -> None:
+    client = TestClient(app)
+    response = client.get("/ranking-trios")
+
+    assert response.status_code == 200
+    assert 'href="/static/css/triple_context_ranking.css?v=' in response.text
+    assert 'src="/static/js/pages/triple-context-ranking.js?v=' in response.text
+    assert "{{ asset_version }}" not in response.text
+    assert "<style" not in response.text

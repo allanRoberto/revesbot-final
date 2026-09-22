@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101513">
+  <title>Ranking de trios · Revesbot</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/triple_context_ranking.css?v={{ asset_version }}">
+  <script defer src="/static/js/pages/triple-context-ranking.js?v={{ asset_version }}"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/ranking-trios" aria-label="Revesbot — Ranking de trios">
+      <span class="brand-mark" aria-hidden="true">r<span>.</span></span>
+      <span>revesbot<span class="brand-divider">/</span><span class="brand-section">análise</span></span>
+    </a>
+    <span class="header-label"><span class="status-dot" aria-hidden="true"></span> Catálogo de trios</span>
+  </header>
+
+  <main class="page">
+    <div class="page-intro">
+      <div>
+        <p class="eyebrow">EXPLORADOR DE CONTEXTO</p>
+        <h1>Ranking de trios<span>.</span></h1>
+        <p class="intro-copy">Explore os números que aparecem antes ou depois de uma sequência.</p>
+      </div>
+      <span class="table-tag"><span class="table-symbol" aria-hidden="true">◎</span> Pragmatic Auto Roulette</span>
+    </div>
+
+    <div class="workspace">
+      <aside class="query-column" aria-label="Configuração da consulta">
+        <form id="ranking-form" class="query-panel" novalidate>
+          <div class="panel-heading"><span class="step-index">01</span><h2>Configure sua consulta</h2></div>
+          <fieldset class="number-fieldset">
+            <legend>Qual trio você quer analisar?</legend>
+            <p class="field-help" id="numbers-help">Informe três números distintos, de 0 a 36. Comece pelo último que saiu.</p>
+            <div class="number-inputs">
+              <label for="number-latest"><span>Último</span><input id="number-latest" name="latest" type="text" inputmode="numeric" pattern="[0-9]{1,2}" maxlength="2" value="34" autocomplete="off" required aria-describedby="numbers-help form-error"><small>Mais recente</small></label>
+              <label for="number-previous"><span>Anterior</span><input id="number-previous" name="previous" type="text" inputmode="numeric" pattern="[0-9]{1,2}" maxlength="2" value="14" autocomplete="off" required aria-describedby="numbers-help form-error"><small>1 giro antes</small></label>
+              <label for="number-oldest"><span>Mais antigo</span><input id="number-oldest" name="oldest" type="text" inputmode="numeric" pattern="[0-9]{1,2}" maxlength="2" value="18" autocomplete="off" required aria-describedby="numbers-help form-error"><small>2 giros antes</small></label>
+            </div>
+          </fieldset>
+
+          <div class="sequence-preview" aria-label="Sequência cronológica">
+            <span>Ordem no tempo</span>
+            <p><b id="preview-oldest">18</b><span aria-hidden="true">→</span><b id="preview-previous">14</b><span aria-hidden="true">→</span><b id="preview-latest" class="latest-preview">34</b><small>último</small></p>
+          </div>
+
+          <fieldset class="choice-fieldset">
+            <legend>Onde buscar o contexto?</legend>
+            <div class="choice-grid">
+              <label class="choice"><input type="radio" name="direction" value="forward" checked><span class="choice-content"><span class="choice-title"><span aria-hidden="true">↗</span> À frente</span><small>Até 20 giros depois</small></span></label>
+              <label class="choice"><input type="radio" name="direction" value="backward"><span class="choice-content"><span class="choice-title"><span aria-hidden="true">↙</span> Atrás</span><small>Até 10 giros antes</small></span></label>
+            </div>
+          </fieldset>
+
+          <fieldset class="choice-fieldset order-fieldset">
+            <legend>Como comparar o trio?</legend>
+            <label class="choice"><input type="radio" name="ordered" value="true" checked><span class="choice-content"><span class="choice-title">Ordem exata<span class="radio-indicator" aria-hidden="true"></span></span><small>Mesma sequência de resultados.</small></span></label>
+            <label class="choice"><input type="radio" name="ordered" value="false"><span class="choice-content"><span class="choice-title">Qualquer ordem<span class="radio-indicator" aria-hidden="true"></span></span><small>Os mesmos três números em qualquer ordem.</small></span></label>
+          </fieldset>
+
+          <p id="form-error" class="form-error" role="alert" hidden></p>
+          <button class="submit-button" id="submit-button" type="submit"><span id="submit-label">Consultar ranking</span><span id="submit-icon" aria-hidden="true">→</span></button>
+          <p class="form-caption">Consulta ao catálogo da Pragmatic Auto Roulette.</p>
+        </form>
+
+        <div class="reading-note">
+          <span class="note-icon" aria-hidden="true">i</span>
+          <div><h3>Como ler os pontos</h3><p>Os pontos expressam o peso histórico de cada número no contexto escolhido. Não representam uma probabilidade de acerto.</p></div>
+        </div>
+      </aside>
+
+      <section class="results-column" aria-label="Resultado da consulta" aria-busy="false" id="results-region">
+        <div class="results-heading"><div class="heading-label"><span class="step-index">02</span><h2>Resultado da análise</h2></div><span class="result-state" id="result-state">Aguardando consulta</span></div>
+        <p id="query-status" class="query-status" role="status" aria-live="polite"></p>
+        <div id="empty-state" class="empty-state"><span class="empty-symbol" aria-hidden="true">↗</span><h3>Um trio. Todo o contexto.</h3><p>Escolha os números e consulte o catálogo para visualizar as 37 posições do ranking.</p></div>
+        <div id="error-state" class="error-state" role="alert" hidden><h3 id="error-title">Não foi possível consultar</h3><p id="error-message"></p><button id="retry-button" class="secondary-button" type="button">Tentar novamente <span aria-hidden="true">↻</span></button></div>
+        <div id="ranking-results" hidden>
+          <div class="query-recap"><p id="result-query"></p><span id="result-direction"></span></div>
+          <div id="no-evidence" class="evidence-notice" hidden><strong>Sem evidência neste contexto.</strong><p>O catálogo não tem giros de contexto para esta consulta. Os 37 números aparecem com pontuação zero, sem indicação de preferência.</p></div>
+          <div class="metrics">
+            <article class="metric"><p>Ocorrências do trio</p><strong id="metric-occurrences">—</strong><span>No catálogo consultado</span></article>
+            <article class="metric"><p>Giros de contexto</p><strong id="metric-events">—</strong><span id="metric-depth">—</span></article>
+            <article class="metric"><p>Contextos completos</p><strong id="metric-complete">—</strong><span>Com todos os giros disponíveis</span></article>
+          </div>
+          <div class="ranking-panel">
+            <div class="ranking-heading"><div><h3>Ranking completo</h3><p>Pontuação histórica, do maior para o menor.</p></div><span class="count-tag">37 números</span></div>
+            <ol id="ranking-list" class="ranking-list" aria-label="Ranking dos 37 números"></ol>
+            <p class="ranking-footnote">Ocorrências diretas: quantas vezes o número exato apareceu nos giros de contexto. As barras comparam pontos com a maior pontuação desta consulta.</p>
+          </div>
+          <div class="catalog-info"><div class="catalog-info-title"><span aria-hidden="true">▤</span><h3>Base desta consulta</h3><span>CATÁLOGO</span></div><dl><div><dt>Resultados na base</dt><dd id="source-records">—</dd></div><div><dt>Período dos resultados</dt><dd id="source-period">—</dd></div><div><dt>Versão do catálogo</dt><dd id="source-build" class="build-id">—</dd></div></dl><p>O ranking reflete esse período catalogado. Datas no horário de Brasília.</p></div>
+        </div>
+      </section>
+    </div>
+    <footer class="page-footer"><span>revesbot<span class="footer-dot">.</span></span><p>Exploração histórica de resultados</p><a href="/history/pragmatic-auto-roulette">Abrir histórico <span aria-hidden="true">↗</span></a></footer>
+    <noscript><p class="noscript-notice">Ative o JavaScript para consultar e visualizar o ranking.</p></noscript>
+  </main>
+</body>
+</html>

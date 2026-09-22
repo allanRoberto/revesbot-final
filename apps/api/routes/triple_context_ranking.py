@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pymongo.errors import PyMongoError
 
 from api.core.runtime_db import history_db
@@ -15,10 +19,32 @@ from api.services.triple_context_ranking_service import (
 
 router = APIRouter(tags=["triple-context-ranking"])
 CATALOG_QUERY_TIMEOUT_SECONDS = 5.0
+API_DIR = Path(__file__).resolve().parents[1]
+templates = Jinja2Templates(directory=API_DIR / "templates")
+RANKING_PAGE_ASSETS = (
+    API_DIR / "static/css/triple_context_ranking.css",
+    API_DIR / "static/js/pages/triple-context-ranking.js",
+)
+
+
+def _ranking_asset_version() -> str:
+    digest = hashlib.sha256()
+    for path in RANKING_PAGE_ASSETS:
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
 def get_catalog_db():
     return history_db
+
+
+@router.get("/ranking-trios", response_class=HTMLResponse)
+async def triple_context_ranking_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="triple_context_ranking.html",
+        context={"asset_version": _ranking_asset_version()},
+    )
 
 
 @router.get("/api/triple-context-ranking")
