@@ -1,0 +1,392 @@
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const form = $("backtest-form");
+  const parameterFields = [
+    { name: "history_limit", element: $("history-limit"), min: 6, max: 50000, label: "O histórico" },
+    { name: "top_k", element: $("top-k"), min: 1, max: 37, label: "O top K" },
+    { name: "attempts", element: $("attempts"), min: 1, max: 100, label: "O limite de tentativas" },
+  ];
+  const integer = new Intl.NumberFormat("pt-BR");
+  const percentage = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const datetime = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo",
+  });
+  const PAGE_SIZE = 50;
+  const REQUEST_TIMEOUT_MS = 60000;
+  const statusLabels = { win: "Vitória", loss: "Derrota", incomplete: "Incompleto", repeated_trio: "Números repetidos", no_evidence: "Sem evidência" };
+  let requestId = 0;
+  let activeController = null;
+  let currentReport = null;
+  let currentPage = 1;
+
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function setBusy(busy) {
+    $("backtest-results-region").setAttribute("aria-busy", String(busy));
+    $("run-button").disabled = busy;
+    $("run-label").textContent = busy ? "Executando backtest…" : "Executar backtest";
+    $("cancel-button").hidden = !busy;
+  }
+
+  function clearValidation() {
+    $("backtest-form-error").textContent = "";
+    $("backtest-form-error").hidden = true;
+    parameterFields.forEach(({ element: input }) => input.removeAttribute("aria-invalid"));
+  }
+
+  function clearPageError() {
+    $("page-error").textContent = "";
+    $("page-error").hidden = true;
+    $("page-number").removeAttribute("aria-invalid");
+  }
+
+  function invalidate(message = "Configuração alterada. Execute novamente para atualizar o resultado.") {
+    requestId += 1;
+    if (activeController) activeController.abort();
+    activeController = null;
+    currentReport = null;
+    currentPage = 1;
+    clearValidation();
+    clearPageError();
+    setBusy(false);
+    $("backtest-report").hidden = true;
+    $("backtest-error").hidden = true;
+    $("backtest-empty").hidden = false;
+    $("backtest-status").textContent = message;
+  }
+
+  function readConfig() {
+    const config = {};
+    let firstInvalid = null;
+    const errors = [];
+    parameterFields.forEach(({ name, element: input, min, max, label }) => {
+      const raw = input.value.trim();
+      const number = Number(raw);
+      if (!/^\d+$/.test(raw) || !Number.isSafeInteger(number) || number < min || number > max) {
+        input.setAttribute("aria-invalid", "true");
+        firstInvalid = firstInvalid || input;
+        errors.push(`${label} deve ser um inteiro entre ${integer.format(min)} e ${integer.format(max)}.`);
+      } else {
+        config[name] = number;
+      }
+    });
+    if (errors.length) {
+      $("backtest-form-error").textContent = errors.join(" ");
+      $("backtest-form-error").hidden = false;
+      firstInvalid.focus();
+      return null;
+    }
+    config.direction = form.elements.direction.value;
+    config.ordered = form.elements.ordered.value === "true";
+    return config;
+  }
+
+  function validateResponse(data, request) {
+    const count = (value) => Number.isSafeInteger(value) && value >= 0;
+    const number = (value) => count(value) && value <= 36;
+    const optionalCount = (value) => value === null || count(value);
+    const validDate = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
+    const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    const fail = () => { throw new Error("A API retornou um resultado incompleto ou inconsistente. Tente novamente."); };
+    if (!object(data) || !object(data.config) || !Object.entries(request).every(([key, value]) => data.config[key] === value)
+        || !object(data.source) || !count(data.source.records) || data.source.records > request.history_limit
+        || data.source.requested_records !== request.history_limit || !count(data.source.gaps_over_300_seconds)
+        || ![data.source.first_timestamp, data.source.last_timestamp, data.source.read_at].every(validDate)
+        || !object(data.catalog) || typeof data.catalog.build_id !== "string" || !data.catalog.build_id
+        || !object(data.catalog.source) || !count(data.catalog.source.records)
+        || ![data.catalog.source.first_timestamp, data.catalog.source.last_timestamp].every(validDate)
+        || !object(data.methodology) || typeof data.methodology.description !== "string" || !data.methodology.description
+        || !(data.methodology.warning === null || typeof data.methodology.warning === "string")
+        || !object(data.summary) || !Array.isArray(data.signals)) fail();
+    const summary = data.summary;
+    const fields = ["total_signals", "evaluated", "wins", "losses", "incomplete", "repeated_trio", "no_evidence", "recovered_losses", "unresolved_losses"];
+    if (!fields.every((key) => count(summary[key]))
+        || !(summary.accuracy_pct === null || (Number.isFinite(summary.accuracy_pct) && summary.accuracy_pct >= 0 && summary.accuracy_pct <= 100))
+        || !optionalCount(summary.max_recovery_attempt)
+        || summary.total_signals !== data.signals.length
+        || summary.total_signals !== summary.wins + summary.losses + summary.incomplete + summary.repeated_trio + summary.no_evidence
+        || summary.recovered_losses + summary.unresolved_losses !== summary.losses
+        || !Array.isArray(summary.win_attempts) || !Array.isArray(summary.recovery_attempts)) fail();
+    if (!summary.win_attempts.every((row) => object(row) && count(row.attempt) && row.attempt >= 1
+          && row.attempt <= request.attempts && count(row.count))
+        || !summary.recovery_attempts.every((row) => object(row) && count(row.attempt) && row.attempt > request.attempts
+          && row.extra_attempts === row.attempt - request.attempts && count(row.count))
+        || summary.win_attempts.reduce((sum, row) => sum + row.count, 0) !== summary.wins
+        || summary.recovery_attempts.reduce((sum, row) => sum + row.count, 0) !== summary.recovered_losses) fail();
+    const observedStatuses = { win: 0, loss: 0, incomplete: 0, repeated_trio: 0, no_evidence: 0 };
+    for (const signal of data.signals) {
+      if (!object(signal) || !Object.hasOwn(statusLabels, signal.status)
+          || !(count(signal.signal_id) || (typeof signal.signal_id === "string" && signal.signal_id.length > 0))
+          || !count(signal.end_index) || signal.end_index < 2 || signal.end_index >= data.source.records
+          || !validDate(signal.trigger_timestamp)
+          || !Array.isArray(signal.trio) || signal.trio.length !== 3 || !signal.trio.every(number)
+          || !Array.isArray(signal.selected_numbers) || !signal.selected_numbers.every(number)
+          || new Set(signal.selected_numbers).size !== signal.selected_numbers.length
+          || !count(signal.available_attempts) || signal.available_attempts > request.attempts
+          || !Array.isArray(signal.checked_numbers) || !signal.checked_numbers.every(number)
+          || !optionalCount(signal.first_hit_attempt) || !optionalCount(signal.hit_rank)
+          || !(signal.hit_number === null || number(signal.hit_number))
+          || !optionalCount(signal.recovery_extra_attempts) || !optionalCount(signal.followup_observed)) fail();
+      const skipped = signal.status === "repeated_trio" || signal.status === "no_evidence";
+      if (signal.selected_numbers.length !== (skipped ? 0 : request.top_k)) fail();
+      if (signal.status === "loss" && signal.followup_observed === null) fail();
+      if (signal.recovery_extra_attempts !== null && (signal.status !== "loss" || signal.recovery_extra_attempts < 1
+          || signal.first_hit_attempt !== request.attempts + signal.recovery_extra_attempts)) fail();
+      observedStatuses[signal.status] += 1;
+    }
+    if (observedStatuses.win !== summary.wins || observedStatuses.loss !== summary.losses
+        || observedStatuses.incomplete !== summary.incomplete || observedStatuses.repeated_trio !== summary.repeated_trio
+        || observedStatuses.no_evidence !== summary.no_evidence) fail();
+    return data;
+  }
+
+  function renderDistribution(containerId, rows, label, emptyMessage) {
+    const container = $(containerId);
+    const fragment = document.createDocumentFragment();
+    const visibleRows = rows.slice().sort((a, b) => a.attempt - b.attempt);
+    if (!visibleRows.length || !visibleRows.some((row) => row.count > 0)) {
+      fragment.append(element("p", "distribution-empty", emptyMessage));
+      container.removeAttribute("tabindex");
+      container.removeAttribute("role");
+      container.removeAttribute("aria-label");
+    } else {
+      const largest = Math.max(...visibleRows.map((row) => row.count));
+      container.setAttribute("tabindex", "0");
+      container.setAttribute("role", "region");
+      container.setAttribute("aria-label", containerId === "win-distribution" ? "Distribuição das vitórias por tentativa" : "Distribuição dos primeiros acertos após as derrotas");
+      visibleRows.forEach((row) => {
+        const item = element("div", "distribution-row");
+        item.append(element("span", "", label(row)));
+        const track = element("div", "distribution-track");
+        track.setAttribute("aria-hidden", "true");
+        const fill = element("div", "distribution-fill");
+        fill.style.width = `${row.count / largest * 100}%`;
+        track.append(fill);
+        const total = element("strong", "", integer.format(row.count));
+        total.setAttribute("aria-label", `${integer.format(row.count)} sinais`);
+        item.append(track, total);
+        fragment.append(item);
+      });
+    }
+    container.replaceChildren(fragment);
+  }
+
+  function signalDetails(signal, attempts) {
+    if (signal.status === "win") {
+      return `${integer.format(signal.first_hit_attempt)}ª tentativa · nº ${signal.hit_number}`;
+    }
+    if (signal.status === "loss") return `Sem acerto nas ${integer.format(attempts)} tentativas`;
+    if (signal.status === "incomplete") return `${integer.format(signal.available_attempts)} de ${integer.format(attempts)} giros disponíveis`;
+    if (signal.status === "repeated_trio") return "Trio fora do catálogo de três números distintos";
+    return "Sem evidência no ranking escolhido";
+  }
+
+  function renderPage(page) {
+    if (!currentReport) return;
+    const signals = currentReport.signals;
+    const totalPages = Math.max(1, Math.ceil(signals.length / PAGE_SIZE));
+    currentPage = Math.max(1, Math.min(page, totalPages));
+    const offset = (currentPage - 1) * PAGE_SIZE;
+    const fragment = document.createDocumentFragment();
+    signals.slice(offset, offset + PAGE_SIZE).forEach((signal) => {
+      const row = element("tr");
+      const idCell = element("td");
+      idCell.append(element("strong", "", `#${signal.signal_id}`));
+      const time = element("time", "", datetime.format(new Date(signal.trigger_timestamp)));
+      time.dateTime = signal.trigger_timestamp;
+      idCell.append(time);
+      const trioCell = element("td");
+      const trio = element("div", "signal-trio");
+      signal.trio.forEach((number, index) => {
+        if (index) {
+          const arrow = element("span", "trio-arrow", "→");
+          arrow.setAttribute("aria-hidden", "true");
+          trio.append(arrow);
+        }
+        trio.append(element("span", "", String(number)));
+      });
+      trio.setAttribute("aria-label", `Trio cronológico: ${signal.trio.join(", ")}; ${signal.trio[2]} é o mais recente`);
+      trioCell.append(trio, element("span", "cell-secondary", `Posições ${integer.format(signal.end_index - 1)}–${integer.format(signal.end_index + 1)}`));
+      const picksCell = element("td");
+      if (signal.selected_numbers.length) {
+        const disclosure = element("details", "signal-details");
+        disclosure.append(element("summary", "", `${integer.format(signal.selected_numbers.length)} números fixos`));
+        const numbers = element("div", "selected-numbers");
+        signal.selected_numbers.forEach((number) => numbers.append(element("span", "selected-number", String(number))));
+        disclosure.append(numbers);
+        picksCell.append(disclosure);
+      } else picksCell.textContent = "Sem ranking";
+      const stateCell = element("td");
+      stateCell.append(element("span", `status-chip status-${signal.status}`, statusLabels[signal.status]));
+      const detailCell = element("td", "", signalDetails(signal, currentReport.config.attempts));
+      if (signal.status === "win" && signal.hit_rank !== null) {
+        detailCell.append(element("span", "cell-secondary", `Posição ${signal.hit_rank} do ranking`));
+      }
+      if (signal.checked_numbers.length) {
+        const checked = element("details", "signal-details");
+        checked.append(element("summary", "", `Ver ${integer.format(signal.checked_numbers.length)} giros conferidos`),
+          element("p", "", signal.checked_numbers.join(" → ")));
+        detailCell.append(checked);
+      }
+      const recoveryCell = element("td");
+      if (signal.status !== "loss") recoveryCell.textContent = "—";
+      else if (signal.recovery_extra_attempts !== null) {
+        const total = currentReport.config.attempts + signal.recovery_extra_attempts;
+        recoveryCell.textContent = `${integer.format(total)}ª tentativa · +${integer.format(signal.recovery_extra_attempts)} após o limite`;
+        recoveryCell.append(element("span", "cell-secondary", "Acerto posterior; a derrota permanece."));
+        if (signal.hit_number !== null) recoveryCell.append(element("span", "cell-secondary", `Número ${signal.hit_number}`));
+      } else {
+        recoveryCell.textContent = `Sem acerto em ${integer.format(signal.followup_observed)} giros adicionais observados`;
+        recoveryCell.append(element("span", "cell-secondary", "Acompanhamento encerrado no fim do histórico."));
+      }
+      row.append(idCell, trioCell, picksCell, stateCell, detailCell, recoveryCell);
+      fragment.append(row);
+    });
+    if (!signals.length) {
+      const row = element("tr");
+      const cell = element("td", "", "Nenhum sinal foi formado neste histórico.");
+      cell.colSpan = 6;
+      row.append(cell);
+      fragment.append(row);
+    }
+    $("signals-body").replaceChildren(fragment);
+    $("page-range").textContent = signals.length
+      ? `Sinais ${integer.format(offset + 1)}–${integer.format(Math.min(offset + PAGE_SIZE, signals.length))} de ${integer.format(signals.length)}`
+      : "Nenhum sinal";
+    $("page-number").value = String(currentPage);
+    $("page-total").textContent = `de ${integer.format(totalPages)}`;
+    $("page-first").disabled = $("page-previous").disabled = currentPage === 1;
+    $("page-last").disabled = $("page-next").disabled = currentPage === totalPages;
+    $("page-number").disabled = $("page-go").disabled = signals.length === 0;
+    clearPageError();
+  }
+
+  function renderReport(data) {
+    currentReport = data;
+    currentPage = 1;
+    const summary = data.summary;
+    const config = data.config;
+    $("backtest-recap").textContent = `${integer.format(data.source.records)} resultados · top ${config.top_k} fixo · ${config.attempts} tentativas · ${config.ordered ? "ordem exata" : "qualquer ordem"} · ranking ${config.direction === "forward" ? "à frente" : "de trás"}`;
+    $("methodology-description").textContent = data.methodology.description;
+    $("methodology-warning").textContent = data.methodology.warning || "";
+    $("methodology-warning").hidden = !data.methodology.warning;
+    $("summary-accuracy").textContent = summary.accuracy_pct === null ? "—" : `${percentage.format(summary.accuracy_pct)}%`;
+    ["wins", "losses", "incomplete"].forEach((key) => { $(`summary-${key}`).textContent = integer.format(summary[key]); });
+    const closed = summary.wins + summary.losses;
+    $("summary-denominator").textContent = closed
+      ? `Assertividade: ${integer.format(summary.wins)} vitórias em ${integer.format(closed)} sinais encerrados. Incompletos e sinais sem ranking ficam fora desse denominador.`
+      : "Ainda não há vitórias ou derrotas para calcular a assertividade. Incompletos e sinais sem ranking ficam fora do denominador.";
+    $("summary-total").textContent = `${integer.format(summary.total_signals)} sinais formados`;
+    $("summary-skipped").textContent = `${integer.format(summary.repeated_trio + summary.no_evidence)} sem ranking`;
+    $("summary-repeated").textContent = `Com número repetido no trio: ${integer.format(summary.repeated_trio)}`;
+    $("summary-no-evidence").textContent = `Sem evidência: ${integer.format(summary.no_evidence)}`;
+    renderDistribution("win-distribution", summary.win_attempts, (row) => `${integer.format(row.attempt)}ª tentativa`, "Nenhuma vitória dentro do limite escolhido.");
+    $("recovered-losses").textContent = integer.format(summary.recovered_losses);
+    $("unresolved-losses").textContent = integer.format(summary.unresolved_losses);
+    $("max-recovery").textContent = summary.max_recovery_attempt === null ? "—" : `${integer.format(summary.max_recovery_attempt)}ª`;
+    renderDistribution("recovery-distribution", summary.recovery_attempts,
+      (row) => `${integer.format(row.attempt)}ª · +${integer.format(row.extra_attempts)} após limite`,
+      summary.losses ? "Nenhum acerto posterior observado nas derrotas." : "Não houve derrotas para acompanhar.");
+    $("history-records").textContent = `${integer.format(data.source.records)} utilizados · ${integer.format(data.source.requested_records)} solicitados`;
+    $("history-period").textContent = `${datetime.format(new Date(data.source.first_timestamp))} — ${datetime.format(new Date(data.source.last_timestamp))}`;
+    $("history-read-at").textContent = datetime.format(new Date(data.source.read_at));
+    $("history-gaps").textContent = integer.format(data.source.gaps_over_300_seconds);
+    $("catalog-records").textContent = integer.format(data.catalog.source.records);
+    $("catalog-period").textContent = `${datetime.format(new Date(data.catalog.source.first_timestamp))} — ${datetime.format(new Date(data.catalog.source.last_timestamp))}`;
+    $("catalog-build").textContent = data.catalog.build_id;
+    renderPage(1);
+    $("backtest-empty").hidden = true;
+    $("backtest-error").hidden = true;
+    $("backtest-report").hidden = false;
+    $("backtest-status").textContent = `Backtest concluído: ${integer.format(summary.wins)} vitórias, ${integer.format(summary.losses)} derrotas e ${integer.format(summary.incomplete)} incompletos. Análise retrospectiva.`;
+  }
+
+  async function run(event) {
+    if (event) event.preventDefault();
+    clearValidation();
+    const config = readConfig();
+    if (!config) return;
+    if (activeController) activeController.abort();
+    const thisRequest = ++requestId;
+    const controller = new AbortController();
+    activeController = controller;
+    currentReport = null;
+    let timedOut = false;
+    const timer = window.setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT_MS);
+    $("backtest-report").hidden = true;
+    $("backtest-empty").hidden = true;
+    $("backtest-error").hidden = true;
+    $("backtest-status").textContent = `Conferindo até ${integer.format(config.history_limit)} resultados. O catálogo ficará fixo nesta execução…`;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/triple-context-backtest", {
+        method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify(config), signal: controller.signal,
+      });
+      if (!response.ok) {
+        const messages = {
+          404: "Não há catálogo disponível ou histórico suficiente para formar os trios desta roleta. Tente novamente mais tarde.",
+          422: "Não foi possível validar o pedido. Confira o histórico, o top K e as tentativas.",
+          429: "Há outra execução em andamento ou muitas solicitações. Aguarde um instante e tente novamente.",
+          503: "O serviço está temporariamente indisponível. Tente novamente em instantes.",
+          504: "O backtest ultrapassou o tempo de execução. Tente novamente ou reduza o histórico.",
+        };
+        throw new Error(messages[response.status] || "Não foi possível concluir o backtest. Tente novamente.");
+      }
+      const data = await response.json();
+      if (thisRequest !== requestId) return;
+      renderReport(validateResponse(data, config));
+    } catch (error) {
+      if (thisRequest !== requestId) return;
+      currentReport = null;
+      $("backtest-report").hidden = true;
+      $("backtest-error-message").textContent = timedOut
+        ? "A consulta demorou mais que o esperado. Tente novamente ou escolha um histórico menor."
+        : error instanceof TypeError ? "Não foi possível conectar à API. Verifique a conexão e tente novamente."
+          : error instanceof SyntaxError ? "A API retornou uma resposta inválida. Tente novamente."
+            : error.message;
+      $("backtest-error").hidden = false;
+      $("backtest-status").textContent = "O backtest não foi concluído.";
+    } finally {
+      window.clearTimeout(timer);
+      if (thisRequest === requestId) {
+        activeController = null;
+        setBusy(false);
+      }
+    }
+  }
+
+  function goToPage() {
+    if (!currentReport) return;
+    const raw = $("page-number").value.trim();
+    const value = Number(raw);
+    const lastPage = Math.max(1, Math.ceil(currentReport.signals.length / PAGE_SIZE));
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1 || value > lastPage) {
+      $("page-error").textContent = `Escolha uma página entre 1 e ${integer.format(lastPage)}.`;
+      $("page-error").hidden = false;
+      $("page-number").setAttribute("aria-invalid", "true");
+      $("page-number").focus();
+      return;
+    }
+    renderPage(value);
+  }
+
+  form.addEventListener("submit", run);
+  form.addEventListener("input", () => invalidate());
+  $("cancel-button").addEventListener("click", () => invalidate("Execução cancelada. Nenhum resultado foi mantido."));
+  $("backtest-retry").addEventListener("click", () => form.requestSubmit());
+  $("page-first").addEventListener("click", () => renderPage(1));
+  $("page-previous").addEventListener("click", () => renderPage(currentPage - 1));
+  $("page-next").addEventListener("click", () => renderPage(currentPage + 1));
+  $("page-last").addEventListener("click", () => { if (currentReport) renderPage(Math.ceil(currentReport.signals.length / PAGE_SIZE)); });
+  $("page-go").addEventListener("click", goToPage);
+  $("page-number").addEventListener("input", clearPageError);
+  $("page-number").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); goToPage(); } });
+})();

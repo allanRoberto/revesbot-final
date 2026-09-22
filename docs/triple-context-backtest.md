@@ -1,0 +1,57 @@
+# Backtest retrospectivo de trios
+
+Interface: `https://api.revesbot.com.br/backtest-trios`, também acessível pela página de ranking. API: `POST /api/triple-context-backtest`.
+
+```json
+{
+  "history_limit": 5000,
+  "top_k": 13,
+  "attempts": 3,
+  "ordered": true,
+  "direction": "forward"
+}
+```
+
+- `history_limit`: de 6 a 50.000 resultados mais recentes da `pragmatic-auto-roulette`.
+- `top_k`: primeiros 1 a 37 candidatos do ranking; padrão 13.
+- `attempts`: de 1 a 100 giros após a entrada; padrão 3.
+- `ordered`: ordem exata (`true`) ou qualquer ordem (`false`).
+- `direction`: ranking à frente (`forward`, profundidade 20) ou atrás (`backward`, profundidade 10). A conferência do acerto sempre ocorre nos giros **posteriores** à entrada, inclusive usando o ranking de trás.
+
+Os valores inteiros não aceitam texto, decimais ou booleanos. Campos desconhecidos são rejeitados.
+
+## Execução e contagem
+
+A consulta congela a versão ativa do catálogo e um limite superior de IDs do histórico. Lê os últimos N registros ordenando por `timestamp DESC, _id DESC`, inverte a sequência e passa a trabalhar cronologicamente. Em caso de menos resultados disponíveis, informa a quantidade efetivamente lida. Registros inválidos ou duplicados interrompem a execução; não há remoção silenciosa nem compressão do histórico.
+
+Os gatilhos são os blocos **1–2–3, 4–5–6, 7–8–9…**. Um sinal começa depois do terceiro resultado de cada bloco. Sobras de um ou dois números no final ainda podem resolver sinais anteriores, mas não formam outro trio. Trios com números repetidos mantêm seu lugar na sequência e são identificados como não suportados pelo catálogo de combinações distintas.
+
+O ranking é consultado em lote, preservando os pontos e o desempate já publicados. Para cada sinal, os primeiros K candidatos ficam congelados. Não se recalcula o ranking durante as tentativas ou no acompanhamento posterior. Um acerto exige o número exato entre esses K; vizinhos não ampliam o conjunto selecionado.
+
+- **Vitória:** primeiro acerto observado entre a 1ª e a Tª tentativa. Mesmo perto do fim da amostra, um acerto já observado encerra o sinal.
+- **Derrota:** T resultados observados sem nenhum dos K candidatos.
+- **Sem desfecho:** o histórico terminou antes de T e ainda não houve acerto; não conta como derrota.
+- **Trio repetido:** não há essa combinação no universo do catálogo.
+- **Sem evidência:** a direção escolhida tem zero eventos de contexto. Não se usam os números em ordem de desempate de um ranking todo zerado como previsão.
+
+A assertividade exibida é `vitórias / (vitórias + derrotas) × 100`. Sem entradas encerradas, fica indisponível, não 0%. Os demais estados são contados separadamente; nenhuma regra de superaquecimento, repetição de candidatos ou seleção de gatilhos é aplicada.
+
+## Depois da derrota
+
+A ferramenta busca o primeiro acerto do **mesmo conjunto de K números** até o fim da amostra selecionada. A derrota original permanece derrota. O relatório mostra a tentativa total desde a entrada e quantos giros adicionais foram necessários depois de T.
+
+Exemplo: T=3, candidatos `{4, 9}`, próximos resultados `7, 3, 12, 8, 9`. Resultado: **derrota** nas três tentativas; primeiro acerto na **5ª tentativa total**, **2 giros adicionais** depois do limite.
+
+Sem acerto posterior observado, o relatório informa quantos giros adicionais foram acompanhados. Isso não significa que o conjunto nunca acertaria. Nenhum resultado além dos N selecionados é buscado para completar esse acompanhamento. O resumo mostra a distribuição das recuperações, perdas sem recuperação observada e a maior tentativa de recuperação encontrada.
+
+As entradas são avaliadas separadamente. Se T for maior que três, seus períodos de conferência podem se sobrepor, embora os trios não se sobreponham. Acerto tardio não implica lucro nem recuperação financeira; esta ferramenta não calcula apostas, valores ou martingale.
+
+## Natureza retrospectiva
+
+Por escolha do usuário, a ferramenta usa o catálogo publicado atual. O catálogo pode conter resultados posteriores à decisão histórica. O relatório identifica a metodologia, o período/versão do catálogo e quantos sinais podem usar informação futura. Essa assertividade não é apresentada como validação preditiva fora da amostra.
+
+Intervalos entre registros maiores que cinco minutos são informados, sem filtrar sinais. “Próximo giro” significa próximo registro disponível da mesa; giros ausentes não são reconstruídos.
+
+## Operação
+
+As consultas só leem as coleções de histórico e catálogo. Não gravam resultados nem alteram o catálogo. Há um limite de uma execução por processo da API e timeout de 50 segundos. Códigos de erro: 422 configuração inválida; 404 histórico/catálogo indisponível; 429 capacidade ocupada; 503 falha de banco ou integridade; 504 timeout. A interface mantém a paginação apenas na apresentação; os totais consideram todos os sinais retornados.
