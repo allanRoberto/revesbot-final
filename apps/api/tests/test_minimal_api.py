@@ -10,6 +10,7 @@ def test_minimal_api_exposes_only_expected_functional_routes() -> None:
 
     assert paths == {
         "/api/roulettes-list",
+        "/api/triple-context-ranking",
         "/history-detailed/{slug}",
         "/history/{slug}",
         "/history-app/{slug}",
