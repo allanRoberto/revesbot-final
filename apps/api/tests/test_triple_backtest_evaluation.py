@@ -17,7 +17,8 @@ def test_edge_win_incomplete_and_loss_with_later_recovery():
         "end_index": 0, "selected_numbers": [4, 9], "status": "win",
         "available_attempts": 2, "checked_numbers": [7, 9],
         "first_hit_attempt": 2, "hit_number": 9, "hit_rank": 2,
-        "recovery_extra_attempts": None, "followup_observed": None}
+        "recovery_extra_attempts": None, "followup_observed": None,
+        "blocked_by_signal_id": None, "blocked_until_position": None}
     assert win["summary"]["evaluated"] == 1
 
     incomplete = evaluate_signals(_rows([0, 7, 3]),
@@ -96,6 +97,34 @@ def test_recovery_histogram_does_not_reclassify_losses():
     assert result["summary"]["max_recovery_attempt"] == 7
 
 
+def test_non_overlapping_mode_skips_signals_until_the_active_win_finishes():
+    result = evaluate_signals(_rows([0, 1, 2, 3, 9, 8, 7]), [
+        {"signal_id": 1, "end_index": 0, "selected_numbers": [9]},
+        {"signal_id": 2, "end_index": 3, "selected_numbers": [8]},
+        {"signal_id": 3, "end_index": 4, "selected_numbers": [8]},
+    ], 5, True)
+
+    assert [signal["status"] for signal in result["signals"]] == [
+        "win", "overlap_skipped", "win"]
+    blocked = result["signals"][1]
+    assert blocked["checked_numbers"] == []
+    assert blocked["available_attempts"] == 0
+    assert blocked["blocked_by_signal_id"] == 1
+    assert blocked["blocked_until_position"] == 5
+    assert result["summary"]["overlap_skipped"] == 1
+    assert result["summary"]["wins"] == result["summary"]["evaluated"] == 2
+
+
+def test_non_overlapping_mode_allows_signal_formed_on_the_last_loss_attempt():
+    result = evaluate_signals(_rows([0, 1, 2, 3, 8]), [
+        {"signal_id": 1, "end_index": 0, "selected_numbers": [36]},
+        {"signal_id": 2, "end_index": 3, "selected_numbers": [8]},
+    ], 3, True)
+
+    assert [signal["status"] for signal in result["signals"]] == ["loss", "win"]
+    assert result["summary"]["overlap_skipped"] == 0
+
+
 @pytest.mark.parametrize("rows,signals,attempts,error", [
     (_rows([0]), [], 0, "attempts"),
     (_rows([0]), [{"end_index": True, "selected_numbers": [1]}], 1, "end_index"),
@@ -109,6 +138,11 @@ def test_recovery_histogram_does_not_reclassify_losses():
 def test_invalid_internal_inputs_fail_clearly(rows, signals, attempts, error):
     with pytest.raises((TypeError, ValueError), match=error):
         evaluate_signals(rows, signals, attempts)
+
+
+def test_non_overlapping_flag_is_strict_boolean():
+    with pytest.raises(TypeError, match="prevent_overlapping_bets"):
+        evaluate_signals(_rows([0, 1]), [], 1, 1)
 
 
 def test_many_signals_use_compact_checked_windows():

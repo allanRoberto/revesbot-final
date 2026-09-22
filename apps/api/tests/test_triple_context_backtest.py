@@ -216,6 +216,26 @@ def test_history_descending_is_restored_and_blocks_are_not_recompressed():
     assert ranking_query["build_id"] == result["catalog"]["build_id"] == "build-a"
 
 
+def test_run_can_prevent_overlapping_bets_without_removing_formed_signals():
+    documents = [
+        _catalog_doc("1,2,3", [1, 2, 3], seed=36),
+        _catalog_doc("4,5,6", [4, 5, 6], seed=4),
+        _catalog_doc("7,8,9", [7, 8, 9], seed=10),
+    ]
+    result = asyncio.run(run_catalog_backtest(
+        _db([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0], documents),
+        history_limit=11, top_k=1, attempts=6, ordered=True, direction="forward",
+        prevent_overlapping_bets=True))
+
+    assert [signal["status"] for signal in result["signals"]] == [
+        "loss", "overlap_skipped", "win"]
+    assert result["summary"]["total_signals"] == 3
+    assert result["summary"]["overlap_skipped"] == 1
+    assert result["summary"]["evaluated"] == 2
+    assert result["config"]["prevent_overlapping_bets"] is True
+    assert "só começa após" in result["methodology"]["description"]
+
+
 def test_build_signals_selects_requested_side_mode_and_top_k():
     rows = [{"value": value, "timestamp": f"t{i}", "source_id": str(i)}
             for i, value in enumerate([3, 2, 1])]
@@ -266,6 +286,7 @@ def test_backtest_html_is_independent_of_mongo_and_has_versioned_controls_and_as
     assert response.text.count('name="ordered"') == 2
     assert 'name="ordered" value="true"' in response.text
     assert 'name="ordered" value="false"' in response.text
+    assert 'name="prevent_overlapping_bets"' in response.text
     assert 'id="minimum-profit"' in response.text
     assert 'id="calculate-financial"' in response.text
     assert 'id="financial-projection-body"' in response.text
@@ -320,6 +341,7 @@ process.stdout.write(JSON.stringify({ plan, unsupported }));
 @pytest.mark.parametrize("payload", [
     {"history_limit": 5}, {"history_limit": 50001}, {"top_k": 0}, {"top_k": 38},
     {"attempts": 0}, {"attempts": 101}, {"ordered": 1}, {"history_limit": True},
+    {"prevent_overlapping_bets": 1},
     {"direction": "side"},
     {"extra": True},
 ])

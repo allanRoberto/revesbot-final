@@ -46,7 +46,8 @@ def _validate(rows: list[dict[str, Any]], signals: list[dict[str, Any]], attempt
 
 
 def evaluate_signals(
-    rows: list[dict[str, Any]], signals: list[dict[str, Any]], attempts: int
+    rows: list[dict[str, Any]], signals: list[dict[str, Any]], attempts: int,
+    prevent_overlapping_bets: bool = False,
 ) -> dict[str, Any]:
     """Evaluate fixed selections without calculating or changing their ranking.
 
@@ -56,16 +57,20 @@ def evaluate_signals(
     in this finite sample; absence means unresolved in the observed sample only.
     """
     _validate(rows, signals, attempts)
+    if type(prevent_overlapping_bets) is not bool:
+        raise TypeError("prevent_overlapping_bets must be a boolean")
 
     positions: list[list[int]] = [[] for _ in range(37)]
     for index, row in enumerate(rows):
         positions[row["value"]].append(index)
 
     counts = {"evaluated": 0, "wins": 0, "losses": 0, "incomplete": 0,
-              "repeated_trio": 0, "no_evidence": 0}
+              "repeated_trio": 0, "no_evidence": 0, "overlap_skipped": 0}
     win_counts = [0] * attempts
     recovery_counts: dict[int, int] = {}
     output_signals = []
+    locked_until_index = -1
+    active_signal_id = None
 
     for original in signals:
         result = deepcopy(original)
@@ -81,12 +86,26 @@ def evaluate_signals(
             "hit_rank": None,
             "recovery_extra_attempts": None,
             "followup_observed": None,
+            "blocked_by_signal_id": None,
+            "blocked_until_position": None,
         })
 
         input_status = original.get("status")
         if input_status in SKIP_STATUSES:
             result["status"] = input_status
             counts[input_status] += 1
+            output_signals.append(result)
+            continue
+
+        if prevent_overlapping_bets and end_index < locked_until_index:
+            result.update({
+                "status": "overlap_skipped",
+                "available_attempts": 0,
+                "checked_numbers": [],
+                "blocked_by_signal_id": active_signal_id,
+                "blocked_until_position": locked_until_index + 1,
+            })
+            counts["overlap_skipped"] += 1
             output_signals.append(result)
             continue
 
@@ -111,13 +130,16 @@ def evaluate_signals(
             result["status"] = "win"
             counts["wins"] += 1
             win_counts[result["first_hit_attempt"] - 1] += 1
+            locked_until_index = end_index + result["first_hit_attempt"]
         elif available < attempts:
             result["status"] = "incomplete"
             counts["incomplete"] += 1
+            locked_until_index = end_index + available
         else:
             counts["evaluated"] += 1
             result["status"] = "loss"
             counts["losses"] += 1
+            locked_until_index = end_index + attempts
             result["followup_observed"] = max(0, len(rows) - end_index - 1 - attempts)
             if first is not None:
                 extra = result["first_hit_attempt"] - attempts
@@ -125,6 +147,8 @@ def evaluate_signals(
                 recovery_counts[result["first_hit_attempt"]] = (
                     recovery_counts.get(result["first_hit_attempt"], 0) + 1
                 )
+        if prevent_overlapping_bets:
+            active_signal_id = result.get("signal_id")
         output_signals.append(result)
 
     recovered = sum(recovery_counts.values())

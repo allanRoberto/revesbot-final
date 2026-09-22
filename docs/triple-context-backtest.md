@@ -8,7 +8,8 @@ Interface: `https://api.revesbot.com.br/backtest-trios`, também acessível pela
   "top_k": 13,
   "attempts": 3,
   "ordered": true,
-  "direction": "forward"
+  "direction": "forward",
+  "prevent_overlapping_bets": false
 }
 ```
 
@@ -17,6 +18,7 @@ Interface: `https://api.revesbot.com.br/backtest-trios`, também acessível pela
 - `attempts`: de 1 a 100 giros após a entrada; padrão 3.
 - `ordered`: ordem exata (`true`) ou qualquer ordem (`false`).
 - `direction`: ranking à frente (`forward`, profundidade 20) ou atrás (`backward`, profundidade 10). A conferência do acerto sempre ocorre nos giros **posteriores** à entrada, inclusive usando o ranking de trás.
+- `prevent_overlapping_bets`: quando `true`, uma nova aposta só pode começar depois que a anterior acertar ou consumir todas as tentativas; padrão `false`.
 
 Os valores inteiros não aceitam texto, decimais ou booleanos. Campos desconhecidos são rejeitados.
 
@@ -33,6 +35,7 @@ O ranking é consultado em lote, preservando os pontos e o desempate já publica
 - **Sem desfecho:** o histórico terminou antes de T e ainda não houve acerto; não conta como derrota.
 - **Trio repetido:** não há essa combinação no universo do catálogo.
 - **Sem evidência:** a direção escolhida tem zero eventos de contexto. Não se usam os números em ordem de desempate de um ranking todo zerado como previsão.
+- **Ignorado por sobreposição:** o trio formou um ranking válido, mas ainda havia uma aposta anterior ativa. Não inicia apostas e fica fora da assertividade e do financeiro.
 
 A assertividade exibida é `vitórias / (vitórias + derrotas) × 100`. Sem entradas encerradas, fica indisponível, não 0%. Os demais estados são contados separadamente; nenhuma regra de superaquecimento, repetição de candidatos ou seleção de gatilhos é aplicada.
 
@@ -44,7 +47,7 @@ Exemplo: T=3, candidatos `{4, 9}`, próximos resultados `7, 3, 12, 8, 9`. Result
 
 Sem acerto posterior observado, o relatório informa quantos giros adicionais foram acompanhados. Isso não significa que o conjunto nunca acertaria. Nenhum resultado além dos N selecionados é buscado para completar esse acompanhamento. O resumo mostra a distribuição das recuperações, perdas sem recuperação observada e a maior tentativa de recuperação encontrada.
 
-As entradas são avaliadas separadamente. Se T for maior que três, seus períodos de conferência podem se sobrepor, embora os trios não se sobreponham. Acerto tardio não altera a derrota nem entra no resultado financeiro dentro do limite configurado.
+Com `prevent_overlapping_bets=false`, as entradas são avaliadas separadamente e, se T for maior que três, seus períodos de conferência podem se sobrepor, embora os trios não se sobreponham. Com a opção ativa, um sinal aceito bloqueia os seguintes até o primeiro acerto ou a Tª tentativa. Um trio encerrado exatamente no giro que fecha a aposta anterior é aceito, pois sua aposta começa apenas no giro seguinte. Trios repetidos e sinais sem evidência não abrem apostas nem prolongam o bloqueio. Acerto tardio não altera a derrota nem entra no resultado financeiro dentro do limite configurado.
 
 ## Projeção financeira
 
