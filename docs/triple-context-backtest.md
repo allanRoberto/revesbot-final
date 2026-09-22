@@ -44,7 +44,27 @@ Exemplo: T=3, candidatos `{4, 9}`, próximos resultados `7, 3, 12, 8, 9`. Result
 
 Sem acerto posterior observado, o relatório informa quantos giros adicionais foram acompanhados. Isso não significa que o conjunto nunca acertaria. Nenhum resultado além dos N selecionados é buscado para completar esse acompanhamento. O resumo mostra a distribuição das recuperações, perdas sem recuperação observada e a maior tentativa de recuperação encontrada.
 
-As entradas são avaliadas separadamente. Se T for maior que três, seus períodos de conferência podem se sobrepor, embora os trios não se sobreponham. Acerto tardio não implica lucro nem recuperação financeira; esta ferramenta não calcula apostas, valores ou martingale.
+As entradas são avaliadas separadamente. Se T for maior que três, seus períodos de conferência podem se sobrepor, embora os trios não se sobreponham. Acerto tardio não altera a derrota nem entra no resultado financeiro dentro do limite configurado.
+
+## Projeção financeira
+
+A interface recebe um lucro líquido mínimo por sinal e monta uma progressão para o top K e o limite de tentativas escolhidos. A ficha é o valor apostado **em cada número** e sempre é arredondada para cima em múltiplos de R$ 0,50.
+
+Para cada tentativa, considerando o pagamento de 35:1 mais a devolução da ficha vencedora:
+
+`lucro líquido = 36 × ficha por número − exposição acumulada`
+
+A menor ficha que satisfaz o lucro solicitado é escolhida depois de incluir todas as apostas perdidas nas tentativas anteriores. A tabela apresenta ficha por número, aposta total da tentativa, exposição acumulada e lucro líquido em caso de acerto. Cada novo sinal reinicia a progressão na primeira tentativa.
+
+O painel posterior ao backtest aplica essa tabela somente aos sinais encerrados:
+
+- vitória: usa o lucro da tentativa do primeiro acerto;
+- derrota: desconta toda a exposição configurada;
+- incompleto, trio repetido ou sem evidência: não entra no saldo.
+
+O total apostado, saldo final, maior exposição por sinal e maior queda do saldo são calculados no navegador, sem alterar a API ou o catálogo. O gráfico acumula o resultado dos sinais em ordem cronológica. Como cada sinal é tratado separadamente, a soma não representa o capital simultaneamente necessário quando os períodos de conferência se sobrepõem.
+
+Não existe progressão com lucro positivo para top K 36 ou 37: a aposta no conjunto consome todo ou mais que o retorno bruto de 36 vezes. Nesses casos o backtest estatístico permanece disponível, mas a projeção financeira informa a incompatibilidade. Progressões que ultrapassem o limite seguro de cálculo do navegador também são interrompidas com uma mensagem para reduzir top K, lucro ou tentativas.
 
 ## Natureza retrospectiva
 
