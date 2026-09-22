@@ -48,8 +48,10 @@ def _validate(rows: list[dict[str, Any]], signals: list[dict[str, Any]], attempt
 def evaluate_signals(
     rows: list[dict[str, Any]], signals: list[dict[str, Any]], attempts: int,
     prevent_overlapping_bets: bool = False,
+    recalculate_ranking_after_loss: bool = False,
+    dynamic_rankings: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Evaluate fixed selections without calculating or changing their ranking.
+    """Evaluate fixed selections or a precomputed rolling ranking stream.
 
     A known hit within ``attempts`` is a win even at the sample edge. A signal
     without a hit needs all attempts to become a loss; otherwise it is incomplete.
@@ -59,10 +61,33 @@ def evaluate_signals(
     _validate(rows, signals, attempts)
     if type(prevent_overlapping_bets) is not bool:
         raise TypeError("prevent_overlapping_bets must be a boolean")
+    if type(recalculate_ranking_after_loss) is not bool:
+        raise TypeError("recalculate_ranking_after_loss must be a boolean")
+    if recalculate_ranking_after_loss:
+        expected_positions = set(range(3, len(rows)))
+        if not isinstance(dynamic_rankings, dict) or set(dynamic_rankings) != expected_positions:
+            raise ValueError("dynamic_rankings must cover every rolling target position")
+        for position, plan in dynamic_rankings.items():
+            selected = plan.get("selected_numbers") if isinstance(plan, dict) else None
+            if (not isinstance(selected, list) or len(selected) > 37
+                    or any(type(number) is not int or not 0 <= number <= 36
+                           for number in selected)
+                    or len(set(selected)) != len(selected)):
+                raise ValueError(f"dynamic_rankings[{position}] has invalid selected_numbers")
+            if plan.get("source") not in {"recalculated", "reused", "unavailable"}:
+                raise ValueError(f"dynamic_rankings[{position}] has an invalid source")
+    elif dynamic_rankings is not None:
+        raise ValueError("dynamic_rankings requires recalculation mode")
 
     positions: list[list[int]] = [[] for _ in range(37)]
     for index, row in enumerate(rows):
         positions[row["value"]].append(index)
+    dynamic_hit_positions = []
+    if recalculate_ranking_after_loss:
+        dynamic_hit_positions = [
+            position for position in range(3, len(rows))
+            if rows[position]["value"] in dynamic_rankings[position]["selected_numbers"]
+        ]
 
     counts = {"evaluated": 0, "wins": 0, "losses": 0, "incomplete": 0,
               "repeated_trio": 0, "no_evidence": 0, "overlap_skipped": 0}
@@ -88,6 +113,9 @@ def evaluate_signals(
             "followup_observed": None,
             "blocked_by_signal_id": None,
             "blocked_until_position": None,
+            "attempt_ranking_count": 0,
+            "ranking_recalculations": 0,
+            "ranking_reuses": 0,
         })
 
         input_status = original.get("status")
@@ -110,15 +138,37 @@ def evaluate_signals(
             continue
 
         first = None
-        selected = original["selected_numbers"]
-        for rank, number in enumerate(selected, 1):
-            number_positions = positions[number]
-            offset = bisect_right(number_positions, end_index)
-            if offset < len(number_positions):
-                position = number_positions[offset]
-                candidate = (position, rank, number)
-                if first is None or candidate[:2] < first[:2]:
-                    first = candidate
+        if recalculate_ranking_after_loss:
+            offset = bisect_right(dynamic_hit_positions, end_index)
+            if offset < len(dynamic_hit_positions):
+                position = dynamic_hit_positions[offset]
+                number = rows[position]["value"]
+                rank = dynamic_rankings[position]["selected_numbers"].index(number) + 1
+                first = (position, rank, number)
+            trace_attempts = min(
+                available,
+                first[0] - end_index if first is not None and first[0] - end_index <= attempts
+                else available,
+            )
+            result["attempt_ranking_count"] = trace_attempts
+            if trace_attempts and dynamic_rankings[end_index + 1]["selected_numbers"] != original["selected_numbers"]:
+                raise ValueError("the initial dynamic ranking differs from the signal ranking")
+            result["ranking_recalculations"] = sum(
+                dynamic_rankings[end_index + attempt]["source"] == "recalculated"
+                for attempt in range(2, trace_attempts + 1))
+            result["ranking_reuses"] = sum(
+                dynamic_rankings[end_index + attempt]["source"] == "reused"
+                for attempt in range(2, trace_attempts + 1))
+        else:
+            selected = original["selected_numbers"]
+            for rank, number in enumerate(selected, 1):
+                number_positions = positions[number]
+                offset = bisect_right(number_positions, end_index)
+                if offset < len(number_positions):
+                    position = number_positions[offset]
+                    candidate = (position, rank, number)
+                    if first is None or candidate[:2] < first[:2]:
+                        first = candidate
         if first is not None:
             position, rank, number = first
             result["first_hit_attempt"] = position - end_index
@@ -153,6 +203,8 @@ def evaluate_signals(
 
     recovered = sum(recovery_counts.values())
     evaluated = counts["evaluated"]
+    ranking_recalculations = sum(row["ranking_recalculations"] for row in output_signals)
+    ranking_reuses = sum(row["ranking_reuses"] for row in output_signals)
     summary = {
         "total_signals": len(signals),
         **counts,
@@ -169,5 +221,7 @@ def evaluate_signals(
             for attempt in sorted(recovery_counts)
         ],
         "max_recovery_attempt": max(recovery_counts, default=None),
+        "ranking_recalculations": ranking_recalculations,
+        "ranking_reuses": ranking_reuses,
     }
     return {"summary": summary, "signals": output_signals}

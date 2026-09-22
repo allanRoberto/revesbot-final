@@ -18,7 +18,8 @@ def test_edge_win_incomplete_and_loss_with_later_recovery():
         "available_attempts": 2, "checked_numbers": [7, 9],
         "first_hit_attempt": 2, "hit_number": 9, "hit_rank": 2,
         "recovery_extra_attempts": None, "followup_observed": None,
-        "blocked_by_signal_id": None, "blocked_until_position": None}
+        "blocked_by_signal_id": None, "blocked_until_position": None,
+        "attempt_ranking_count": 0, "ranking_recalculations": 0, "ranking_reuses": 0}
     assert win["summary"]["evaluated"] == 1
 
     incomplete = evaluate_signals(_rows([0, 7, 3]),
@@ -143,6 +144,78 @@ def test_invalid_internal_inputs_fail_clearly(rows, signals, attempts, error):
 def test_non_overlapping_flag_is_strict_boolean():
     with pytest.raises(TypeError, match="prevent_overlapping_bets"):
         evaluate_signals(_rows([0, 1]), [], 1, 1)
+
+
+def _dynamic_plan(selected, source="recalculated", reason=None):
+    return {"selected_numbers": selected, "source": source, "reuse_reason": reason,
+            "trio": [1, 2, 3], "ranking_trio": [1, 2, 3]}
+
+
+def test_dynamic_ranking_uses_latest_selection_after_each_failed_attempt():
+    rows = _rows([1, 2, 3, 9, 8, 7, 6])
+    rankings = {
+        3: _dynamic_plan([4]), 4: _dynamic_plan([8]),
+        5: _dynamic_plan([7]), 6: _dynamic_plan([6]),
+    }
+    result = evaluate_signals(
+        rows, [{"end_index": 2, "selected_numbers": [4]}], 3,
+        recalculate_ranking_after_loss=True, dynamic_rankings=rankings)
+
+    signal = result["signals"][0]
+    assert (signal["status"], signal["first_hit_attempt"], signal["hit_number"],
+            signal["hit_rank"]) == ("win", 2, 8, 1)
+    assert signal["attempt_ranking_count"] == 2
+    assert signal["ranking_recalculations"] == 1
+    assert result["summary"]["ranking_recalculations"] == 1
+
+
+def test_dynamic_ranking_reuses_last_valid_selection_and_tracks_late_recovery():
+    rows = _rows([1, 2, 3, 9, 8, 4, 6])
+    rankings = {
+        3: _dynamic_plan([4]),
+        4: _dynamic_plan([4], "reused", "repeated_trio"),
+        5: _dynamic_plan([4]),
+        6: _dynamic_plan([6]),
+    }
+    result = evaluate_signals(
+        rows, [{"end_index": 2, "selected_numbers": [4]}], 2,
+        recalculate_ranking_after_loss=True, dynamic_rankings=rankings)
+
+    signal = result["signals"][0]
+    assert signal["status"] == "loss"
+    assert signal["first_hit_attempt"] == 3
+    assert signal["recovery_extra_attempts"] == 1
+    assert signal["attempt_ranking_count"] == 2
+    assert signal["ranking_reuses"] == result["summary"]["ranking_reuses"] == 1
+
+
+def test_dynamic_ranking_requires_complete_position_map_and_boolean_flag():
+    with pytest.raises(ValueError, match="every rolling target"):
+        evaluate_signals(_rows([1, 2, 3, 4]),
+                         [{"end_index": 2, "selected_numbers": [4]}], 1,
+                         recalculate_ranking_after_loss=True, dynamic_rankings={})
+    with pytest.raises(TypeError, match="recalculate_ranking_after_loss"):
+        evaluate_signals(_rows([1, 2, 3]), [], 1,
+                         recalculate_ranking_after_loss=1)
+
+
+def test_dynamic_ranking_respects_non_overlapping_entries():
+    rows = _rows([1, 2, 3, 4, 5, 6, 9, 8])
+    rankings = {
+        3: _dynamic_plan([9]), 4: _dynamic_plan([9]), 5: _dynamic_plan([9]),
+        6: _dynamic_plan([9]), 7: _dynamic_plan([8]),
+    }
+    result = evaluate_signals(
+        rows, [
+            {"signal_id": 1, "end_index": 2, "selected_numbers": [9]},
+            {"signal_id": 2, "end_index": 5, "selected_numbers": [9]},
+        ], 5, prevent_overlapping_bets=True,
+        recalculate_ranking_after_loss=True, dynamic_rankings=rankings)
+
+    assert [signal["status"] for signal in result["signals"]] == [
+        "win", "overlap_skipped"]
+    assert result["signals"][0]["first_hit_attempt"] == 4
+    assert result["signals"][1]["attempt_ranking_count"] == 0
 
 
 def test_many_signals_use_compact_checked_windows():

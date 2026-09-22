@@ -246,6 +246,65 @@ def test_run_can_prevent_overlapping_bets_without_removing_formed_signals():
     assert "só começa após" in result["methodology"]["description"]
 
 
+@pytest.mark.parametrize("ordered,direction", [
+    (True, "forward"), (True, "backward"),
+    (False, "forward"), (False, "backward"),
+])
+def test_run_can_recalculate_ranking_after_each_failed_attempt(ordered, direction):
+    mode = "ordered" if ordered else "unordered"
+    documents = [
+        _catalog_doc("1,2,3", [1, 2, 3], seed=36, direction=direction, mode=mode),
+        _catalog_doc("2,3,9", [2, 3, 9], seed=4, direction=direction, mode=mode),
+    ]
+    db = _db([1, 2, 3, 9, 4], documents)
+    fixed = asyncio.run(run_catalog_backtest(
+        db, history_limit=5, top_k=1, attempts=2, ordered=ordered, direction=direction))
+    dynamic = asyncio.run(run_catalog_backtest(
+        db, history_limit=5, top_k=1, attempts=2, ordered=ordered, direction=direction,
+        recalculate_ranking_after_loss=True))
+
+    assert fixed["signals"][0]["status"] == "loss"
+    signal = dynamic["signals"][0]
+    assert (signal["status"], signal["first_hit_attempt"], signal["hit_number"]) == (
+        "win", 2, 4)
+    assert signal["attempt_ranking_count"] == 2
+    assert [row["source"] for row in dynamic["ranking_updates"]] == [
+        "recalculated", "recalculated"]
+    assert [row["ranking_trio"] for row in dynamic["ranking_updates"]] == [
+        [1, 2, 3], [2, 3, 9]]
+    assert dynamic["config"]["recalculate_ranking_after_loss"] is True
+    assert dynamic["methodology"]["ranking_frozen"] is False
+
+
+def test_dynamic_ranking_reuses_previous_ranking_when_latest_trio_repeats():
+    result = asyncio.run(run_catalog_backtest(
+        _db([1, 2, 3, 2, 36], [_catalog_doc("1,2,3", [1, 2, 3], seed=36)]),
+        history_limit=5, top_k=1, attempts=2, ordered=True, direction="forward",
+        recalculate_ranking_after_loss=True))
+
+    signal = result["signals"][0]
+    assert signal["status"] == "win"
+    assert signal["first_hit_attempt"] == 2
+    assert result["ranking_updates"][1]["source"] == "reused"
+    assert result["ranking_updates"][1]["reuse_reason"] == "repeated_trio"
+    assert result["ranking_updates"][1]["selected_numbers"] == [36]
+
+
+def test_dynamic_ranking_reuses_previous_ranking_when_latest_trio_has_no_evidence():
+    documents = [
+        _catalog_doc("1,2,3", [1, 2, 3], seed=36),
+        _catalog_doc("2,3,9", [2, 3, 9], events=0, seed=4),
+    ]
+    result = asyncio.run(run_catalog_backtest(
+        _db([1, 2, 3, 9, 36], documents), history_limit=5, top_k=1, attempts=2,
+        ordered=True, direction="forward", recalculate_ranking_after_loss=True))
+
+    second = result["ranking_updates"][1]
+    assert second["source"] == "reused"
+    assert second["reuse_reason"] == "no_evidence"
+    assert second["selected_numbers"] == [36]
+
+
 def test_build_signals_selects_requested_side_mode_and_top_k():
     rows = [{"value": value, "timestamp": f"t{i}", "source_id": str(i)}
             for i, value in enumerate([3, 2, 1])]
@@ -318,6 +377,9 @@ def test_backtest_html_is_independent_of_mongo_and_has_versioned_controls_and_as
     assert 'name="ordered" value="true"' in response.text
     assert 'name="ordered" value="false"' in response.text
     assert 'name="prevent_overlapping_bets"' in response.text
+    assert 'name="recalculate_ranking_after_loss"' in response.text
+    assert 'id="summary-recalculations"' in response.text
+    assert 'id="recovery-mode-label"' in response.text
     assert 'id="minimum-profit"' in response.text
     assert 'id="calculate-financial"' in response.text
     assert 'id="financial-projection-body"' in response.text
@@ -376,6 +438,7 @@ process.stdout.write(JSON.stringify({ plan, unsupported }));
     {"history_limit": 5}, {"history_limit": 50001}, {"top_k": 0}, {"top_k": 38},
     {"attempts": 0}, {"attempts": 101}, {"ordered": 1}, {"history_limit": True},
     {"prevent_overlapping_bets": 1},
+    {"recalculate_ranking_after_loss": 1},
     {"direction": "side"},
     {"extra": True},
 ])

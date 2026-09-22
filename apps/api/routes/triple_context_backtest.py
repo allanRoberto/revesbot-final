@@ -31,6 +31,7 @@ class BacktestConfig(BaseModel):
     ordered: StrictBool = True
     direction: Literal["forward", "backward"] = "forward"
     prevent_overlapping_bets: StrictBool = False
+    recalculate_ranking_after_loss: StrictBool = False
 
 
 def get_backtest_db():

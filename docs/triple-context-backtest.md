@@ -9,7 +9,8 @@ Interface: `https://api.revesbot.com.br/backtest-trios`, também acessível pela
   "attempts": 3,
   "ordered": true,
   "direction": "forward",
-  "prevent_overlapping_bets": false
+  "prevent_overlapping_bets": false,
+  "recalculate_ranking_after_loss": false
 }
 ```
 
@@ -19,6 +20,7 @@ Interface: `https://api.revesbot.com.br/backtest-trios`, também acessível pela
 - `ordered`: ordem exata (`true`) ou qualquer ordem (`false`).
 - `direction`: ranking à frente (`forward`, profundidade 20) ou atrás (`backward`, profundidade 10). A conferência do acerto sempre ocorre nos giros **posteriores** à entrada, inclusive usando o ranking de trás.
 - `prevent_overlapping_bets`: quando `true`, uma nova aposta só pode começar depois que a anterior acertar ou consumir todas as tentativas; padrão `false`.
+- `recalculate_ranking_after_loss`: quando `true`, cada tentativa posterior a uma falha consulta o catálogo com os três resultados mais recentes; padrão `false`.
 
 Os valores inteiros não aceitam texto, decimais ou booleanos. Campos desconhecidos são rejeitados.
 
@@ -28,7 +30,9 @@ A consulta congela a versão ativa do catálogo e um limite superior de IDs do h
 
 Os gatilhos são os blocos **1–2–3, 4–5–6, 7–8–9…**. Um sinal começa depois do terceiro resultado de cada bloco. Sobras de um ou dois números no final ainda podem resolver sinais anteriores, mas não formam outro trio. Trios com números repetidos mantêm seu lugar na sequência e são identificados como não suportados pelo catálogo de combinações distintas.
 
-O ranking é consultado em lote, preservando os pontos e o desempate já publicados. Para cada sinal, os primeiros K candidatos ficam congelados. Não se recalcula o ranking durante as tentativas ou no acompanhamento posterior. Um acerto exige o número exato entre esses K; vizinhos não ampliam o conjunto selecionado.
+O ranking é consultado em lote, preservando os pontos e o desempate já publicados. Por padrão, os primeiros K candidatos ficam congelados durante todo o sinal. Com `recalculate_ranking_after_loss=true`, a primeira tentativa usa o trio original e cada tentativa seguinte usa um trio deslizante formado pelos três resultados imediatamente anteriores. Se esse novo trio contém repetição ou não tem evidência na direção escolhida, a tentativa reutiliza o último ranking válido e registra o motivo. Um acerto exige o número exato entre os K candidatos vigentes naquela tentativa; vizinhos não ampliam o conjunto selecionado.
+
+No modo recalculado, `ranking_updates` traz uma vez cada ranking deslizante efetivamente usado, identificado por `target_index`. Cada sinal informa `attempt_ranking_count`; a tentativa N referencia a atualização na posição `end_index + N`. Essa estrutura evita repetir o mesmo ranking quando conferências de sinais diferentes compartilham giros.
 
 - **Vitória:** primeiro acerto observado entre a 1ª e a Tª tentativa. Mesmo perto do fim da amostra, um acerto já observado encerra o sinal.
 - **Derrota:** T resultados observados sem nenhum dos K candidatos.
@@ -54,13 +58,13 @@ Cada sinal com um trio válido recebe métricas derivadas exclusivamente dos dad
 - **Força do líder:** diferença entre primeiro e segundo colocados, também normalizada pelos eventos.
 - **Dominância da ordem:** no modo sem ordem, maior contagem entre as seis permutações dividida pelas ocorrências totais.
 
-O painel permite alternar entre suporte, cobertura, lift, concentração, margem e dominância. Para cada faixa mostra rankings formados, entradas encerradas, bloqueios por sobreposição, vitórias, derrotas, assertividade, saldo conforme a progressão financeira atual e maior sequência de derrotas. Rankings sem dados suficientes permanecem visíveis em uma faixa própria.
+O painel permite alternar entre suporte, cobertura, lift, concentração, margem e dominância. Para cada faixa mostra rankings formados, entradas encerradas, bloqueios por sobreposição, vitórias, derrotas, assertividade, saldo conforme a progressão financeira atual e maior sequência de derrotas. Rankings sem dados suficientes permanecem visíveis em uma faixa própria. No modo recalculado, esse agrupamento continua usando o ranking inicial de cada sinal; os rankings posteriores ficam catalogados separadamente nos detalhes de cada tentativa.
 
 Cada linha da tabela de sinais também oferece os detalhes de qualidade do ranking correspondente. Rankings bloqueados por sobreposição continuam catalogados, mas não simulam uma aposta. Trios repetidos não possuem ranking e, portanto, não possuem métricas de qualidade.
 
 ## Depois da derrota
 
-A ferramenta busca o primeiro acerto do **mesmo conjunto de K números** até o fim da amostra selecionada. A derrota original permanece derrota. O relatório mostra a tentativa total desde a entrada e quantos giros adicionais foram necessários depois de T.
+A ferramenta busca o primeiro acerto até o fim da amostra selecionada. No modo fixo, acompanha o mesmo conjunto de K números. No modo recalculado, continua atualizando os candidatos depois do limite com a mesma regra de três resultados recentes. A derrota original permanece derrota. O relatório mostra a tentativa total desde a entrada e quantos giros adicionais foram necessários depois de T.
 
 Exemplo: T=3, candidatos `{4, 9}`, próximos resultados `7, 3, 12, 8, 9`. Resultado: **derrota** nas três tentativas; primeiro acerto na **5ª tentativa total**, **2 giros adicionais** depois do limite.
 
