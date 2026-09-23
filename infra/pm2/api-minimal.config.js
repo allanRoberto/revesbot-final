@@ -83,6 +83,7 @@ module.exports = {
         PYTHONDONTWRITEBYTECODE: "1",
         MONGO_URL: process.env.MONGO_URL,
         MONGO_DATABASE: process.env.MONGO_DATABASE || "roleta_db",
+        REDIS_CONNECT: process.env.REDIS_CONNECT,
         TRIPLE_CONTEXT_LIVE_POLL_SECONDS:
           process.env.TRIPLE_CONTEXT_LIVE_POLL_SECONDS || "1",
       },

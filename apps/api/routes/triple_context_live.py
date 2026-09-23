@@ -9,9 +9,9 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pymongo.errors import PyMongoError
+from redis.exceptions import RedisError
 
-from api.core.runtime_db import history_db
+from api.core.redis_client import get_redis_client
 from api.services.triple_context_live_service import get_live_dashboard
 
 
@@ -31,8 +31,8 @@ def _asset_version() -> str:
     return digest.hexdigest()
 
 
-def get_live_db():
-    return history_db
+def get_live_redis():
+    return get_redis_client()
 
 
 def require_dashboard_token(x_live_dashboard_token: str | None = Header(None)) -> None:
@@ -55,9 +55,9 @@ async def triple_context_live_page(request: Request):
 @router.get("/api/patterns/triple-context-live", dependencies=[Depends(require_dashboard_token)])
 async def triple_context_live_data(
     limit: int = Query(50, ge=1, le=200),
-    database=Depends(get_live_db),
+    redis_client=Depends(get_live_redis),
 ):
     try:
-        return await get_live_dashboard(database, limit=limit)
-    except PyMongoError as error:
+        return await get_live_dashboard(redis_client, limit=limit)
+    except RedisError as error:
         raise HTTPException(status_code=503, detail="Monitor live temporariamente indisponível.") from error
