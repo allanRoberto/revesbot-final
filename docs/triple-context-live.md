@@ -5,20 +5,21 @@ O worker `apps/monitoring/scripts/triple_context_live_worker.py` acompanha apena
 
 ## Regra
 
-- coleta três resultados sem sobreposição;
+- mantém uma janela deslizante com os três resultados mais recentes;
 - consulta o trio em ordem exata e na direção à frente;
 - registra uma entrada virtual nos seis primeiros números;
 - confere somente o giro seguinte;
-- depois do resultado, inicia um novo bloco de três números;
-- trios com números repetidos ou sem evidência são catalogados como ignorados.
+- quando a aposta acerta ou esgota as tentativas, calcula imediatamente o trio atual;
+- com uma tentativa, cada resultado encerra a entrada anterior e já pode abrir a próxima;
+- trios com números repetidos ou sem evidência são catalogados como ignorados, e o próximo giro desloca a janela.
 
 O worker não envia apostas para uma casa. A entrada é prospectiva e fica registrada
-no MongoDB para aferição live sem viés retrospectivo.
+no Redis persistente para aferição live sem viés retrospectivo.
 
 ## Persistência
 
 - MongoDB: leitura dos resultados e do catálogo publicado;
-- Redis `triple_context_live:v1:state:*`: cursor, bloco parcial e heartbeat;
+- Redis `triple_context_live:v1:state:*`: cursor, janela atual e heartbeat;
 - Redis `triple_context_live:v1:history:*`: entradas e resultados prospectivos;
 - Redis `triple_context_live:v1:summary:*`: totais acumulados.
 

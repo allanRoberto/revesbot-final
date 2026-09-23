@@ -58,14 +58,9 @@ def spin_ref(document: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def next_phase(phase: str, buffer: list[dict[str, Any]], spin: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
-    """Pure transition used by the runtime and unit tests."""
-    if phase == "awaiting_result":
-        return "collecting", []
-    updated = [*buffer, spin]
-    if len(updated) >= 3:
-        return "awaiting_result", updated[-3:]
-    return "collecting", updated
+def rolling_window(buffer: list[dict[str, Any]], spin: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the latest three results, including the result that settled a bet."""
+    return [*buffer, spin][-3:]
 
 
 class TripleContextLiveWorker:
@@ -161,35 +156,48 @@ class TripleContextLiveWorker:
         self.redis.set(STATE_KEY, encode(state))
         return state
 
-    def save_outcome(self, state: dict[str, Any], outcome: dict[str, Any]) -> dict[str, Any]:
+    def save_transition(self, state: dict[str, Any], outcomes: list[dict[str, Any]]) -> dict[str, Any]:
         state = {**state, "roulette_id": ROULETTE_ID, "updated_at": utcnow(), "worker_heartbeat_at": utcnow()}
         pipeline = self.redis.pipeline(transaction=True)
-        pipeline.lpush(HISTORY_KEY, encode(outcome))
+        for outcome in outcomes:
+            pipeline.lpush(HISTORY_KEY, encode(outcome))
+            pipeline.hincrby(SUMMARY_KEY, outcome["status"], 1)
         pipeline.ltrim(HISTORY_KEY, 0, MAX_HISTORY - 1)
-        pipeline.hincrby(SUMMARY_KEY, outcome["status"], 1)
         pipeline.set(STATE_KEY, encode(state))
         pipeline.execute()
         return state
 
-    def bootstrap(self) -> dict[str, Any]:
-        state = decode(self.redis.get(STATE_KEY))
-        if state:
-            return self.save_state({**state, "worker_started_at": utcnow()})
+    def save_outcome(self, state: dict[str, Any], outcome: dict[str, Any]) -> dict[str, Any]:
+        return self.save_transition(state, [outcome])
+
+    def latest_three(self) -> list[dict[str, Any]]:
         documents = list(
             self.history.find({"roulette_id": ROULETTE_ID}, {"value": 1, "timestamp": 1})
             .sort([("timestamp", DESCENDING), ("_id", DESCENDING)]).limit(3)
         )
-        if len(documents) < 3:
+        return [spin_ref(row) for row in reversed(documents)]
+
+    def bootstrap(self) -> dict[str, Any]:
+        state = decode(self.redis.get(STATE_KEY))
+        if state and state.get("strategy_version") == 2:
+            return self.save_state({**state, "worker_started_at": utcnow()})
+        if state and state.get("pending_signal"):
             return self.save_state({
+                **state, "strategy_version": 2, "worker_started_at": utcnow(),
+            })
+        spins = self.latest_three()
+        if len(spins) < 3:
+            return self.save_state({
+                "strategy_version": 2,
                 "phase": "collecting", "buffer": [], "pending_signal": None,
                 "last_processed": None, "worker_started_at": utcnow(),
             })
-        spins = [spin_ref(row) for row in reversed(documents)]
         signal_document = self.build_signal(spins)
         base = {
-            "buffer": spins if signal_document["status"] == "pending" else [],
+            "strategy_version": 2,
+            "buffer": spins,
             "pending_signal": signal_document if signal_document["status"] == "pending" else None,
-            "phase": "awaiting_result" if signal_document["status"] == "pending" else "collecting",
+            "phase": "awaiting_result" if signal_document["status"] == "pending" else "watching",
             "last_processed": {"history_id": spins[-1]["history_id"], "timestamp": spins[-1]["timestamp"]},
             "worker_started_at": utcnow(),
         }
@@ -214,37 +222,36 @@ class TripleContextLiveWorker:
     def process(self, state: dict[str, Any], document: dict[str, Any]) -> dict[str, Any]:
         spin = spin_ref(document)
         last_processed = {"history_id": spin["history_id"], "timestamp": spin["timestamp"]}
+        outcomes = []
         if state.get("phase") == "awaiting_result":
             pending = state.get("pending_signal")
+            if pending:
+                outcome = self.settle(pending, spin)
+                outcomes.append(outcome)
+                log.info("Entrada finalizada resultado=%d status=%s", spin["number"], outcome["status"])
+
+        window = rolling_window(state.get("buffer") or [], spin)
+        if len(window) < 3:
             next_state = {
-                **state, "phase": "collecting", "buffer": [],
+                **state, "strategy_version": 2, "phase": "collecting", "buffer": window,
                 "pending_signal": None, "last_processed": last_processed,
             }
-            if not pending:
-                return self.save_state(next_state)
-            outcome = self.settle(pending, spin)
-            log.info("Entrada finalizada resultado=%d status=%s", spin["number"], outcome["status"])
-            return self.save_outcome(next_state, outcome)
+            return self.save_transition(next_state, outcomes) if outcomes else self.save_state(next_state)
 
-        buffer = [*(state.get("buffer") or []), spin]
-        if len(buffer) < 3:
-            return self.save_state({
-                **state, "phase": "collecting", "buffer": buffer,
-                "pending_signal": None, "last_processed": last_processed,
-            })
-        signal_document = self.build_signal(buffer[-3:])
+        signal_document = self.build_signal(window)
         next_state = {
-            **state,
-            "phase": "awaiting_result" if signal_document["status"] == "pending" else "collecting",
-            "buffer": buffer[-3:] if signal_document["status"] == "pending" else [],
+            **state, "strategy_version": 2,
+            "phase": "awaiting_result" if signal_document["status"] == "pending" else "watching",
+            "buffer": window,
             "pending_signal": signal_document if signal_document["status"] == "pending" else None,
             "last_processed": last_processed,
         }
         if signal_document["status"] == "skipped":
-            log.info("Bloco ignorado trio=%s motivo=%s", signal_document["trio"], signal_document["skip_reason"])
-            return self.save_outcome(next_state, signal_document)
+            outcomes.append(signal_document)
+            log.info("Janela ignorada trio=%s motivo=%s", signal_document["trio"], signal_document["skip_reason"])
+            return self.save_transition(next_state, outcomes)
         log.info("Entrada criada trio=%s top6=%s", signal_document["trio"], signal_document["top_numbers"])
-        return self.save_state(next_state)
+        return self.save_transition(next_state, outcomes) if outcomes else self.save_state(next_state)
 
     def heartbeat(self, state: dict[str, Any]) -> dict[str, Any]:
         return self.save_state(state)

@@ -38,11 +38,11 @@
       $("current-occurrences").textContent = `${integer.format(current.occurrences)} ocorrências do trio`;
       $("current-events").textContent = `${integer.format(current.context_events)} contextos à frente`;
     } else {
-      const collected = data.worker.collected_in_block;
-      $("current-title").textContent = "Aguardando próximo bloco";
-      $("current-status").textContent = `${collected}/3 COLETADOS`;
+      const collected = data.worker.results_in_window;
+      $("current-title").textContent = "Aguardando uma janela válida";
+      $("current-status").textContent = `${collected}/3 NA JANELA`;
       $("current-status").className = "status-pill";
-      $("collector-message").textContent = collected ? `${collected} resultado${collected > 1 ? "s" : ""} do próximo trio já ${collected > 1 ? "foram coletados" : "foi coletado"}.` : "Aguardando resultados para completar o trio.";
+      $("collector-message").textContent = collected >= 3 ? "Os três resultados mais recentes não formaram uma entrada válida. O próximo giro deslocará a janela." : collected ? `${collected} resultado${collected > 1 ? "s" : ""} disponível${collected > 1 ? "is" : ""} na janela.` : "Aguardando resultados para completar a janela.";
     }
 
     $("history-body").innerHTML = data.history.map((row) => {

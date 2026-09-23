@@ -1,5 +1,5 @@
 from monitoring.scripts.triple_context_live_worker import (
-    HISTORY_KEY, STATE_KEY, SUMMARY_KEY, TripleContextLiveWorker, decode, next_phase,
+    HISTORY_KEY, STATE_KEY, SUMMARY_KEY, TripleContextLiveWorker, decode, rolling_window,
 )
 
 
@@ -34,22 +34,21 @@ class MemoryRedis:
     def hincrby(self, key, field, amount): self.hashes.setdefault(key, {})[field] = self.hashes.setdefault(key, {}).get(field, 0) + amount
 
 
-def test_collects_exactly_three_results_before_waiting_for_attempt():
+def test_window_keeps_only_the_three_latest_results():
     first = {"number": 7}
     second = {"number": 5}
     third = {"number": 23}
-    phase, buffer = next_phase("collecting", [], first)
-    assert (phase, buffer) == ("collecting", [first])
-    phase, buffer = next_phase(phase, buffer, second)
-    assert (phase, buffer) == ("collecting", [first, second])
-    phase, buffer = next_phase(phase, buffer, third)
-    assert (phase, buffer) == ("awaiting_result", [first, second, third])
+    window = rolling_window([], first)
+    window = rolling_window(window, second)
+    window = rolling_window(window, third)
+    assert window == [first, second, third]
 
 
-def test_attempt_result_starts_a_fresh_non_overlapping_block():
-    phase, buffer = next_phase("awaiting_result", [{"number": 7}, {"number": 5}, {"number": 23}], {"number": 12})
-    assert phase == "collecting"
-    assert buffer == []
+def test_attempt_result_immediately_slides_the_current_trio():
+    window = rolling_window(
+        [{"number": 7}, {"number": 5}, {"number": 23}], {"number": 12},
+    )
+    assert window == [{"number": 5}, {"number": 23}, {"number": 12}]
 
 
 def test_records_top_six_and_settles_exactly_one_attempt():
@@ -81,18 +80,35 @@ def test_records_top_six_and_settles_exactly_one_attempt():
 def test_settlement_persists_history_summary_and_cursor_atomically():
     worker = object.__new__(TripleContextLiveWorker)
     worker.redis = MemoryRedis()
+    worker.catalog_ranking = lambda trio: {
+        "build_id": "build-1", "key": ",".join(map(str, trio)),
+        "occurrences": 9, "context_events": 30,
+        "top": [
+            {"position": position, "number": number, "score": 7 - position, "direct_hits": position}
+            for position, number in enumerate([12, 21, 3, 30, 9, 18], 1)
+        ],
+    }
     pending = {
         "id": "c", "status": "pending", "trio": [7, 5, 23],
         "top_numbers": [12, 21, 3, 30, 9, 18], "ranking": [],
         "created_at": "t3", "result": None,
     }
-    state = {"phase": "awaiting_result", "buffer": [], "pending_signal": pending}
+    state = {
+        "phase": "awaiting_result",
+        "buffer": [
+            {"history_id": "a", "number": 7, "timestamp": "t1"},
+            {"history_id": "b", "number": 5, "timestamp": "t2"},
+            {"history_id": "c", "number": 23, "timestamp": "t3"},
+        ],
+        "pending_signal": pending,
+    }
     result = {"_id": "d", "value": 8, "timestamp": "t4"}
 
     next_state = worker.process(state, result)
 
-    assert next_state["phase"] == "collecting"
-    assert next_state["pending_signal"] is None
+    assert next_state["phase"] == "awaiting_result"
+    assert next_state["pending_signal"]["trio"] == [5, 23, 8]
+    assert [row["number"] for row in next_state["buffer"]] == [5, 23, 8]
     assert decode(worker.redis.lists[HISTORY_KEY][0])["status"] == "lost"
     assert worker.redis.hashes[SUMMARY_KEY]["lost"] == 1
     assert decode(worker.redis.values[STATE_KEY])["last_processed"]["history_id"] == "d"

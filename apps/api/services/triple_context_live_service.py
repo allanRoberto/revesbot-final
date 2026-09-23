@@ -81,14 +81,15 @@ async def get_live_dashboard(redis_client, *, limit: int = 50) -> dict[str, Any]
         "roulette_id": ROULETTE_ID,
         "configuration": {
             "ordered": True, "direction": "forward", "top_n": 6,
-            "attempts": 1, "overlap": False, "block_size": 3,
+            "attempts": 1, "overlap": False, "window_size": 3,
+            "recalculate_after_settlement": True,
         },
         "worker": {
             "status": "online" if heartbeat_age is not None and heartbeat_age <= 15 else "offline",
             "heartbeat_at": _iso(heartbeat),
             "heartbeat_age_seconds": heartbeat_age,
             "phase": state.get("phase", "starting"),
-            "collected_in_block": len(buffer),
+            "results_in_window": len(buffer),
             "last_processed_at": _iso((state.get("last_processed") or {}).get("timestamp")),
         },
         "current": _signal(pending) if pending else None,

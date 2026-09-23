@@ -75,7 +75,8 @@ def test_live_projection_with_valid_token(monkeypatch):
     assert body["worker"]["status"] == "online"
     assert body["configuration"] == {
         "ordered": True, "direction": "forward", "top_n": 6,
-        "attempts": 1, "overlap": False, "block_size": 3,
+        "attempts": 1, "overlap": False, "window_size": 3,
+        "recalculate_after_settlement": True,
     }
     assert body["summary"]["hit_rate"] == 80.0
     assert body["current"]["trio"] == [7, 5, 23]
