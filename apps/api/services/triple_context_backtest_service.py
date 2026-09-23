@@ -180,7 +180,9 @@ def catalog_selection(trio, documents, *, ordered, direction, top_k):
 
 def build_signals(rows, documents, *, ordered, direction, top_k):
     signals = []
-    for end in range(2, len(rows), 3):
+    # Every new result completes the next rolling trio. Whether that candidate
+    # can start a bet while another bet is active is decided by the evaluator.
+    for end in range(2, len(rows)):
         trio = [row["value"] for row in rows[end - 2:end + 1]]
         signal = {
             "signal_id": len(signals) + 1, "end_index": end,
@@ -259,7 +261,7 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
     rows, history_source = await asyncio.to_thread(normalize_history, descending, history_limit)
     history_source["source_upper_id"] = str(upper["_id"])
     keys = set()
-    for end in range(2, len(rows), 3):
+    for end in range(2, len(rows)):
         trio = [row["value"] for row in rows[end - 2:end + 1]]
         if len(set(trio)) == 3:
             keys.add(trio_key(trio, ordered))
@@ -326,13 +328,14 @@ async def run_catalog_backtest(db, *, history_limit, top_k, attempts, ordered, d
                    "ordered": ordered, "direction": direction,
                    "prevent_overlapping_bets": prevent_overlapping_bets,
                    "recalculate_ranking_after_loss": recalculate_ranking_after_loss,
-                   "sampling": "blocks_of_three",
+                   "sampling": "sliding_window",
                    "roulette_id": ROULETTE, "ranking_source": "published_catalog"},
         "source": history_source,
         "catalog": {"build_id": build_id, "source": catalog_source},
         "methodology": {
             "description": (
-                "Análise retrospectiva com uma versão fixa do catálogo publicado. Blocos de três; "
+                "Análise retrospectiva com uma versão fixa do catálogo publicado. "
+                "Janela deslizante com os três resultados mais recentes; "
                 + ("uma nova aposta só começa após o encerramento da anterior."
                    if prevent_overlapping_bets else "as apostas podem se sobrepor.")
                 + (" Após cada falha, o próximo ranking usa os três resultados mais recentes."
