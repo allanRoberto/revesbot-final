@@ -24,7 +24,7 @@
     <div class="method-note"><strong>Catálogo atual, fixo durante cada execução.</strong><p>Esta é uma conferência retrospectiva. O desempenho neste histórico não representa uma validação em dados futuros.</p></div>
 
     <form id="backtest-form" class="query-panel backtest-form" novalidate>
-      <div class="panel-heading"><span class="step-index">01</span><h2>Configure o backtest</h2><span class="blocks-tag">Trios em blocos de 3</span></div>
+      <div class="panel-heading"><span class="step-index">01</span><h2>Configure o backtest</h2><span class="blocks-tag">Janela móvel de 3</span></div>
       <div class="parameter-grid">
         <div class="parameter-field"><label for="history-limit">Resultados do histórico</label><input id="history-limit" name="history_limit" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="5" value="5000" list="history-presets" required autocomplete="off" aria-describedby="history-help backtest-form-error"><datalist id="history-presets"><option value="500"></option><option value="5000"></option></datalist><p id="history-help">De 6 a 50.000 resultados mais recentes.</p></div>
         <div class="parameter-field"><label for="top-k">Números do ranking · top K</label><input id="top-k" name="top_k" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="2" value="13" required autocomplete="off" aria-describedby="top-k-help backtest-form-error"><p id="top-k-help">De 1 a 37 números em cada ranking.</p></div>
@@ -54,7 +54,7 @@
           <p class="financial-formula">Retorno considerado: 35:1 no número pleno, mais a devolução da ficha vencedora. Cada sinal reinicia na primeira tentativa.</p>
         </div>
       </section>
-      <div class="fixed-rules"><span class="block-example" aria-label="Primeiro bloco: resultados 1, 2 e 3. Segundo bloco: resultados 4, 5 e 6.">1–2–3 <span aria-hidden="true">/</span> 4–5–6 <span aria-hidden="true">/ …</span></span><p>Sem sobreposição na formação dos trios. O top K fica fixo ou é recalculado após cada falha, conforme a opção escolhida. Só conta acerto no número exato selecionado; vizinhos não ampliam o conjunto.</p></div>
+      <div class="fixed-rules"><span class="block-example" aria-label="Primeira janela: resultados 1, 2 e 3. Próxima janela: resultados 2, 3 e 4.">1–2–3 <span aria-hidden="true">/</span> 2–3–4 <span aria-hidden="true">/ …</span></span><p>Cada novo resultado desloca a janela. Com “Não sobrepor apostas”, o próximo sinal só começa após o acerto ou o fim das tentativas e usa os três resultados mais recentes. O top K fica fixo ou é recalculado dentro da mesma aposta após cada falha, conforme a opção escolhida. Só conta acerto no número exato selecionado; vizinhos não ampliam o conjunto.</p></div>
       <p id="backtest-form-error" class="form-error" role="alert" hidden></p>
       <div class="form-actions"><button id="run-button" class="submit-button backtest-submit" type="submit"><span id="run-label">Executar backtest</span><span aria-hidden="true">→</span></button><button id="cancel-button" class="quiet-button" type="button" hidden>Cancelar</button><p>As tentativas são conferidas após o trio, nas duas opções de ranking.</p></div>
     </form>

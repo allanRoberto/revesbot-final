@@ -114,6 +114,28 @@ def _catalog_doc(key, combination, *, events=10, direction="forward", seed=0,
     return document
 
 
+def _rolling_catalog(values, catalog):
+    """Fill the fake catalog for every distinct rolling trio in a test stream."""
+    if not catalog:
+        return catalog
+    documents = {document["key"]: document for document in catalog}
+    sample = catalog[0]
+    direction = "forward" if "forward" in sample else "backward"
+    mode = sample["mode"]
+    ordered = mode == "ordered"
+    for end in range(2, len(values)):
+        trio = values[end - 2:end + 1]
+        if len(set(trio)) != 3:
+            continue
+        combination = trio if ordered else sorted(trio)
+        key = ",".join(map(str, combination))
+        documents.setdefault(
+            key,
+            _catalog_doc(key, combination, direction=direction, mode=mode),
+        )
+    return list(documents.values())
+
+
 def _db(values, catalog, *, status="ready", active=True):
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
     history = [{"_id": i + 1, "value": value, "timestamp": start + timedelta(seconds=i * 30),
@@ -125,7 +147,7 @@ def _db(values, catalog, *, status="ready", active=True):
             "status": status, "source": {"records": 200000,
             "first_timestamp": "2025-01-01T00:00:00+00:00",
             "last_timestamp": "2025-12-31T00:00:00+00:00"}}],
-        "triple_context_rankings_v1": catalog,
+        "triple_context_rankings_v1": _rolling_catalog(values, catalog),
         "history": history,
     })
 
@@ -186,12 +208,12 @@ def test_run_uses_chronological_key_requested_mode_side_and_top_k(ordered, direc
     assert signal["selected_numbers"] == [9]
     assert signal["checked_numbers"] == [9]
     assert signal["status"] == "win"
-    assert result["methodology"]["signals_with_potential_future_data"] == 1
+    assert result["methodology"]["signals_with_potential_future_data"] == 3
     assert result["methodology"]["warning"] is not None
     ranking_call = next(call for call in db.calls
                         if call[0] == "triple_context_rankings_v1" and call[1] == "find")
     assert ranking_call[2]["mode"] == mode
-    assert ranking_call[2]["key"] == {"$in": [key]}
+    assert key in ranking_call[2]["key"]["$in"]
     projection = ranking_call[3]
     assert direction in projection
     assert ("backward" if direction == "forward" else "forward") not in projection
@@ -206,8 +228,8 @@ def test_run_omits_temporal_warning_when_signals_are_after_catalog_period():
     assert result["methodology"]["warning"] is None
 
 
-def test_history_descending_is_restored_and_blocks_are_not_recompressed():
-    # First block repeats and is skipped; the next block remains positions 3..5.
+def test_history_descending_is_restored_and_rolling_windows_are_not_recompressed():
+    # A repeated window is skipped without removing results from later windows.
     documents = [_catalog_doc("3,4,5", [3, 4, 5], seed=5),
                  _catalog_doc("5,6,7", [5, 6, 7], seed=7)]
     db = _db([1, 1, 2, 3, 4, 5, 5, 6, 7], documents)
@@ -216,11 +238,12 @@ def test_history_descending_is_restored_and_blocks_are_not_recompressed():
     signals = result["signals"]
     assert signals[0]["trio"] == [1, 1, 2]
     assert signals[0]["status"] == "repeated_trio"
-    assert signals[1]["trio"] == [3, 4, 5]
-    assert signals[1]["trigger_position"] == 6
-    assert signals[1]["selected_numbers"] == [5, 6]
+    assert signals[1]["trio"] == [1, 2, 3]
+    assert signals[3]["trio"] == [3, 4, 5]
+    assert signals[3]["trigger_position"] == 6
+    assert signals[3]["selected_numbers"] == [5, 6]
     assert result["source"]["first_timestamp"] < result["source"]["last_timestamp"]
-    assert result["config"]["sampling"] == "blocks_of_three"
+    assert result["config"]["sampling"] == "sliding_window"
     ranking_query = next(call[2] for call in db.calls
                          if call[0] == "triple_context_rankings_v1" and call[1] == "find")
     assert ranking_query["build_id"] == result["catalog"]["build_id"] == "build-a"
@@ -237,13 +260,65 @@ def test_run_can_prevent_overlapping_bets_without_removing_formed_signals():
         history_limit=11, top_k=1, attempts=6, ordered=True, direction="forward",
         prevent_overlapping_bets=True))
 
-    assert [signal["status"] for signal in result["signals"]] == [
-        "loss", "overlap_skipped", "win"]
-    assert result["summary"]["total_signals"] == 3
-    assert result["summary"]["overlap_skipped"] == 1
-    assert result["summary"]["evaluated"] == 2
+    assert [signal["status"] for signal in result["signals"][:7]] == [
+        "loss", "overlap_skipped", "overlap_skipped", "overlap_skipped",
+        "overlap_skipped", "overlap_skipped", "win"]
+    assert result["signals"][6]["trio"] == [7, 8, 9]
+    assert result["signals"][6]["checked_numbers"] == [10, 0]
+    assert result["summary"]["total_signals"] == 9
+    assert result["summary"]["overlap_skipped"] == 5
     assert result["config"]["prevent_overlapping_bets"] is True
     assert "só começa após" in result["methodology"]["description"]
+
+
+def test_five_attempt_cycle_uses_latest_three_results_for_the_next_bet():
+    result = asyncio.run(run_catalog_backtest(
+        _db(
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [_catalog_doc("1,2,3", [1, 2, 3], seed=36)],
+        ),
+        history_limit=9,
+        top_k=1,
+        attempts=5,
+        ordered=True,
+        direction="forward",
+        prevent_overlapping_bets=True,
+    ))
+
+    first = result["signals"][0]
+    assert first["trio"] == [1, 2, 3]
+    assert first["checked_numbers"] == [4, 5, 6, 7, 8]
+    assert first["status"] == "loss"
+    assert [signal["status"] for signal in result["signals"][1:5]] == [
+        "overlap_skipped", "overlap_skipped", "overlap_skipped", "overlap_skipped"]
+    assert result["signals"][5]["trio"] == [6, 7, 8]
+    assert result["signals"][5]["checked_numbers"] == [9]
+
+
+def test_recalculation_moves_the_ranking_but_keeps_the_same_bet_cycle():
+    documents = [
+        _catalog_doc("1,2,3", [1, 2, 3], seed=36),
+        _catalog_doc("2,3,4", [2, 3, 4], seed=5),
+    ]
+    result = asyncio.run(run_catalog_backtest(
+        _db([1, 2, 3, 4, 5], documents),
+        history_limit=5,
+        top_k=1,
+        attempts=5,
+        ordered=True,
+        direction="forward",
+        prevent_overlapping_bets=True,
+        recalculate_ranking_after_loss=True,
+    ))
+
+    first = result["signals"][0]
+    assert first["trio"] == [1, 2, 3]
+    assert first["status"] == "win"
+    assert first["first_hit_attempt"] == 2
+    assert first["checked_numbers"] == [4, 5]
+    assert [row["ranking_trio"] for row in result["ranking_updates"][:2]] == [
+        [1, 2, 3], [2, 3, 4]]
+    assert result["signals"][1]["status"] == "overlap_skipped"
 
 
 @pytest.mark.parametrize("ordered,direction", [
@@ -261,7 +336,7 @@ def test_run_can_recalculate_ranking_after_each_failed_attempt(ordered, directio
         db, history_limit=5, top_k=1, attempts=2, ordered=ordered, direction=direction))
     dynamic = asyncio.run(run_catalog_backtest(
         db, history_limit=5, top_k=1, attempts=2, ordered=ordered, direction=direction,
-        recalculate_ranking_after_loss=True))
+        prevent_overlapping_bets=True, recalculate_ranking_after_loss=True))
 
     assert fixed["signals"][0]["status"] == "loss"
     signal = dynamic["signals"][0]
@@ -280,7 +355,7 @@ def test_dynamic_ranking_reuses_previous_ranking_when_latest_trio_repeats():
     result = asyncio.run(run_catalog_backtest(
         _db([1, 2, 3, 2, 36], [_catalog_doc("1,2,3", [1, 2, 3], seed=36)]),
         history_limit=5, top_k=1, attempts=2, ordered=True, direction="forward",
-        recalculate_ranking_after_loss=True))
+        prevent_overlapping_bets=True, recalculate_ranking_after_loss=True))
 
     signal = result["signals"][0]
     assert signal["status"] == "win"
@@ -297,7 +372,8 @@ def test_dynamic_ranking_reuses_previous_ranking_when_latest_trio_has_no_evidenc
     ]
     result = asyncio.run(run_catalog_backtest(
         _db([1, 2, 3, 9, 36], documents), history_limit=5, top_k=1, attempts=2,
-        ordered=True, direction="forward", recalculate_ranking_after_loss=True))
+        ordered=True, direction="forward", prevent_overlapping_bets=True,
+        recalculate_ranking_after_loss=True))
 
     second = result["ranking_updates"][1]
     assert second["source"] == "reused"
