@@ -25,6 +25,12 @@ on:
       - "apps/api/templates/triple_context_backtest.html"
       - "apps/api/tests/test_triple_context_backtest.py"
       - "apps/api/tests/test_triple_backtest_evaluation.py"
+      - "apps/api/routes/triple_context_live.py"
+      - "apps/api/services/triple_context_live_service.py"
+      - "apps/api/templates/triple_context_live.html"
+      - "apps/api/tests/test_triple_context_live.py"
+      - "apps/api/tests/test_triple_context_live_worker.py"
+      - "apps/monitoring/scripts/triple_context_live_worker.py"
       - "apps/api/templates/history_minimal.html"
       - "apps/api/templates/pattern_monitoring.html"
       - "apps/api/static/css/**"
@@ -75,9 +81,10 @@ jobs:
           node --check apps/api/static/js/pages/behavior-lab.js
           node --check apps/api/static/js/pages/triple-context-ranking.js
           node --check apps/api/static/js/pages/triple-context-backtest.js
+          node --check apps/api/static/js/pages/triple-context-live.js
           REVESBOT_API_CURRENT="${GITHUB_WORKSPACE}" node -e 'require("./infra/pm2/api-minimal.config.js")'
           bash -n infra/deploy/api/driver.sh infra/deploy/api/deploy.sh infra/deploy/api/bootstrap.sh infra/deploy/api/healthcheck.sh infra/deploy/api/watchdog.sh
-          python -m compileall -q apps/behavior_lab apps/api/minimal_main.py apps/api/routes/behavior_lab.py
+          python -m compileall -q apps/behavior_lab apps/monitoring/scripts/triple_context_live_worker.py apps/api/minimal_main.py apps/api/routes/behavior_lab.py apps/api/routes/triple_context_live.py
       - name: Run API and Behavior Lab tests
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/apps
@@ -93,6 +100,8 @@ jobs:
           apps/api/tests/test_triple_context_ranking.py
           apps/api/tests/test_triple_context_backtest.py
           apps/api/tests/test_triple_backtest_evaluation.py
+          apps/api/tests/test_triple_context_live.py
+          apps/api/tests/test_triple_context_live_worker.py
 
   deploy:
     needs: test

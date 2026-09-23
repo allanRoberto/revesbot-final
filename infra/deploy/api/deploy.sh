@@ -21,9 +21,11 @@ trusted_repository="${REVESBOT_API_TRUSTED_REPOSITORY:-/var/lib/revesbot-api-dep
 trusted_ref="refs/heads/main"
 lock_file="/var/lib/revesbot-api-deploy/deploy.lock"
 behavior_process_name="revesbot-behavior-lab"
+triple_live_process_name="triple-context-live-worker"
 api_process_name="revesbot-api"
 previous_target=""
 previous_had_behavior_worker=0
+previous_had_triple_live_worker=0
 activation_epoch=0
 build_dir=""
 release_was_built=0
@@ -128,6 +130,10 @@ if [[ -n "$previous_target" ]] \
     && pm2_config_has_process "$previous_target/infra/pm2/api-minimal.config.js" "$behavior_process_name"; then
   previous_had_behavior_worker=1
 fi
+if [[ -n "$previous_target" ]] \
+    && pm2_config_has_process "$previous_target/infra/pm2/api-minimal.config.js" "$triple_live_process_name"; then
+  previous_had_triple_live_worker=1
+fi
 
 exec 9>"$lock_file"
 flock -n 9 || { echo "Outro deploy da API esta em andamento." >&2; exit 1; }
@@ -159,6 +165,7 @@ if [[ "$previous_target" == "$release_dir" ]]; then
   : "${REDIS_CONNECT:?REDIS_CONNECT nao configurada}"
   : "${PIXGO_API_KEY:?PIXGO_API_KEY nao configurada}"
   : "${PIXGO_WEBHOOK_SECRET:?PIXGO_WEBHOOK_SECRET nao configurada}"
+  : "${TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN:?TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN nao configurada}"
   sudo -u "$runtime_user" --preserve-env \
     env PM2_HOME="/home/$runtime_user/.pm2" \
     REVESBOT_API_CURRENT="$base_dir/api-current" \
@@ -202,6 +209,7 @@ fi
 cd "$validation_root"
 sudo -u "$runtime_user" node --check infra/pm2/api-minimal.config.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/behavior-lab.js
+sudo -u "$runtime_user" node --check apps/api/static/js/pages/triple-context-live.js
 sudo -u "$runtime_user" env REVESBOT_API_CURRENT="$validation_root" \
   node -e 'require("./infra/pm2/api-minimal.config.js")'
 sudo -u "$runtime_user" bash -n \
@@ -216,8 +224,10 @@ if (( release_was_built == 1 )); then
     PYTHONPATH="$validation_root:$validation_root/apps" \
     "$validation_root/.venv/bin/python" -m compileall -q \
     apps/behavior_lab \
+    apps/monitoring/scripts/triple_context_live_worker.py \
     apps/api/minimal_main.py \
-    apps/api/routes/behavior_lab.py
+    apps/api/routes/behavior_lab.py \
+    apps/api/routes/triple_context_live.py
 fi
 sudo -u "$runtime_user" env \
   PYTHONDONTWRITEBYTECODE=1 \
@@ -232,7 +242,9 @@ sudo -u "$runtime_user" env \
   apps/api/tests/test_pixgo_webhook.py \
   apps/api/tests/test_triple_context_ranking.py \
   apps/api/tests/test_triple_context_backtest.py \
-  apps/api/tests/test_triple_backtest_evaluation.py
+  apps/api/tests/test_triple_backtest_evaluation.py \
+  apps/api/tests/test_triple_context_live.py \
+  apps/api/tests/test_triple_context_live_worker.py
 
 set -a
 # shellcheck disable=SC1090
@@ -243,6 +255,7 @@ set +a
 : "${REDIS_CONNECT:?REDIS_CONNECT nao configurada}"
 : "${PIXGO_API_KEY:?PIXGO_API_KEY nao configurada}"
 : "${PIXGO_WEBHOOK_SECRET:?PIXGO_WEBHOOK_SECRET nao configurada}"
+: "${TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN:?TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN nao configurada}"
 
 sudo -u "$runtime_user" --preserve-env=MONGO_URL,MONGO_DATABASE,PIXGO_MONGO_URL,PIXGO_MONGO_DATABASE \
   env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$validation_root/apps" \
@@ -276,7 +289,9 @@ reload_api() {
 previous_release_is_healthy() {
   local health_payload=""
   local history_payload=""
+  local triple_live_payload=""
   local previous_worker_pid=""
+  local previous_triple_live_pid=""
   local expected_previous_release="${previous_target##*/}"
 
   for ((rollback_attempt = 1; rollback_attempt <= 12; rollback_attempt++)); do
@@ -288,6 +303,37 @@ previous_release_is_healthy() {
     if [[ "$history_payload" == *'"results"'* ]] \
         && [[ "$history_payload" == *'"items"'* ]] \
         && [[ "$(pm2_api pid "$api_process_name" 2>/dev/null | awk 'NF { print $1; exit }')" =~ ^[1-9][0-9]*$ ]]; then
+      if (( previous_had_behavior_worker == 0 )); then
+        if (( previous_had_triple_live_worker == 0 )); then
+          return 0
+        fi
+      fi
+      if (( previous_had_triple_live_worker == 1 )); then
+        previous_triple_live_pid="$(
+          pm2_api pid "$triple_live_process_name" 2>/dev/null \
+            | awk 'NF { print $1; exit }' \
+            || true
+        )"
+        if [[ ! "$previous_triple_live_pid" =~ ^[1-9][0-9]*$ ]]; then
+          if (( rollback_attempt < 12 )); then
+            sleep 5
+          fi
+          continue
+        fi
+        triple_live_payload="$(
+          curl -fsS --max-time 5 \
+            -H 'Accept: application/json' \
+            -H "X-Live-Dashboard-Token: $TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN" \
+            'http://127.0.0.1:8082/api/patterns/triple-context-live?limit=1' \
+            2>/dev/null || true
+        )"
+        if [[ "$triple_live_payload" != *'"status":"online"'* ]]; then
+          if (( rollback_attempt < 12 )); then
+            sleep 5
+          fi
+          continue
+        fi
+      fi
       if (( previous_had_behavior_worker == 0 )); then
         return 0
       fi
@@ -335,6 +381,7 @@ rollback_api() {
   local current_target=""
   local remaining_api_pid="0"
   local remaining_worker_pid="0"
+  local remaining_triple_live_pid="0"
   local rollback_link="$base_dir/.api-current-rollback-$BASHPID"
 
   if [[ -n "$previous_target" && -d "$previous_target" ]]; then
@@ -378,6 +425,18 @@ rollback_api() {
         || true
     )"
     if [[ "$remaining_worker_pid" =~ ^[1-9][0-9]*$ ]]; then
+      rollback_status=1
+    fi
+  fi
+
+  if (( previous_had_triple_live_worker == 0 )); then
+    pm2_api delete "$triple_live_process_name" >/dev/null 2>&1 || true
+    remaining_triple_live_pid="$(
+      pm2_api pid "$triple_live_process_name" 2>/dev/null \
+        | awk 'NF { print $1; exit }' \
+        || true
+    )"
+    if [[ "$remaining_triple_live_pid" =~ ^[1-9][0-9]*$ ]]; then
       rollback_status=1
     fi
   fi
