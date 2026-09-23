@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1210">
+  <title>Trio top 6 live · Revesbot</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/triple_context_live.css?v={{ asset_version }}">
+  <script defer src="/static/js/pages/triple-context-live.js?v={{ asset_version }}"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/patterns/triple-context-live"><span class="brand-mark">r<span>.</span></span><span>revesbot<span class="brand-divider">/</span><small>live</small></span></a>
+    <div class="worker-state"><i id="worker-dot"></i><span id="worker-label">Conectando…</span></div>
+  </header>
+
+  <main class="page">
+    <section class="intro">
+      <div><p class="eyebrow">MONITOR PROSPECTIVO</p><h1>Trio top 6<span>.</span></h1><p>Acompanhamento live em blocos de três resultados, com uma tentativa.</p></div>
+      <span class="table-tag">◎ Pragmatic Auto Roulette</span>
+    </section>
+
+    <section id="access-panel" class="access-panel">
+      <div><p class="eyebrow">ACESSO PRIVADO</p><h2>Informe o token do monitor</h2><p>O token fica somente nesta aba e é apagado quando ela for fechada.</p></div>
+      <form id="access-form"><label for="access-token">Token de acesso</label><div><input id="access-token" type="password" autocomplete="off" required><button type="submit">Abrir monitor <span>→</span></button></div><p id="access-error" role="alert"></p></form>
+    </section>
+
+    <div id="dashboard" hidden>
+      <section class="metrics" aria-label="Resumo do desempenho">
+        <article><span>Assertividade</span><strong id="hit-rate">—</strong><small id="completed-count">0 entradas concluídas</small></article>
+        <article><span>Vitórias</span><strong id="wins">0</strong><small>acerto na única tentativa</small></article>
+        <article><span>Derrotas</span><strong id="losses">0</strong><small>top 6 não apareceu</small></article>
+        <article><span>Ignorados</span><strong id="skipped">0</strong><small>repetição ou sem evidência</small></article>
+      </section>
+
+      <section class="current-grid">
+        <article class="panel current-panel">
+          <div class="panel-title"><div><p class="eyebrow">ENTRADA ATUAL</p><h2 id="current-title">Aguardando próximo bloco</h2></div><span id="current-status" class="status-pill">COLETANDO</span></div>
+          <div id="current-empty" class="current-empty"><span>◌</span><p id="collector-message">Aguardando resultados para completar o trio.</p></div>
+          <div id="current-signal" hidden>
+            <p class="section-label">Trio observado</p><div id="current-trio" class="number-row"></div>
+            <p class="section-label">Entrada top 6</p><div id="current-ranking" class="number-row ranking-row"></div>
+            <div class="evidence"><span id="current-occurrences">0 ocorrências</span><span id="current-events">0 contextos à frente</span></div>
+          </div>
+        </article>
+        <article class="panel method-panel">
+          <p class="eyebrow">CONFIGURAÇÃO FIXA</p><dl><div><dt>Bloco</dt><dd>3 resultados</dd></div><div><dt>Comparação</dt><dd>Ordem exata</dd></div><div><dt>Direção</dt><dd>À frente</dd></div><div><dt>Entrada</dt><dd>Top 6</dd></div><div><dt>Tentativas</dt><dd>1 giro</dd></div></dl>
+          <p id="last-update" class="last-update">Ainda sem atualização.</p>
+        </article>
+      </section>
+
+      <section class="history-section">
+        <div class="history-heading"><div><p class="eyebrow">HISTÓRICO LIVE</p><h2>Entradas registradas</h2></div><button id="refresh-button" type="button">Atualizar agora</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Trio</th><th>Top 6</th><th>Resultado</th><th>Status</th></tr></thead><tbody id="history-body"></tbody></table><p id="history-empty">Nenhuma entrada registrada ainda.</p></div>
+      </section>
+    </div>
+  </main>
+  <noscript>Ative o JavaScript para acompanhar o monitor live.</noscript>
+</body>
+</html>

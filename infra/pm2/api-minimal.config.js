@@ -55,9 +55,36 @@ module.exports = {
         PIXGO_API_KEY: process.env.PIXGO_API_KEY,
         PIXGO_WEBHOOK_SECRET: process.env.PIXGO_WEBHOOK_SECRET,
         PIXGO_BASE_URL: process.env.PIXGO_BASE_URL,
+        TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN:
+          process.env.TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN,
         BEHAVIOR_LAB_RELEASE_ID: releaseId,
         BEHAVIOR_LAB_HEARTBEAT_MAX_AGE_SECONDS:
           process.env.BEHAVIOR_LAB_HEARTBEAT_MAX_AGE_SECONDS || "90",
+      },
+    },
+    {
+      name: "triple-context-live-worker",
+      cwd: currentRoot,
+      script: "apps/monitoring/scripts/triple_context_live_worker.py",
+      interpreter: python,
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      exp_backoff_restart_delay: 1000,
+      restart_delay: 2000,
+      min_uptime: "10s",
+      max_restarts: 10,
+      kill_timeout: 10000,
+      treekill: true,
+      max_memory_restart: "300M",
+      time: true,
+      env: {
+        PYTHONUNBUFFERED: "1",
+        PYTHONDONTWRITEBYTECODE: "1",
+        MONGO_URL: process.env.MONGO_URL,
+        MONGO_DATABASE: process.env.MONGO_DATABASE || "roleta_db",
+        TRIPLE_CONTEXT_LIVE_POLL_SECONDS:
+          process.env.TRIPLE_CONTEXT_LIVE_POLL_SECONDS || "1",
       },
     },
     {

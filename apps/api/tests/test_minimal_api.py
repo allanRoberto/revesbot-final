@@ -14,6 +14,8 @@ def test_minimal_api_exposes_only_expected_functional_routes() -> None:
         "/ranking-trios",
         "/backtest-trios",
         "/api/triple-context-backtest",
+        "/patterns/triple-context-live",
+        "/api/patterns/triple-context-live",
         "/history-detailed/{slug}",
         "/history/{slug}",
         "/history-app/{slug}",

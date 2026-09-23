@@ -16,6 +16,7 @@ from api.routes.results_websocket import router as results_websocket_router
 from api.routes.roulette_history import router as roulette_history_router
 from api.routes.triple_context_ranking import router as triple_context_ranking_router
 from api.routes.triple_context_backtest import router as triple_context_backtest_router
+from api.routes.triple_context_live import router as triple_context_live_router
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -58,6 +59,7 @@ app.include_router(results_websocket_router)
 app.include_router(pixgo_webhook_router)
 app.include_router(triple_context_ranking_router)
 app.include_router(triple_context_backtest_router)
+app.include_router(triple_context_live_router)
 # Keep the concrete behavior-lab paths ahead of /patterns/{pattern_key}.
 app.include_router(behavior_lab_router)
 app.include_router(pattern_monitoring_router)

@@ -12,6 +12,7 @@ api_root="${REVESBOT_API_CURRENT:-/var/www/revesbot/api-current}"
 runtime_user="${REVESBOT_RUNTIME_USER:-revesbot}"
 env_file="${API_ENV_FILE:-/etc/revesbot/api.env}"
 process_name="revesbot-behavior-lab"
+triple_live_process_name="triple-context-live-worker"
 redis_prefix="behavior_lab:v1"
 health_key="$redis_prefix:$slug:health"
 expected_release="$(basename "$(readlink -f "$api_root")")"
@@ -51,6 +52,7 @@ set -a
 # shellcheck disable=SC1090
 source "$env_file"
 set +a
+: "${TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN:?TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN nao configurada}"
 
 redis_url="${REDIS_CONNECT:-redis://127.0.0.1:6380/0}"
 expected_fingerprint="$(
@@ -72,6 +74,39 @@ worker_is_online() {
       | awk 'NF { count += 1; pid = $1 } END { print count == 1 ? pid : 0 }'
   )"
   [[ "$worker_pid" =~ ^[1-9][0-9]*$ ]]
+}
+
+triple_live_is_healthy() {
+  local payload="$1"
+  local worker_pid
+
+  worker_pid="$(
+    sudo -u "$runtime_user" \
+      env PM2_HOME="/home/$runtime_user/.pm2" \
+      pm2 pid "$triple_live_process_name" 2>/dev/null \
+      | awk 'NF { count += 1; pid = $1 } END { print count == 1 ? pid : 0 }'
+  )"
+  [[ "$worker_pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  LIVE_PAYLOAD="$payload" /usr/bin/python3 -I -c '
+import json
+import os
+
+payload = json.loads(os.environ["LIVE_PAYLOAD"])
+if payload.get("roulette_id") != "pragmatic-auto-roulette":
+    raise SystemExit(1)
+if payload.get("worker", {}).get("status") != "online":
+    raise SystemExit(1)
+expected = {
+    "ordered": True,
+    "direction": "forward",
+    "top_n": 6,
+    "attempts": 1,
+    "overlap": False,
+    "block_size": 3,
+}
+if payload.get("configuration") != expected:
+    raise SystemExit(1)
+' >/dev/null 2>&1
 }
 
 route_payload_is_valid() {
@@ -172,12 +207,20 @@ for ((attempt = 1; attempt <= attempts; attempt++)); do
     curl -fsS --max-time 5 -H 'Accept: application/json' \
       "$base_url/api/patterns/behavior-lab/health" 2>/dev/null || true
   )"
+  triple_live_payload="$(
+    curl -fsS --max-time 5 \
+      -H 'Accept: application/json' \
+      -H "X-Live-Dashboard-Token: $TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN" \
+      "$base_url/api/patterns/triple-context-live?limit=1" 2>/dev/null || true
+  )"
 
   if [[ "$history_payload" == *'"results"'* ]] \
       && [[ "$history_payload" == *'"items"'* ]] \
       && [[ -n "$health_payload" ]] \
       && route_payload_is_valid "$health_payload" >/dev/null 2>&1 \
       && worker_is_online \
+      && [[ -n "$triple_live_payload" ]] \
+      && triple_live_is_healthy "$triple_live_payload" \
       && heartbeat_is_fresh >/dev/null 2>&1; then
     printf '%s\n' "$health_payload"
     exit 0
