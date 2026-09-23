@@ -17,11 +17,13 @@ no MongoDB para aferição live sem viés retrospectivo.
 
 ## Persistência
 
-- `triple_context_live_signals_v1`: entradas, rankings e resultados;
-- `triple_context_live_state_v1`: cursor, bloco parcial e heartbeat.
+- MongoDB: leitura dos resultados e do catálogo publicado;
+- Redis `triple_context_live:v1:state:*`: cursor, bloco parcial e heartbeat;
+- Redis `triple_context_live:v1:history:*`: entradas e resultados prospectivos;
+- Redis `triple_context_live:v1:summary:*`: totais acumulados.
 
-O estado persistido impede duplicação após reinício. O identificador do último giro
-do trio também possui índice único por roleta.
+O estado persistido impede duplicação após reinício sem exigir escrita no MongoDB
+histórico, cuja credencial da API permanece somente leitura.
 
 ## Dashboard
 

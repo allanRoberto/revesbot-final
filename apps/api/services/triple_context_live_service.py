@@ -1,12 +1,21 @@
-"""Read-only dashboard projection for the live trio worker."""
+"""Read-only Redis projection for the live trio dashboard."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
 
+from bson import json_util
+
 
 ROULETTE_ID = "pragmatic-auto-roulette"
-STATE_ID = f"triple-context-live:{ROULETTE_ID}:ordered:forward:top6:v1"
+PREFIX = "triple_context_live:v1"
+STATE_KEY = f"{PREFIX}:state:{ROULETTE_ID}"
+HISTORY_KEY = f"{PREFIX}:history:{ROULETTE_ID}"
+SUMMARY_KEY = f"{PREFIX}:summary:{ROULETTE_ID}"
+
+
+def _decode(value: str | bytes | None) -> Any:
+    return json_util.loads(value) if value else None
 
 
 def _iso(value: Any) -> str | None:
@@ -20,8 +29,7 @@ def _iso(value: Any) -> str | None:
 def _signal(document: dict[str, Any]) -> dict[str, Any]:
     ranking = [
         {
-            "position": int(row["position"]),
-            "number": int(row["number"]),
+            "position": int(row["position"]), "number": int(row["number"]),
             "score": float(row.get("score", 0)),
             "direct_hits": int(row.get("direct_hits", 0)),
         }
@@ -29,7 +37,7 @@ def _signal(document: dict[str, Any]) -> dict[str, Any]:
     ]
     result = document.get("result")
     return {
-        "id": str(document["_id"]),
+        "id": str(document.get("id") or document.get("trigger_history_id")),
         "status": document["status"],
         "trio": [int(number) for number in document.get("trio", [])],
         "ranking": ranking,
@@ -47,35 +55,28 @@ def _signal(document: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def get_live_dashboard(database, *, limit: int = 50) -> dict[str, Any]:
-    signals = database["triple_context_live_signals_v1"]
-    states = database["triple_context_live_state_v1"]
-    state = await states.find_one({"_id": STATE_ID})
-    rows = await signals.find(
-        {"roulette_id": ROULETTE_ID},
-        {
-            "status": 1, "trio": 1, "ranking": 1, "occurrences": 1,
-            "context_events": 1, "skip_reason": 1, "result": 1,
-            "created_at": 1, "resolved_at": 1,
-        },
-    ).sort("created_at", -1).limit(limit).to_list(length=limit)
-
-    counts = {"won": 0, "lost": 0, "pending": 0, "skipped": 0}
-    async for row in signals.aggregate([
-        {"$match": {"roulette_id": ROULETTE_ID}},
-        {"$group": {"_id": "$status", "count": {"$sum": 1}}},
-    ]):
-        if row.get("_id") in counts:
-            counts[row["_id"]] = int(row["count"])
+async def get_live_dashboard(redis_client, *, limit: int = 50) -> dict[str, Any]:
+    pipeline = redis_client.pipeline(transaction=False)
+    pipeline.get(STATE_KEY)
+    pipeline.lrange(HISTORY_KEY, 0, limit - 1)
+    pipeline.hgetall(SUMMARY_KEY)
+    state_raw, rows_raw, summary_raw = await pipeline.execute()
+    state = _decode(state_raw) or {}
+    rows = [_decode(row) for row in rows_raw]
+    counts = {
+        name: int(summary_raw.get(name, 0))
+        for name in ("won", "lost", "skipped")
+    }
+    pending = state.get("pending_signal")
+    counts["pending"] = 1 if pending else 0
     completed = counts["won"] + counts["lost"]
-    heartbeat = state.get("worker_heartbeat_at") if state else None
+    heartbeat = state.get("worker_heartbeat_at")
     if isinstance(heartbeat, datetime):
         normalized = heartbeat if heartbeat.tzinfo else heartbeat.replace(tzinfo=timezone.utc)
         heartbeat_age = max(0.0, (datetime.now(timezone.utc) - normalized).total_seconds())
     else:
         heartbeat_age = None
-    pending = next((row for row in rows if row.get("status") == "pending"), None)
-    buffer = state.get("buffer", []) if state else []
+    buffer = state.get("buffer", [])
     return {
         "roulette_id": ROULETTE_ID,
         "configuration": {
@@ -86,14 +87,13 @@ async def get_live_dashboard(database, *, limit: int = 50) -> dict[str, Any]:
             "status": "online" if heartbeat_age is not None and heartbeat_age <= 15 else "offline",
             "heartbeat_at": _iso(heartbeat),
             "heartbeat_age_seconds": heartbeat_age,
-            "phase": state.get("phase", "starting") if state else "starting",
+            "phase": state.get("phase", "starting"),
             "collected_in_block": len(buffer),
-            "last_processed_at": _iso((state.get("last_processed") or {}).get("timestamp")) if state else None,
+            "last_processed_at": _iso((state.get("last_processed") or {}).get("timestamp")),
         },
         "current": _signal(pending) if pending else None,
         "summary": {
-            **counts,
-            "completed": completed,
+            **counts, "completed": completed,
             "hit_rate": round(counts["won"] * 100 / completed, 2) if completed else None,
         },
         "history": [_signal(row) for row in rows],
