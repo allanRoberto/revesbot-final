@@ -102,7 +102,8 @@ expected = {
     "top_n": 6,
     "attempts": 1,
     "overlap": False,
-    "block_size": 3,
+    "window_size": 3,
+    "recalculate_after_settlement": True,
 }
 if payload.get("configuration") != expected:
     raise SystemExit(1)
