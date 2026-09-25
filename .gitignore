@@ -39,3 +39,6 @@ apps/api/data/ai_shadow_feedback.jsonl
 
 .env
 backup-atlas/
+
+# Private Jev analysis records
+resultados/jev/

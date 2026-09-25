@@ -210,6 +210,7 @@ cd "$validation_root"
 sudo -u "$runtime_user" node --check infra/pm2/api-minimal.config.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/behavior-lab.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/triple-context-live.js
+sudo -u "$runtime_user" node --check apps/api/static/js/pages/jev.js
 sudo -u "$runtime_user" env REVESBOT_API_CURRENT="$validation_root" \
   node -e 'require("./infra/pm2/api-minimal.config.js")'
 sudo -u "$runtime_user" bash -n \
@@ -227,6 +228,7 @@ if (( release_was_built == 1 )); then
     apps/monitoring/scripts/triple_context_live_worker.py \
     apps/api/minimal_main.py \
     apps/api/routes/behavior_lab.py \
+    apps/api/routes/jev.py \
     apps/api/routes/triple_context_live.py
 fi
 sudo -u "$runtime_user" env \
@@ -240,6 +242,11 @@ sudo -u "$runtime_user" env \
   apps/api/tests/test_minimal_api.py \
   apps/api/tests/test_pattern_monitoring.py \
   apps/api/tests/test_pixgo_webhook.py \
+  apps/api/tests/test_jev_core.py \
+  apps/api/tests/test_jev_history_service.py \
+  apps/api/tests/test_jev_openrouter.py \
+  apps/api/tests/test_jev_persistence.py \
+  apps/api/tests/test_jev_routes.py \
   apps/api/tests/test_triple_context_ranking.py \
   apps/api/tests/test_triple_context_backtest.py \
   apps/api/tests/test_triple_backtest_evaluation.py \

@@ -78,6 +78,7 @@ import asyncio
 from api.routes.analysis import router as analysis_router
 from api.routes.analysis_sequences import router as analysis_sequences_router
 from api.routes.analysis_overview import router as analysis_overview_router
+from api.routes.jev import router as jev_router
 from api.routes.roulette_history import router as roulette_history_router
 from api.routes.triple_context_ranking import router as triple_context_ranking_router
 from api.routes.triple_context_backtest import router as triple_context_backtest_router
@@ -224,6 +225,7 @@ app.add_middleware(
 app.include_router(analysis_router)
 app.include_router(analysis_sequences_router)
 app.include_router(analysis_overview_router)
+app.include_router(jev_router)
 app.include_router(roulette_history_router)
 app.include_router(triple_context_ranking_router)
 app.include_router(triple_context_backtest_router)
