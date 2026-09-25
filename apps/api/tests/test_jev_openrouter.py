@@ -8,10 +8,12 @@ import pytest
 
 from api.schemas.jev import GROUP_KEYS
 from api.services.jev_openrouter import (
+    MAX_JEV_REQUEST_BYTES,
     OPENROUTER_DECISIONS_URL,
     JevConfigurationError,
     JevHTTPStatusError,
     JevInvalidResponseError,
+    JevRequestTooLargeError,
     JevTimeoutError,
     OpenRouterJevClient,
     validate_jev_response,
@@ -146,6 +148,29 @@ def test_missing_key_stops_before_any_request() -> None:
     client = OpenRouterJevClient(api_key=None, model="typesafe/jev-1.13")
     with pytest.raises(JevConfigurationError):
         asyncio.run(client.analyze(state={}, questions={}))
+
+
+def test_oversized_payload_stops_before_any_request() -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json=_response_payload())
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as transport_client:
+            client = OpenRouterJevClient(
+                api_key="key", model="typesafe/jev-1.13", client=transport_client
+            )
+            await client.analyze(
+                state={"oversized": "x" * MAX_JEV_REQUEST_BYTES},
+                questions={group_id: {"type": "noul"} for group_id in GROUP_KEYS},
+            )
+
+    with pytest.raises(JevRequestTooLargeError) as error:
+        asyncio.run(run())
+    assert error.value.request_bytes > error.value.maximum_bytes
+    assert calls == []
 
 
 def test_client_validates_the_dynamic_ranking_question_set_exactly() -> None:

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
+from api.services.jev_openrouter import MAX_JEV_REQUEST_BYTES
 from api.services.jev_ranking import (
     HISTORY_TAIL_LIMIT,
     NEXT_SPIN_CHOICE_KEY,
@@ -46,26 +49,26 @@ def test_ranking_payload_has_37_number_questions_and_structured_candidates() -> 
         str(number) for number in range(37)
     }
     assert questions[REGIME_CHOICE_KEY]["type"] == "choice"
-    assert questions["numero_00"]["instructions"]["target_number"] == 0
-    assert len(state["number_profiles"]) == 37
-    zero = state["number_profiles"][0]
+    assert "number 0" in questions["numero_00"]["instructions"]
+    tables = state["evidence_tables"]
+    assert len(tables["number_profiles"]) == 37
+    zero = dict(zip(tables["number_profile_columns"], tables["number_profiles"][0]))
     assert zero["number"] == 0
-    assert zero["attributes"] == {
-        "color": "green",
-        "parity": None,
-        "dozen": None,
-        "column": None,
+    assert {key: zero[key] for key in ("color", "parity", "dozen", "column")} == {
+        "color": "green", "parity": None, "dozen": None, "column": None
     }
     assert state["task"]["include_zero"] is True
     assert state["task"]["universe"] == list(range(37))
     assert any(key.startswith("relacao_17_00") for key in questions)
     assert questions["relacao_17_00"]["type"] == "score"
     assert len(questions["relacao_17_00"]["criteria"]) == 4
-    relation = zero["pull_relation_from_latest"]
-    assert set(relation["horizons"]) == {"horizon_1", "horizon_2", "horizon_3"}
-    assert relation["horizons"]["horizon_1"]["fair_baseline"] == pytest.approx(1 / 37)
-    assert relation["pair_relation_from_latest_pair"]["previous_number"] == 2
-    assert "historical_percentile" in zero["gap"]
+    relation = dict(zip(tables["relation_columns"], tables["relations_from_latest"][0]))
+    assert {"h1_support", "h2_support", "h3_support"} <= set(relation)
+    assert state["task"]["fair_baselines"]["within_next_1_spins"] == pytest.approx(
+        1 / 37, abs=1e-6
+    )
+    assert tables["pair_previous_number"] == 2
+    assert "gap_historical_percentile" in zero
     assert state["regime_evidence"]["deterministic_hint"] in {
         "neutral", "frequency_concentration", "transition_driven", "unstable"
     }
@@ -80,7 +83,27 @@ def test_ranking_state_caps_raw_tail_but_keeps_full_aggregates_and_digest() -> N
     assert context["recent_history"] == history[-HISTORY_TAIL_LIMIT:]
     assert context["raw_history_scope"] == f"last_{HISTORY_TAIL_LIMIT}_of_{len(history)}"
     assert len(context["full_history_sha256"]) == 64
-    assert payload["state"]["number_profiles"][0]["frequency"]["all"]["spins"] == len(history)
+    tables = payload["state"]["evidence_tables"]
+    zero = dict(zip(tables["number_profile_columns"], tables["number_profiles"][0]))
+    assert zero["all_spins"] == len(history)
+
+
+def test_maximum_history_ranking_payload_stays_below_safe_request_limit() -> None:
+    history = [number % 37 for number in range(10_000)]
+    payload = build_ranking_payload(history)
+    request_payload = {
+        "model": "typesafe/jev-1.13",
+        "state": payload["state"],
+        "questions": payload["questions"],
+    }
+    encoded = json.dumps(
+        request_payload,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    assert len(encoded) < MAX_JEV_REQUEST_BYTES
 
 
 def test_number_keys_are_stable_and_cover_zero_through_thirty_six() -> None:

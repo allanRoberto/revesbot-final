@@ -12,14 +12,62 @@ NUMBER_KEYS = tuple(f"numero_{number:02d}" for number in ROULETTE_NUMBERS)
 NEXT_SPIN_CHOICE_KEY = "proxima_rodada"
 REGIME_CHOICE_KEY = "regime_atual"
 CATALOG_VERSION = "pull_relations_v2"
-STATE_SCHEMA_VERSION = "roulette_ranking_v2"
+STATE_SCHEMA_VERSION = "roulette_ranking_v3"
 MIN_RELATION_SUPPORT = 30
-HISTORY_TAIL_LIMIT = 500
+HISTORY_TAIL_LIMIT = 200
 MAX_PATTERN_QUESTIONS = 12
 SMOOTHING_STRENGTH = 37.0
 FREQUENCY_WINDOWS = (10, 30, 100, 300, 1000)
 RELATION_WINDOWS = (100, 300)
 RELATION_HORIZONS = tuple(range(1, FORECAST_HORIZON_SPINS + 1))
+
+NUMBER_PROFILE_COLUMNS = (
+    "number",
+    "color",
+    "parity",
+    "dozen",
+    "column",
+    "all_spins",
+    "all_hits",
+    "all_rate",
+    *(field for window in FREQUENCY_WINDOWS for field in (f"last_{window}_hits", f"last_{window}_rate")),
+    "gap_current",
+    "gap_average_interval",
+    "gap_maximum_interval",
+    "gap_historical_percentile",
+)
+RELATION_EVIDENCE_COLUMNS = (
+    "target_number",
+    "classification",
+    "deterministic_strength",
+    *(
+        field
+        for horizon in RELATION_HORIZONS
+        for field in (
+            f"h{horizon}_support",
+            f"h{horizon}_hits",
+            f"h{horizon}_raw_rate",
+            f"h{horizon}_smoothed_rate",
+            f"h{horizon}_lift",
+        )
+    ),
+    *(
+        field
+        for window in RELATION_WINDOWS
+        for field in (
+            f"last_{window}_support",
+            f"last_{window}_hits",
+            f"last_{window}_raw_rate",
+            f"last_{window}_smoothed_rate",
+            f"last_{window}_lift",
+        )
+    ),
+    "pair_support",
+    "pair_hits",
+    "pair_raw_rate",
+    "pair_smoothed_rate",
+    "pair_lift",
+)
 
 
 def horizon_baseline(horizon_spins: int) -> float:
@@ -263,20 +311,11 @@ def _number_attributes(number: int) -> dict[str, Any]:
     }
 
 
-def _relation_state_view(relation: dict[str, Any]) -> dict[str, Any]:
-    """Keep the Jev context rich without duplicating audit-only relation fields."""
-    return {
-        "source_number": relation["source_number"],
-        "target_number": relation["target_number"],
-        "classification": relation["classification"],
-        "deterministic_strength": relation["deterministic_strength"],
-        "horizons": relation["horizons"],
-        "windows": relation["windows"],
-        "pair_relation_from_latest_pair": relation["pair_relation_from_latest_pair"],
-    }
+def _rounded(value: float | None) -> float | None:
+    return round(value, 6) if value is not None else None
 
 
-def _number_profile(history: Sequence[int], number: int, relation: dict[str, Any]) -> dict[str, Any]:
+def _number_profile_row(history: Sequence[int], number: int) -> list[Any]:
     positions = [index for index, value in enumerate(history) if value == number]
     intervals = [right - left for left, right in zip(positions, positions[1:])]
     current_gap = len(history) - 1 - positions[-1] if positions else None
@@ -285,29 +324,68 @@ def _number_profile(history: Sequence[int], number: int, relation: dict[str, Any
         if intervals and current_gap is not None
         else None
     )
-    return {
-        "number": number,
-        "attributes": _number_attributes(number),
-        "baselines": {"next_spin": SINGLE_SPIN_BASELINE, "next_three_spins": SINGLE_NUMBER_BASELINE},
-        "frequency": {
-            "all": {"spins": len(history), "hits": len(positions), "rate": len(positions) / len(history)},
-            **{
-                f"last_{window_size}": {
-                    "spins": min(window_size, len(history)),
-                    "hits": sum(value == number for value in history[-window_size:]),
-                    "rate": sum(value == number for value in history[-window_size:]) / min(window_size, len(history)),
-                }
-                for window_size in FREQUENCY_WINDOWS
-            },
-        },
-        "gap": {
-            "current": current_gap,
-            "average_interval": sum(intervals) / len(intervals) if intervals else None,
-            "maximum_interval": max(intervals) if intervals else None,
-            "historical_percentile": gap_percentile,
-        },
-        "pull_relation_from_latest": _relation_state_view(relation),
-    }
+    attributes = _number_attributes(number)
+    frequency_values: list[Any] = []
+    for window_size in FREQUENCY_WINDOWS:
+        window = history[-window_size:]
+        hits = sum(value == number for value in window)
+        frequency_values.extend((hits, _rounded(hits / len(window))))
+    return [
+        number,
+        attributes["color"],
+        attributes["parity"],
+        attributes["dozen"],
+        attributes["column"],
+        len(history),
+        len(positions),
+        _rounded(len(positions) / len(history)),
+        *frequency_values,
+        current_gap,
+        _rounded(sum(intervals) / len(intervals)) if intervals else None,
+        max(intervals) if intervals else None,
+        _rounded(gap_percentile),
+    ]
+
+
+def _relation_evidence_row(relation: dict[str, Any]) -> list[Any]:
+    values: list[Any] = [
+        relation["target_number"],
+        relation["classification"],
+        _rounded(relation["deterministic_strength"]),
+    ]
+    for horizon in RELATION_HORIZONS:
+        evidence = relation["horizons"][f"horizon_{horizon}"]
+        values.extend(
+            (
+                evidence["support"],
+                evidence["hits"],
+                _rounded(evidence["raw_rate"]),
+                _rounded(evidence["smoothed_rate"]),
+                _rounded(evidence["lift_vs_baseline"]),
+            )
+        )
+    for window_size in RELATION_WINDOWS:
+        evidence = relation["windows"][f"last_{window_size}"]
+        values.extend(
+            (
+                evidence["support"],
+                evidence["hits"],
+                _rounded(evidence["raw_rate"]),
+                _rounded(evidence["smoothed_rate"]),
+                _rounded(evidence["lift_vs_baseline"]),
+            )
+        )
+    pair = relation["pair_relation_from_latest_pair"]
+    values.extend(
+        (
+            pair["support"],
+            pair["hits"],
+            _rounded(pair["raw_rate"]),
+            _rounded(pair["smoothed_rate"]),
+            _rounded(pair["lift_vs_baseline"]),
+        )
+    )
+    return values
 
 
 def _history_digest(history: Sequence[int]) -> str:
@@ -335,14 +413,14 @@ def _build_regime_evidence(history: Sequence[int], relations: Sequence[dict[str,
         deterministic_hint = "neutral"
     return {
         "recent_window_spins": len(recent),
-        "recent_concentration_hhi": concentration,
-        "fair_uniform_concentration_hhi": fair_concentration,
+        "recent_concentration_hhi": _rounded(concentration),
+        "fair_uniform_concentration_hhi": _rounded(fair_concentration),
         "relation_classification_counts": relation_counts,
         "strongest_relation": {
             "source_number": strongest["source_number"],
             "target_number": strongest["target_number"],
             "classification": strongest["classification"],
-            "deterministic_strength": strongest["deterministic_strength"],
+            "deterministic_strength": _rounded(strongest["deterministic_strength"]),
         },
         "deterministic_hint": deterministic_hint,
         "hint_is_not_a_prediction": True,
@@ -350,7 +428,6 @@ def _build_regime_evidence(history: Sequence[int], relations: Sequence[dict[str,
 
 
 def build_ranking_state(history: Sequence[int], catalog: dict[str, Any]) -> dict[str, Any]:
-    relations_by_target = {relation["target_number"]: relation for relation in catalog["relations"]}
     tail = list(history[-HISTORY_TAIL_LIMIT:])
     raw_scope = "full_history" if len(tail) == len(history) else f"last_{len(tail)}_of_{len(history)}"
     return {
@@ -362,6 +439,13 @@ def build_ranking_state(history: Sequence[int], catalog: dict[str, Any]) -> dict
             "forecast_horizons_spins": list(RELATION_HORIZONS),
             "universe": list(ROULETTE_NUMBERS),
             "include_zero": True,
+            "fair_baselines": {
+                "next_spin": _rounded(SINGLE_SPIN_BASELINE),
+                **{
+                    f"within_next_{horizon}_spins": _rounded(horizon_baseline(horizon))
+                    for horizon in RELATION_HORIZONS
+                },
+            },
         },
         "history_context": {
             "history_order": "oldest_to_newest",
@@ -373,9 +457,20 @@ def build_ranking_state(history: Sequence[int], catalog: dict[str, Any]) -> dict
             "full_history_sha256": _history_digest(history),
         },
         "regime_evidence": _build_regime_evidence(history, catalog["relations"]),
-        "number_profiles": [
-            _number_profile(history, number, relations_by_target[number]) for number in ROULETTE_NUMBERS
-        ],
+        "evidence_tables": {
+            "row_format": "Each row follows its columns array in the same order.",
+            "frequency_windows_spins": list(FREQUENCY_WINDOWS),
+            "relation_source_number": catalog["source_number"],
+            "pair_previous_number": catalog["previous_number"],
+            "number_profile_columns": list(NUMBER_PROFILE_COLUMNS),
+            "number_profiles": [
+                _number_profile_row(history, number) for number in ROULETTE_NUMBERS
+            ],
+            "relation_columns": list(RELATION_EVIDENCE_COLUMNS),
+            "relations_from_latest": [
+                _relation_evidence_row(relation) for relation in catalog["relations"]
+            ],
+        },
         "pattern_catalog": {
             "catalog_version": catalog["catalog_version"],
             "source_number": catalog["source_number"],
@@ -410,61 +505,37 @@ def build_ranking_questions(catalog: dict[str, Any]) -> dict[str, dict[str, Any]
     for number in ROULETTE_NUMBERS:
         questions[number_key(number)] = {
             "type": "noul",
-            "instructions": {
-                "target_number": number,
-                "forecast_horizon_spins": FORECAST_HORIZON_SPINS,
-                "question": "Will target_number appear at least once in any of the next three spins immediately after state.history_context?",
-                "evidence": "Use the matching number profile, all horizons and directed relations.",
-            },
-            "criteria": {
-                "true": "The target number appears at least once in the next three spins.",
-                "false": "The target number does not appear in any of the next three spins.",
-            },
+            "instructions": (
+                f"Estimate whether roulette number {number} appears at least once within the next "
+                "3 spins. Use its rows in evidence_tables."
+            ),
         }
 
     questions[NEXT_SPIN_CHOICE_KEY] = {
         "type": "choice",
-        "instructions": {
-            "question": "Which single number will occur on the immediately next spin?",
-            "rules": [
-                "Return one probability distribution over every number from 0 through 36.",
-                "Use the next-spin horizon evidence, not the three-spin marginal estimates.",
-                "Include zero on equal structural terms with every other number.",
-            ],
-        },
-        "criteria": {str(number): f"The immediately next roulette result is {number}." for number in ROULETTE_NUMBERS},
+        "instructions": (
+            "Choose the immediately next roulette number using h1 evidence; include 0 equally."
+        ),
+        "criteria": {str(number): f"Next result is {number}." for number in ROULETTE_NUMBERS},
     }
     questions[REGIME_CHOICE_KEY] = {
         "type": "choice",
-        "instructions": {
-            "question": "Which evidence regime best describes the supplied current context?",
-            "rules": [
-                "Classify the evidence structure, not whether a bet will win.",
-                "Treat deterministic_hint as evidence rather than a required answer.",
-            ],
-        },
+        "instructions": "Classify the current evidence structure, not whether a bet will win.",
         "criteria": dict(REGIME_CRITERIA),
     }
 
     for candidate in catalog["candidates"]:
         questions[candidate["question_id"]] = {
             "type": "score",
-            "instructions": {
-                "relation_id": candidate["relation_id"],
-                "source_number": candidate["source_number"],
-                "target_number": candidate["target_number"],
-                "question": "Score the descriptive evidence quality of this directed relation for the target estimate in the supplied context.",
-                "rules": [
-                    "Treat the relation as descriptive evidence, not causality.",
-                    "Evaluate support, smoothing, multi-horizon consistency and recent windows.",
-                    "A large effect with low support or conflict must receive a low score.",
-                ],
-            },
+            "instructions": (
+                f"Score descriptive evidence for {candidate['source_number']} -> "
+                f"{candidate['target_number']}; consider support, smoothing, horizons and windows."
+            ),
             "criteria": [
-                "Insufficient or conflicting evidence; sample-starved or materially unstable.",
-                "Adequate but weak evidence; limited support, effect or consistency.",
-                "Consistent evidence with reasonable support and a meaningful effect.",
-                "Strong evidence with robust support and consistency across supplied views.",
+                "Insufficient or conflicting evidence.",
+                "Weak evidence with limited support, effect or consistency.",
+                "Consistent evidence with reasonable support and effect.",
+                "Strong evidence, robust support and cross-view consistency.",
             ],
         }
     return questions

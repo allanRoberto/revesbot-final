@@ -10,6 +10,8 @@ from api.core.config import settings
 from api.routes import jev as jev_route
 from api.schemas.jev import GROUP_KEYS
 from api.services.jev_openrouter import (
+    JevHTTPStatusError,
+    JevRequestTooLargeError,
     ValidatedChoiceAnswer,
     ValidatedJevResponse,
     ValidatedScoreAnswer,
@@ -151,6 +153,23 @@ class FakeRankingJevClient:
                 ),
             },
             scores=scores,
+        )
+
+
+class OversizedPayloadJevClient:
+    model = "typesafe/jev-1.13"
+
+    async def analyze(self, *, state, questions):
+        raise JevRequestTooLargeError(70_000, 65_536)
+
+
+class ProviderContextLimitJevClient:
+    model = "typesafe/jev-1.13"
+
+    async def analyze(self, *, state, questions):
+        raise JevHTTPStatusError(
+            400,
+            provider_detail='{"error":{"message":"max_tokens_exceeded"}}',
         )
 
 
@@ -320,6 +339,23 @@ def test_missing_openrouter_key_does_not_break_page_or_history(monkeypatch) -> N
     assert history.status_code == 200
     assert analysis.status_code == 503
     assert analysis.json()["detail"]["code"] == "openrouter_not_configured"
+
+
+def test_local_and_provider_context_limits_return_specific_errors(monkeypatch) -> None:
+    for jev_client, expected_code in (
+        (OversizedPayloadJevClient(), "jev_payload_too_large"),
+        (ProviderContextLimitJevClient(), "openrouter_context_too_large"),
+    ):
+        client = TestClient(_app(monkeypatch, jev_client=jev_client))
+        csrf = _csrf(client)
+        response = client.post(
+            "/api/jev/analisar",
+            headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
+            json=_payload(),
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == expected_code
 
 
 def test_persistence_failure_returns_analysis_warning_without_second_call(monkeypatch) -> None:

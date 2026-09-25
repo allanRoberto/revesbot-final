@@ -41,9 +41,10 @@ instável são identificadas antes da chamada. O Jev não calcula contagens nem 
 ele recebe estruturas versionadas, estima ocorrências e gradua os candidatos catalogados.
 
 O histórico completo é usado nos agregados e salvo no registro privado. Para manter o contexto
-abaixo do limite do modelo, o `state` enviado contém no máximo os 500 resultados mais recentes,
-além da quantidade total, do hash SHA-256 e das estatísticas calculadas sobre todo o histórico. A
-redução é declarada em `history_context.raw_history_scope`.
+abaixo do limite do modelo, o `state` enviado contém no máximo os 200 resultados mais recentes,
+além da quantidade total, do hash SHA-256 e das estatísticas calculadas sobre todo o histórico.
+Perfis e relações são enviados como tabelas compactas com colunas declaradas, sem repetir nomes de
+campos em cada número. A redução é declarada em `history_context.raw_history_scope`.
 
 Como vários números podem aparecer nas três rodadas seguintes, as 37 perguntas são Noul
 independentes. As probabilidades não são normalizadas para somarem 100%. O ranking ordena a
@@ -77,7 +78,9 @@ Os registros em `JEV_RESULTS_DIR` são privados, não possuem rota de arquivos e
 ignorados pelo Git no caminho padrão.
 
 O contrato implementado é `POST https://openrouter.ai/api/alpha/decisions`, com `model`, `state` e
-`questions`. Não são usados chat completions, mensagens, temperatura, fallback ou retry.
+`questions`. Não são usados chat completions, mensagens, temperatura, fallback ou retry. Antes da
+chamada, o cliente serializa o JSON compacto e bloqueia localmente payloads acima de 65.536 bytes;
+assim, uma entrada fora do limite não gera inferência paga nem uma tentativa sabidamente inválida.
 
 Referências oficiais:
 

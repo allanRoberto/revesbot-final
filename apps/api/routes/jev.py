@@ -36,6 +36,7 @@ from api.services.jev_openrouter import (
     JevConnectionError,
     JevHTTPStatusError,
     JevInvalidResponseError,
+    JevRequestTooLargeError,
     JevTimeoutError,
     OpenRouterJevClient,
     ValidatedJevResponse,
@@ -154,7 +155,7 @@ async def _read_json_body(request: Request) -> Any:
         ) from exc
 
 
-def _map_openrouter_status(request: Request, status: int):
+def _map_openrouter_status(request: Request, status: int, provider_detail: str | None = None):
     if status in {401, 403}:
         return jev_http_error(
             request,
@@ -176,12 +177,12 @@ def _map_openrouter_status(request: Request, status: int):
             code="openrouter_rate_limit",
             message="O limite de solicitações do OpenRouter foi atingido. Tente novamente mais tarde.",
         )
-    if status == 413:
+    if status == 413 or (status == 400 and "max_tokens_exceeded" in (provider_detail or "")):
         return jev_http_error(
             request,
             status_code=422,
             code="openrouter_context_too_large",
-            message="O contexto excedeu o limite do provedor. Reduza a quantidade de números.",
+            message="O contexto excedeu o limite do Jev. Reduza a quantidade de números.",
         )
     return jev_http_error(
         request,
@@ -254,6 +255,16 @@ async def _call_jev(
                 "podem ser indeterminados; a solicitação não será reenviada automaticamente."
             ),
         ) from exc
+    except JevRequestTooLargeError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_payload_too_large",
+            message=(
+                "O contexto calculado excedeu o limite seguro do Jev. "
+                "Reduza a quantidade de números analisados."
+            ),
+        ) from exc
     except JevHTTPStatusError as exc:
         logging.warning(
             "OpenRouter recusou a análise Jev status=%s request_id=%s detail=%s",
@@ -261,7 +272,11 @@ async def _call_jev(
             request_id_for(request),
             exc.provider_detail or "não informado",
         )
-        raise _map_openrouter_status(request, exc.provider_status) from exc
+        raise _map_openrouter_status(
+            request,
+            exc.provider_status,
+            exc.provider_detail,
+        ) from exc
     except JevInvalidResponseError as exc:
         raise jev_http_error(
             request,

@@ -15,6 +15,7 @@ from api.schemas.jev import GROUP_KEYS
 
 OPENROUTER_DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 REQUEST_TIMEOUT_SECONDS = 30.0
+MAX_JEV_REQUEST_BYTES = 64 * 1024
 _SENSITIVE_RESPONSE_KEYS = {
     "api_key",
     "apikey",
@@ -44,6 +45,15 @@ class JevConnectionError(JevOpenRouterError):
 
 class JevInvalidResponseError(JevOpenRouterError):
     pass
+
+
+class JevRequestTooLargeError(JevOpenRouterError):
+    def __init__(self, request_bytes: int, maximum_bytes: int) -> None:
+        super().__init__(
+            f"O payload Jev tem {request_bytes} bytes; o limite seguro é {maximum_bytes}."
+        )
+        self.request_bytes = request_bytes
+        self.maximum_bytes = maximum_bytes
 
 
 class JevHTTPStatusError(JevOpenRouterError):
@@ -272,7 +282,7 @@ class OpenRouterJevClient:
         self.model = model
         self._client = client
 
-    async def _request(self, client: httpx.AsyncClient, payload: Mapping[str, Any]) -> httpx.Response:
+    async def _request(self, client: httpx.AsyncClient, payload: bytes) -> httpx.Response:
         return await client.post(
             OPENROUTER_DECISIONS_URL,
             headers={
@@ -280,7 +290,7 @@ class OpenRouterJevClient:
                 "Content-Type": "application/json",
                 "Accept": "application/json",
             },
-            json=dict(payload),
+            content=payload,
             follow_redirects=False,
         )
 
@@ -296,15 +306,23 @@ class OpenRouterJevClient:
             raise JevConfigurationError("OPENROUTER_MODEL não configurado.")
 
         payload = {"model": self.model, "state": dict(state), "questions": dict(questions)}
+        encoded_payload = json.dumps(
+            payload,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        if len(encoded_payload) > MAX_JEV_REQUEST_BYTES:
+            raise JevRequestTooLargeError(len(encoded_payload), MAX_JEV_REQUEST_BYTES)
         started = time.perf_counter()
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
                 if self._client is not None:
-                    response = await self._request(self._client, payload)
+                    response = await self._request(self._client, encoded_payload)
                 else:
                     timeout = httpx.Timeout(REQUEST_TIMEOUT_SECONDS)
                     async with httpx.AsyncClient(timeout=timeout) as client:
-                        response = await self._request(client, payload)
+                        response = await self._request(client, encoded_payload)
         except (TimeoutError, httpx.TimeoutException) as exc:
             raise JevTimeoutError("A chamada ao OpenRouter excedeu o limite de tempo.") from exc
         except httpx.RequestError as exc:
