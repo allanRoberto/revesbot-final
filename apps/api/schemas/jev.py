@@ -69,3 +69,12 @@ class JevAnalysisRequest(BaseModel):
             if len(numbers) != len(set(numbers)):
                 raise ValueError(f"{group_id} não pode conter números repetidos")
         return {group_id: list(groups[group_id]) for group_id in GROUP_KEYS}
+
+
+class JevRankingRequest(BaseModel):
+    """Validated input for the 0-36 ranking and pull-relation catalogue."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    history_order: Literal["oldest_to_newest"]
+    historico_texto: str

@@ -10,6 +10,7 @@ from api.core.config import settings
 from api.routes import jev as jev_route
 from api.schemas.jev import GROUP_KEYS
 from api.services.jev_openrouter import ValidatedJevResponse
+from api.services.jev_ranking import NUMBER_KEYS
 
 
 AUTHORIZATION = "Basic " + base64.b64encode(b"admin:secret").decode("ascii")
@@ -85,6 +86,41 @@ class FakeJevClient:
             probabilities={group_id: (index + 1) / 10 for index, group_id in enumerate(GROUP_KEYS)},
             returned_model="typesafe/jev-1.13-returned",
             latency_ms=12,
+        )
+
+
+class FakeRankingJevClient:
+    model = "typesafe/jev-1.13"
+
+    def __init__(self):
+        self.calls = []
+
+    async def analyze(self, *, state, questions):
+        self.calls.append({"state": state, "questions": questions})
+        probabilities = {
+            question_id: (
+                0.99
+                if question_id == "numero_00"
+                else 0.80
+                if question_id.startswith("relacao_")
+                else 0.50 - int(question_id.removeprefix("numero_")) / 1000
+            )
+            for question_id in questions
+        }
+        return ValidatedJevResponse(
+            raw={
+                "id": "gen-ranking-test",
+                "model": "typesafe/jev-1.13-returned",
+                "provider": "TypeSafe",
+                "answers": {
+                    key: {"type": "noul", "noul": value}
+                    for key, value in probabilities.items()
+                },
+                "usage": {"cost": 0},
+            },
+            probabilities=probabilities,
+            returned_model="typesafe/jev-1.13-returned",
+            latency_ms=18,
         )
 
 
@@ -275,3 +311,63 @@ def test_persistence_failure_returns_analysis_warning_without_second_call(monkey
     assert response.status_code == 200
     assert len(response.json()["avisos"]) == 1
     assert len(jev_client.calls) == 1
+
+
+def test_ranking_includes_zero_all_numbers_and_pull_catalog(monkeypatch) -> None:
+    jev_client = FakeRankingJevClient()
+    app = _app(monkeypatch, jev_client=jev_client)
+    saved = []
+
+    async def fake_persist(record, results_dir):
+        saved.append((record, results_dir))
+
+    monkeypatch.setattr(jev_route, "persist_analysis", fake_persist)
+    client = TestClient(app)
+    csrf = _csrf(client)
+    history = ", ".join(
+        str(value) for _ in range(40) for value in (17, 0, 1, 2)
+    ) + ", 17"
+    response = client.post(
+        "/api/jev/ranking",
+        headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
+        json={"history_order": "oldest_to_newest", "historico_texto": history},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["analysis_type"] == "number_ranking"
+    assert len(body["ranking"]) == 37
+    assert {item["numero"] for item in body["ranking"]} == set(range(37))
+    assert body["ranking"][0]["numero"] == 0
+    assert body["ranking"][0]["posicao"] == 1
+    assert body["ultimo_numero"] == 17
+    assert body["historico_contexto_enviado"]["latest_observed_number"] == 17
+    assert any(item["target_number"] == 0 for item in body["catalogo_padroes"])
+    assert len(jev_client.calls) == 1
+    assert tuple(jev_client.calls[0]["questions"])[:37] == NUMBER_KEYS
+    assert jev_client.calls[0]["state"]["task"]["include_zero"] is True
+    assert len(saved) == 1
+    assert saved[0][0]["analysis_type"] == "number_ranking"
+
+
+def test_invalid_ranking_stops_before_paid_call(monkeypatch) -> None:
+    jev_client = FakeRankingJevClient()
+    client = TestClient(_app(monkeypatch, jev_client=jev_client))
+    csrf = _csrf(client)
+
+    no_csrf = client.post(
+        "/api/jev/ranking",
+        headers=AUTH_HEADERS,
+        json={"history_order": "oldest_to_newest", "historico_texto": "17, 0"},
+    )
+    assert no_csrf.status_code == 403
+    assert no_csrf.json()["detail"]["code"] == "jev_csrf_invalid"
+
+    response = client.post(
+        "/api/jev/ranking",
+        headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
+        json={"history_order": "oldest_to_newest", "historico_texto": "17, invalid"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "jev_invalid_history"
+    assert jev_client.calls == []

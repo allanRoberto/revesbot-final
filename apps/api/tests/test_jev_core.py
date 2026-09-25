@@ -5,7 +5,13 @@ import math
 import pytest
 from pydantic import ValidationError
 
-from api.schemas.jev import GROUP_KEYS, JevAnalysisRequest, JevInputError, parse_roulette_text
+from api.schemas.jev import (
+    GROUP_KEYS,
+    JevAnalysisRequest,
+    JevInputError,
+    JevRankingRequest,
+    parse_roulette_text,
+)
 from api.services.jev_statistics import (
     build_jev_questions,
     build_jev_state,
@@ -91,6 +97,25 @@ def test_zero_and_overlap_between_groups_are_allowed() -> None:
     )
     assert payload.grupos["grupo_1"] == [0, 1]
     assert payload.grupos["grupo_2"] == [0, 2]
+
+
+def test_ranking_request_accepts_only_history_contract() -> None:
+    payload = JevRankingRequest.model_validate(
+        {"history_order": "oldest_to_newest", "historico_texto": "17, 0"}
+    )
+    assert payload.historico_texto == "17, 0"
+    with pytest.raises(ValidationError):
+        JevRankingRequest.model_validate(
+            {"history_order": "newest_to_oldest", "historico_texto": "17, 0"}
+        )
+    with pytest.raises(ValidationError):
+        JevRankingRequest.model_validate(
+            {
+                "history_order": "oldest_to_newest",
+                "historico_texto": "17, 0",
+                "horizon": 1,
+            }
+        )
 
 
 def test_deterministic_statistics_match_the_specification() -> None:

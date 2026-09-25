@@ -17,7 +17,13 @@ from pydantic import ValidationError
 
 from api.core.config import settings
 from api.core.runtime_db import history_coll
-from api.schemas.jev import GROUP_KEYS, JevAnalysisRequest, JevInputError, parse_roulette_text
+from api.schemas.jev import (
+    GROUP_KEYS,
+    JevAnalysisRequest,
+    JevInputError,
+    JevRankingRequest,
+    parse_roulette_text,
+)
 from api.services.jev_history_service import (
     ROULETTE_SLUG,
     JevHistorySourceError,
@@ -31,8 +37,16 @@ from api.services.jev_openrouter import (
     JevInvalidResponseError,
     JevTimeoutError,
     OpenRouterJevClient,
+    ValidatedJevResponse,
 )
 from api.services.jev_persistence import persist_analysis
+from api.services.jev_ranking import (
+    NUMBER_KEYS,
+    ROULETTE_NUMBERS,
+    SINGLE_NUMBER_BASELINE,
+    build_ranking_payload,
+    number_key,
+)
 from api.services.jev_security import (
     CSRF_COOKIE,
     jev_http_error,
@@ -166,6 +180,80 @@ def _map_openrouter_status(request: Request, status: int):
     )
 
 
+def _parse_history(request: Request, historico_texto: str) -> list[int]:
+    try:
+        history = parse_roulette_text(historico_texto)
+    except JevInputError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_history",
+            message=str(exc),
+        ) from exc
+    if not history:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_empty_history",
+            message="O histórico não pode estar vazio.",
+        )
+    if len(history) > _max_history():
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_history_too_long",
+            message=f"O histórico excede o limite de {_max_history()} números.",
+        )
+    return history
+
+
+async def _call_jev(
+    request: Request,
+    client: OpenRouterJevClient,
+    *,
+    state: dict[str, Any],
+    questions: dict[str, Any],
+) -> ValidatedJevResponse:
+    try:
+        return await client.analyze(state=state, questions=questions)
+    except JevConfigurationError as exc:
+        raise jev_http_error(
+            request,
+            status_code=503,
+            code="openrouter_not_configured",
+            message="A chave do OpenRouter não foi configurada no servidor.",
+        ) from exc
+    except JevTimeoutError as exc:
+        raise jev_http_error(
+            request,
+            status_code=504,
+            code="openrouter_timeout",
+            message=(
+                "A análise excedeu 30 segundos. O resultado e eventual custo remoto podem ser "
+                "indeterminados; a solicitação não será reenviada automaticamente."
+            ),
+        ) from exc
+    except JevConnectionError as exc:
+        raise jev_http_error(
+            request,
+            status_code=502,
+            code="openrouter_connection_error",
+            message=(
+                "A conexão com o OpenRouter foi interrompida. O resultado e eventual custo remoto "
+                "podem ser indeterminados; a solicitação não será reenviada automaticamente."
+            ),
+        ) from exc
+    except JevHTTPStatusError as exc:
+        raise _map_openrouter_status(request, exc.provider_status) from exc
+    except JevInvalidResponseError as exc:
+        raise jev_http_error(
+            request,
+            status_code=502,
+            code="openrouter_invalid_response",
+            message="O Jev retornou uma resposta inválida ou incompleta.",
+        ) from exc
+
+
 @router.get("/jev", response_class=HTMLResponse)
 async def jev_page(request: Request, _user: str = Depends(require_jev_access)):
     csrf_token = new_csrf_token()
@@ -253,29 +341,7 @@ async def jev_analyze(
             message="Histórico ou grupos inválidos. Revise os seis grupos e use somente inteiros de 0 a 36.",
         ) from exc
 
-    try:
-        history = parse_roulette_text(payload.historico_texto)
-    except JevInputError as exc:
-        raise jev_http_error(
-            request,
-            status_code=422,
-            code="jev_invalid_history",
-            message=str(exc),
-        ) from exc
-    if not history:
-        raise jev_http_error(
-            request,
-            status_code=422,
-            code="jev_empty_history",
-            message="O histórico não pode estar vazio.",
-        )
-    if len(history) > _max_history():
-        raise jev_http_error(
-            request,
-            status_code=422,
-            code="jev_history_too_long",
-            message=f"O histórico excede o limite de {_max_history()} números.",
-        )
+    history = _parse_history(request, payload.historico_texto)
 
     groups = {group_id: list(payload.grupos[group_id]) for group_id in GROUP_KEYS}
     statistics = calculate_all_group_statistics(history, groups)
@@ -285,44 +351,7 @@ async def jev_analyze(
 
     analysis_id = str(uuid4())
     requested_at = utc_iso(datetime.now(timezone.utc))
-    try:
-        jev_response = await client.analyze(state=state, questions=questions)
-    except JevConfigurationError as exc:
-        raise jev_http_error(
-            request,
-            status_code=503,
-            code="openrouter_not_configured",
-            message="A chave do OpenRouter não foi configurada no servidor.",
-        ) from exc
-    except JevTimeoutError as exc:
-        raise jev_http_error(
-            request,
-            status_code=504,
-            code="openrouter_timeout",
-            message=(
-                "A análise excedeu 30 segundos. O resultado e eventual custo remoto podem ser "
-                "indeterminados; a solicitação não será reenviada automaticamente."
-            ),
-        ) from exc
-    except JevConnectionError as exc:
-        raise jev_http_error(
-            request,
-            status_code=502,
-            code="openrouter_connection_error",
-            message=(
-                "A conexão com o OpenRouter foi interrompida. O resultado e eventual custo remoto "
-                "podem ser indeterminados; a solicitação não será reenviada automaticamente."
-            ),
-        ) from exc
-    except JevHTTPStatusError as exc:
-        raise _map_openrouter_status(request, exc.provider_status) from exc
-    except JevInvalidResponseError as exc:
-        raise jev_http_error(
-            request,
-            status_code=502,
-            code="openrouter_invalid_response",
-            message="O Jev retornou uma resposta inválida ou incompleta.",
-        ) from exc
+    jev_response = await _call_jev(request, client, state=state, questions=questions)
 
     responded_at = utc_iso(datetime.now(timezone.utc))
     results = [
@@ -363,6 +392,128 @@ async def jev_analyze(
         logging.exception("Falha ao registrar análise Jev %s", analysis_id)
         response_body["avisos"].append(
             "A análise foi concluída, mas não foi possível gravar o registro privado no servidor."
+        )
+
+    return _json_response(request, response_body)
+
+
+@router.post("/api/jev/ranking")
+async def jev_ranking(
+    request: Request,
+    _user: str = Depends(require_jev_access),
+    _csrf: None = Depends(require_jev_csrf),
+    client: OpenRouterJevClient = Depends(get_jev_client),
+):
+    raw_body = await _read_json_body(request)
+    try:
+        payload = JevRankingRequest.model_validate(raw_body)
+    except ValidationError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_input",
+            message="Histórico inválido para o ranking. Use somente inteiros de 0 a 36.",
+        ) from exc
+
+    history = _parse_history(request, payload.historico_texto)
+    ranking_payload = build_ranking_payload(history)
+    catalog = ranking_payload["catalog"]
+    state = ranking_payload["state"]
+    questions = ranking_payload["questions"]
+    jev_payload = {"model": client.model, "state": state, "questions": questions}
+
+    analysis_id = str(uuid4())
+    requested_at = utc_iso(datetime.now(timezone.utc))
+    jev_response = await _call_jev(request, client, state=state, questions=questions)
+    responded_at = utc_iso(datetime.now(timezone.utc))
+
+    candidates_by_target = {
+        candidate["target_number"]: candidate for candidate in catalog["candidates"]
+    }
+    catalog_results = [
+        {
+            **candidate,
+            "estimativa_jev_relevancia": jev_response.probabilities[
+                candidate["question_id"]
+            ],
+        }
+        for candidate in catalog["candidates"]
+    ]
+    relations_by_target = {
+        relation["target_number"]: relation for relation in catalog["relations"]
+    }
+    unordered_ranking: list[dict[str, Any]] = []
+    for number in ROULETTE_NUMBERS:
+        probability = jev_response.probabilities[number_key(number)]
+        candidate = candidates_by_target.get(number)
+        patterns = []
+        if candidate is not None:
+            patterns.append(
+                {
+                    "relation_id": candidate["relation_id"],
+                    "classification": candidate["classification"],
+                    "deterministic_strength": candidate["deterministic_strength"],
+                    "estimativa_jev_relevancia": jev_response.probabilities[
+                        candidate["question_id"]
+                    ],
+                }
+            )
+        unordered_ranking.append(
+            {
+                "numero": number,
+                "estimativa_jev_nao_validada": probability,
+                "probabilidade_base": SINGLE_NUMBER_BASELINE,
+                "diferenca_da_base": probability - SINGLE_NUMBER_BASELINE,
+                "lift_jev_sobre_base": probability / SINGLE_NUMBER_BASELINE,
+                "relacao_do_ultimo_numero": relations_by_target[number],
+                "padroes_associados": patterns,
+            }
+        )
+    ordered_ranking = sorted(
+        unordered_ranking,
+        key=lambda item: (-item["estimativa_jev_nao_validada"], item["numero"]),
+    )
+    for position, result in enumerate(ordered_ranking, start=1):
+        result["posicao"] = position
+
+    warnings: list[str] = []
+    if not catalog_results:
+        warnings.append(
+            "Nenhuma relação A → B atingiu os critérios mínimos para avaliação de relevância; "
+            "o ranking ainda contém os 37 números e suas evidências descritivas."
+        )
+    response_body: dict[str, Any] = {
+        "analysis_id": analysis_id,
+        "analysis_type": "number_ranking",
+        "roulette_slug": ROULETTE_SLUG,
+        "history_order": "oldest_to_newest",
+        "historico_utilizado": history,
+        "historico_contexto_enviado": state["history_context"],
+        "quantidade_analisada": len(history),
+        "ultimo_numero": history[-1],
+        "forecast_horizon_spins": FORECAST_HORIZON_SPINS,
+        "modelo_solicitado": client.model,
+        "modelo_retornado": jev_response.returned_model,
+        "solicitado_em": requested_at,
+        "respondido_em": responded_at,
+        "latencia_ms": jev_response.latency_ms,
+        "ranking": ordered_ranking,
+        "catalogo_padroes": catalog_results,
+        "resposta_jev": jev_response.raw,
+        "avisos": warnings,
+    }
+    audit_record = {
+        **response_body,
+        "catalogo_relacoes": catalog,
+        "payload_jev": jev_payload,
+        "expected_number_questions": list(NUMBER_KEYS),
+    }
+    try:
+        await persist_analysis(audit_record, settings.jev_results_dir)
+    except Exception:
+        logging.exception("Falha ao registrar ranking Jev %s", analysis_id)
+        response_body["avisos"].append(
+            "O ranking foi concluído, mas não foi possível gravar o registro privado no servidor."
         )
 
     return _json_response(request, response_body)

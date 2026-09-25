@@ -138,3 +138,36 @@ def test_missing_key_stops_before_any_request() -> None:
     client = OpenRouterJevClient(api_key=None, model="typesafe/jev-1.13")
     with pytest.raises(JevConfigurationError):
         asyncio.run(client.analyze(state={}, questions={}))
+
+
+def test_client_validates_the_dynamic_ranking_question_set_exactly() -> None:
+    question_keys = ("numero_00", "numero_01", "relacao_17_00")
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "answers": {
+                    key: {"type": "noul", "noul": (index + 1) / 10}
+                    for index, key in enumerate(question_keys)
+                }
+            },
+        )
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as transport_client:
+            client = OpenRouterJevClient(
+                api_key="key", model="typesafe/jev-1.13", client=transport_client
+            )
+            return await client.analyze(
+                state={"latest": 17},
+                questions={key: {"type": "noul"} for key in question_keys},
+            )
+
+    result = asyncio.run(run())
+    assert tuple(result.probabilities) == question_keys
+
+    extra = _response_payload()
+    extra["answers"]["unexpected"] = {"type": "noul", "noul": 0.5}
+    with pytest.raises(JevInvalidResponseError):
+        validate_jev_response(extra)

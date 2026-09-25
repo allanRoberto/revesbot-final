@@ -13,6 +13,7 @@ def test_minimal_api_exposes_only_expected_functional_routes() -> None:
         "/jev",
         "/api/jev/historico",
         "/api/jev/analisar",
+        "/api/jev/ranking",
         "/api/triple-context-ranking",
         "/ranking-trios",
         "/backtest-trios",

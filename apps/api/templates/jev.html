@@ -25,7 +25,7 @@
       <div>
         <p class="eyebrow">ANÁLISE MANUAL · SYSTEM ONE</p>
         <h1 id="page-title">Análise de roleta com Jev<span>.</span></h1>
-        <p class="intro">Busque um snapshot, revise os números e envie exatamente o conteúdo atual do formulário.</p>
+        <p class="intro">Busque um snapshot, catalogue relações A → B e gere um ranking experimental dos números 0 a 36, incluindo o zero.</p>
       </div>
       <div class="roulette-badge"><span aria-hidden="true">◎</span><div><small>Mesa fixa</small><strong>Pragmatic Auto Roulette</strong></div></div>
     </section>
@@ -59,7 +59,7 @@
 
       <section class="panel groups-panel" aria-labelledby="groups-title">
         <div class="panel-heading compact-heading">
-          <div><span class="step">02</span><div><h2 id="groups-title">Grupos</h2><p>Exemplos editáveis, não recomendações.</p></div></div>
+          <div><span class="step">02</span><div><h2 id="groups-title">Grupos complementares</h2><p>Modo anterior preservado; não interfere no ranking 0–36.</p></div></div>
         </div>
         <div class="groups-grid">
           <label class="group-field" for="grupo_1"><span>Grupo 1</span><input id="grupo_1" class="editable-control group-input" value="1, 2, 3, 4, 5, 6" autocomplete="off" spellcheck="false" aria-describedby="grupo_1_error"><small id="grupo_1_error"></small></label>
@@ -73,8 +73,11 @@
       </section>
 
       <section class="action-panel" aria-labelledby="analysis-title">
-        <div><p class="eyebrow">03 · CHAMADA PAGA</p><h2 id="analysis-title">Executar análise</h2><p>Uma ação intencional envia as seis perguntas em uma única requisição ao Jev.</p></div>
-        <button id="analyze-button" class="primary-button" type="submit" data-operation-control disabled><span id="analyze-label">Executar análise</span><span aria-hidden="true">→</span></button>
+        <div><p class="eyebrow">03 · CHAMADA PAGA</p><h2 id="analysis-title">Escolha a análise</h2><p>Cada clique intencional realiza uma chamada. O ranking usa 37 números e relações do último resultado; os grupos permanecem disponíveis separadamente.</p></div>
+        <div class="action-buttons">
+          <button id="ranking-button" class="primary-button" type="button" data-operation-control disabled><span id="ranking-label">Gerar ranking 0–36</span><span aria-hidden="true">→</span></button>
+          <button id="analyze-button" class="secondary-button" type="submit" data-operation-control disabled><span id="analyze-label">Analisar seis grupos</span></button>
+        </div>
       </section>
     </form>
 
@@ -83,9 +86,51 @@
       <p id="operation-error" class="operation-error" role="alert" hidden></p>
     </section>
 
+    <section id="ranking-results-section" class="results panel" aria-labelledby="ranking-results-title" hidden>
+      <div class="results-heading">
+        <div><p class="eyebrow">RANKING EXPERIMENTAL · 0–36</p><h2 id="ranking-results-title">Números classificados pelo Jev</h2></div>
+        <span id="ranking-result-stale" class="stale-badge" hidden>Resultado desatualizado</span>
+      </div>
+
+      <dl class="result-metadata">
+        <div><dt>Quantidade</dt><dd id="ranking-result-count">—</dd></div>
+        <div><dt>Número de origem</dt><dd id="ranking-result-source">—</dd></div>
+        <div><dt>Horizonte</dt><dd id="ranking-result-horizon">—</dd></div>
+        <div><dt>Modelo retornado</dt><dd id="ranking-result-model">—</dd></div>
+        <div><dt>Respondido em</dt><dd id="ranking-result-at">—</dd></div>
+        <div><dt>Latência</dt><dd id="ranking-result-latency">—</dd></div>
+        <div><dt>Padrões avaliados</dt><dd id="ranking-pattern-count">—</dd></div>
+        <div id="ranking-result-cost-row" hidden><dt>Custo informado</dt><dd id="ranking-result-cost">—</dd></div>
+      </dl>
+
+      <div class="table-scroll">
+        <table class="ranking-table">
+          <thead><tr><th>Posição</th><th>Número</th><th>Estimativa Jev</th><th>Base</th><th>Diferença</th><th>Relação A → B</th></tr></thead>
+          <tbody id="ranking-results-body"></tbody>
+        </table>
+      </div>
+
+      <section class="pattern-catalog" aria-labelledby="pattern-catalog-title">
+        <div class="catalog-heading"><h3 id="pattern-catalog-title">Catálogo de relações do último número</h3><p>Relações históricas dirigidas avaliadas separadamente pelo Jev.</p></div>
+        <p id="ranking-catalog-empty" class="inline-note" hidden>Nenhuma relação atingiu o suporte e os critérios mínimos desta execução.</p>
+        <div id="ranking-catalog-table" class="table-scroll" hidden>
+          <table>
+            <thead><tr><th>Relação</th><th>Classe</th><th>Suporte</th><th>Ocorrências</th><th>Lift histórico</th><th>Relevância Jev</th></tr></thead>
+            <tbody id="ranking-catalog-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <ul id="ranking-warnings" class="warnings" hidden></ul>
+      <details class="json-details">
+        <summary>Resposta JSON do Jev — ranking</summary>
+        <pre id="ranking-jev-json"></pre>
+      </details>
+    </section>
+
     <section id="results-section" class="results panel" aria-labelledby="results-title" hidden>
       <div class="results-heading">
-        <div><p class="eyebrow">RESULTADO EXPERIMENTAL</p><h2 id="results-title">Estimativas do Jev</h2></div>
+        <div><p class="eyebrow">RESULTADO EXPERIMENTAL · GRUPOS</p><h2 id="results-title">Estimativas dos seis grupos</h2></div>
         <span id="result-stale" class="stale-badge" hidden>Resultado desatualizado</span>
       </div>
 
@@ -114,7 +159,7 @@
 
     <aside class="disclaimer">
       <strong>Aviso</strong>
-      <p>Estimativas experimentais, não validadas. O horizonte corresponde às três rodadas após o último resultado do histórico enviado. Esta página não acompanha novas rodadas e não garante acertos ou lucro.</p>
+      <p>Estimativas experimentais, não validadas. Relações A → B são frequências condicionais descritivas, não causalidade. O horizonte corresponde às três rodadas após o último resultado do histórico enviado. Esta página não acompanha novas rodadas e não garante acertos ou lucro.</p>
     </aside>
   </main>
 

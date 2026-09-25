@@ -23,6 +23,8 @@ let historyCalls = 0;
 let analysisCalls = 0;
 let analysisBody = null;
 let failNextAnalysis = false;
+let rankingCalls = 0;
+let rankingBody = null;
 
 const systemChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const browser = await chromium.launch({
@@ -106,6 +108,59 @@ await page.route("http://jev.test/**", async (route) => {
     });
     return;
   }
+  if (url.pathname === "/api/jev/ranking") {
+    rankingCalls += 1;
+    rankingBody = request.postDataJSON();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const ranking = Array.from({ length: 37 }, (_unused, index) => {
+      const number = index === 0 ? 0 : index;
+      return {
+        posicao: index + 1,
+        numero: number,
+        estimativa_jev_nao_validada: index === 0 ? 0.19 : 0.12 - index / 1000,
+        probabilidade_base: 0.07890944267861726,
+        diferenca_da_base: (index === 0 ? 0.19 : 0.12 - index / 1000) - 0.07890944267861726,
+        lift_jev_sobre_base: 1.1,
+        relacao_do_ultimo_numero: {
+          source_number: 0,
+          target_number: number,
+          support: 40,
+          hits: index === 0 ? 8 : 3,
+          lift_vs_baseline: index === 0 ? 1.6 : 1.0,
+          classification: index === 0 ? "stable_positive_pull" : "neutral_relation",
+        },
+        padroes_associados: [],
+      };
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        analysis_id: "ranking-browser-test",
+        analysis_type: "number_ranking",
+        quantidade_analisada: 4,
+        ultimo_numero: 0,
+        forecast_horizon_spins: 3,
+        modelo_retornado: "typesafe/jev-1.13-returned",
+        respondido_em: "2026-09-25T12:02:00Z",
+        latencia_ms: 18,
+        ranking,
+        catalogo_padroes: [{
+          relation_id: "pull:0->0:h3",
+          source_number: 0,
+          target_number: 0,
+          classification: "stable_positive_pull",
+          support: 40,
+          hits: 8,
+          lift_vs_baseline: 1.6,
+          estimativa_jev_relevancia: 0.82,
+        }],
+        resposta_jev: { id: "gen-ranking", usage: { cost: 0 } },
+        avisos: [],
+      }),
+    });
+    return;
+  }
   await route.fulfill({ status: 404, body: "not found" });
 });
 
@@ -113,6 +168,7 @@ try {
   await page.goto("http://jev.test/jev");
   assert.equal(historyCalls, 0, "opening the page must not fetch history");
   assert.equal(analysisCalls, 0, "opening the page must not call Jev");
+  assert.equal(rankingCalls, 0, "opening the page must not call ranking");
 
   await page.click("#open-history-dialog");
   assert.equal(await page.locator("#history-dialog").evaluate((element) => element.open), true);
@@ -140,8 +196,22 @@ try {
   assert.equal(await page.locator("#results-body tr").count(), 6);
   assert.equal(await page.isVisible("#result-cost-row"), true, "zero cost must remain visible");
 
+  await page.locator("#ranking-button").evaluate((button) => {
+    button.click();
+    button.click();
+  });
+  await page.waitForSelector("#ranking-results-section:not([hidden])");
+  assert.equal(rankingCalls, 1, "double click must result in one paid ranking request");
+  assert.deepEqual(Object.keys(rankingBody).sort(), ["historico_texto", "history_order"]);
+  assert.equal(rankingBody.historico_texto, "9, 7, 7, 0");
+  assert.equal(await page.locator("#ranking-results-body tr").count(), 37);
+  assert.equal(await page.textContent("#ranking-results-body tr:first-child .ranking-number"), "0");
+  assert.equal(await page.locator("#ranking-catalog-body tr").count(), 1);
+  assert.equal(await page.isVisible("#ranking-result-cost-row"), true, "zero ranking cost must remain visible");
+
   await page.fill("#grupo_1", "0, 1, 2");
   assert.equal(await page.isVisible("#result-stale"), true);
+  assert.equal(await page.isVisible("#ranking-result-stale"), false, "group edits must not stale the independent ranking");
   failNextAnalysis = true;
   await page.click("#analyze-button");
   await page.waitForFunction(() => !document.getElementById("operation-error").hidden);
@@ -152,6 +222,7 @@ try {
   await page.waitForTimeout(250);
   assert.equal(historyCalls, 1, "there must be no periodic history refresh");
   assert.equal(analysisCalls, 2, "there must be no automatic analysis retry");
+  assert.equal(rankingCalls, 1, "there must be no automatic ranking retry");
   console.log("jev-browser-tests: ok");
 } finally {
   await browser.close();

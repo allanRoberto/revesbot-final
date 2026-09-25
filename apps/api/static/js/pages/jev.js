@@ -8,6 +8,7 @@
   const form = byId("jev-form");
   const historyInput = byId("history-input");
   const analyzeButton = byId("analyze-button");
+  const rankingButton = byId("ranking-button");
   const dialog = byId("history-dialog");
   const quantityInput = byId("history-quantity");
   const operationStatus = byId("operation-status");
@@ -40,9 +41,12 @@
     operationError.hidden = !error;
   }
 
-  function markResultStale() {
-    if (!byId("results-section").hidden) {
+  function markResultStale(scope = "all") {
+    if ((scope === "all" || scope === "groups") && !byId("results-section").hidden) {
       byId("result-stale").hidden = false;
+    }
+    if ((scope === "all" || scope === "ranking") && !byId("ranking-results-section").hidden) {
+      byId("ranking-result-stale").hidden = false;
     }
   }
 
@@ -70,9 +74,11 @@
       if (error) groupError = true;
       groups[groupId] = parsed.values;
     });
-    const valid = !historyError && !groupError;
+    const rankingValid = !historyError;
+    const valid = rankingValid && !groupError;
+    rankingButton.disabled = busy || !rankingValid;
     analyzeButton.disabled = busy || !valid;
-    return { valid, history: parsedHistory.values, groups };
+    return { valid, rankingValid, history: parsedHistory.values, groups };
   }
 
   function setBusy(nextBusy, label = "") {
@@ -80,7 +86,8 @@
     document.querySelectorAll(".editable-control, [data-operation-control]").forEach((control) => {
       control.disabled = nextBusy;
     });
-    byId("analyze-label").textContent = nextBusy && label === "analysis" ? "Analisando com Jev..." : "Executar análise";
+    byId("analyze-label").textContent = nextBusy && label === "analysis" ? "Analisando grupos..." : "Analisar seis grupos";
+    byId("ranking-label").textContent = nextBusy && label === "ranking" ? "Gerando ranking..." : "Gerar ranking 0–36";
     byId("open-history-dialog").textContent = nextBusy && label === "history" ? "Buscando números..." : "Buscar números";
     if (!nextBusy) validateForm();
   }
@@ -156,6 +163,8 @@
         : `A fonte retornou ${data.quantidade_retornada} de ${data.quantidade_solicitada} números solicitados.`;
       byId("results-section").hidden = true;
       byId("result-stale").hidden = true;
+      byId("ranking-results-section").hidden = true;
+      byId("ranking-result-stale").hidden = true;
       setOperation(data.historico.length ? "Busca concluída. Você pode revisar e editar o histórico." : "Busca concluída sem resultados.");
     } catch (error) {
       historyInput.value = previousText;
@@ -169,6 +178,7 @@
     const cell = document.createElement("td");
     cell.textContent = value;
     row.append(cell);
+    return cell;
   }
 
   function renderAnalysis(data) {
@@ -220,6 +230,140 @@
     byId("results-section").hidden = false;
   }
 
+  function patternLabel(value) {
+    const labels = {
+      stable_positive_pull: "atração positiva estável",
+      positive_pull: "atração positiva",
+      recent_positive_pull: "atração positiva recente",
+      stable_negative_relation: "relação negativa estável",
+      recent_negative_relation: "relação negativa recente",
+      unstable_relation: "relação instável",
+      neutral_relation: "relação neutra",
+      low_support: "suporte insuficiente",
+    };
+    return labels[value] || String(value || "não classificada");
+  }
+
+  function renderRanking(data) {
+    if (!data || data.analysis_type !== "number_ranking"
+        || !Array.isArray(data.ranking) || data.ranking.length !== 37
+        || !Array.isArray(data.catalogo_padroes)) {
+      throw new Error("A API retornou um ranking incompleto.");
+    }
+    const percent = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const decimal = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const seenNumbers = new Set();
+    const rankingFragment = document.createDocumentFragment();
+    data.ranking.forEach((result, index) => {
+      const relation = result && result.relacao_do_ultimo_numero;
+      if (!result || result.posicao !== index + 1 || !Number.isInteger(result.numero)
+          || result.numero < 0 || result.numero > 36 || seenNumbers.has(result.numero)
+          || typeof result.estimativa_jev_nao_validada !== "number"
+          || typeof result.probabilidade_base !== "number"
+          || typeof result.diferenca_da_base !== "number"
+          || !relation || relation.target_number !== result.numero
+          || !Number.isInteger(relation.source_number)) {
+        throw new Error("A API retornou um item inválido no ranking.");
+      }
+      seenNumbers.add(result.numero);
+      const row = document.createElement("tr");
+      appendCell(row, String(result.posicao));
+      const numberCell = appendCell(row, String(result.numero));
+      numberCell.classList.add("ranking-number");
+      if (result.numero === 0) numberCell.classList.add("zero-number");
+      appendCell(row, percent.format(result.estimativa_jev_nao_validada));
+      appendCell(row, percent.format(result.probabilidade_base));
+      const difference = percent.format(Math.abs(result.diferenca_da_base));
+      appendCell(row, `${result.diferenca_da_base >= 0 ? "+" : "−"}${difference}`);
+      appendCell(
+        row,
+        `${relation.source_number} → ${relation.target_number} · ${patternLabel(relation.classification)} · suporte ${relation.support}`,
+      );
+      rankingFragment.append(row);
+    });
+    if (seenNumbers.size !== 37 || !seenNumbers.has(0)) {
+      throw new Error("O ranking não contém todos os números de 0 a 36.");
+    }
+    byId("ranking-results-body").replaceChildren(rankingFragment);
+
+    const catalogFragment = document.createDocumentFragment();
+    data.catalogo_padroes.forEach((pattern) => {
+      if (!pattern || !Number.isInteger(pattern.source_number)
+          || !Number.isInteger(pattern.target_number)
+          || typeof pattern.estimativa_jev_relevancia !== "number") {
+        throw new Error("A API retornou um padrão catalogado inválido.");
+      }
+      const row = document.createElement("tr");
+      appendCell(row, `${pattern.source_number} → ${pattern.target_number}`);
+      appendCell(row, patternLabel(pattern.classification));
+      appendCell(row, String(pattern.support));
+      appendCell(row, String(pattern.hits));
+      appendCell(row, decimal.format(pattern.lift_vs_baseline));
+      appendCell(row, percent.format(pattern.estimativa_jev_relevancia));
+      catalogFragment.append(row);
+    });
+    byId("ranking-catalog-body").replaceChildren(catalogFragment);
+    byId("ranking-catalog-empty").hidden = data.catalogo_padroes.length !== 0;
+    byId("ranking-catalog-table").hidden = data.catalogo_padroes.length === 0;
+
+    byId("ranking-result-count").textContent = String(data.quantidade_analisada);
+    byId("ranking-result-source").textContent = String(data.ultimo_numero);
+    byId("ranking-result-horizon").textContent = `${data.forecast_horizon_spins} rodadas`;
+    byId("ranking-result-model").textContent = data.modelo_retornado || "Não informado";
+    byId("ranking-result-at").textContent = formatDate(data.respondido_em);
+    byId("ranking-result-latency").textContent = `${data.latencia_ms} ms`;
+    byId("ranking-pattern-count").textContent = String(data.catalogo_padroes.length);
+
+    const usage = data.resposta_jev && typeof data.resposta_jev === "object" ? data.resposta_jev.usage : null;
+    const hasCost = usage && typeof usage === "object"
+      && Object.prototype.hasOwnProperty.call(usage, "cost") && typeof usage.cost === "number";
+    byId("ranking-result-cost-row").hidden = !hasCost;
+    byId("ranking-result-cost").textContent = hasCost
+      ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 6 }).format(usage.cost)
+      : "—";
+
+    const warnings = Array.isArray(data.avisos) ? data.avisos : [];
+    const warningNodes = warnings.map((warning) => {
+      const item = document.createElement("li");
+      item.textContent = String(warning);
+      return item;
+    });
+    byId("ranking-warnings").replaceChildren(...warningNodes);
+    byId("ranking-warnings").hidden = warningNodes.length === 0;
+    byId("ranking-jev-json").textContent = JSON.stringify(data.resposta_jev, null, 2);
+    byId("ranking-result-stale").hidden = true;
+    byId("ranking-results-section").hidden = false;
+  }
+
+  async function rankNumbers() {
+    if (busy) return;
+    const current = validateForm();
+    if (!current.rankingValid) return;
+    const captured = {
+      history_order: "oldest_to_newest",
+      historico_texto: historyInput.value,
+    };
+    markResultStale("ranking");
+    setBusy(true, "ranking");
+    setOperation("Gerando ranking 0–36 e catalogando relações A → B com o Jev...");
+    try {
+      const response = await fetch("/api/jev/ranking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-Token": csrfToken },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify(captured),
+      });
+      const data = await readResponse(response);
+      renderRanking(data);
+      setOperation("Ranking concluído. Relações A → B são evidências descritivas, não causalidade.");
+    } catch (error) {
+      setOperation("O ranking não foi concluído.", error instanceof Error ? error.message : "Falha inesperada no ranking.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function analyze(event) {
     event.preventDefault();
     if (busy) return;
@@ -230,7 +374,7 @@
       historico_texto: historyInput.value,
       grupos: current.groups,
     };
-    markResultStale();
+    markResultStale("groups");
     setBusy(true, "analysis");
     setOperation("Analisando com Jev...");
     try {
@@ -259,6 +403,7 @@
   });
   byId("cancel-history-dialog").addEventListener("click", () => dialog.close());
   byId("history-dialog-form").addEventListener("submit", fetchHistory);
+  rankingButton.addEventListener("click", rankNumbers);
   form.addEventListener("submit", analyze);
   historyInput.addEventListener("input", () => {
     historyEdited = true;
@@ -267,7 +412,7 @@
     validateForm();
   });
   groupIds.forEach((groupId) => byId(groupId).addEventListener("input", () => {
-    markResultStale();
+    markResultStale("groups");
     validateForm();
   }));
 

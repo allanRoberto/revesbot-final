@@ -6,7 +6,7 @@ import json
 import math
 import time
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import httpx
 
@@ -76,27 +76,40 @@ def _sanitize_external_value(value: Any) -> Any:
     return value
 
 
-def validate_jev_response(payload: Any, *, latency_ms: int = 0) -> ValidatedJevResponse:
+def validate_jev_response(
+    payload: Any,
+    *,
+    latency_ms: int = 0,
+    expected_noul_keys: Sequence[str] = GROUP_KEYS,
+) -> ValidatedJevResponse:
     if not isinstance(payload, dict):
         raise JevInvalidResponseError("A resposta do Jev não é um objeto JSON.")
     answers = payload.get("answers")
     if not isinstance(answers, dict):
         raise JevInvalidResponseError("A resposta do Jev não contém answers válido.")
 
+    expected_keys = tuple(expected_noul_keys)
+    if not expected_keys or len(expected_keys) != len(set(expected_keys)):
+        raise JevInvalidResponseError("A lista de perguntas esperadas é inválida.")
+    if set(answers) != set(expected_keys):
+        raise JevInvalidResponseError("A resposta do Jev não corresponde às perguntas enviadas.")
+
     probabilities: dict[str, float] = {}
-    for group_id in GROUP_KEYS:
-        answer = answers.get(group_id)
+    for question_id in expected_keys:
+        answer = answers.get(question_id)
         if not isinstance(answer, dict):
-            raise JevInvalidResponseError(f"A resposta do Jev não contém {group_id}.")
+            raise JevInvalidResponseError(f"A resposta do Jev não contém {question_id}.")
         if answer.get("type") != "noul":
-            raise JevInvalidResponseError(f"A resposta de {group_id} não é do tipo noul.")
+            raise JevInvalidResponseError(f"A resposta de {question_id} não é do tipo noul.")
         probability = answer.get("noul")
         if isinstance(probability, bool) or not isinstance(probability, (int, float)):
-            raise JevInvalidResponseError(f"A probabilidade de {group_id} não é numérica.")
+            raise JevInvalidResponseError(f"A probabilidade de {question_id} não é numérica.")
         numeric_probability = float(probability)
         if not math.isfinite(numeric_probability) or not 0 <= numeric_probability <= 1:
-            raise JevInvalidResponseError(f"A probabilidade de {group_id} está fora do intervalo permitido.")
-        probabilities[group_id] = numeric_probability
+            raise JevInvalidResponseError(
+                f"A probabilidade de {question_id} está fora do intervalo permitido."
+            )
+        probabilities[question_id] = numeric_probability
 
     returned_model = payload.get("model")
     if returned_model is not None and not isinstance(returned_model, str):
@@ -174,4 +187,8 @@ class OpenRouterJevClient:
             )
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
             raise JevInvalidResponseError("O OpenRouter retornou JSON inválido.") from exc
-        return validate_jev_response(decoded, latency_ms=latency_ms)
+        return validate_jev_response(
+            decoded,
+            latency_ms=latency_ms,
+            expected_noul_keys=tuple(questions),
+        )
