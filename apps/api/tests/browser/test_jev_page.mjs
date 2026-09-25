@@ -81,6 +81,16 @@ function backtestResponse() {
           repeat_rate: hits ? 1 : null,
           signals_with_hit_after_attempt_3: hits,
           hit_after_attempt_3_rate: hits ? 1 : null,
+          initial_hits_total: hits,
+          average_initial_hits_per_eligible_signal: hits ? 1 : null,
+          signals_with_multiple_hits_within_3: 0,
+          multiple_hits_within_3_rate: hits ? 0 : null,
+          initial_hit_count_distribution: { 1: hits, 2: 0, 3: 0 },
+          hits_after_attempt_3_total: hits,
+          average_hits_after_attempt_3_per_eligible_signal: hits ? 1 : null,
+          hit_occurrences_after_attempt_3_by_attempt: { 4: hits, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 },
+          hit_rate_after_attempt_3_by_attempt: { 4: hits ? 1 : null, 5: hits ? 0 : null, 6: hits ? 0 : null, 7: hits ? 0 : null, 8: hits ? 0 : null, 9: hits ? 0 : null, 10: hits ? 0 : null },
+          first_hit_after_attempt_3_by_attempt: { 4: hits, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 },
         },
       },
     },
@@ -447,7 +457,11 @@ try {
   assert.equal(backtestStepCalls, 2, "two historical points must make two paid calls");
   assert.equal(await page.textContent("#backtest-accuracy"), "50,00%");
   assert.match(await page.textContent("#backtest-observation-early-repeat"), /100,00%/);
+  assert.match(await page.textContent("#backtest-observation-initial-multiple"), /0,00%/);
   assert.equal(await page.locator("#backtest-observation-bars .attempt-bar").count(), 10);
+  assert.equal(await page.locator("#backtest-early-later-bars .attempt-bar").count(), 7);
+  assert.match(await page.locator("#backtest-early-later-bars .attempt-bar").first().textContent(), /100,00%/);
+  assert.equal(await page.locator("#backtest-early-initial-count-bars .attempt-bar").count(), 3);
   assert.match(await page.textContent("#backtest-projected-cost"), /0\.042000/);
 
   await page.fill("#grupo_1", "0, 1, 2");

@@ -14,7 +14,7 @@ from api.services.jev_history_service import ROULETTE_SLUG, utc_iso
 from api.services.jev_ranking import NEXT_SPIN_CHOICE_KEY, build_ranking_payload
 
 
-BACKTEST_VERSION = "jev_original_ranking_v2"
+BACKTEST_VERSION = "jev_original_ranking_v3"
 OBSERVATION_HORIZON = 10
 SIGNAL_MODES = frozenset({"overlapping", "sequential"})
 
@@ -59,8 +59,41 @@ def _new_observation_metrics(horizon: int) -> dict[str, Any]:
             "repeat_rate": None,
             "signals_with_hit_after_attempt_3": 0,
             "hit_after_attempt_3_rate": None,
+            "initial_hits_total": 0,
+            "average_initial_hits_per_eligible_signal": None,
+            "signals_with_multiple_hits_within_3": 0,
+            "multiple_hits_within_3_rate": None,
+            "initial_hit_count_distribution": {
+                str(count): 0 for count in range(1, 4)
+            },
+            "hits_after_attempt_3_total": 0,
+            "average_hits_after_attempt_3_per_eligible_signal": None,
+            "hit_occurrences_after_attempt_3_by_attempt": {
+                str(attempt): 0 for attempt in range(4, horizon + 1)
+            },
+            "hit_rate_after_attempt_3_by_attempt": {
+                str(attempt): None for attempt in range(4, horizon + 1)
+            },
+            "first_hit_after_attempt_3_by_attempt": {
+                str(attempt): 0 for attempt in range(4, horizon + 1)
+            },
         },
     }
+
+
+def _ensure_observation_metric_shape(
+    aggregate: dict[str, Any], horizon: int
+) -> dict[str, Any]:
+    """Add fields introduced by newer versions without breaking resumable jobs."""
+    defaults = _new_observation_metrics(horizon)
+    for key, default in defaults.items():
+        if key == "early_win_within_3":
+            continue
+        aggregate.setdefault(key, default)
+    early = aggregate.setdefault("early_win_within_3", {})
+    for key, default in defaults["early_win_within_3"].items():
+        early.setdefault(key, default)
+    return aggregate
 
 
 def build_backtest_job(
@@ -246,6 +279,7 @@ def _record_observation_metrics(
         metrics["observation"] = aggregate
     if int(aggregate.get("horizon", horizon)) != horizon:
         raise JevBacktestError("A janela analítica mudou durante o backtest.")
+    aggregate = _ensure_observation_metric_shape(aggregate, horizon)
 
     aggregate["signals"] += 1
     aggregate["total_hits"] += int(observation["hit_count"])
@@ -258,12 +292,26 @@ def _record_observation_metrics(
     aggregate["hit_count_distribution"][str(observation["hit_count"])] += 1
 
     early = aggregate["early_win_within_3"]
-    if observation["hit_within_first_3"]:
+    initial_hit_count = sum(
+        attempt <= 3 for attempt in observation["hit_attempts"]
+    )
+    later_hit_attempts = [
+        attempt for attempt in observation["hit_attempts"] if attempt > 3
+    ]
+    if initial_hit_count:
         early["eligible_signals"] += 1
+        early["initial_hits_total"] += initial_hit_count
+        early["initial_hit_count_distribution"][str(initial_hit_count)] += 1
+        if initial_hit_count >= 2:
+            early["signals_with_multiple_hits_within_3"] += 1
         if observation["has_multiple_hits"]:
             early["signals_with_repeat_by_horizon"] += 1
-        if observation["has_hit_after_attempt_3"]:
+        if later_hit_attempts:
             early["signals_with_hit_after_attempt_3"] += 1
+            early["first_hit_after_attempt_3_by_attempt"][str(later_hit_attempts[0])] += 1
+        early["hits_after_attempt_3_total"] += len(later_hit_attempts)
+        for attempt in later_hit_attempts:
+            early["hit_occurrences_after_attempt_3_by_attempt"][str(attempt)] += 1
 
     signals = aggregate["signals"]
     eligible = early["eligible_signals"]
@@ -278,6 +326,19 @@ def _record_observation_metrics(
     early["hit_after_attempt_3_rate"] = (
         early["signals_with_hit_after_attempt_3"] / eligible if eligible else None
     )
+    early["average_initial_hits_per_eligible_signal"] = (
+        early["initial_hits_total"] / eligible if eligible else None
+    )
+    early["multiple_hits_within_3_rate"] = (
+        early["signals_with_multiple_hits_within_3"] / eligible if eligible else None
+    )
+    early["average_hits_after_attempt_3_per_eligible_signal"] = (
+        early["hits_after_attempt_3_total"] / eligible if eligible else None
+    )
+    for attempt, count in early["hit_occurrences_after_attempt_3_by_attempt"].items():
+        early["hit_rate_after_attempt_3_by_attempt"][attempt] = (
+            count / eligible if eligible else None
+        )
 
 
 def _usage_values(raw_response: dict[str, Any]) -> tuple[float | None, int | None]:

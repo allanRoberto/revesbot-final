@@ -720,11 +720,14 @@
       && typeof observation.signals_with_multiple_hits_rate === "number"
       ? `${observation.signals_with_multiple_hits} · ${percent.format(observation.signals_with_multiple_hits_rate)}` : "—";
     byId("backtest-observation-early-repeat").textContent = early
-      && typeof early.repeat_rate === "number"
-      ? `${early.signals_with_repeat_by_horizon}/${early.eligible_signals} · ${percent.format(early.repeat_rate)}` : "Sem amostra";
-    byId("backtest-observation-early-late").textContent = early
       && typeof early.hit_after_attempt_3_rate === "number"
       ? `${early.signals_with_hit_after_attempt_3}/${early.eligible_signals} · ${percent.format(early.hit_after_attempt_3_rate)}` : "Sem amostra";
+    byId("backtest-observation-initial-multiple").textContent = early
+      && typeof early.multiple_hits_within_3_rate === "number"
+      ? `${early.signals_with_multiple_hits_within_3}/${early.eligible_signals} · ${percent.format(early.multiple_hits_within_3_rate)}` : "Sem amostra";
+    byId("backtest-observation-later-average").textContent = early
+      && typeof early.average_hits_after_attempt_3_per_eligible_signal === "number"
+      ? `${early.hits_after_attempt_3_total} · média ${decimal.format(early.average_hits_after_attempt_3_per_eligible_signal)}` : "Sem amostra";
     const observationBars = observation
       ? Object.entries(observation.hit_occurrences_by_attempt).map(([attempt, count]) => {
         const item = document.createElement("div");
@@ -737,6 +740,38 @@
         return item;
       }) : [];
     byId("backtest-observation-bars").replaceChildren(...observationBars);
+    const laterOccurrenceCounts = early && early.hit_occurrences_after_attempt_3_by_attempt
+      ? early.hit_occurrences_after_attempt_3_by_attempt : {};
+    const laterOccurrenceRates = early && early.hit_rate_after_attempt_3_by_attempt
+      ? early.hit_rate_after_attempt_3_by_attempt : {};
+    const laterBars = Object.entries(laterOccurrenceCounts).map(([attempt, count]) => {
+      const item = document.createElement("div");
+      item.className = "attempt-bar";
+      const label = document.createElement("span");
+      label.textContent = `Tentativa ${attempt}`;
+      const value = document.createElement("strong");
+      const rate = laterOccurrenceRates[attempt];
+      value.textContent = typeof rate === "number"
+        ? `${count} · ${percent.format(rate)}` : String(count);
+      item.append(label, value);
+      return item;
+    });
+    byId("backtest-early-later-bars").replaceChildren(...laterBars);
+    const initialCountDistribution = early && early.initial_hit_count_distribution
+      ? early.initial_hit_count_distribution : {};
+    const initialCountBars = Object.entries(initialCountDistribution).map(([hitCount, count]) => {
+      const item = document.createElement("div");
+      item.className = "attempt-bar";
+      const label = document.createElement("span");
+      label.textContent = `${hitCount} ${hitCount === "1" ? "acerto" : "acertos"} nas tentativas 1–3`;
+      const value = document.createElement("strong");
+      const rate = early.eligible_signals ? count / early.eligible_signals : null;
+      value.textContent = typeof rate === "number"
+        ? `${count} · ${percent.format(rate)}` : String(count);
+      item.append(label, value);
+      return item;
+    });
+    byId("backtest-early-initial-count-bars").replaceChildren(...initialCountBars);
     const countBars = observation
       ? Object.entries(observation.hit_count_distribution).map(([hitCount, count]) => {
         const item = document.createElement("div");

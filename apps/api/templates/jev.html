@@ -131,11 +131,16 @@
           <div><dt>Acerto em algum dos 10</dt><dd id="backtest-observation-any-hit">—</dd></div>
           <div><dt>Acertos totais / média</dt><dd id="backtest-observation-hit-average">—</dd></div>
           <div><dt>Sinais com 2+ acertos</dt><dd id="backtest-observation-multiple">—</dd></div>
-          <div><dt>Venceu até a 3ª → repetiu até a 10ª</dt><dd id="backtest-observation-early-repeat">—</dd></div>
-          <div><dt>Venceu até a 3ª → acertou após a 3ª</dt><dd id="backtest-observation-early-late">—</dd></div>
+          <div><dt>Venceu entre a 1ª e a 3ª → acertou entre a 4ª e a 10ª</dt><dd id="backtest-observation-early-repeat">—</dd></div>
+          <div><dt>Teve 2+ acertos entre a 1ª e a 3ª</dt><dd id="backtest-observation-initial-multiple">—</dd></div>
+          <div><dt>Acertos da 4ª à 10ª / média por sinal elegível</dt><dd id="backtest-observation-later-average">—</dd></div>
         </dl>
         <div class="catalog-heading"><h3>Ocorrências por tentativa</h3><p>Conta todos os acertos, não apenas o primeiro.</p></div>
         <div id="backtest-observation-bars" class="attempt-bars"></div>
+        <div class="catalog-heading backtest-distribution-heading"><h3>Concentração depois de vencer nas três primeiras</h3><p>Para cada tentativa da 4ª à 10ª, mostra acertos e percentual entre os sinais que acertaram da 1ª à 3ª.</p></div>
+        <div id="backtest-early-later-bars" class="attempt-bars"></div>
+        <div class="catalog-heading backtest-distribution-heading"><h3>Acertos dentro das três primeiras</h3><p>Distribuição dos sinais vencedores entre um, dois ou três acertos da 1ª à 3ª tentativa.</p></div>
+        <div id="backtest-early-initial-count-bars" class="attempt-bars"></div>
         <div class="catalog-heading backtest-distribution-heading"><h3>Quantidade de acertos por sinal</h3><p>Distribuição dos sinais entre 0 e 10 acertos.</p></div>
         <div id="backtest-hit-count-bars" class="attempt-bars"></div>
         <p id="backtest-last-step" class="inline-note"></p>

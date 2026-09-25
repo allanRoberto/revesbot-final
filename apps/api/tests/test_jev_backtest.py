@@ -157,9 +157,66 @@ def test_selection_evaluation_and_real_cost_projection() -> None:
     assert observed["signals_with_multiple_hits_rate"] == 1.0
     assert observed["hit_occurrences_by_attempt"]["6"] == 1
     assert observed["hit_count_distribution"]["5"] == 1
-    assert observed["early_win_within_3"]["repeat_rate"] == 1.0
-    assert observed["early_win_within_3"]["hit_after_attempt_3_rate"] == 1.0
+    early = observed["early_win_within_3"]
+    assert early["repeat_rate"] == 1.0
+    assert early["hit_after_attempt_3_rate"] == 1.0
+    assert early["initial_hits_total"] == 2
+    assert early["average_initial_hits_per_eligible_signal"] == 2.0
+    assert early["signals_with_multiple_hits_within_3"] == 1
+    assert early["multiple_hits_within_3_rate"] == 1.0
+    assert early["initial_hit_count_distribution"] == {"1": 0, "2": 1, "3": 0}
+    assert early["hits_after_attempt_3_total"] == 3
+    assert early["average_hits_after_attempt_3_per_eligible_signal"] == 3.0
+    assert early["hit_occurrences_after_attempt_3_by_attempt"]["4"] == 1
+    assert early["hit_occurrences_after_attempt_3_by_attempt"]["6"] == 1
+    assert early["hit_occurrences_after_attempt_3_by_attempt"]["9"] == 1
+    assert early["hit_rate_after_attempt_3_by_attempt"]["4"] == 1.0
+    assert early["first_hit_after_attempt_3_by_attempt"]["4"] == 1
     assert job["usage"]["projected_cost_per_1000_calls_usd"] == 0.042
+
+
+def test_early_win_metrics_separate_attempts_one_to_three_from_four_to_ten() -> None:
+    job = _job(
+        [5] * required_history_size(3, 50, 3),
+        history_points=3,
+    )
+    observations = [
+        [0, 5, 6, 0, 7, 0, 8, 9, 10, 11],
+        [5, 0, 0, 7, 8, 9, 0, 11, 12, 13],
+        [5, 6, 7, 8, 0, 9, 10, 11, 12, 13],
+    ]
+
+    for step, observation in enumerate(observations):
+        record_success(
+            job,
+            step=step,
+            selected_numbers=[0, 1],
+            future_numbers=observation[:3],
+            observation_numbers=observation,
+            returned_model="typesafe/jev-1.13-test",
+            latency_ms=10,
+            raw_response={"usage": {}},
+        )
+
+    early = job["metrics"]["observation"]["early_win_within_3"]
+    assert early["eligible_signals"] == 2
+    assert early["initial_hits_total"] == 3
+    assert early["average_initial_hits_per_eligible_signal"] == 1.5
+    assert early["signals_with_multiple_hits_within_3"] == 1
+    assert early["multiple_hits_within_3_rate"] == 0.5
+    assert early["initial_hit_count_distribution"] == {"1": 1, "2": 1, "3": 0}
+    assert early["signals_with_hit_after_attempt_3"] == 2
+    assert early["hit_after_attempt_3_rate"] == 1.0
+    assert early["hits_after_attempt_3_total"] == 3
+    assert early["average_hits_after_attempt_3_per_eligible_signal"] == 1.5
+    assert early["hit_occurrences_after_attempt_3_by_attempt"]["4"] == 1
+    assert early["hit_occurrences_after_attempt_3_by_attempt"]["5"] == 0
+    assert early["hit_occurrences_after_attempt_3_by_attempt"]["6"] == 1
+    assert early["hit_occurrences_after_attempt_3_by_attempt"]["7"] == 1
+    assert early["hit_rate_after_attempt_3_by_attempt"]["4"] == 0.5
+    assert early["hit_rate_after_attempt_3_by_attempt"]["5"] == 0.0
+    assert early["first_hit_after_attempt_3_by_attempt"]["4"] == 1
+    assert early["first_hit_after_attempt_3_by_attempt"]["7"] == 1
 
 
 def test_sequential_mode_waits_for_primary_signal_resolution_but_observes_ten() -> None:
