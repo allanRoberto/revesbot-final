@@ -118,7 +118,7 @@
     try {
       data = await response.json();
     } catch (_error) {
-      throw new Error("A API retornou uma resposta que não é JSON válido.");
+      throw new Error(`A API retornou uma resposta que não é JSON válido (HTTP ${response.status}).`);
     }
     if (!response.ok) throw new Error(responseMessage(data, "A operação não pôde ser concluída."));
     return data;
