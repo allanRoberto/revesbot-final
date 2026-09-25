@@ -1,4 +1,4 @@
-"""Async OpenRouter System One client with strict Jev response validation."""
+"""Async OpenRouter Decisions client with strict Jev response validation."""
 from __future__ import annotations
 
 import asyncio
@@ -13,7 +13,7 @@ import httpx
 from api.schemas.jev import GROUP_KEYS
 
 
-OPENROUTER_SYSTEM_ONE_URL = "https://openrouter.ai/api/v1/systemone"
+OPENROUTER_DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 REQUEST_TIMEOUT_SECONDS = 30.0
 _SENSITIVE_RESPONSE_KEYS = {
     "api_key",
@@ -47,9 +47,10 @@ class JevInvalidResponseError(JevOpenRouterError):
 
 
 class JevHTTPStatusError(JevOpenRouterError):
-    def __init__(self, provider_status: int) -> None:
+    def __init__(self, provider_status: int, provider_detail: str | None = None) -> None:
         super().__init__(f"OpenRouter respondeu com HTTP {provider_status}")
         self.provider_status = provider_status
+        self.provider_detail = provider_detail
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,21 @@ def _sanitize_external_value(value: Any) -> Any:
     if isinstance(value, list):
         return [_sanitize_external_value(item) for item in value]
     return value
+
+
+def _provider_error_detail(response: httpx.Response) -> str | None:
+    try:
+        decoded: Any = json.loads(
+            response.content.decode("utf-8"),
+            parse_constant=_reject_nonstandard_number,
+        )
+        sanitized = _sanitize_external_value(decoded)
+        serialized = json.dumps(sanitized, ensure_ascii=False, allow_nan=False)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError):
+        return None
+    if not serialized:
+        return None
+    return serialized[:1000]
 
 
 def validate_jev_response(
@@ -258,7 +274,7 @@ class OpenRouterJevClient:
 
     async def _request(self, client: httpx.AsyncClient, payload: Mapping[str, Any]) -> httpx.Response:
         return await client.post(
-            OPENROUTER_SYSTEM_ONE_URL,
+            OPENROUTER_DECISIONS_URL,
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
@@ -296,7 +312,10 @@ class OpenRouterJevClient:
 
         latency_ms = round((time.perf_counter() - started) * 1000)
         if not 200 <= response.status_code < 300:
-            raise JevHTTPStatusError(response.status_code)
+            raise JevHTTPStatusError(
+                response.status_code,
+                provider_detail=_provider_error_detail(response),
+            )
 
         try:
             decoded = json.loads(

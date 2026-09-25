@@ -255,6 +255,12 @@ async def _call_jev(
             ),
         ) from exc
     except JevHTTPStatusError as exc:
+        logging.warning(
+            "OpenRouter recusou a análise Jev status=%s request_id=%s detail=%s",
+            exc.provider_status,
+            request_id_for(request),
+            exc.provider_detail or "não informado",
+        )
         raise _map_openrouter_status(request, exc.provider_status) from exc
     except JevInvalidResponseError as exc:
         raise jev_http_error(

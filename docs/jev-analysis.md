@@ -76,7 +76,7 @@ Não há credenciais padrão. Em produção, use uma senha exclusiva e mantenha 
 Os registros em `JEV_RESULTS_DIR` são privados, não possuem rota de arquivos estáticos e estão
 ignorados pelo Git no caminho padrão.
 
-O contrato implementado é `POST https://openrouter.ai/api/v1/systemone`, com `model`, `state` e
+O contrato implementado é `POST https://openrouter.ai/api/alpha/decisions`, com `model`, `state` e
 `questions`. Não são usados chat completions, mensagens, temperatura, fallback ou retry.
 
 Referências oficiais:

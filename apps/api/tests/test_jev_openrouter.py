@@ -8,7 +8,7 @@ import pytest
 
 from api.schemas.jev import GROUP_KEYS
 from api.services.jev_openrouter import (
-    OPENROUTER_SYSTEM_ONE_URL,
+    OPENROUTER_DECISIONS_URL,
     JevConfigurationError,
     JevHTTPStatusError,
     JevInvalidResponseError,
@@ -32,7 +32,7 @@ def _response_payload(values=None):
     }
 
 
-def test_client_uses_system_one_once_with_six_questions_and_preserves_metadata() -> None:
+def test_client_uses_decisions_api_once_with_six_questions_and_preserves_metadata() -> None:
     calls = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -51,7 +51,8 @@ def test_client_uses_system_one_once_with_six_questions_and_preserves_metadata()
 
     result = asyncio.run(run())
     assert len(calls) == 1
-    assert str(calls[0].url) == OPENROUTER_SYSTEM_ONE_URL
+    assert str(calls[0].url) == OPENROUTER_DECISIONS_URL
+    assert str(calls[0].url) == "https://openrouter.ai/api/alpha/decisions"
     assert calls[0].headers["authorization"] == "Bearer test-secret"
     sent = json.loads(calls[0].content)
     assert sent["model"] == "typesafe/jev-1.13"
@@ -112,11 +113,18 @@ def test_http_error_invalid_json_and_timeout_have_no_retry() -> None:
     def status_handler(_request):
         nonlocal status_calls
         status_calls += 1
-        return httpx.Response(429, json={"error": "limited"})
+        return httpx.Response(
+            429,
+            json={
+                "error": {"message": "limited", "authorization": "Bearer leaked"}
+            },
+        )
 
     with pytest.raises(JevHTTPStatusError) as status_error:
         asyncio.run(exercise(status_handler))
     assert status_error.value.provider_status == 429
+    assert "limited" in status_error.value.provider_detail
+    assert "leaked" not in status_error.value.provider_detail
     assert status_calls == 1
 
     with pytest.raises(JevInvalidResponseError):
