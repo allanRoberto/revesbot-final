@@ -93,12 +93,13 @@
         <div><p class="eyebrow">BACKTEST HISTÓRICO · SOMENTE JEV</p><h2 id="backtest-title">Medir a assertividade do ranking</h2></div>
         <span class="paid-badge">CHAMADAS PAGAS</span>
       </div>
-      <p class="backtest-intro">Para cada ponto histórico, o JEV gera seu ranking original. As primeiras fichas ficam fixas durante o número configurado de tentativas. As janelas podem se sobrepor e nenhum resultado futuro é enviado ao modelo.</p>
+      <p class="backtest-intro">Para cada sinal, o JEV gera seu ranking original e fixa as primeiras fichas. A assertividade principal usa as tentativas configuradas; uma segunda janela sempre observa os 10 giros completos para contar reincidências, sem enviar resultados futuros ao modelo.</p>
       <form id="backtest-form" class="backtest-form" novalidate>
         <label for="backtest-history-points">Pontos históricos<input id="backtest-history-points" type="number" min="1" max="{{ max_backtest_calls }}" step="1" value="{{ suggested_backtest_calls }}" inputmode="numeric" required><small>1 ponto = até 1 chamada ao JEV</small></label>
         <label for="backtest-context">Contexto por chamada<input id="backtest-context" type="number" min="50" max="{{ max_history }}" step="1" value="300" inputmode="numeric" required><small>Números anteriores visíveis ao JEV</small></label>
         <label for="backtest-chips">Fichas<input id="backtest-chips" type="number" min="1" max="36" step="1" value="6" inputmode="numeric" required><small>Primeiras posições do ranking</small></label>
         <label for="backtest-attempts">Tentativas<input id="backtest-attempts" type="number" min="1" max="100" step="1" value="10" inputmode="numeric" required><small>Resultados futuros avaliados</small></label>
+        <label for="backtest-signal-mode">Modalidade<select id="backtest-signal-mode"><option value="overlapping">Sobreposto</option><option value="sequential">Sequencial</option></select><small>Sequencial aguarda acerto ou fim das tentativas</small></label>
         <label class="paid-confirmation" for="backtest-confirm"><input id="backtest-confirm" type="checkbox" required><span>Confirmo a execução de chamadas pagas. Uma execução de 1.000 pontos pode realizar 1.000 chamadas.</span></label>
         <div class="backtest-actions">
           <button id="backtest-start" class="primary-button" type="submit">Iniciar backtest</button>
@@ -109,10 +110,11 @@
       <p id="backtest-error" class="field-error" role="alert" hidden></p>
 
       <div id="backtest-progress-region" class="backtest-progress-region" hidden aria-live="polite">
-        <div class="backtest-progress-heading"><strong id="backtest-progress-label">0 / 0 chamadas</strong><span id="backtest-status">Preparando</span></div>
+        <div class="backtest-progress-heading"><strong id="backtest-progress-label">0 chamadas · ponto 0 / 0</strong><span id="backtest-status">Preparando</span></div>
         <progress id="backtest-progress" value="0" max="1">0%</progress>
         <dl class="result-metadata backtest-metrics">
-          <div><dt>Assertividade</dt><dd id="backtest-accuracy">—</dd></div>
+          <div><dt>Modalidade</dt><dd id="backtest-mode-result">—</dd></div>
+          <div><dt>Assertividade principal</dt><dd id="backtest-accuracy">—</dd></div>
           <div><dt>Acertos / perdas</dt><dd id="backtest-hit-loss">—</dd></div>
           <div><dt>Tentativa média do acerto</dt><dd id="backtest-average-attempt">—</dd></div>
           <div><dt>Falhas de chamada</dt><dd id="backtest-failures">—</dd></div>
@@ -123,6 +125,19 @@
         </dl>
         <div class="catalog-heading"><h3>Primeiro acerto por tentativa</h3><p>Distribuição apenas entre as previsões concluídas.</p></div>
         <div id="backtest-attempt-bars" class="attempt-bars"></div>
+        <div class="catalog-heading backtest-observation-heading"><h3>Todos os acertos nos 10 giros</h3><p>O sinal continua sendo observado mesmo depois do primeiro acerto.</p></div>
+        <dl class="result-metadata backtest-observation-metrics">
+          <div><dt>Sinais observados</dt><dd id="backtest-observation-signals">—</dd></div>
+          <div><dt>Acerto em algum dos 10</dt><dd id="backtest-observation-any-hit">—</dd></div>
+          <div><dt>Acertos totais / média</dt><dd id="backtest-observation-hit-average">—</dd></div>
+          <div><dt>Sinais com 2+ acertos</dt><dd id="backtest-observation-multiple">—</dd></div>
+          <div><dt>Venceu até a 3ª → repetiu até a 10ª</dt><dd id="backtest-observation-early-repeat">—</dd></div>
+          <div><dt>Venceu até a 3ª → acertou após a 3ª</dt><dd id="backtest-observation-early-late">—</dd></div>
+        </dl>
+        <div class="catalog-heading"><h3>Ocorrências por tentativa</h3><p>Conta todos os acertos, não apenas o primeiro.</p></div>
+        <div id="backtest-observation-bars" class="attempt-bars"></div>
+        <div class="catalog-heading backtest-distribution-heading"><h3>Quantidade de acertos por sinal</h3><p>Distribuição dos sinais entre 0 e 10 acertos.</p></div>
+        <div id="backtest-hit-count-bars" class="attempt-bars"></div>
         <p id="backtest-last-step" class="inline-note"></p>
       </div>
     </section>

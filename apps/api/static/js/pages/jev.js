@@ -630,17 +630,21 @@
     const calls = Number(byId("backtest-history-points").value);
     const context = Number(byId("backtest-context").value);
     const attempts = Number(byId("backtest-attempts").value);
+    const signalMode = byId("backtest-signal-mode").value;
     const required = Number.isFinite(calls + context + attempts)
-      ? calls + context + attempts - 1 : 0;
+      ? calls + context + Math.max(attempts, 10) - 1 : 0;
     const rate = new Intl.NumberFormat("en-US", {
       style: "currency", currency: "USD", minimumFractionDigits: 3, maximumFractionDigits: 3,
     }).format(jevInputPricePerMillion);
-    byId("backtest-estimate").textContent = `Histórico necessário: ${required || "—"} números. Preço de referência: ${rate} por 1 milhão de tokens de entrada; saída sem custo. Em 1.000 chamadas: 5 mil tokens/chamada ≈ US$ 0,21; 10 mil ≈ US$ 0,42; 32 mil ≈ US$ 1,344. O painel acumula o custo real informado pela API.`;
+    const callEstimate = signalMode === "sequential"
+      ? `No modo sequencial, ${calls || "—"} pontos históricos geram no máximo ${calls || "—"} chamadas e normalmente menos.`
+      : `${calls || "—"} pontos históricos podem gerar ${calls || "—"} chamadas.`;
+    byId("backtest-estimate").textContent = `Histórico necessário: ${required || "—"} números. ${callEstimate} Preço de referência: ${rate} por 1 milhão de tokens de entrada; saída sem custo. Em 1.000 chamadas: 5 mil tokens/chamada ≈ US$ 0,21; 10 mil ≈ US$ 0,42; 32 mil ≈ US$ 1,344. O painel acumula o custo real informado pela API.`;
   }
 
   function setBacktestControls(running) {
     backtestRunning = running;
-    document.querySelectorAll("#backtest-form input, #backtest-start").forEach((control) => {
+    document.querySelectorAll("#backtest-form input, #backtest-form select, #backtest-start").forEach((control) => {
       control.disabled = running;
     });
     const pause = byId("backtest-pause");
@@ -667,14 +671,17 @@
     const { progress, metrics, usage } = data;
     const attempted = progress.attempted_calls;
     const total = progress.total_calls;
+    const timelinePoint = Math.min(progress.next_step, total);
     byId("backtest-progress-region").hidden = false;
     byId("backtest-progress").max = Math.max(1, total);
-    byId("backtest-progress").value = attempted;
-    byId("backtest-progress-label").textContent = `${attempted} / ${total} chamadas`;
+    byId("backtest-progress").value = timelinePoint;
+    byId("backtest-progress-label").textContent = `${attempted} chamadas · ponto ${timelinePoint} / ${total}`;
     byId("backtest-status").textContent = backtestStatusLabel(data);
     const percent = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const decimal = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
     const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6 });
+    byId("backtest-mode-result").textContent = data.configuration.signal_mode === "sequential"
+      ? "Sequencial" : "Sobreposto";
     byId("backtest-accuracy").textContent = typeof metrics.accuracy === "number" ? percent.format(metrics.accuracy) : "—";
     byId("backtest-hit-loss").textContent = `${metrics.hits} / ${metrics.misses}`;
     byId("backtest-average-attempt").textContent = typeof metrics.average_attempt_on_hit === "number"
@@ -697,11 +704,59 @@
       return item;
     });
     byId("backtest-attempt-bars").replaceChildren(...bars);
+    const observation = metrics.observation && typeof metrics.observation === "object"
+      ? metrics.observation : null;
+    const early = observation && observation.early_win_within_3
+      ? observation.early_win_within_3 : null;
+    byId("backtest-observation-signals").textContent = observation
+      ? String(observation.signals) : "Não disponível nesta execução";
+    byId("backtest-observation-any-hit").textContent = observation
+      && typeof observation.signals_with_any_hit_rate === "number"
+      ? `${observation.signals_with_any_hit} · ${percent.format(observation.signals_with_any_hit_rate)}` : "—";
+    byId("backtest-observation-hit-average").textContent = observation
+      && typeof observation.average_hits_per_signal === "number"
+      ? `${observation.total_hits} · média ${decimal.format(observation.average_hits_per_signal)}` : "—";
+    byId("backtest-observation-multiple").textContent = observation
+      && typeof observation.signals_with_multiple_hits_rate === "number"
+      ? `${observation.signals_with_multiple_hits} · ${percent.format(observation.signals_with_multiple_hits_rate)}` : "—";
+    byId("backtest-observation-early-repeat").textContent = early
+      && typeof early.repeat_rate === "number"
+      ? `${early.signals_with_repeat_by_horizon}/${early.eligible_signals} · ${percent.format(early.repeat_rate)}` : "Sem amostra";
+    byId("backtest-observation-early-late").textContent = early
+      && typeof early.hit_after_attempt_3_rate === "number"
+      ? `${early.signals_with_hit_after_attempt_3}/${early.eligible_signals} · ${percent.format(early.hit_after_attempt_3_rate)}` : "Sem amostra";
+    const observationBars = observation
+      ? Object.entries(observation.hit_occurrences_by_attempt).map(([attempt, count]) => {
+        const item = document.createElement("div");
+        item.className = "attempt-bar";
+        const label = document.createElement("span");
+        label.textContent = `Tentativa ${attempt}`;
+        const value = document.createElement("strong");
+        value.textContent = String(count);
+        item.append(label, value);
+        return item;
+      }) : [];
+    byId("backtest-observation-bars").replaceChildren(...observationBars);
+    const countBars = observation
+      ? Object.entries(observation.hit_count_distribution).map(([hitCount, count]) => {
+        const item = document.createElement("div");
+        item.className = "attempt-bar";
+        const label = document.createElement("span");
+        label.textContent = `${hitCount} ${hitCount === "1" ? "acerto" : "acertos"}`;
+        const value = document.createElement("strong");
+        value.textContent = String(count);
+        item.append(label, value);
+        return item;
+      }) : [];
+    byId("backtest-hit-count-bars").replaceChildren(...countBars);
     const last = data.last_step;
     if (last && last.status === "success") {
-      byId("backtest-last-step").textContent = last.hit
-        ? `Último ponto: acerto do número ${last.hit_number} na tentativa ${last.first_hit_attempt}; fichas ${last.selected_numbers.join(", ")}.`
-        : `Último ponto: sem acerto; fichas ${last.selected_numbers.join(", ")}.`;
+      const observationSummary = last.observation
+        ? ` Em ${last.observation.horizon} giros: ${last.observation.hit_count} acerto(s) nas tentativas ${last.observation.hit_attempts.join(", ") || "nenhuma"}.`
+        : "";
+      byId("backtest-last-step").textContent = (last.hit
+        ? `Último ponto: acerto principal do número ${last.hit_number} na tentativa ${last.first_hit_attempt}; fichas ${last.selected_numbers.join(", ")}.`
+        : `Último ponto: sem acerto principal; fichas ${last.selected_numbers.join(", ")}.`) + observationSummary;
     } else if (last && last.status === "failed") {
       byId("backtest-last-step").textContent = `Último ponto falhou: ${last.error.message}`;
     } else {
@@ -752,8 +807,13 @@
       const contextNumbers = backtestInteger("backtest-context", 50, maxHistory, "Contexto");
       const chipCount = backtestInteger("backtest-chips", 1, 36, "Fichas");
       const attempts = backtestInteger("backtest-attempts", 1, 100, "Tentativas");
-      if (contextNumbers + historyPoints + attempts - 1 > maxHistory) {
-        throw new Error(`A configuração exige ${contextNumbers + historyPoints + attempts - 1} números, acima do limite de ${maxHistory}.`);
+      const signalMode = byId("backtest-signal-mode").value;
+      if (!["overlapping", "sequential"].includes(signalMode)) {
+        throw new Error("Selecione uma modalidade de sinais válida.");
+      }
+      const requiredHistory = contextNumbers + historyPoints + Math.max(attempts, 10) - 1;
+      if (requiredHistory > maxHistory) {
+        throw new Error(`A configuração exige ${requiredHistory} números, acima do limite de ${maxHistory}.`);
       }
       if (!byId("backtest-confirm").checked) {
         throw new Error("Confirme que o backtest fará chamadas pagas.");
@@ -769,6 +829,7 @@
           context_numbers: contextNumbers,
           chip_count: chipCount,
           attempts,
+          signal_mode: signalMode,
           confirm_paid_run: true,
         }),
       });
@@ -823,7 +884,7 @@
       runBacktest();
     }
   });
-  ["backtest-history-points", "backtest-context", "backtest-attempts"].forEach((id) => {
+  ["backtest-history-points", "backtest-context", "backtest-attempts", "backtest-signal-mode"].forEach((id) => {
     byId(id).addEventListener("input", updateBacktestEstimate);
   });
   form.addEventListener("submit", analyze);

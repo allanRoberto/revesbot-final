@@ -31,6 +31,7 @@ let rankingBody = null;
 let evaluationCalls = 0;
 let evaluationBody = null;
 let backtestStartCalls = 0;
+let backtestStartBody = null;
 let backtestStepCalls = 0;
 let backtestStep = 0;
 
@@ -42,7 +43,14 @@ function backtestResponse() {
     backtest_id: "8f3bbcf2-11dc-4f50-aec5-4ff9001e7502",
     analysis_type: "jev_historical_backtest",
     status: completed ? "completed" : (backtestStep ? "running" : "ready"),
-    configuration: { history_points: 2, context_numbers: 50, chip_count: 2, attempts: 3 },
+    configuration: {
+      history_points: 2,
+      context_numbers: 50,
+      chip_count: 2,
+      attempts: 3,
+      signal_mode: backtestStartBody?.signal_mode || "overlapping",
+      observation_horizon: 10,
+    },
     progress: {
       total_calls: 2,
       next_step: backtestStep,
@@ -56,6 +64,25 @@ function backtestResponse() {
       accuracy: backtestStep ? hits / backtestStep : null,
       hits_by_attempt: { 1: hits, 2: 0, 3: 0 },
       average_attempt_on_hit: hits ? 1 : null,
+      observation: {
+        horizon: 10,
+        signals: backtestStep,
+        signals_with_any_hit: hits,
+        signals_with_any_hit_rate: backtestStep ? hits / backtestStep : null,
+        signals_with_multiple_hits: hits,
+        signals_with_multiple_hits_rate: backtestStep ? hits / backtestStep : null,
+        total_hits: hits * 2,
+        average_hits_per_signal: backtestStep ? (hits * 2) / backtestStep : null,
+        hit_occurrences_by_attempt: { 1: hits, 2: 0, 3: 0, 4: hits, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 },
+        hit_count_distribution: { 0: misses, 1: 0, 2: hits, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 },
+        early_win_within_3: {
+          eligible_signals: hits,
+          signals_with_repeat_by_horizon: hits,
+          repeat_rate: hits ? 1 : null,
+          signals_with_hit_after_attempt_3: hits,
+          hit_after_attempt_3_rate: hits ? 1 : null,
+        },
+      },
     },
     usage: {
       cost_usd: backtestStep * 0.000042,
@@ -71,6 +98,11 @@ function backtestResponse() {
       hit: backtestStep === 1,
       first_hit_attempt: backtestStep === 1 ? 1 : null,
       hit_number: backtestStep === 1 ? 0 : null,
+      observation: {
+        horizon: 10,
+        hit_count: backtestStep === 1 ? 2 : 0,
+        hit_attempts: backtestStep === 1 ? [1, 4] : [],
+      },
     } : null,
     last_error: null,
   };
@@ -322,6 +354,7 @@ await page.route("http://jev.test/**", async (route) => {
   }
   if (url.pathname === "/api/jev/backtest/iniciar") {
     backtestStartCalls += 1;
+    backtestStartBody = request.postDataJSON();
     backtestStep = 0;
     await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(backtestResponse()) });
     return;
@@ -410,8 +443,11 @@ try {
   await page.click("#backtest-start");
   await page.waitForFunction(() => document.getElementById("backtest-status").textContent === "Concluído");
   assert.equal(backtestStartCalls, 1, "backtest must be created once");
+  assert.equal(backtestStartBody.signal_mode, "overlapping");
   assert.equal(backtestStepCalls, 2, "two historical points must make two paid calls");
   assert.equal(await page.textContent("#backtest-accuracy"), "50,00%");
+  assert.match(await page.textContent("#backtest-observation-early-repeat"), /100,00%/);
+  assert.equal(await page.locator("#backtest-observation-bars .attempt-bar").count(), 10);
   assert.match(await page.textContent("#backtest-projected-cost"), /0\.042000/);
 
   await page.fill("#grupo_1", "0, 1, 2");

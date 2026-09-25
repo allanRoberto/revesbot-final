@@ -29,6 +29,7 @@ from api.schemas.jev import (
     parse_roulette_text,
 )
 from api.services.jev_backtest import (
+    OBSERVATION_HORIZON,
     JevBacktestError,
     JevBacktestNotFoundError,
     build_backtest_job,
@@ -493,6 +494,7 @@ async def jev_backtest_start(
         payload.history_points,
         payload.context_numbers,
         payload.attempts,
+        OBSERVATION_HORIZON,
     )
     if required > _max_history():
         raise jev_http_error(
@@ -534,6 +536,8 @@ async def jev_backtest_start(
             context_numbers=payload.context_numbers,
             chip_count=payload.chip_count,
             attempts=payload.attempts,
+            signal_mode=payload.signal_mode,
+            observation_horizon=OBSERVATION_HORIZON,
             requested_model=client.model,
             created_at=created_at,
             history_fetched_at=fetched["buscado_em"],
@@ -628,7 +632,7 @@ async def jev_backtest_next(
             return _json_response(request, public_backtest(job))
 
         try:
-            history, future = step_window(job, next_step)
+            history, future, observation = step_window(job, next_step)
             jev_payload = build_original_jev_step_payload(history)
         except JevBacktestError as exc:
             raise jev_http_error(
@@ -703,6 +707,7 @@ async def jev_backtest_next(
                 step=next_step,
                 selected_numbers=selected,
                 future_numbers=future,
+                observation_numbers=observation,
                 returned_model=jev_response.returned_model,
                 latency_ms=jev_response.latency_ms,
                 raw_response=jev_response.raw,

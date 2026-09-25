@@ -110,6 +110,7 @@ class JevBacktestStartRequest(BaseModel):
     context_numbers: Annotated[StrictInt, Field(ge=50)]
     chip_count: Annotated[StrictInt, Field(ge=1, le=36)]
     attempts: Annotated[StrictInt, Field(ge=1, le=100)]
+    signal_mode: Literal["overlapping", "sequential"] = "overlapping"
     confirm_paid_run: StrictBool
 
 

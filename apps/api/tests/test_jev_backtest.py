@@ -10,6 +10,7 @@ from api.core.config import settings
 from api.routes import jev as jev_route
 from api.services.jev_backtest import (
     build_backtest_job,
+    evaluate_observation,
     evaluate_step,
     record_success,
     required_history_size,
@@ -83,32 +84,35 @@ class FakeBacktestJevClient:
         )
 
 
-def _job(history):
+def _job(history, *, signal_mode="overlapping", history_points=2, attempts=3):
     return build_backtest_job(
         backtest_id=str(uuid4()),
         history=history,
-        history_points=2,
+        history_points=history_points,
         context_numbers=50,
         chip_count=2,
-        attempts=3,
+        attempts=attempts,
         requested_model="typesafe/jev-1.13",
         created_at="2026-09-25T12:00:00Z",
         history_fetched_at="2026-09-25T12:00:00Z",
+        signal_mode=signal_mode,
     )
 
 
 def test_backtest_windows_never_include_future_in_jev_history() -> None:
-    history = list(range(37)) + list(range(17))
-    assert len(history) == required_history_size(2, 50, 3)
+    history = [index % 37 for index in range(required_history_size(2, 50, 3))]
+    assert len(history) == 61
     job = _job(history)
 
-    first_history, first_future = step_window(job, 0)
-    second_history, second_future = step_window(job, 1)
+    first_history, first_future, first_observation = step_window(job, 0)
+    second_history, second_future, second_observation = step_window(job, 1)
 
     assert first_history == history[:50]
     assert first_future == history[50:53]
+    assert first_observation == history[50:60]
     assert second_history == history[1:51]
     assert second_future == history[51:54]
+    assert second_observation == history[51:61]
 
 
 def test_selection_evaluation_and_real_cost_projection() -> None:
@@ -122,23 +126,83 @@ def test_selection_evaluation_and_real_cost_projection() -> None:
         "hit_number": 12,
     }
 
-    job = _job([5] * 54)
+    observation = [0, 5, 12, 0, 7, 12, 8, 9, 0, 3]
+    assert evaluate_observation([0, 12], observation) == {
+        "horizon": 10,
+        "hit_count": 5,
+        "hit_attempts": [1, 3, 4, 6, 9],
+        "hit_numbers": [0, 12, 0, 12, 0],
+        "has_any_hit": True,
+        "has_multiple_hits": True,
+        "hit_within_first_3": True,
+        "has_hit_after_attempt_3": True,
+    }
+
+    job = _job([5] * 61)
     record_success(
         job,
         step=0,
         selected_numbers=selected[:2],
         future_numbers=[5, 12, 0],
+        observation_numbers=observation,
         returned_model="typesafe/jev-1.13-test",
         latency_ms=10,
         raw_response={"usage": {"input_tokens": 1000, "cost": 0.000042}},
     )
     assert job["metrics"]["accuracy"] == 1.0
     assert job["metrics"]["hits_by_attempt"]["2"] == 1
+    observed = job["metrics"]["observation"]
+    assert observed["total_hits"] == 5
+    assert observed["average_hits_per_signal"] == 5.0
+    assert observed["signals_with_multiple_hits_rate"] == 1.0
+    assert observed["hit_occurrences_by_attempt"]["6"] == 1
+    assert observed["hit_count_distribution"]["5"] == 1
+    assert observed["early_win_within_3"]["repeat_rate"] == 1.0
+    assert observed["early_win_within_3"]["hit_after_attempt_3_rate"] == 1.0
     assert job["usage"]["projected_cost_per_1000_calls_usd"] == 0.042
 
 
+def test_sequential_mode_waits_for_primary_signal_resolution_but_observes_ten() -> None:
+    job = _job(
+        [5] * required_history_size(10, 50, 3),
+        signal_mode="sequential",
+        history_points=10,
+    )
+    first = record_success(
+        job,
+        step=0,
+        selected_numbers=[0, 1],
+        future_numbers=[5, 0, 7],
+        observation_numbers=[5, 0, 7, 0, 8, 9, 0, 11, 12, 13],
+        returned_model="typesafe/jev-1.13-test",
+        latency_ms=10,
+        raw_response={"usage": {}},
+    )
+    assert first["timeline_advance"] == 2
+    assert first["observation"]["hit_attempts"] == [2, 4, 7]
+    assert job["progress"]["next_step"] == 2
+
+    second = record_success(
+        job,
+        step=2,
+        selected_numbers=[0, 1],
+        future_numbers=[5, 6, 7],
+        observation_numbers=[5, 6, 7, 0, 8, 9, 0, 11, 12, 13],
+        returned_model="typesafe/jev-1.13-test",
+        latency_ms=10,
+        raw_response={"usage": {}},
+    )
+    assert second["timeline_advance"] == 3
+    assert second["observation"]["hit_attempts"] == [4, 7]
+    assert job["progress"]["next_step"] == 5
+    assert job["progress"]["attempted_calls"] == 2
+    assert job["metrics"]["hits"] == 1
+    assert job["metrics"]["misses"] == 1
+    assert job["metrics"]["observation"]["total_hits"] == 5
+
+
 def test_backtest_routes_run_one_paid_call_per_idempotent_step(monkeypatch, tmp_path) -> None:
-    history = [5] * 50 + [0, 7, 8, 9]
+    history = [5] * 50 + [0, 7, 8, 9] + [5] * 7
     collection = FakeCollection(history)
     jev_client = FakeBacktestJevClient()
     monkeypatch.setattr(settings, "jev_panel_user", "admin")
@@ -171,6 +235,8 @@ def test_backtest_routes_run_one_paid_call_per_idempotent_step(monkeypatch, tmp_
     assert started.status_code == 201
     body = started.json()
     assert "history_snapshot" not in body
+    assert body["configuration"]["signal_mode"] == "overlapping"
+    assert body["configuration"]["observation_horizon"] == 10
     backtest_id = body["backtest_id"]
 
     first = client.post(
@@ -180,6 +246,7 @@ def test_backtest_routes_run_one_paid_call_per_idempotent_step(monkeypatch, tmp_
     )
     assert first.status_code == 200
     assert first.json()["metrics"]["accuracy"] == 1.0
+    assert first.json()["metrics"]["observation"]["signals"] == 1
     assert first.json()["usage"]["projected_cost_per_1000_calls_usd"] == 0.042
     assert set(jev_client.calls[0]["questions"]) == {NEXT_SPIN_CHOICE_KEY}
     assert jev_client.calls[0]["require_choice_confidence"] is False
