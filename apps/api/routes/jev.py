@@ -31,6 +31,7 @@ from api.services.jev_history_service import (
     fetch_recent_history,
     utc_iso,
 )
+from api.services.jev_meta_ranking import build_meta_rankings
 from api.services.jev_openrouter import (
     JevConfigurationError,
     JevConnectionError,
@@ -450,6 +451,7 @@ async def jev_ranking(
     history = _parse_history(request, payload.historico_texto)
     ranking_payload = build_ranking_payload(history)
     catalog = ranking_payload["catalog"]
+    walk_forward = ranking_payload["walk_forward"]
     state = ranking_payload["state"]
     questions = ranking_payload["questions"]
     jev_payload = {"model": client.model, "state": state, "questions": questions}
@@ -477,6 +479,9 @@ async def jev_ranking(
                 },
             }
         )
+    pattern_quality_by_target = {
+        item["target_number"]: item["qualidade_jev"] for item in catalog_results
+    }
     relations_by_target = {
         relation["target_number"]: relation for relation in catalog["relations"]
     }
@@ -538,13 +543,28 @@ async def jev_ranking(
     for position, result in enumerate(ordered_ranking, start=1):
         result["posicao"] = position
 
+    regime_choice = jev_response.choices[REGIME_CHOICE_KEY]
+    meta = build_meta_rankings(
+        walk_forward=walk_forward,
+        jev_three_spin_probabilities={
+            number: jev_response.probabilities[number_key(number)]
+            for number in ROULETTE_NUMBERS
+        },
+        jev_next_spin_probabilities={
+            number: next_choice.probabilities[str(number)] for number in ROULETTE_NUMBERS
+        },
+        pattern_quality_by_target=pattern_quality_by_target,
+        regime=regime_choice.choice,
+    )
+
     warnings: list[str] = []
     if not catalog_results:
         warnings.append(
             "Nenhuma relação A → B atingiu os critérios mínimos para avaliação de relevância; "
             "o ranking ainda contém os 37 números e suas evidências descritivas."
         )
-    regime_choice = jev_response.choices[REGIME_CHOICE_KEY]
+    if not meta["signal"]["available"]:
+        warnings.append(meta["signal"]["reason"])
     response_body: dict[str, Any] = {
         "analysis_id": analysis_id,
         "analysis_type": "number_ranking",
@@ -562,10 +582,27 @@ async def jev_ranking(
         "latencia_ms": jev_response.latency_ms,
         "ranking": ordered_ranking,
         "ranking_proxima_rodada": immediate_ranking,
+        "ranking_meta": meta["ranking_tres_rodadas"],
+        "ranking_meta_proxima_rodada": meta["ranking_proxima_rodada"],
+        "sinal_meta": meta["signal"],
+        "validacao_walk_forward": {
+            "version": walk_forward["version"],
+            "method": walk_forward["method"],
+            "minimum_training_support": walk_forward["minimum_training_support"],
+            "maximum_recent_samples_per_model": walk_forward[
+                "maximum_recent_samples_per_model"
+            ],
+        },
         "proxima_rodada": {
             "numero_escolhido": int(next_choice.choice),
             "confidence": next_choice.confidence,
             "probabilities": next_choice.probabilities,
+        },
+        "proxima_rodada_meta": {
+            "numero_escolhido": meta["ranking_proxima_rodada"][0]["numero"],
+            "probabilidade": meta["ranking_proxima_rodada"][0]["probabilidade_meta"],
+            "confiabilidade_meta": meta["ranking_proxima_rodada"][0]["confiabilidade_meta"],
+            "status_validacao": meta["ranking_proxima_rodada"][0]["status_validacao"],
         },
         "regime_atual": {
             "choice": regime_choice.choice,
@@ -579,6 +616,7 @@ async def jev_ranking(
     audit_record = {
         **response_body,
         "catalogo_relacoes": catalog,
+        "catalogo_walk_forward": walk_forward,
         "payload_jev": jev_payload,
         "expected_number_questions": list(NUMBER_KEYS),
     }

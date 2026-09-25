@@ -250,6 +250,7 @@ sudo -u "$runtime_user" env \
   apps/api/tests/test_jev_openrouter.py \
   apps/api/tests/test_jev_persistence.py \
   apps/api/tests/test_jev_evaluation.py \
+  apps/api/tests/test_jev_meta_ranking.py \
   apps/api/tests/test_jev_ranking.py \
   apps/api/tests/test_jev_routes.py \
   apps/api/tests/test_triple_context_ranking.py \

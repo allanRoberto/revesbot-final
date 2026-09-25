@@ -47,6 +47,64 @@ def _validate_ranking(
     return validated
 
 
+def _three_spin_metrics(
+    ranking: Sequence[dict[str, Any]],
+    actual_results: Sequence[int],
+    *,
+    probability_key: str,
+) -> dict[str, Any]:
+    by_number = {item["numero"]: item for item in ranking}
+    observed = set(actual_results)
+    epsilon = 1e-15
+    brier_terms: list[float] = []
+    log_loss_terms: list[float] = []
+    for number in ROULETTE_NUMBERS:
+        probability = float(by_number[number][probability_key])
+        outcome = 1.0 if number in observed else 0.0
+        brier_terms.append((probability - outcome) ** 2)
+        clipped = min(1 - epsilon, max(epsilon, probability))
+        log_loss_terms.append(
+            -(outcome * math.log(clipped) + (1 - outcome) * math.log(1 - clipped))
+        )
+
+    ordered = sorted(ranking, key=lambda item: item["posicao"])
+    return {
+        "brier_medio_37_numeros": sum(brier_terms) / len(brier_terms),
+        "log_loss_binario_medio_37_numeros": sum(log_loss_terms) / len(log_loss_terms),
+        "acertos_por_corte": {
+            f"top_{size}": any(item["numero"] in observed for item in ordered[:size])
+            for size in (1, 3, 5, 10)
+        },
+        "posicoes_dos_resultados_reais": [
+            {
+                "rodada": index,
+                "numero": number,
+                "posicao": by_number[number]["posicao"],
+                "probabilidade": by_number[number][probability_key],
+            }
+            for index, number in enumerate(actual_results, start=1)
+        ],
+    }
+
+
+def _immediate_metric(
+    ranking: Sequence[dict[str, Any]],
+    first_actual: int,
+    *,
+    probability_key: str,
+    selected: int,
+) -> dict[str, Any]:
+    by_number = {item["numero"]: item for item in ranking}
+    actual = by_number[first_actual]
+    return {
+        "numero_escolhido": selected,
+        "numero_real": first_actual,
+        "acertou_escolha": selected == first_actual,
+        "posicao_do_numero_real": actual["posicao"],
+        "probabilidade_do_numero_real": actual[probability_key],
+    }
+
+
 def evaluate_saved_ranking(record: dict[str, Any], actual_results: Sequence[int]) -> dict[str, Any]:
     if record.get("analysis_type") != "number_ranking":
         raise JevEvaluationError("O registro informado não é um ranking de números.")
@@ -70,52 +128,69 @@ def evaluate_saved_ranking(record: dict[str, Any], actual_results: Sequence[int]
         abs_tol=1e-6,
     ):
         raise JevEvaluationError("A distribuição do ranking imediato é inválida.")
-    by_number = {item["numero"]: item for item in ranking}
-    immediate_by_number = {item["numero"]: item for item in immediate_ranking}
-    observed = set(actual_results)
-    epsilon = 1e-15
-    brier_terms: list[float] = []
-    log_loss_terms: list[float] = []
-    for number in ROULETTE_NUMBERS:
-        probability = float(by_number[number]["estimativa_jev_nao_validada"])
-        outcome = 1.0 if number in observed else 0.0
-        brier_terms.append((probability - outcome) ** 2)
-        clipped = min(1 - epsilon, max(epsilon, probability))
-        log_loss_terms.append(
-            -(outcome * math.log(clipped) + (1 - outcome) * math.log(1 - clipped))
-        )
-
-    ordered = sorted(ranking, key=lambda item: item["posicao"])
-    top_hits = {
-        f"top_{size}": any(item["numero"] in observed for item in ordered[:size])
-        for size in (1, 3, 5, 10)
-    }
     selected = record.get("proxima_rodada", {}).get("numero_escolhido")
     if isinstance(selected, bool) or not isinstance(selected, int) or selected not in ROULETTE_NUMBERS:
         raise JevEvaluationError("A escolha salva para a próxima rodada é inválida.")
     first_actual = actual_results[0]
-    immediate_actual = immediate_by_number[first_actual]
-    return {
+    original_metrics = _three_spin_metrics(
+        ranking,
+        actual_results,
+        probability_key="estimativa_jev_nao_validada",
+    )
+    result = {
         "resultados_reais": list(actual_results),
-        "metricas_tres_rodadas": {
-            "brier_medio_37_numeros": sum(brier_terms) / len(brier_terms),
-            "log_loss_binario_medio_37_numeros": sum(log_loss_terms) / len(log_loss_terms),
-            "acertos_por_corte": top_hits,
-            "posicoes_dos_resultados_reais": [
-                {
-                    "rodada": index,
-                    "numero": number,
-                    "posicao": by_number[number]["posicao"],
-                    "probabilidade": by_number[number]["estimativa_jev_nao_validada"],
-                }
-                for index, number in enumerate(actual_results, start=1)
-            ],
-        },
-        "metrica_proxima_rodada": {
-            "numero_escolhido": selected,
-            "numero_real": first_actual,
-            "acertou_escolha": selected == first_actual,
-            "posicao_do_numero_real": immediate_actual["posicao"],
-            "probabilidade_do_numero_real": immediate_actual["probabilidade"],
-        },
+        "metricas_tres_rodadas": original_metrics,
+        "metrica_proxima_rodada": _immediate_metric(
+            immediate_ranking,
+            first_actual,
+            probability_key="probabilidade",
+            selected=selected,
+        ),
     }
+
+    if record.get("ranking_meta") is not None or record.get("ranking_meta_proxima_rodada") is not None:
+        meta_ranking = _validate_ranking(
+            record.get("ranking_meta"),
+            probability_key="probabilidade_meta",
+            position_key="posicao",
+        )
+        meta_immediate = _validate_ranking(
+            record.get("ranking_meta_proxima_rodada"),
+            probability_key="probabilidade_meta",
+            position_key="posicao",
+        )
+        if not math.isclose(
+            sum(float(item["probabilidade_meta"]) for item in meta_immediate),
+            1.0,
+            rel_tol=0.0,
+            abs_tol=1e-6,
+        ):
+            raise JevEvaluationError("A distribuição do meta-ranking imediato é inválida.")
+        meta_metrics = _three_spin_metrics(
+            meta_ranking,
+            actual_results,
+            probability_key="probabilidade_meta",
+        )
+        meta_selected = min(meta_immediate, key=lambda item: item["posicao"])["numero"]
+        result["metricas_meta_tres_rodadas"] = meta_metrics
+        result["metrica_meta_proxima_rodada"] = _immediate_metric(
+            meta_immediate,
+            first_actual,
+            probability_key="probabilidade_meta",
+            selected=meta_selected,
+        )
+        result["comparacao_meta_vs_jev"] = {
+            "ganho_brier": (
+                original_metrics["brier_medio_37_numeros"]
+                - meta_metrics["brier_medio_37_numeros"]
+            ),
+            "ganho_log_loss": (
+                original_metrics["log_loss_binario_medio_37_numeros"]
+                - meta_metrics["log_loss_binario_medio_37_numeros"]
+            ),
+            "positivo_significa_meta_melhor": True,
+            "sinal_meta_disponivel_na_previsao": bool(
+                record.get("sinal_meta", {}).get("available", False)
+            ),
+        }
+    return result

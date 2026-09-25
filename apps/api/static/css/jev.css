@@ -84,7 +84,7 @@ dd { margin: 0; font: 11px/1.4 var(--mono); overflow-wrap: anywhere; }
 .results-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 18px; }
 .stale-badge { color: var(--warning); border: 1px solid #675a35; background: #251f12; padding: 6px 9px; border-radius: 999px; font: 9px var(--mono); }
 .result-metadata { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 20px; }
-.ranking-controls { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)) auto; align-items: end; gap: 10px; margin-bottom: 12px; }
+.ranking-controls { display: grid; grid-template-columns: repeat(4, minmax(135px, 1fr)) auto; align-items: end; gap: 10px; margin-bottom: 12px; }
 .ranking-controls label, .evaluation-form label { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
 .ranking-controls select, .ranking-controls input, .evaluation-form input { display: block; width: 100%; height: 40px; margin-top: 6px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--text); background: #0e1310; }
 .ranking-controls > span { align-self: center; margin-top: 15px; color: var(--muted); font: 10px var(--mono); white-space: nowrap; }
@@ -97,6 +97,10 @@ tbody tr:last-child td { border-bottom: 0; }
 .ranking-table { min-width: 920px; }
 .ranking-number { color: var(--accent); font-size: 14px; font-weight: 700; }
 .zero-number { color: #9bd7aa; }
+.meta-status { display: inline-block; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 9px; white-space: nowrap; }
+.meta-status.validated { color: var(--accent); border-color: #58703f; background: #182414; }
+.meta-status.experimental { color: var(--warning); border-color: #675a35; background: #251f12; }
+.meta-status.degraded, .meta-status.no_evidence { color: var(--muted); }
 .pattern-catalog { margin-top: 22px; }
 .ranking-evaluation { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--line); }
 .evaluation-form { display: grid; grid-template-columns: minmax(240px, 1fr) auto; align-items: end; gap: 10px; }

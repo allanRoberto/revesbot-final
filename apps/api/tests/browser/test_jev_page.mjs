@@ -143,6 +143,34 @@ await page.route("http://jev.test/**", async (route) => {
       probabilidade_base: 1 / 37,
       diferenca_da_base: (number === 0 ? 0.2 : 0.8 / 36) - 1 / 37,
     }));
+    const metaRanking = ranking.map((item) => ({
+      posicao: item.posicao,
+      numero: item.numero,
+      probabilidade_meta: item.estimativa_jev_nao_validada,
+      probabilidade_jev: item.estimativa_jev_nao_validada,
+      probabilidade_calibrada_deterministica: item.estimativa_jev_nao_validada,
+      probabilidade_base: item.probabilidade_base,
+      diferenca_da_base: item.diferenca_da_base,
+      lift_sobre_base: item.estimativa_jev_nao_validada / item.probabilidade_base,
+      confiabilidade_meta: item.numero === 0 ? 0.62 : 0.28,
+      status_validacao: item.numero === 0 ? "validated" : "experimental",
+      amostras_walk_forward: 40,
+      modelos_walk_forward: {},
+    }));
+    const metaImmediateRanking = immediateRanking.map((item) => ({
+      posicao: item.posicao,
+      numero: item.numero,
+      probabilidade_meta: item.probabilidade,
+      probabilidade_jev: item.probabilidade,
+      probabilidade_calibrada_deterministica: item.probabilidade,
+      probabilidade_base: item.probabilidade_base,
+      diferenca_da_base: item.diferenca_da_base,
+      lift_sobre_base: item.probabilidade / item.probabilidade_base,
+      confiabilidade_meta: item.numero === 0 ? 0.62 : 0.28,
+      status_validacao: item.numero === 0 ? "validated" : "experimental",
+      amostras_walk_forward: 40,
+      modelos_walk_forward: {},
+    }));
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -157,10 +185,32 @@ await page.route("http://jev.test/**", async (route) => {
         latencia_ms: 18,
         ranking,
         ranking_proxima_rodada: immediateRanking,
+        ranking_meta: metaRanking,
+        ranking_meta_proxima_rodada: metaImmediateRanking,
+        sinal_meta: {
+          status: "validated",
+          available: true,
+          reason: "Há candidatos validados.",
+          validated_numbers: [0],
+          coverage: 1 / 37,
+          regime: "transition_driven",
+        },
+        validacao_walk_forward: {
+          version: "source_conditioned_v1",
+          method: "chronological_source_conditioned_no_future_leakage",
+          minimum_training_support: 12,
+          maximum_recent_samples_per_model: 300,
+        },
         proxima_rodada: {
           numero_escolhido: 0,
           confidence: 0.72,
           probabilities: Object.fromEntries(immediateRanking.map((item) => [String(item.numero), item.probabilidade])),
+        },
+        proxima_rodada_meta: {
+          numero_escolhido: 0,
+          probabilidade: 0.2,
+          confiabilidade_meta: 0.62,
+          status_validacao: "validated",
         },
         regime_atual: {
           choice: "transition_driven",
@@ -204,6 +254,18 @@ await page.route("http://jev.test/**", async (route) => {
           acertou_escolha: true,
           posicao_do_numero_real: 1,
           probabilidade_do_numero_real: 0.2,
+        },
+        metricas_meta_tres_rodadas: {
+          brier_medio_37_numeros: 0.061234,
+          log_loss_binario_medio_37_numeros: 0.225678,
+          acertos_por_corte: { top_1: true, top_3: true, top_5: true, top_10: true },
+          posicoes_dos_resultados_reais: [],
+        },
+        comparacao_meta_vs_jev: {
+          ganho_brier: 0.01,
+          ganho_log_loss: 0.02,
+          positivo_significa_meta_melhor: true,
+          sinal_meta_disponivel_na_previsao: true,
         },
         avisos: [],
       }),
@@ -257,12 +319,17 @@ try {
   assert.equal(await page.textContent("#ranking-results-body tr:first-child .ranking-number"), "0");
   assert.equal(await page.locator("#ranking-catalog-body tr").count(), 1);
   assert.equal(await page.isVisible("#ranking-result-cost-row"), true, "zero ranking cost must remain visible");
-  assert.match(await page.textContent("#ranking-next-choice"), /^0/);
+  assert.match(await page.textContent("#ranking-next-choice"), /Meta 0/);
   assert.match(await page.textContent("#ranking-regime"), /transições/);
+  assert.match(await page.textContent("#ranking-meta-signal"), /validado/);
+  assert.equal(await page.inputValue("#ranking-view"), "meta_three");
 
   await page.selectOption("#ranking-pattern-filter", "zero");
   assert.equal(await page.locator("#ranking-results-body tr").count(), 1, "zero filter must keep only zero");
   await page.selectOption("#ranking-pattern-filter", "all");
+  await page.selectOption("#ranking-validation-filter", "validated");
+  assert.equal(await page.locator("#ranking-results-body tr").count(), 1, "validation filter must keep validated rows");
+  await page.selectOption("#ranking-validation-filter", "all");
   await page.selectOption("#ranking-view", "next_one");
   assert.match(await page.textContent("#ranking-estimate-heading"), /próxima rodada/);
   assert.equal(await page.textContent("#ranking-results-body tr:first-child .ranking-number"), "0");
@@ -273,6 +340,7 @@ try {
   assert.equal(evaluationCalls, 1, "manual evaluation must use one non-paid endpoint call");
   assert.equal(evaluationBody.analysis_id, "ranking-browser-test");
   assert.match(await page.textContent("#evaluation-next-hit"), /Acertou/);
+  assert.match(await page.textContent("#evaluation-meta-comparison"), /Brier/);
 
   await page.fill("#grupo_1", "0, 1, 2");
   assert.equal(await page.isVisible("#result-stale"), true);

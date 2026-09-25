@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timezone
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -408,6 +409,17 @@ def test_ranking_includes_zero_all_numbers_and_pull_catalog(monkeypatch) -> None
     assert body["ranking"][0]["posicao"] == 1
     assert len(body["ranking_proxima_rodada"]) == 37
     assert body["ranking_proxima_rodada"][0]["numero"] == 0
+    assert len(body["ranking_meta"]) == 37
+    assert len(body["ranking_meta_proxima_rodada"]) == 37
+    assert {item["numero"] for item in body["ranking_meta"]} == set(range(37))
+    assert sum(
+        item["probabilidade_meta"] for item in body["ranking_meta_proxima_rodada"]
+    ) == pytest.approx(1)
+    assert body["sinal_meta"]["status"] in {
+        "validated", "experimental", "no_reliable_signal"
+    }
+    assert body["proxima_rodada_meta"]["numero_escolhido"] in range(37)
+    assert body["validacao_walk_forward"]["version"] == "source_conditioned_v1"
     assert body["proxima_rodada"]["numero_escolhido"] == 0
     assert body["regime_atual"]["choice"] == "transition_driven"
     assert body["ultimo_numero"] == 17

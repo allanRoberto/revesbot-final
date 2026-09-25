@@ -102,19 +102,22 @@
         <div><dt>Padrões avaliados</dt><dd id="ranking-pattern-count">—</dd></div>
         <div><dt>Próxima rodada</dt><dd id="ranking-next-choice">—</dd></div>
         <div><dt>Regime atual</dt><dd id="ranking-regime">—</dd></div>
+        <div><dt>Sinal meta</dt><dd id="ranking-meta-signal">—</dd></div>
+        <div><dt>Walk-forward</dt><dd id="ranking-walk-forward">—</dd></div>
         <div id="ranking-result-cost-row" hidden><dt>Custo informado</dt><dd id="ranking-result-cost">—</dd></div>
       </dl>
 
       <div class="ranking-controls" aria-label="Filtros do ranking">
-        <label for="ranking-view">Visão<select id="ranking-view"><option value="next_three">Próximas 3 rodadas</option><option value="next_one">Próxima rodada</option></select></label>
+        <label for="ranking-view">Visão<select id="ranking-view"><option value="meta_three">Meta · próximas 3</option><option value="meta_one">Meta · próxima rodada</option><option value="next_three">Jev original · próximas 3</option><option value="next_one">Jev original · próxima rodada</option></select></label>
         <label for="ranking-pattern-filter">Padrão<select id="ranking-pattern-filter"><option value="all">Todos</option><option value="stable">Estáveis</option><option value="positive">Positivos</option><option value="negative">Negativos</option><option value="zero">Somente zero</option></select></label>
+        <label for="ranking-validation-filter">Validação<select id="ranking-validation-filter"><option value="all">Todas</option><option value="validated">Validados</option><option value="experimental">Experimentais</option><option value="no_evidence">Sem evidência</option><option value="degraded">Degradados</option></select></label>
         <label for="ranking-min-support">Suporte mínimo<input id="ranking-min-support" type="number" min="0" step="1" value="0" inputmode="numeric"></label>
         <span id="ranking-filter-count">37 números</span>
       </div>
 
       <div class="table-scroll">
         <table class="ranking-table">
-          <thead><tr><th>Posição</th><th>Número</th><th id="ranking-estimate-heading">Estimativa Jev · 3 rodadas</th><th>Base</th><th>Diferença</th><th>Relação A → B</th></tr></thead>
+          <thead><tr><th>Posição</th><th>Número</th><th id="ranking-estimate-heading">Meta · 3 rodadas</th><th>Base</th><th>Diferença</th><th>Validação</th><th>Relação A → B</th></tr></thead>
           <tbody id="ranking-results-body"></tbody>
         </table>
       </div>
@@ -142,6 +145,10 @@
           <div><dt>Log loss binário médio</dt><dd id="evaluation-log-loss">—</dd></div>
           <div><dt>Acertos por corte</dt><dd id="evaluation-top-hits">—</dd></div>
           <div><dt>Próxima rodada</dt><dd id="evaluation-next-hit">—</dd></div>
+          <div><dt>Brier meta</dt><dd id="evaluation-meta-brier">—</dd></div>
+          <div><dt>Log loss meta</dt><dd id="evaluation-meta-log-loss">—</dd></div>
+          <div><dt>Acertos meta</dt><dd id="evaluation-meta-top-hits">—</dd></div>
+          <div><dt>Meta vs. Jev</dt><dd id="evaluation-meta-comparison">—</dd></div>
         </dl>
       </section>
 
@@ -183,7 +190,7 @@
 
     <aside class="disclaimer">
       <strong>Aviso</strong>
-      <p>Estimativas experimentais, não validadas. Relações A → B são frequências condicionais descritivas, não causalidade. O horizonte corresponde às três rodadas após o último resultado do histórico enviado. Esta página não acompanha novas rodadas e não garante acertos ou lucro.</p>
+      <p>Estimativas experimentais. “Validado” significa apenas que o padrão superou critérios walk-forward neste histórico, sem usar resultados futuros no treino; não significa garantia de repetição. Relações A → B são frequências condicionais descritivas, não causalidade. Esta página não garante acertos ou lucro.</p>
     </aside>
   </main>
 

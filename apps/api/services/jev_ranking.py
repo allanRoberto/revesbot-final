@@ -4,6 +4,10 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Sequence
 
+from api.services.jev_meta_ranking import (
+    build_walk_forward_catalog,
+    walk_forward_state_table,
+)
 from api.services.jev_statistics import FORECAST_HORIZON_SPINS
 
 
@@ -12,7 +16,7 @@ NUMBER_KEYS = tuple(f"numero_{number:02d}" for number in ROULETTE_NUMBERS)
 NEXT_SPIN_CHOICE_KEY = "proxima_rodada"
 REGIME_CHOICE_KEY = "regime_atual"
 CATALOG_VERSION = "pull_relations_v2"
-STATE_SCHEMA_VERSION = "roulette_ranking_v3"
+STATE_SCHEMA_VERSION = "roulette_ranking_v4"
 MIN_RELATION_SUPPORT = 30
 HISTORY_TAIL_LIMIT = 200
 MAX_PATTERN_QUESTIONS = 12
@@ -427,7 +431,11 @@ def _build_regime_evidence(history: Sequence[int], relations: Sequence[dict[str,
     }
 
 
-def build_ranking_state(history: Sequence[int], catalog: dict[str, Any]) -> dict[str, Any]:
+def build_ranking_state(
+    history: Sequence[int],
+    catalog: dict[str, Any],
+    walk_forward: dict[str, Any],
+) -> dict[str, Any]:
     tail = list(history[-HISTORY_TAIL_LIMIT:])
     raw_scope = "full_history" if len(tail) == len(history) else f"last_{len(tail)}_of_{len(history)}"
     return {
@@ -457,6 +465,17 @@ def build_ranking_state(history: Sequence[int], catalog: dict[str, Any]) -> dict
             "full_history_sha256": _history_digest(history),
         },
         "regime_evidence": _build_regime_evidence(history, catalog["relations"]),
+        "walk_forward_validation": {
+            "version": walk_forward["version"],
+            "method": walk_forward["method"],
+            "minimum_training_support": walk_forward["minimum_training_support"],
+            "maximum_recent_samples_per_model": walk_forward[
+                "maximum_recent_samples_per_model"
+            ],
+            "frequency_window_spins": walk_forward["frequency_window_spins"],
+            "row_format": "Each row follows columns in order; positive Brier improvement beats fair baseline.",
+            **walk_forward_state_table(walk_forward),
+        },
         "evidence_tables": {
             "row_format": "Each row follows its columns array in the same order.",
             "frequency_windows_spins": list(FREQUENCY_WINDOWS),
@@ -492,6 +511,8 @@ def build_ranking_state(history: Sequence[int], catalog: dict[str, Any]) -> dict
         "interpretation_rules": [
             "Pull relations are descriptive conditional frequencies, not causal links.",
             "Use support, smoothing, horizons, recent windows and full-history stability together.",
+            "Prefer evidence that is validated chronologically without future leakage.",
+            "Treat insufficient, degraded or inconclusive walk-forward evidence conservatively.",
             "Compare every estimate with its supplied fair-independent baseline.",
             "Low support, recency, gaps and absence alone do not establish predictability.",
             "Next-spin Choice probabilities must form one distribution across all 37 numbers.",
@@ -507,7 +528,7 @@ def build_ranking_questions(catalog: dict[str, Any]) -> dict[str, dict[str, Any]
             "type": "noul",
             "instructions": (
                 f"Estimate whether roulette number {number} appears at least once within the next "
-                "3 spins. Use its rows in evidence_tables."
+                "3 spins. Use its rows in evidence_tables and walk_forward_validation."
             ),
         }
 
@@ -529,7 +550,8 @@ def build_ranking_questions(catalog: dict[str, Any]) -> dict[str, dict[str, Any]
             "type": "score",
             "instructions": (
                 f"Score descriptive evidence for {candidate['source_number']} -> "
-                f"{candidate['target_number']}; consider support, smoothing, horizons and windows."
+                f"{candidate['target_number']}; consider support, smoothing, horizons, windows "
+                "and leakage-safe walk-forward validation."
             ),
             "criteria": [
                 "Insufficient or conflicting evidence.",
@@ -543,6 +565,12 @@ def build_ranking_questions(catalog: dict[str, Any]) -> dict[str, dict[str, Any]
 
 def build_ranking_payload(history: Sequence[int]) -> dict[str, Any]:
     catalog = calculate_pull_relations(history)
-    state = build_ranking_state(history, catalog)
+    walk_forward = build_walk_forward_catalog(history, catalog)
+    state = build_ranking_state(history, catalog, walk_forward)
     questions = build_ranking_questions(catalog)
-    return {"catalog": catalog, "state": state, "questions": questions}
+    return {
+        "catalog": catalog,
+        "walk_forward": walk_forward,
+        "state": state,
+        "questions": questions,
+    }

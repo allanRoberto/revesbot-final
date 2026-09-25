@@ -258,6 +258,25 @@
     return labels[value] || String(value || "não informado");
   }
 
+  function validationLabel(value) {
+    const labels = {
+      validated: "validado",
+      experimental: "experimental",
+      degraded: "degradado",
+      no_evidence: "sem evidência",
+    };
+    return labels[value] || String(value || "sem evidência");
+  }
+
+  function signalLabel(value) {
+    const labels = {
+      validated: "validado",
+      experimental: "experimental",
+      no_reliable_signal: "sem sinal confiável",
+    };
+    return labels[value] || String(value || "não informado");
+  }
+
   function matchesPattern(result, filter) {
     if (filter === "all") return true;
     if (filter === "zero") return result.numero === 0;
@@ -273,19 +292,34 @@
     const percent = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const view = byId("ranking-view").value;
     const patternFilter = byId("ranking-pattern-filter").value;
+    const validationFilter = byId("ranking-validation-filter").value;
     const rawMinimum = Number(byId("ranking-min-support").value);
     const minimumSupport = Number.isFinite(rawMinimum) && rawMinimum >= 0 ? rawMinimum : 0;
     const mainByNumber = new Map(latestRankingData.ranking.map((item) => [item.numero, item]));
-    const source = view === "next_one" ? latestRankingData.ranking_proxima_rodada : latestRankingData.ranking;
+    const usesNextSpin = view === "next_one" || view === "meta_one";
+    const usesMeta = view === "meta_one" || view === "meta_three";
+    const metaSource = usesNextSpin
+      ? latestRankingData.ranking_meta_proxima_rodada
+      : latestRankingData.ranking_meta;
+    const metaByNumber = new Map(metaSource.map((item) => [item.numero, item]));
+    const source = usesMeta
+      ? metaSource
+      : (usesNextSpin ? latestRankingData.ranking_proxima_rodada : latestRankingData.ranking);
     const rows = source.filter((item) => {
       const main = mainByNumber.get(item.numero);
-      return matchesPattern(main, patternFilter) && main.relacao_do_ultimo_numero.support >= minimumSupport;
+      const meta = metaByNumber.get(item.numero);
+      const validationMatches = validationFilter === "all" || meta.status_validacao === validationFilter;
+      return validationMatches && matchesPattern(main, patternFilter)
+        && main.relacao_do_ultimo_numero.support >= minimumSupport;
     });
     const fragment = document.createDocumentFragment();
     rows.forEach((item) => {
       const main = mainByNumber.get(item.numero);
+      const meta = metaByNumber.get(item.numero);
       const relation = main.relacao_do_ultimo_numero;
-      const probability = view === "next_one" ? item.probabilidade : item.estimativa_jev_nao_validada;
+      const probability = usesMeta
+        ? item.probabilidade_meta
+        : (usesNextSpin ? item.probabilidade : item.estimativa_jev_nao_validada);
       const baseline = item.probabilidade_base;
       const differenceFromBase = item.diferenca_da_base;
       const row = document.createElement("tr");
@@ -296,13 +330,22 @@
       appendCell(row, percent.format(probability));
       appendCell(row, percent.format(baseline));
       appendCell(row, `${differenceFromBase >= 0 ? "+" : "−"}${percent.format(Math.abs(differenceFromBase))}`);
+      const validationCell = appendCell(
+        row,
+        `${validationLabel(meta.status_validacao)} · ${meta.amostras_walk_forward} amostras · confiança ${percent.format(meta.confiabilidade_meta)}`,
+      );
+      validationCell.classList.add("meta-status", meta.status_validacao);
       appendCell(row, `${relation.source_number} → ${relation.target_number} · ${patternLabel(relation.classification)} · suporte ${relation.support}`);
       fragment.append(row);
     });
     byId("ranking-results-body").replaceChildren(fragment);
-    byId("ranking-estimate-heading").textContent = view === "next_one"
-      ? "Choice Jev · próxima rodada"
-      : "Noul Jev · próximas 3 rodadas";
+    const headings = {
+      meta_three: "Meta calibrado · próximas 3",
+      meta_one: "Meta calibrado · próxima rodada",
+      next_three: "Noul Jev · próximas 3",
+      next_one: "Choice Jev · próxima rodada",
+    };
+    byId("ranking-estimate-heading").textContent = headings[view];
     byId("ranking-filter-count").textContent = `${rows.length} ${rows.length === 1 ? "número" : "números"}`;
   }
 
@@ -310,8 +353,15 @@
     if (!data || data.analysis_type !== "number_ranking"
         || !Array.isArray(data.ranking) || data.ranking.length !== 37
         || !Array.isArray(data.ranking_proxima_rodada) || data.ranking_proxima_rodada.length !== 37
+        || !Array.isArray(data.ranking_meta) || data.ranking_meta.length !== 37
+        || !Array.isArray(data.ranking_meta_proxima_rodada) || data.ranking_meta_proxima_rodada.length !== 37
+        || !data.sinal_meta || typeof data.sinal_meta.status !== "string"
+        || typeof data.sinal_meta.available !== "boolean"
+        || !data.validacao_walk_forward || typeof data.validacao_walk_forward.version !== "string"
         || !data.proxima_rodada || !Number.isInteger(data.proxima_rodada.numero_escolhido)
         || typeof data.proxima_rodada.confidence !== "number"
+        || !data.proxima_rodada_meta || !Number.isInteger(data.proxima_rodada_meta.numero_escolhido)
+        || typeof data.proxima_rodada_meta.probabilidade !== "number"
         || !data.regime_atual || typeof data.regime_atual.choice !== "string"
         || typeof data.regime_atual.confidence !== "number"
         || !Array.isArray(data.catalogo_padroes)) {
@@ -352,9 +402,29 @@
     if (immediateNumbers.size !== 37 || !immediateNumbers.has(0)) {
       throw new Error("O ranking imediato não contém todos os números de 0 a 36.");
     }
+    [data.ranking_meta, data.ranking_meta_proxima_rodada].forEach((ranking) => {
+      const metaNumbers = new Set();
+      ranking.forEach((result, index) => {
+        if (!result || result.posicao !== index + 1 || !Number.isInteger(result.numero)
+            || result.numero < 0 || result.numero > 36 || metaNumbers.has(result.numero)
+            || typeof result.probabilidade_meta !== "number"
+            || typeof result.probabilidade_base !== "number"
+            || typeof result.diferenca_da_base !== "number"
+            || typeof result.confiabilidade_meta !== "number"
+            || !Number.isInteger(result.amostras_walk_forward)
+            || typeof result.status_validacao !== "string") {
+          throw new Error("A API retornou um item inválido no meta-ranking.");
+        }
+        metaNumbers.add(result.numero);
+      });
+      if (metaNumbers.size !== 37 || !metaNumbers.has(0)) {
+        throw new Error("O meta-ranking não contém todos os números de 0 a 36.");
+      }
+    });
     latestRankingData = data;
-    byId("ranking-view").value = "next_three";
+    byId("ranking-view").value = "meta_three";
     byId("ranking-pattern-filter").value = "all";
+    byId("ranking-validation-filter").value = "all";
     byId("ranking-min-support").value = "0";
     renderRankingRows();
 
@@ -388,8 +458,10 @@
     byId("ranking-result-at").textContent = formatDate(data.respondido_em);
     byId("ranking-result-latency").textContent = `${data.latencia_ms} ms`;
     byId("ranking-pattern-count").textContent = String(data.catalogo_padroes.length);
-    byId("ranking-next-choice").textContent = `${data.proxima_rodada.numero_escolhido} · confiança ${percent.format(data.proxima_rodada.confidence)}`;
+    byId("ranking-next-choice").textContent = `Meta ${data.proxima_rodada_meta.numero_escolhido} · ${percent.format(data.proxima_rodada_meta.probabilidade)} · Jev ${data.proxima_rodada.numero_escolhido}`;
     byId("ranking-regime").textContent = `${regimeLabel(data.regime_atual.choice)} · confiança ${percent.format(data.regime_atual.confidence)}`;
+    byId("ranking-meta-signal").textContent = `${signalLabel(data.sinal_meta.status)} · cobertura ${percent.format(data.sinal_meta.coverage)}`;
+    byId("ranking-walk-forward").textContent = `${data.validacao_walk_forward.version} · treino mín. ${data.validacao_walk_forward.minimum_training_support}`;
 
     const usage = data.resposta_jev && typeof data.resposta_jev === "object" ? data.resposta_jev.usage : null;
     const hasCost = usage && typeof usage === "object"
@@ -452,6 +524,21 @@
       byId("evaluation-next-hit").textContent = immediate.acertou_escolha
         ? `Acertou o ${immediate.numero_real}`
         : `Não acertou · real ${immediate.numero_real} na posição ${immediate.posicao_do_numero_real}`;
+      const metaMetrics = data.metricas_meta_tres_rodadas;
+      const comparison = data.comparacao_meta_vs_jev;
+      if (metaMetrics && comparison) {
+        byId("evaluation-meta-brier").textContent = decimal.format(metaMetrics.brier_medio_37_numeros);
+        byId("evaluation-meta-log-loss").textContent = decimal.format(metaMetrics.log_loss_binario_medio_37_numeros);
+        byId("evaluation-meta-top-hits").textContent = [1, 3, 5, 10]
+          .map((size) => `Top ${size}: ${metaMetrics.acertos_por_corte[`top_${size}`] ? "sim" : "não"}`)
+          .join(" · ");
+        byId("evaluation-meta-comparison").textContent = `Brier ${comparison.ganho_brier >= 0 ? "+" : ""}${decimal.format(comparison.ganho_brier)} · log loss ${comparison.ganho_log_loss >= 0 ? "+" : ""}${decimal.format(comparison.ganho_log_loss)}`;
+      } else {
+        byId("evaluation-meta-brier").textContent = "Não disponível";
+        byId("evaluation-meta-log-loss").textContent = "Não disponível";
+        byId("evaluation-meta-top-hits").textContent = "Não disponível";
+        byId("evaluation-meta-comparison").textContent = "Não disponível";
+      }
       byId("ranking-evaluation-results").hidden = false;
       setOperation("Avaliação concluída sem nova chamada ao Jev.");
     } catch (caught) {
@@ -485,7 +572,9 @@
       });
       const data = await readResponse(response);
       renderRanking(data);
-      setOperation("Ranking concluído. Relações A → B são evidências descritivas, não causalidade.");
+      setOperation(data.sinal_meta.available
+        ? "Ranking concluído com candidatos validados no walk-forward."
+        : `Ranking concluído: ${data.sinal_meta.reason}`);
     } catch (error) {
       setOperation("O ranking não foi concluído.", error instanceof Error ? error.message : "Falha inesperada no ranking.");
     } finally {
@@ -536,6 +625,7 @@
   byId("ranking-evaluation-form").addEventListener("submit", evaluateRanking);
   byId("ranking-view").addEventListener("change", renderRankingRows);
   byId("ranking-pattern-filter").addEventListener("change", renderRankingRows);
+  byId("ranking-validation-filter").addEventListener("change", renderRankingRows);
   byId("ranking-min-support").addEventListener("input", renderRankingRows);
   form.addEventListener("submit", analyze);
   historyInput.addEventListener("input", () => {
