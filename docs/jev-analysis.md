@@ -23,8 +23,14 @@ análise usa somente `historico_texto` recebido no POST e não consulta o histó
   incluindo o zero.
 - `POST /api/jev/avaliar`: recebe os três resultados que chegaram depois de um ranking salvo,
   calcula métricas fora da amostra e grava uma avaliação separada. Não chama o OpenRouter.
+- `POST /api/jev/backtest/iniciar`: congela um snapshot histórico e cria uma execução paga com a
+  quantidade de pontos, contexto, fichas e tentativas escolhidos.
+- `POST /api/jev/backtest/proximo`: executa exatamente o próximo ponto histórico. O índice esperado
+  torna a repetição idempotente e evita uma nova cobrança quando a resposta anterior já foi salva.
+- `GET /api/jev/backtest/{id}`: recupera progresso, assertividade, distribuição dos acertos, tokens
+  e custo real acumulado para permitir retomada após recarregar a página.
 
-As cinco rotas exigem HTTP Basic. Os três POSTs também exigem o token CSRF emitido ao abrir a página.
+Todas as rotas exigem HTTP Basic. Os POSTs também exigem o token CSRF emitido ao abrir a página.
 Configuração de acesso ausente bloqueia somente essas rotas. A chave OpenRouter ausente bloqueia
 somente a análise; página e histórico continuam disponíveis.
 
@@ -89,6 +95,30 @@ A avaliação calcula Brier médio e log loss binário médio para os 37 eventos
 métricas para o meta-ranking e informa o ganho ou perda em relação ao Jev original. O registro de
 avaliação é separado do registro original e nenhuma inferência paga é repetida.
 
+## Backtest pago do ranking original do JEV
+
+O backtest não compara o JEV com o meta-ranking nem com os modelos determinísticos. Em cada ponto
+histórico ele reconstrói o mesmo estado informativo do ranking, envia somente a pergunta Choice da
+próxima rodada e ordena a distribuição devolvida pelo JEV. As primeiras `N` posições são as fichas.
+Essas fichas permanecem fixas durante até `T` resultados futuros e a primeira ocorrência registra
+o acerto e a tentativa. O zero participa das 37 opções em igualdade de condições.
+
+“1.000 pontos históricos” significa até 1.000 chamadas pagas. Cada ponto usa uma janela fixa de
+contexto anterior e as janelas de avaliação podem se sobrepor. Os resultados futuros são separados
+antes da construção do payload e nunca entram no `state` enviado ao modelo. A interface dispara uma
+chamada por vez, pode pausar depois da chamada atual e retoma pelo próximo índice salvo. Timeout,
+conexão interrompida ou resposta inválida são marcados como falha e nunca repetidos automaticamente,
+pois o custo remoto pode ser indeterminado.
+
+O arquivo principal privado guarda configuração, snapshot e agregados; cada resposta avaliada é
+acrescentada a um JSONL privado. A API exibe assertividade (`acertos / previsões concluídas`), acertos
+por tentativa, tentativa média, falhas, tokens de entrada, custo acumulado informado pelo OpenRouter
+e projeção por mil chamadas calculada a partir do custo médio real observado.
+
+O preço de referência configurado é somente informativo para a página. Em 25 de setembro de 2026,
+o `typesafe/jev-1.13` custa US$ 0,042 por milhão de tokens de entrada e não cobra tokens de saída.
+O valor efetivo usado no relatório vem de `usage.cost` de cada resposta, não da estimativa local.
+
 ## Configuração
 
 ```dotenv
@@ -97,6 +127,8 @@ OPENROUTER_MODEL=typesafe/jev-1.13
 JEV_MAX_HISTORY=10000
 JEV_MAX_BODY_BYTES=262144
 JEV_RESULTS_DIR=resultados/jev
+JEV_BACKTEST_MAX_CALLS=1000
+JEV_INPUT_PRICE_PER_MILLION=0.042
 JEV_PANEL_USER=
 JEV_PANEL_PASSWORD=
 ```
@@ -146,6 +178,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=apps ./.venv/bin/python -m pytest -q \
   apps/api/tests/test_jev_evaluation.py \
   apps/api/tests/test_jev_meta_ranking.py \
   apps/api/tests/test_jev_ranking.py \
+  apps/api/tests/test_jev_backtest.py \
   apps/api/tests/test_jev_routes.py
 
 node apps/api/tests/browser/test_jev_page.mjs

@@ -17,7 +17,10 @@ const pageHtml = rawTemplate
   .replaceAll("{{ asset_version }}", "browser-test")
   .replaceAll("{{ csrf_token }}", "csrf-browser-test")
   .replaceAll("{{ max_history }}", "10000")
-  .replaceAll("{{ suggested_history }}", "300");
+  .replaceAll("{{ suggested_history }}", "300")
+  .replaceAll("{{ max_backtest_calls }}", "1000")
+  .replaceAll("{{ suggested_backtest_calls }}", "1000")
+  .replaceAll("{{ jev_input_price_per_million }}", "0.042");
 
 let historyCalls = 0;
 let analysisCalls = 0;
@@ -27,6 +30,51 @@ let rankingCalls = 0;
 let rankingBody = null;
 let evaluationCalls = 0;
 let evaluationBody = null;
+let backtestStartCalls = 0;
+let backtestStepCalls = 0;
+let backtestStep = 0;
+
+function backtestResponse() {
+  const completed = backtestStep >= 2;
+  const hits = Math.min(backtestStep, 1);
+  const misses = Math.max(0, backtestStep - 1);
+  return {
+    backtest_id: "8f3bbcf2-11dc-4f50-aec5-4ff9001e7502",
+    analysis_type: "jev_historical_backtest",
+    status: completed ? "completed" : (backtestStep ? "running" : "ready"),
+    configuration: { history_points: 2, context_numbers: 50, chip_count: 2, attempts: 3 },
+    progress: {
+      total_calls: 2,
+      next_step: backtestStep,
+      attempted_calls: backtestStep,
+      successful_calls: backtestStep,
+      failed_calls: 0,
+    },
+    metrics: {
+      hits,
+      misses,
+      accuracy: backtestStep ? hits / backtestStep : null,
+      hits_by_attempt: { 1: hits, 2: 0, 3: 0 },
+      average_attempt_on_hit: hits ? 1 : null,
+    },
+    usage: {
+      cost_usd: backtestStep * 0.000042,
+      cost_reported_calls: backtestStep,
+      input_tokens: backtestStep * 1000,
+      input_tokens_reported_calls: backtestStep,
+      projected_cost_per_1000_calls_usd: backtestStep ? 0.042 : null,
+    },
+    last_step: backtestStep ? {
+      step: backtestStep - 1,
+      status: "success",
+      selected_numbers: [0, 1],
+      hit: backtestStep === 1,
+      first_hit_attempt: backtestStep === 1 ? 1 : null,
+      hit_number: backtestStep === 1 ? 0 : null,
+    } : null,
+    last_error: null,
+  };
+}
 
 const systemChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const browser = await chromium.launch({
@@ -272,6 +320,18 @@ await page.route("http://jev.test/**", async (route) => {
     });
     return;
   }
+  if (url.pathname === "/api/jev/backtest/iniciar") {
+    backtestStartCalls += 1;
+    backtestStep = 0;
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(backtestResponse()) });
+    return;
+  }
+  if (url.pathname === "/api/jev/backtest/proximo") {
+    backtestStepCalls += 1;
+    backtestStep += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(backtestResponse()) });
+    return;
+  }
   await route.fulfill({ status: 404, body: "not found" });
 });
 
@@ -342,6 +402,18 @@ try {
   assert.match(await page.textContent("#evaluation-next-hit"), /Acertou/);
   assert.match(await page.textContent("#evaluation-meta-comparison"), /Brier/);
 
+  await page.fill("#backtest-history-points", "2");
+  await page.fill("#backtest-context", "50");
+  await page.fill("#backtest-chips", "2");
+  await page.fill("#backtest-attempts", "3");
+  await page.check("#backtest-confirm");
+  await page.click("#backtest-start");
+  await page.waitForFunction(() => document.getElementById("backtest-status").textContent === "Concluído");
+  assert.equal(backtestStartCalls, 1, "backtest must be created once");
+  assert.equal(backtestStepCalls, 2, "two historical points must make two paid calls");
+  assert.equal(await page.textContent("#backtest-accuracy"), "50,00%");
+  assert.match(await page.textContent("#backtest-projected-cost"), /0\.042000/);
+
   await page.fill("#grupo_1", "0, 1, 2");
   assert.equal(await page.isVisible("#result-stale"), true);
   assert.equal(await page.isVisible("#ranking-result-stale"), false, "group edits must not stale the independent ranking");
@@ -357,6 +429,7 @@ try {
   assert.equal(analysisCalls, 2, "there must be no automatic analysis retry");
   assert.equal(rankingCalls, 1, "there must be no automatic ranking retry");
   assert.equal(evaluationCalls, 1, "there must be no automatic evaluation retry");
+  assert.equal(backtestStepCalls, 2, "completed backtest must stop making calls");
   console.log("jev-browser-tests: ok");
 } finally {
   await browser.close();

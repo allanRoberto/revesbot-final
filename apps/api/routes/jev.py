@@ -1,6 +1,7 @@
 """Protected HTML and JSON routes for manual Jev roulette analysis."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -20,10 +21,27 @@ from api.core.runtime_db import history_coll
 from api.schemas.jev import (
     GROUP_KEYS,
     JevAnalysisRequest,
+    JevBacktestStartRequest,
+    JevBacktestStepRequest,
     JevEvaluationRequest,
     JevInputError,
     JevRankingRequest,
     parse_roulette_text,
+)
+from api.services.jev_backtest import (
+    JevBacktestError,
+    JevBacktestNotFoundError,
+    build_backtest_job,
+    build_original_jev_step_payload,
+    create_backtest,
+    load_backtest,
+    public_backtest,
+    record_failure,
+    record_success,
+    required_history_size,
+    save_backtest_step,
+    select_chips,
+    step_window,
 )
 from api.services.jev_history_service import (
     ROULETTE_SLUG,
@@ -84,6 +102,7 @@ JEV_PAGE_ASSETS = (
     API_DIR / "static/js/pages/jev.js",
 )
 _POSITIVE_ASCII_INTEGER = re.compile(r"[0-9]+\Z", re.ASCII)
+_backtest_locks: dict[str, asyncio.Lock] = {}
 
 
 def _asset_version() -> str:
@@ -99,6 +118,10 @@ def _max_history() -> int:
 
 def _max_body_bytes() -> int:
     return max(1, int(settings.jev_max_body_bytes))
+
+
+def _max_backtest_calls() -> int:
+    return max(1, int(settings.jev_backtest_max_calls))
 
 
 def get_jev_history_collection():
@@ -299,6 +322,9 @@ async def jev_page(request: Request, _user: str = Depends(require_jev_access)):
             "csrf_token": csrf_token,
             "max_history": maximum,
             "suggested_history": min(300, maximum),
+            "max_backtest_calls": _max_backtest_calls(),
+            "suggested_backtest_calls": min(1_000, _max_backtest_calls()),
+            "jev_input_price_per_million": float(settings.jev_input_price_per_million),
         },
         headers=_headers(request),
     )
@@ -428,6 +454,261 @@ async def jev_analyze(
         )
 
     return _json_response(request, response_body)
+
+
+@router.post("/api/jev/backtest/iniciar")
+async def jev_backtest_start(
+    request: Request,
+    _user: str = Depends(require_jev_access),
+    _csrf: None = Depends(require_jev_csrf),
+    collection=Depends(get_jev_history_collection),
+    client: OpenRouterJevClient = Depends(get_jev_client),
+):
+    raw_body = await _read_json_body(request)
+    try:
+        payload = JevBacktestStartRequest.model_validate(raw_body)
+    except ValidationError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_backtest_configuration",
+            message="Configuração de backtest inválida.",
+        ) from exc
+    if not payload.confirm_paid_run:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_backtest_confirmation_required",
+            message="Confirme que este backtest realizará chamadas pagas ao Jev.",
+        )
+    maximum_calls = _max_backtest_calls()
+    if payload.history_points > maximum_calls:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_backtest_too_many_calls",
+            message=f"O backtest aceita no máximo {maximum_calls} chamadas por execução.",
+        )
+    required = required_history_size(
+        payload.history_points,
+        payload.context_numbers,
+        payload.attempts,
+    )
+    if required > _max_history():
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_backtest_history_too_large",
+            message=(
+                f"A configuração exige {required} números, acima do limite de "
+                f"{_max_history()}. Reduza pontos, contexto ou tentativas."
+            ),
+        )
+    try:
+        fetched = await fetch_recent_history(collection, required)
+    except JevHistorySourceError as exc:
+        raise jev_http_error(
+            request,
+            status_code=503,
+            code="jev_history_unavailable",
+            message=str(exc),
+        ) from exc
+    history = fetched["historico"]
+    if len(history) != required:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_backtest_insufficient_history",
+            message=(
+                f"A fonte retornou {len(history)} números, mas esta configuração "
+                f"exige {required}."
+            ),
+        )
+    backtest_id = str(uuid4())
+    created_at = utc_iso(datetime.now(timezone.utc))
+    try:
+        job = build_backtest_job(
+            backtest_id=backtest_id,
+            history=history,
+            history_points=payload.history_points,
+            context_numbers=payload.context_numbers,
+            chip_count=payload.chip_count,
+            attempts=payload.attempts,
+            requested_model=client.model,
+            created_at=created_at,
+            history_fetched_at=fetched["buscado_em"],
+        )
+        await create_backtest(job, settings.jev_results_dir)
+    except (JevBacktestError, OSError) as exc:
+        logging.exception("Falha ao criar backtest Jev %s", backtest_id)
+        raise jev_http_error(
+            request,
+            status_code=500,
+            code="jev_backtest_create_error",
+            message="Não foi possível criar o registro privado do backtest.",
+        ) from exc
+    return _json_response(request, public_backtest(job), status_code=201)
+
+
+@router.get("/api/jev/backtest/{backtest_id}")
+async def jev_backtest_status(
+    backtest_id: str,
+    request: Request,
+    _user: str = Depends(require_jev_access),
+):
+    try:
+        job = await load_backtest(backtest_id, settings.jev_results_dir)
+    except JevBacktestNotFoundError as exc:
+        raise jev_http_error(
+            request,
+            status_code=404,
+            code="jev_backtest_not_found",
+            message="O backtest informado não foi encontrado.",
+        ) from exc
+    except JevBacktestError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_backtest",
+            message=str(exc),
+        ) from exc
+    return _json_response(request, public_backtest(job))
+
+
+@router.post("/api/jev/backtest/proximo")
+async def jev_backtest_next(
+    request: Request,
+    _user: str = Depends(require_jev_access),
+    _csrf: None = Depends(require_jev_csrf),
+    client: OpenRouterJevClient = Depends(get_jev_client),
+):
+    raw_body = await _read_json_body(request)
+    try:
+        payload = JevBacktestStepRequest.model_validate(raw_body)
+    except ValidationError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_backtest_step",
+            message="Identificador ou etapa de backtest inválidos.",
+        ) from exc
+
+    lock = _backtest_locks.setdefault(payload.backtest_id, asyncio.Lock())
+    async with lock:
+        try:
+            job = await load_backtest(payload.backtest_id, settings.jev_results_dir)
+        except JevBacktestNotFoundError as exc:
+            raise jev_http_error(
+                request,
+                status_code=404,
+                code="jev_backtest_not_found",
+                message="O backtest informado não foi encontrado.",
+            ) from exc
+        except JevBacktestError as exc:
+            raise jev_http_error(
+                request,
+                status_code=422,
+                code="jev_invalid_backtest",
+                message=str(exc),
+            ) from exc
+
+        next_step = int(job["progress"]["next_step"])
+        if payload.expected_step < next_step:
+            response = public_backtest(job)
+            response["idempotent_replay"] = True
+            return _json_response(request, response)
+        if payload.expected_step > next_step:
+            raise jev_http_error(
+                request,
+                status_code=409,
+                code="jev_backtest_step_conflict",
+                message=f"A próxima etapa esperada é {next_step}.",
+            )
+        if next_step >= int(job["progress"]["total_calls"]):
+            return _json_response(request, public_backtest(job))
+
+        try:
+            history, future = step_window(job, next_step)
+            jev_payload = build_original_jev_step_payload(history)
+        except JevBacktestError as exc:
+            raise jev_http_error(
+                request,
+                status_code=422,
+                code="jev_invalid_backtest",
+                message=str(exc),
+            ) from exc
+
+        try:
+            jev_response = await client.analyze(
+                state=jev_payload["state"], questions=jev_payload["questions"]
+            )
+        except JevConfigurationError as exc:
+            raise jev_http_error(
+                request,
+                status_code=503,
+                code="openrouter_not_configured",
+                message="A chave do OpenRouter não foi configurada no servidor.",
+            ) from exc
+        except JevRequestTooLargeError as exc:
+            raise jev_http_error(
+                request,
+                status_code=422,
+                code="jev_payload_too_large",
+                message="O contexto calculado excedeu o limite seguro do Jev.",
+            ) from exc
+        except JevHTTPStatusError as exc:
+            logging.warning(
+                "OpenRouter recusou etapa de backtest Jev status=%s backtest_id=%s step=%s",
+                exc.provider_status,
+                payload.backtest_id,
+                next_step,
+            )
+            raise _map_openrouter_status(
+                request, exc.provider_status, exc.provider_detail
+            ) from exc
+        except (JevTimeoutError, JevConnectionError, JevInvalidResponseError) as exc:
+            if isinstance(exc, JevTimeoutError):
+                code = "openrouter_timeout"
+                message = "A chamada excedeu 30 segundos; o custo remoto pode ser indeterminado."
+            elif isinstance(exc, JevConnectionError):
+                code = "openrouter_connection_error"
+                message = "A conexão foi interrompida; o custo remoto pode ser indeterminado."
+            else:
+                code = "openrouter_invalid_response"
+                message = "O Jev retornou uma resposta inválida ou incompleta."
+            step_record = record_failure(job, step=next_step, code=code, message=message)
+            await save_backtest_step(job, step_record, settings.jev_results_dir)
+            return _json_response(request, public_backtest(job))
+
+        try:
+            next_choice = jev_response.choices[NEXT_SPIN_CHOICE_KEY]
+            selected = select_chips(
+                next_choice.probabilities,
+                int(job["configuration"]["chip_count"]),
+            )
+            step_record = record_success(
+                job,
+                step=next_step,
+                selected_numbers=selected,
+                future_numbers=future,
+                returned_model=jev_response.returned_model,
+                latency_ms=jev_response.latency_ms,
+                raw_response=jev_response.raw,
+            )
+            await save_backtest_step(job, step_record, settings.jev_results_dir)
+        except (JevBacktestError, KeyError, OSError) as exc:
+            logging.exception(
+                "Falha ao registrar etapa de backtest Jev %s/%s",
+                payload.backtest_id,
+                next_step,
+            )
+            raise jev_http_error(
+                request,
+                status_code=500,
+                code="jev_backtest_step_error",
+                message="A etapa foi chamada, mas não pôde ser registrada com segurança.",
+            ) from exc
+        return _json_response(request, public_backtest(job))
 
 
 @router.post("/api/jev/ranking")

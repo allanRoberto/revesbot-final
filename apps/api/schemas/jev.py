@@ -5,7 +5,7 @@ import re
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
 
 GROUP_KEYS = tuple(f"grupo_{index}" for index in range(1, 7))
@@ -98,4 +98,36 @@ class JevEvaluationRequest(BaseModel):
             raise ValueError("analysis_id deve ser um UUID válido") from exc
         if str(parsed) != value:
             raise ValueError("analysis_id deve usar o formato UUID canônico")
+        return value
+
+
+class JevBacktestStartRequest(BaseModel):
+    """Configuration for a paid historical replay of the original Jev ranking."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    history_points: Annotated[StrictInt, Field(ge=1)]
+    context_numbers: Annotated[StrictInt, Field(ge=50)]
+    chip_count: Annotated[StrictInt, Field(ge=1, le=36)]
+    attempts: Annotated[StrictInt, Field(ge=1, le=100)]
+    confirm_paid_run: StrictBool
+
+
+class JevBacktestStepRequest(BaseModel):
+    """Idempotent request for exactly one paid historical Jev call."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    backtest_id: str
+    expected_step: Annotated[StrictInt, Field(ge=0)]
+
+    @field_validator("backtest_id")
+    @classmethod
+    def validate_backtest_id(cls, value: str) -> str:
+        try:
+            parsed = UUID(value)
+        except (ValueError, AttributeError) as exc:
+            raise ValueError("backtest_id deve ser um UUID válido") from exc
+        if str(parsed) != value:
+            raise ValueError("backtest_id deve usar o formato UUID canônico")
         return value

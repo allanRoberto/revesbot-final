@@ -79,6 +79,29 @@ dd { margin: 0; font: 11px/1.4 var(--mono); overflow-wrap: anywhere; }
 .operation-status, .operation-error { margin: 0; font-size: 11px; }
 .operation-status { color: var(--muted); }
 .operation-error { color: var(--danger); margin-top: 6px; }
+.backtest-panel { padding: 25px; margin-bottom: 18px; }
+.paid-badge { color: var(--warning); border: 1px solid #675a35; background: #251f12; padding: 6px 9px; border-radius: 999px; font: 9px var(--mono); }
+.backtest-intro { max-width: 900px; margin: -4px 0 18px; color: var(--muted); font-size: 11px; line-height: 1.65; }
+.backtest-form { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 10px; }
+.backtest-form > label:not(.paid-confirmation) { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
+.backtest-form input[type="number"] { display: block; width: 100%; height: 42px; margin-top: 6px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--text); background: #0e1310; font-family: var(--mono); }
+.backtest-form small { display: block; min-height: 14px; margin-top: 5px; color: var(--muted); font-size: 9px; line-height: 1.4; text-transform: none; letter-spacing: 0; }
+.paid-confirmation { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid #4c4429; border-radius: 8px; color: #c8c0a7; background: #1b1810; font-size: 10px; line-height: 1.5; }
+.paid-confirmation input { margin-top: 2px; accent-color: var(--accent); }
+.backtest-actions { grid-column: 1 / -1; display: flex; gap: 9px; justify-content: flex-end; }
+.backtest-progress-region { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+.backtest-progress-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 9px; font: 10px var(--mono); }
+.backtest-progress-heading span { color: var(--muted); }
+.backtest-progress-region progress { width: 100%; height: 10px; margin-bottom: 14px; border: 0; border-radius: 999px; overflow: hidden; background: #0e1310; }
+.backtest-progress-region progress::-webkit-progress-bar { background: #0e1310; }
+.backtest-progress-region progress::-webkit-progress-value { background: var(--accent); }
+.backtest-progress-region progress::-moz-progress-bar { background: var(--accent); }
+.backtest-metrics { margin-bottom: 18px; }
+.attempt-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 7px; }
+.attempt-bar { min-height: 64px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); }
+.attempt-bar span, .attempt-bar strong { display: block; }
+.attempt-bar span { color: var(--muted); font-size: 9px; }
+.attempt-bar strong { margin-top: 7px; color: var(--accent); font: 600 15px var(--mono); }
 .results { padding: 25px; }
 .results + .results { margin-top: 18px; }
 .results-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 18px; }
@@ -130,20 +153,23 @@ dialog input { height: 48px; padding: 0 12px; font-family: var(--mono); }
   .history-summary > p { grid-column: 1 / -1; }
   .fetch-metadata, .result-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ranking-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .backtest-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .evaluation-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
   .site-header { padding: 0 16px; }
   .private-label { display: none; }
   h1 { font-size: 38px; }
-  .history-panel, .groups-panel, .results { padding: 19px 16px; }
+  .history-panel, .groups-panel, .results, .backtest-panel { padding: 19px 16px; }
   .panel-heading { flex-direction: column; }
   .panel-heading .secondary-button { width: 100%; }
   .action-panel { align-items: stretch; flex-direction: column; padding: 19px 16px; }
   .action-buttons { grid-template-columns: 1fr; }
   .action-panel .primary-button, .action-panel .secondary-button { width: 100%; }
   .catalog-heading { align-items: flex-start; flex-direction: column; }
-  .ranking-controls, .evaluation-form, .evaluation-results { grid-template-columns: 1fr; }
+  .ranking-controls, .evaluation-form, .evaluation-results, .backtest-form { grid-template-columns: 1fr; }
+  .backtest-actions { align-items: stretch; flex-direction: column; }
+  .backtest-actions .primary-button, .backtest-actions .secondary-button { width: 100%; }
   .fetch-metadata, .result-metadata { grid-template-columns: 1fr; }
   .disclaimer { grid-template-columns: 1fr; }
 }

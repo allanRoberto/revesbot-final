@@ -4,6 +4,8 @@
   const byId = (id) => document.getElementById(id);
   const groupIds = ["grupo_1", "grupo_2", "grupo_3", "grupo_4", "grupo_5", "grupo_6"];
   const maxHistory = Number(document.querySelector('meta[name="jev-max-history"]').content);
+  const maxBacktestCalls = Number(document.querySelector('meta[name="jev-backtest-max-calls"]').content);
+  const jevInputPricePerMillion = Number(document.querySelector('meta[name="jev-input-price-per-million"]').content);
   const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
   const form = byId("jev-form");
   const historyInput = byId("history-input");
@@ -16,6 +18,9 @@
   let busy = false;
   let historyEdited = false;
   let latestRankingData = null;
+  let activeBacktest = null;
+  let backtestRunning = false;
+  let backtestStopRequested = false;
 
   function parseSequence(text, label) {
     const stripped = text.replace(/^[ ,;\t\r\n]+|[ ,;\t\r\n]+$/g, "");
@@ -613,6 +618,187 @@
     }
   }
 
+  function backtestInteger(id, minimum, maximum, label) {
+    const value = Number(byId(id).value);
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+      throw new Error(`${label} deve estar entre ${minimum} e ${maximum}.`);
+    }
+    return value;
+  }
+
+  function updateBacktestEstimate() {
+    const calls = Number(byId("backtest-history-points").value);
+    const context = Number(byId("backtest-context").value);
+    const attempts = Number(byId("backtest-attempts").value);
+    const required = Number.isFinite(calls + context + attempts)
+      ? calls + context + attempts - 1 : 0;
+    const rate = new Intl.NumberFormat("en-US", {
+      style: "currency", currency: "USD", minimumFractionDigits: 3, maximumFractionDigits: 3,
+    }).format(jevInputPricePerMillion);
+    byId("backtest-estimate").textContent = `Histórico necessário: ${required || "—"} números. Preço de referência: ${rate} por 1 milhão de tokens de entrada; saída sem custo. Em 1.000 chamadas: 5 mil tokens/chamada ≈ US$ 0,21; 10 mil ≈ US$ 0,42; 32 mil ≈ US$ 1,344. O painel acumula o custo real informado pela API.`;
+  }
+
+  function setBacktestControls(running) {
+    backtestRunning = running;
+    document.querySelectorAll("#backtest-form input, #backtest-start").forEach((control) => {
+      control.disabled = running;
+    });
+    const pause = byId("backtest-pause");
+    pause.disabled = !running && (!activeBacktest
+      || activeBacktest.progress.next_step >= activeBacktest.progress.total_calls);
+    pause.textContent = running ? "Pausar após a chamada atual" : "Retomar backtest";
+    byId("backtest-start").textContent = running ? "Executando..." : "Iniciar novo backtest";
+  }
+
+  function backtestStatusLabel(data) {
+    if (data.status === "completed") return "Concluído";
+    if (data.status === "completed_with_errors") return "Concluído com falhas";
+    if (data.status === "paused_error") return "Pausado por falha";
+    if (!backtestRunning && data.progress.next_step < data.progress.total_calls) return "Pausado";
+    return "Executando";
+  }
+
+  function renderBacktest(data) {
+    if (!data || data.analysis_type !== "jev_historical_backtest" || !data.progress
+        || !data.metrics || !data.usage || !data.configuration) {
+      throw new Error("A API retornou um backtest inválido.");
+    }
+    activeBacktest = data;
+    const { progress, metrics, usage } = data;
+    const attempted = progress.attempted_calls;
+    const total = progress.total_calls;
+    byId("backtest-progress-region").hidden = false;
+    byId("backtest-progress").max = Math.max(1, total);
+    byId("backtest-progress").value = attempted;
+    byId("backtest-progress-label").textContent = `${attempted} / ${total} chamadas`;
+    byId("backtest-status").textContent = backtestStatusLabel(data);
+    const percent = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const decimal = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6 });
+    byId("backtest-accuracy").textContent = typeof metrics.accuracy === "number" ? percent.format(metrics.accuracy) : "—";
+    byId("backtest-hit-loss").textContent = `${metrics.hits} / ${metrics.misses}`;
+    byId("backtest-average-attempt").textContent = typeof metrics.average_attempt_on_hit === "number"
+      ? decimal.format(metrics.average_attempt_on_hit) : "—";
+    byId("backtest-failures").textContent = String(progress.failed_calls);
+    byId("backtest-input-tokens").textContent = usage.input_tokens_reported_calls
+      ? `${new Intl.NumberFormat("pt-BR").format(usage.input_tokens)} (${usage.input_tokens_reported_calls} chamadas)` : "Não informado";
+    byId("backtest-cost").textContent = usage.cost_reported_calls ? usd.format(usage.cost_usd) : "Não informado";
+    byId("backtest-projected-cost").textContent = typeof usage.projected_cost_per_1000_calls_usd === "number"
+      ? usd.format(usage.projected_cost_per_1000_calls_usd) : "Aguardando custo real";
+    byId("backtest-id").textContent = data.backtest_id;
+    const bars = Object.entries(metrics.hits_by_attempt).map(([attempt, count]) => {
+      const item = document.createElement("div");
+      item.className = "attempt-bar";
+      const label = document.createElement("span");
+      label.textContent = `Tentativa ${attempt}`;
+      const value = document.createElement("strong");
+      value.textContent = String(count);
+      item.append(label, value);
+      return item;
+    });
+    byId("backtest-attempt-bars").replaceChildren(...bars);
+    const last = data.last_step;
+    if (last && last.status === "success") {
+      byId("backtest-last-step").textContent = last.hit
+        ? `Último ponto: acerto do número ${last.hit_number} na tentativa ${last.first_hit_attempt}; fichas ${last.selected_numbers.join(", ")}.`
+        : `Último ponto: sem acerto; fichas ${last.selected_numbers.join(", ")}.`;
+    } else if (last && last.status === "failed") {
+      byId("backtest-last-step").textContent = `Último ponto falhou: ${last.error.message}`;
+    } else {
+      byId("backtest-last-step").textContent = "Nenhuma chamada executada ainda.";
+    }
+    localStorage.setItem("jev-active-backtest-id", data.backtest_id);
+  }
+
+  async function runBacktest() {
+    if (backtestRunning || !activeBacktest) return;
+    backtestStopRequested = false;
+    setBacktestControls(true);
+    byId("backtest-error").hidden = true;
+    try {
+      while (!backtestStopRequested
+          && activeBacktest.progress.next_step < activeBacktest.progress.total_calls) {
+        const response = await fetch("/api/jev/backtest/proximo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-Token": csrfToken },
+          credentials: "same-origin",
+          cache: "no-store",
+          body: JSON.stringify({
+            backtest_id: activeBacktest.backtest_id,
+            expected_step: activeBacktest.progress.next_step,
+          }),
+        });
+        const data = await readResponse(response);
+        renderBacktest(data);
+        if (data.status === "paused_error") {
+          throw new Error(data.last_error ? data.last_error.message : "Uma chamada do backtest falhou.");
+        }
+      }
+    } catch (error) {
+      byId("backtest-error").textContent = error instanceof Error ? error.message : "Falha inesperada no backtest.";
+      byId("backtest-error").hidden = false;
+    } finally {
+      setBacktestControls(false);
+      if (activeBacktest) renderBacktest(activeBacktest);
+    }
+  }
+
+  async function startBacktest(event) {
+    event.preventDefault();
+    if (backtestRunning) return;
+    byId("backtest-error").hidden = true;
+    try {
+      const historyPoints = backtestInteger("backtest-history-points", 1, maxBacktestCalls, "Pontos históricos");
+      const contextNumbers = backtestInteger("backtest-context", 50, maxHistory, "Contexto");
+      const chipCount = backtestInteger("backtest-chips", 1, 36, "Fichas");
+      const attempts = backtestInteger("backtest-attempts", 1, 100, "Tentativas");
+      if (contextNumbers + historyPoints + attempts - 1 > maxHistory) {
+        throw new Error(`A configuração exige ${contextNumbers + historyPoints + attempts - 1} números, acima do limite de ${maxHistory}.`);
+      }
+      if (!byId("backtest-confirm").checked) {
+        throw new Error("Confirme que o backtest fará chamadas pagas.");
+      }
+      setBacktestControls(true);
+      const response = await fetch("/api/jev/backtest/iniciar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-Token": csrfToken },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({
+          history_points: historyPoints,
+          context_numbers: contextNumbers,
+          chip_count: chipCount,
+          attempts,
+          confirm_paid_run: true,
+        }),
+      });
+      const data = await readResponse(response);
+      renderBacktest(data);
+    } catch (error) {
+      byId("backtest-error").textContent = error instanceof Error ? error.message : "Falha ao iniciar o backtest.";
+      byId("backtest-error").hidden = false;
+      setBacktestControls(false);
+      return;
+    }
+    setBacktestControls(false);
+    await runBacktest();
+  }
+
+  async function restoreBacktest() {
+    const backtestId = localStorage.getItem("jev-active-backtest-id");
+    if (!backtestId) return;
+    try {
+      const response = await fetch(`/api/jev/backtest/${encodeURIComponent(backtestId)}`, {
+        headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store",
+      });
+      const data = await readResponse(response);
+      renderBacktest(data);
+      setBacktestControls(false);
+    } catch (_error) {
+      localStorage.removeItem("jev-active-backtest-id");
+    }
+  }
+
   byId("open-history-dialog").addEventListener("click", () => {
     if (busy) return;
     byId("quantity-error").hidden = true;
@@ -627,6 +813,19 @@
   byId("ranking-pattern-filter").addEventListener("change", renderRankingRows);
   byId("ranking-validation-filter").addEventListener("change", renderRankingRows);
   byId("ranking-min-support").addEventListener("input", renderRankingRows);
+  byId("backtest-form").addEventListener("submit", startBacktest);
+  byId("backtest-pause").addEventListener("click", () => {
+    if (backtestRunning) {
+      backtestStopRequested = true;
+      byId("backtest-pause").disabled = true;
+      byId("backtest-pause").textContent = "Pausando...";
+    } else {
+      runBacktest();
+    }
+  });
+  ["backtest-history-points", "backtest-context", "backtest-attempts"].forEach((id) => {
+    byId(id).addEventListener("input", updateBacktestEstimate);
+  });
   form.addEventListener("submit", analyze);
   historyInput.addEventListener("input", () => {
     historyEdited = true;
@@ -640,4 +839,6 @@
   }));
 
   validateForm();
+  updateBacktestEstimate();
+  restoreBacktest();
 })();
