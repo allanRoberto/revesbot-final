@@ -640,7 +640,9 @@ async def jev_backtest_next(
 
         try:
             jev_response = await client.analyze(
-                state=jev_payload["state"], questions=jev_payload["questions"]
+                state=jev_payload["state"],
+                questions=jev_payload["questions"],
+                require_choice_confidence=False,
             )
         except JevConfigurationError as exc:
             raise jev_http_error(
@@ -675,7 +677,17 @@ async def jev_backtest_next(
                 message = "A conexão foi interrompida; o custo remoto pode ser indeterminado."
             else:
                 code = "openrouter_invalid_response"
-                message = "O Jev retornou uma resposta inválida ou incompleta."
+                message = (
+                    "O Jev retornou uma resposta inválida ou incompleta. "
+                    f"Detalhe de validação: {exc}"
+                )
+                logging.warning(
+                    "Resposta inválida em etapa de backtest Jev "
+                    "backtest_id=%s step=%s reason=%s",
+                    payload.backtest_id,
+                    next_step,
+                    exc,
+                )
             step_record = record_failure(job, step=next_step, code=code, message=message)
             await save_backtest_step(job, step_record, settings.jev_results_dir)
             return _json_response(request, public_backtest(job))

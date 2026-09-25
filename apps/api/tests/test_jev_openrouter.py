@@ -236,6 +236,55 @@ def test_response_validation_accepts_choice_score_and_noul_together() -> None:
     assert result.scores["relacao_17_00"].score == 1.5
 
 
+def test_choice_confidence_can_be_optional_for_probability_only_consumers() -> None:
+    questions = {
+        "proxima_rodada": {"type": "choice", "criteria": {"0": "zero", "1": "one"}}
+    }
+    payload = {
+        "answers": {
+            "proxima_rodada": {
+                "type": "choice",
+                "choice": "0",
+                "probabilities": {"0": 0.6, "1": 0.4},
+            }
+        }
+    }
+
+    with pytest.raises(JevInvalidResponseError, match="confiança"):
+        validate_jev_response(payload, expected_questions=questions)
+
+    result = validate_jev_response(
+        payload,
+        expected_questions=questions,
+        require_choice_confidence=False,
+    )
+    assert result.choices["proxima_rodada"].confidence is None
+    assert result.choices["proxima_rodada"].probabilities == {"0": 0.6, "1": 0.4}
+
+
+def test_choice_distribution_normalizes_only_small_rounding_drift() -> None:
+    questions = {
+        "proxima_rodada": {"type": "choice", "criteria": {"0": "zero", "1": "one"}}
+    }
+    payload = {
+        "answers": {
+            "proxima_rodada": {
+                "type": "choice",
+                "choice": "0",
+                "confidence": 0.7,
+                "probabilities": {"0": 0.6004, "1": 0.4},
+            }
+        }
+    }
+
+    result = validate_jev_response(payload, expected_questions=questions)
+    assert sum(result.choices["proxima_rodada"].probabilities.values()) == pytest.approx(1.0)
+
+    payload["answers"]["proxima_rodada"]["probabilities"] = {"0": 0.61, "1": 0.4}
+    with pytest.raises(JevInvalidResponseError, match="soma 1.010000"):
+        validate_jev_response(payload, expected_questions=questions)
+
+
 @pytest.mark.parametrize(
     "mutate",
     [

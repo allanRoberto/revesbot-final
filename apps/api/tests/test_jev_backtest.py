@@ -55,8 +55,14 @@ class FakeBacktestJevClient:
     def __init__(self):
         self.calls = []
 
-    async def analyze(self, *, state, questions):
-        self.calls.append({"state": state, "questions": questions})
+    async def analyze(self, *, state, questions, require_choice_confidence=True):
+        self.calls.append(
+            {
+                "state": state,
+                "questions": questions,
+                "require_choice_confidence": require_choice_confidence,
+            }
+        )
         probabilities = {str(number): 0.0 for number in range(37)}
         probabilities["0"] = 0.6
         probabilities["1"] = 0.4
@@ -176,6 +182,7 @@ def test_backtest_routes_run_one_paid_call_per_idempotent_step(monkeypatch, tmp_
     assert first.json()["metrics"]["accuracy"] == 1.0
     assert first.json()["usage"]["projected_cost_per_1000_calls_usd"] == 0.042
     assert set(jev_client.calls[0]["questions"]) == {NEXT_SPIN_CHOICE_KEY}
+    assert jev_client.calls[0]["require_choice_confidence"] is False
 
     replay = client.post(
         "/api/jev/backtest/proximo",

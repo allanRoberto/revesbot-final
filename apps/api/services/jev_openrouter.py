@@ -16,6 +16,7 @@ from api.schemas.jev import GROUP_KEYS
 OPENROUTER_DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 REQUEST_TIMEOUT_SECONDS = 30.0
 MAX_JEV_REQUEST_BYTES = 64 * 1024
+DISTRIBUTION_SUM_ABS_TOLERANCE = 1e-3
 _SENSITIVE_RESPONSE_KEYS = {
     "api_key",
     "apikey",
@@ -67,7 +68,7 @@ class JevHTTPStatusError(JevOpenRouterError):
 class ValidatedChoiceAnswer:
     choice: str
     probabilities: dict[str, float]
-    confidence: float
+    confidence: float | None
 
 
 @dataclass(frozen=True)
@@ -125,6 +126,7 @@ def validate_jev_response(
     latency_ms: int = 0,
     expected_noul_keys: Sequence[str] = GROUP_KEYS,
     expected_questions: Mapping[str, Any] | None = None,
+    require_choice_confidence: bool = True,
 ) -> ValidatedJevResponse:
     if not isinstance(payload, dict):
         raise JevInvalidResponseError("A resposta do Jev não é um objeto JSON.")
@@ -184,9 +186,16 @@ def validate_jev_response(
             answer_probabilities = _validate_distribution(
                 answer.get("probabilities"), option_keys, question_id
             )
-            confidence = _validate_unit_interval(
-                answer.get("confidence"), question_id, "confiança"
+            raw_confidence = answer.get("confidence")
+            confidence = (
+                _validate_unit_interval(raw_confidence, question_id, "confiança")
+                if raw_confidence is not None
+                else None
             )
+            if require_choice_confidence and confidence is None:
+                raise JevInvalidResponseError(
+                    f"A confiança de {question_id} não foi retornada."
+                )
             choices[question_id] = ValidatedChoiceAnswer(
                 choice=choice,
                 probabilities=answer_probabilities,
@@ -261,10 +270,21 @@ def _validate_distribution(
         key: _validate_unit_interval(value[key], question_id, f"probabilidade {key}")
         for key in expected_keys
     }
-    if not math.isclose(sum(distribution.values()), 1.0, rel_tol=0.0, abs_tol=1e-6):
+    total = sum(distribution.values())
+    if not math.isclose(
+        total,
+        1.0,
+        rel_tol=0.0,
+        abs_tol=DISTRIBUTION_SUM_ABS_TOLERANCE,
+    ):
         raise JevInvalidResponseError(
-            f"A distribuição de probabilidades de {question_id} não soma 1."
+            f"A distribuição de probabilidades de {question_id} soma {total:.6f}, não 1."
         )
+    # The Decisions API can round each option independently. Keep the strict
+    # per-option/key checks above, but normalize a sub-0.1% rounding drift so
+    # ranking comparisons use a proper distribution.
+    if total != 1.0:
+        distribution = {key: probability / total for key, probability in distribution.items()}
     return distribution
 
 
@@ -299,6 +319,7 @@ class OpenRouterJevClient:
         *,
         state: Mapping[str, Any],
         questions: Mapping[str, Any],
+        require_choice_confidence: bool = True,
     ) -> ValidatedJevResponse:
         if not self.api_key:
             raise JevConfigurationError("OPENROUTER_API_KEY não configurada.")
@@ -346,4 +367,5 @@ class OpenRouterJevClient:
             decoded,
             latency_ms=latency_ms,
             expected_questions=questions,
+            require_choice_confidence=require_choice_confidence,
         )
