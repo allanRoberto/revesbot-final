@@ -272,7 +272,7 @@ def test_choice_distribution_normalizes_only_small_rounding_drift() -> None:
                 "type": "choice",
                 "choice": "0",
                 "confidence": 0.7,
-                "probabilities": {"0": 0.6004, "1": 0.4},
+                "probabilities": {"0": 0.59, "1": 0.4},
             }
         }
     }
@@ -280,8 +280,8 @@ def test_choice_distribution_normalizes_only_small_rounding_drift() -> None:
     result = validate_jev_response(payload, expected_questions=questions)
     assert sum(result.choices["proxima_rodada"].probabilities.values()) == pytest.approx(1.0)
 
-    payload["answers"]["proxima_rodada"]["probabilities"] = {"0": 0.61, "1": 0.4}
-    with pytest.raises(JevInvalidResponseError, match="soma 1.010000"):
+    payload["answers"]["proxima_rodada"]["probabilities"] = {"0": 0.63, "1": 0.4}
+    with pytest.raises(JevInvalidResponseError, match="soma 1.030000"):
         validate_jev_response(payload, expected_questions=questions)
 
 

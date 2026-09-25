@@ -16,7 +16,11 @@ from api.schemas.jev import GROUP_KEYS
 OPENROUTER_DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 REQUEST_TIMEOUT_SECONDS = 30.0
 MAX_JEV_REQUEST_BYTES = 64 * 1024
-DISTRIBUTION_SUM_ABS_TOLERANCE = 1e-3
+# Choice probabilities are currently returned rounded to hundredths. With 37
+# roulette options the published values can legitimately total 0.99 or 1.01.
+# A 2% cap accepts that presentation loss while still rejecting materially
+# incomplete or malformed distributions; accepted values are normalized below.
+DISTRIBUTION_SUM_ABS_TOLERANCE = 2e-2
 _SENSITIVE_RESPONSE_KEYS = {
     "api_key",
     "apikey",
@@ -281,7 +285,7 @@ def _validate_distribution(
             f"A distribuição de probabilidades de {question_id} soma {total:.6f}, não 1."
         )
     # The Decisions API can round each option independently. Keep the strict
-    # per-option/key checks above, but normalize a sub-0.1% rounding drift so
+    # per-option/key checks above, but normalize the bounded rounding drift so
     # ranking comparisons use a proper distribution.
     if total != 1.0:
         distribution = {key: probability / total for key, probability in distribution.items()}
