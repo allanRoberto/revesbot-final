@@ -15,6 +15,13 @@ try:
         pixgo_api_key: str | None = None
         pixgo_webhook_secret: str | None = None
         pixgo_base_url: str = "https://pixgo.org/api/v1"
+        openrouter_api_key: str | None = None
+        openrouter_model: str = "typesafe/jev-1.13"
+        jev_max_history: int = 10_000
+        jev_max_body_bytes: int = 262_144
+        jev_results_dir: str = "resultados/jev"
+        jev_panel_user: str | None = None
+        jev_panel_password: str | None = None
 
         model_config = SettingsConfigDict(
             env_file=".env",
@@ -38,6 +45,13 @@ except Exception:  # pragma: no cover - fallback for older envs
         pixgo_api_key: str | None = None
         pixgo_webhook_secret: str | None = None
         pixgo_base_url: str = "https://pixgo.org/api/v1"
+        openrouter_api_key: str | None = None
+        openrouter_model: str = "typesafe/jev-1.13"
+        jev_max_history: int = 10_000
+        jev_max_body_bytes: int = 262_144
+        jev_results_dir: str = "resultados/jev"
+        jev_panel_user: str | None = None
+        jev_panel_password: str | None = None
 
         class Config:
             env_file = ".env"

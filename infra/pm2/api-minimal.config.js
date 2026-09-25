@@ -55,6 +55,13 @@ module.exports = {
         PIXGO_API_KEY: process.env.PIXGO_API_KEY,
         PIXGO_WEBHOOK_SECRET: process.env.PIXGO_WEBHOOK_SECRET,
         PIXGO_BASE_URL: process.env.PIXGO_BASE_URL,
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+        OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || "typesafe/jev-1.13",
+        JEV_MAX_HISTORY: process.env.JEV_MAX_HISTORY || "10000",
+        JEV_MAX_BODY_BYTES: process.env.JEV_MAX_BODY_BYTES || "262144",
+        JEV_RESULTS_DIR: process.env.JEV_RESULTS_DIR || "resultados/jev",
+        JEV_PANEL_USER: process.env.JEV_PANEL_USER,
+        JEV_PANEL_PASSWORD: process.env.JEV_PANEL_PASSWORD,
         TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN:
           process.env.TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN,
         BEHAVIOR_LAB_RELEASE_ID: releaseId,

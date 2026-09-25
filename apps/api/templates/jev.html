@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101512">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="jev-max-history" content="{{ max_history }}">
+  <title>Análise de roleta com Jev</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/jev.css?v={{ asset_version }}">
+  <script defer src="/static/js/pages/jev.js?v={{ asset_version }}"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/jev" aria-label="Revesbot — Análise com Jev">
+      <span class="brand-mark" aria-hidden="true">r<span>.</span></span>
+      <span>revesbot<span class="brand-divider">/</span><span class="brand-section">Jev</span></span>
+    </a>
+    <span class="private-label">Área administrativa</span>
+  </header>
+
+  <main class="page">
+    <section class="hero" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">ANÁLISE MANUAL · SYSTEM ONE</p>
+        <h1 id="page-title">Análise de roleta com Jev<span>.</span></h1>
+        <p class="intro">Busque um snapshot, revise os números e envie exatamente o conteúdo atual do formulário.</p>
+      </div>
+      <div class="roulette-badge"><span aria-hidden="true">◎</span><div><small>Mesa fixa</small><strong>Pragmatic Auto Roulette</strong></div></div>
+    </section>
+
+    <form id="jev-form" class="workspace" novalidate>
+      <section class="panel history-panel" aria-labelledby="history-title">
+        <div class="panel-heading">
+          <div><span class="step">01</span><div><h2 id="history-title">Histórico</h2><p>O texto abaixo será a única fonte da análise.</p></div></div>
+          <button id="open-history-dialog" class="secondary-button" type="button" data-operation-control>Buscar números</button>
+        </div>
+
+        <label class="field-label" for="history-input">Histórico — mais antigo primeiro, mais recente por último</label>
+        <textarea id="history-input" class="sequence-input editable-control" rows="8" spellcheck="false" autocomplete="off" placeholder="Ex.: 1, 7, 0, 2, 8, 3" aria-describedby="history-help history-error history-origin"></textarea>
+        <p id="history-help" class="field-help">Use números de 0 a 36 separados por vírgula, ponto e vírgula, espaço, tabulação ou quebra de linha.</p>
+        <p id="history-error" class="field-error" role="alert" hidden></p>
+
+        <div class="history-summary" aria-live="polite">
+          <div><span>Quantidade atual</span><strong id="current-count">0</strong></div>
+          <div><span>Último número</span><strong id="current-last">—</strong></div>
+          <p id="history-origin">Nenhum histórico carregado.</p>
+        </div>
+
+        <dl id="fetch-metadata" class="fetch-metadata" hidden>
+          <div><dt>Solicitados</dt><dd id="fetched-requested">—</dd></div>
+          <div><dt>Recebidos</dt><dd id="fetched-returned">—</dd></div>
+          <div><dt>Busca concluída</dt><dd id="fetched-at">—</dd></div>
+          <div id="last-result-row" hidden><dt>Último resultado</dt><dd id="last-result-at">—</dd></div>
+        </dl>
+        <p id="fetch-note" class="inline-note" hidden></p>
+      </section>
+
+      <section class="panel groups-panel" aria-labelledby="groups-title">
+        <div class="panel-heading compact-heading">
+          <div><span class="step">02</span><div><h2 id="groups-title">Grupos</h2><p>Exemplos editáveis, não recomendações.</p></div></div>
+        </div>
+        <div class="groups-grid">
+          <label class="group-field" for="grupo_1"><span>Grupo 1</span><input id="grupo_1" class="editable-control group-input" value="1, 2, 3, 4, 5, 6" autocomplete="off" spellcheck="false" aria-describedby="grupo_1_error"><small id="grupo_1_error"></small></label>
+          <label class="group-field" for="grupo_2"><span>Grupo 2</span><input id="grupo_2" class="editable-control group-input" value="7, 8, 9, 10, 11, 12" autocomplete="off" spellcheck="false" aria-describedby="grupo_2_error"><small id="grupo_2_error"></small></label>
+          <label class="group-field" for="grupo_3"><span>Grupo 3</span><input id="grupo_3" class="editable-control group-input" value="13, 14, 15, 16, 17, 18" autocomplete="off" spellcheck="false" aria-describedby="grupo_3_error"><small id="grupo_3_error"></small></label>
+          <label class="group-field" for="grupo_4"><span>Grupo 4</span><input id="grupo_4" class="editable-control group-input" value="19, 20, 21, 22, 23, 24" autocomplete="off" spellcheck="false" aria-describedby="grupo_4_error"><small id="grupo_4_error"></small></label>
+          <label class="group-field" for="grupo_5"><span>Grupo 5</span><input id="grupo_5" class="editable-control group-input" value="25, 26, 27, 28, 29, 30" autocomplete="off" spellcheck="false" aria-describedby="grupo_5_error"><small id="grupo_5_error"></small></label>
+          <label class="group-field" for="grupo_6"><span>Grupo 6</span><input id="grupo_6" class="editable-control group-input" value="31, 32, 33, 34, 35, 36" autocomplete="off" spellcheck="false" aria-describedby="grupo_6_error"><small id="grupo_6_error"></small></label>
+        </div>
+        <p class="field-help">Cada grupo pode ter tamanho diferente, pode incluir zero e pode se sobrepor a outros grupos. Não repita um número dentro do mesmo grupo.</p>
+      </section>
+
+      <section class="action-panel" aria-labelledby="analysis-title">
+        <div><p class="eyebrow">03 · CHAMADA PAGA</p><h2 id="analysis-title">Executar análise</h2><p>Uma ação intencional envia as seis perguntas em uma única requisição ao Jev.</p></div>
+        <button id="analyze-button" class="primary-button" type="submit" data-operation-control disabled><span id="analyze-label">Executar análise</span><span aria-hidden="true">→</span></button>
+      </section>
+    </form>
+
+    <section class="status-region" aria-live="polite" aria-atomic="true">
+      <p id="operation-status" class="operation-status">Preencha um histórico válido para analisar.</p>
+      <p id="operation-error" class="operation-error" role="alert" hidden></p>
+    </section>
+
+    <section id="results-section" class="results panel" aria-labelledby="results-title" hidden>
+      <div class="results-heading">
+        <div><p class="eyebrow">RESULTADO EXPERIMENTAL</p><h2 id="results-title">Estimativas do Jev</h2></div>
+        <span id="result-stale" class="stale-badge" hidden>Resultado desatualizado</span>
+      </div>
+
+      <dl class="result-metadata">
+        <div><dt>Quantidade</dt><dd id="result-count">—</dd></div>
+        <div><dt>Último número</dt><dd id="result-last">—</dd></div>
+        <div><dt>Horizonte</dt><dd id="result-horizon">—</dd></div>
+        <div><dt>Modelo retornado</dt><dd id="result-model">—</dd></div>
+        <div><dt>Respondido em</dt><dd id="result-at">—</dd></div>
+        <div><dt>Latência</dt><dd id="result-latency">—</dd></div>
+        <div id="result-cost-row" hidden><dt>Custo informado</dt><dd id="result-cost">—</dd></div>
+      </dl>
+
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Grupo</th><th>Números</th><th>Estimativa Jev (não validada)</th><th>Base matemática</th></tr></thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+      <ul id="analysis-warnings" class="warnings" hidden></ul>
+      <details class="json-details">
+        <summary>Resposta JSON do Jev</summary>
+        <pre id="jev-json"></pre>
+      </details>
+    </section>
+
+    <aside class="disclaimer">
+      <strong>Aviso</strong>
+      <p>Estimativas experimentais, não validadas. O horizonte corresponde às três rodadas após o último resultado do histórico enviado. Esta página não acompanha novas rodadas e não garante acertos ou lucro.</p>
+    </aside>
+  </main>
+
+  <dialog id="history-dialog" aria-labelledby="history-dialog-title">
+    <form id="history-dialog-form">
+      <div class="dialog-heading"><p class="eyebrow">BUSCAR SNAPSHOT</p><h2 id="history-dialog-title">Quantidade de números</h2><p>A confirmação consulta a mesa fixa uma única vez.</p></div>
+      <label class="field-label" for="history-quantity">Quantidade de números</label>
+      <input id="history-quantity" type="number" min="1" max="{{ max_history }}" step="1" value="{{ suggested_history }}" inputmode="numeric" required>
+      <p id="quantity-error" class="field-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="cancel-history-dialog" class="secondary-button" type="button">Cancelar</button>
+        <button id="confirm-history-fetch" class="primary-button" type="submit">Buscar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <noscript><p class="noscript">Ative o JavaScript para usar esta página.</p></noscript>
+</body>
+</html>
