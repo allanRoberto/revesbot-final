@@ -30,6 +30,9 @@ activation_epoch=0
 build_dir=""
 release_was_built=0
 next_link=""
+nginx_config="/etc/nginx/sites-available/api-revesbot.conf"
+nginx_backup=""
+nginx_config_changed=0
 
 cd /var/lib/revesbot-api-deploy
 
@@ -295,6 +298,48 @@ reload_api() {
     --update-env
 }
 
+restore_nginx_config() {
+  if (( nginx_config_changed == 0 )); then
+    return 0
+  fi
+  [[ -n "$nginx_backup" && -f "$nginx_backup" && ! -L "$nginx_backup" ]] || return 1
+  install -m 0644 -o root -g root "$nginx_backup" "$nginx_config"
+  nginx -t
+  systemctl reload nginx
+  nginx_config_changed=0
+}
+
+activate_release_nginx_config() {
+  local release_config="$base_dir/api-current/infra/nginx/api-revesbot.conf"
+  local next_config=""
+
+  test -f "$release_config"
+  test -f "$nginx_config"
+  [[ ! -L "$release_config" && ! -L "$nginx_config" ]]
+  if cmp -s "$release_config" "$nginx_config"; then
+    return 0
+  fi
+
+  nginx_backup="$(mktemp /etc/nginx/api-revesbot.conf.backup.XXXXXX)"
+  next_config="$(mktemp /etc/nginx/api-revesbot.conf.next.XXXXXX)"
+  install -m 0600 -o root -g root "$nginx_config" "$nginx_backup"
+  install -m 0644 -o root -g root "$release_config" "$next_config"
+  mv -f "$next_config" "$nginx_config"
+
+  if ! nginx -t; then
+    install -m 0644 -o root -g root "$nginx_backup" "$nginx_config"
+    nginx -t
+    return 1
+  fi
+  if ! systemctl reload nginx; then
+    install -m 0644 -o root -g root "$nginx_backup" "$nginx_config"
+    nginx -t
+    systemctl reload nginx
+    return 1
+  fi
+  nginx_config_changed=1
+}
+
 previous_release_is_healthy() {
   local health_payload=""
   local history_payload=""
@@ -476,6 +521,13 @@ rollback_on_exit() {
     if ! rollback_api; then
       echo "O rollback automatico falhou; verifique imediatamente o PM2." >&2
     fi
+    if ! restore_nginx_config; then
+      echo "O rollback do Nginx falhou; verifique imediatamente a configuracao ativa." >&2
+    fi
+  fi
+  if (( nginx_config_changed == 0 )) \
+      && [[ -n "$nginx_backup" && -f "$nginx_backup" && ! -L "$nginx_backup" ]]; then
+    rm -f -- "$nginx_backup"
   fi
   exit "$original_status"
 }
@@ -509,6 +561,7 @@ activate_release() {
       /etc/logrotate.d/revesbot-api \
     && systemctl daemon-reload \
     && systemctl enable --now revesbot-api-watchdog.timer \
+    && activate_release_nginx_config \
     && reload_api \
     && REVESBOT_API_CURRENT="$base_dir/api-current" \
       REVESBOT_RUNTIME_USER="$runtime_user" \
@@ -525,6 +578,9 @@ fi
 pm2_api save
 deploy_complete=1
 trap - EXIT INT TERM
+if [[ -n "$nginx_backup" && -f "$nginx_backup" && ! -L "$nginx_backup" ]]; then
+  rm -f -- "$nginx_backup"
+fi
 
 mapfile -t old_releases < <(find "$releases_dir" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +4 | cut -d' ' -f2-)
 for old_release in "${old_releases[@]}"; do
