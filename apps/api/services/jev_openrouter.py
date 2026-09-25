@@ -5,7 +5,7 @@ import asyncio
 import json
 import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 import httpx
@@ -53,11 +53,28 @@ class JevHTTPStatusError(JevOpenRouterError):
 
 
 @dataclass(frozen=True)
+class ValidatedChoiceAnswer:
+    choice: str
+    probabilities: dict[str, float]
+    confidence: float
+
+
+@dataclass(frozen=True)
+class ValidatedScoreAnswer:
+    score: float
+    probabilities: dict[str, float]
+    confidence: float
+    legend: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class ValidatedJevResponse:
     raw: dict[str, Any]
     probabilities: dict[str, float]
     returned_model: str | None
     latency_ms: int
+    choices: dict[str, ValidatedChoiceAnswer] = field(default_factory=dict)
+    scores: dict[str, ValidatedScoreAnswer] = field(default_factory=dict)
 
 
 def _reject_nonstandard_number(value: str) -> None:
@@ -81,6 +98,7 @@ def validate_jev_response(
     *,
     latency_ms: int = 0,
     expected_noul_keys: Sequence[str] = GROUP_KEYS,
+    expected_questions: Mapping[str, Any] | None = None,
 ) -> ValidatedJevResponse:
     if not isinstance(payload, dict):
         raise JevInvalidResponseError("A resposta do Jev não é um objeto JSON.")
@@ -88,28 +106,99 @@ def validate_jev_response(
     if not isinstance(answers, dict):
         raise JevInvalidResponseError("A resposta do Jev não contém answers válido.")
 
-    expected_keys = tuple(expected_noul_keys)
+    if expected_questions is None:
+        expected_keys = tuple(expected_noul_keys)
+        questions: dict[str, Any] = {
+            question_id: {"type": "noul"} for question_id in expected_keys
+        }
+    else:
+        questions = dict(expected_questions)
+        expected_keys = tuple(questions)
     if not expected_keys or len(expected_keys) != len(set(expected_keys)):
         raise JevInvalidResponseError("A lista de perguntas esperadas é inválida.")
     if set(answers) != set(expected_keys):
         raise JevInvalidResponseError("A resposta do Jev não corresponde às perguntas enviadas.")
 
     probabilities: dict[str, float] = {}
+    choices: dict[str, ValidatedChoiceAnswer] = {}
+    scores: dict[str, ValidatedScoreAnswer] = {}
     for question_id in expected_keys:
+        question = questions.get(question_id)
+        if not isinstance(question, dict):
+            raise JevInvalidResponseError(f"A pergunta esperada {question_id} é inválida.")
+        question_type = question.get("type")
         answer = answers.get(question_id)
         if not isinstance(answer, dict):
             raise JevInvalidResponseError(f"A resposta do Jev não contém {question_id}.")
-        if answer.get("type") != "noul":
-            raise JevInvalidResponseError(f"A resposta de {question_id} não é do tipo noul.")
-        probability = answer.get("noul")
-        if isinstance(probability, bool) or not isinstance(probability, (int, float)):
-            raise JevInvalidResponseError(f"A probabilidade de {question_id} não é numérica.")
-        numeric_probability = float(probability)
-        if not math.isfinite(numeric_probability) or not 0 <= numeric_probability <= 1:
+        if answer.get("type") != question_type:
             raise JevInvalidResponseError(
-                f"A probabilidade de {question_id} está fora do intervalo permitido."
+                f"A resposta de {question_id} não corresponde ao tipo enviado."
             )
-        probabilities[question_id] = numeric_probability
+
+        if question_type == "noul":
+            probability = answer.get("noul")
+            if isinstance(probability, bool) or not isinstance(probability, (int, float)):
+                raise JevInvalidResponseError(f"A probabilidade de {question_id} não é numérica.")
+            numeric_probability = float(probability)
+            if not math.isfinite(numeric_probability) or not 0 <= numeric_probability <= 1:
+                raise JevInvalidResponseError(
+                    f"A probabilidade de {question_id} está fora do intervalo permitido."
+                )
+            probabilities[question_id] = numeric_probability
+            continue
+
+        if question_type == "choice":
+            criteria = question.get("criteria")
+            if not isinstance(criteria, dict) or not criteria:
+                raise JevInvalidResponseError(f"Os critérios de {question_id} são inválidos.")
+            option_keys = tuple(str(key) for key in criteria)
+            choice = answer.get("choice")
+            if not isinstance(choice, str) or choice not in option_keys:
+                raise JevInvalidResponseError(f"A escolha de {question_id} é inválida.")
+            answer_probabilities = _validate_distribution(
+                answer.get("probabilities"), option_keys, question_id
+            )
+            confidence = _validate_unit_interval(
+                answer.get("confidence"), question_id, "confiança"
+            )
+            choices[question_id] = ValidatedChoiceAnswer(
+                choice=choice,
+                probabilities=answer_probabilities,
+                confidence=confidence,
+            )
+            continue
+
+        if question_type == "score":
+            criteria = question.get("criteria")
+            if not isinstance(criteria, list) or not 2 <= len(criteria) <= 10:
+                raise JevInvalidResponseError(f"Os critérios de {question_id} são inválidos.")
+            score = answer.get("score")
+            if isinstance(score, bool) or not isinstance(score, (int, float)):
+                raise JevInvalidResponseError(f"O score de {question_id} não é numérico.")
+            numeric_score = float(score)
+            if not math.isfinite(numeric_score) or not 0 <= numeric_score <= len(criteria) - 1:
+                raise JevInvalidResponseError(f"O score de {question_id} está fora do intervalo.")
+            level_keys = tuple(str(index) for index in range(len(criteria)))
+            answer_probabilities = _validate_distribution(
+                answer.get("probabilities"), level_keys, question_id
+            )
+            confidence = _validate_unit_interval(
+                answer.get("confidence"), question_id, "confiança"
+            )
+            legend = answer.get("legend")
+            if not isinstance(legend, dict):
+                raise JevInvalidResponseError(f"A legenda de {question_id} é inválida.")
+            scores[question_id] = ValidatedScoreAnswer(
+                score=numeric_score,
+                probabilities=answer_probabilities,
+                confidence=confidence,
+                legend=_sanitize_external_value(
+                    {str(key): value for key, value in legend.items()}
+                ),
+            )
+            continue
+
+        raise JevInvalidResponseError(f"O tipo da pergunta {question_id} não é suportado.")
 
     returned_model = payload.get("model")
     if returned_model is not None and not isinstance(returned_model, str):
@@ -121,7 +210,36 @@ def validate_jev_response(
         probabilities=probabilities,
         returned_model=returned_model,
         latency_ms=latency_ms,
+        choices=choices,
+        scores=scores,
     )
+
+
+def _validate_unit_interval(value: Any, question_id: str, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise JevInvalidResponseError(f"A {label} de {question_id} não é numérica.")
+    numeric = float(value)
+    if not math.isfinite(numeric) or not 0 <= numeric <= 1:
+        raise JevInvalidResponseError(f"A {label} de {question_id} está fora do intervalo.")
+    return numeric
+
+
+def _validate_distribution(
+    value: Any, expected_keys: Sequence[str], question_id: str
+) -> dict[str, float]:
+    if not isinstance(value, dict) or set(value) != set(expected_keys):
+        raise JevInvalidResponseError(
+            f"A distribuição de probabilidades de {question_id} é inválida."
+        )
+    distribution = {
+        key: _validate_unit_interval(value[key], question_id, f"probabilidade {key}")
+        for key in expected_keys
+    }
+    if not math.isclose(sum(distribution.values()), 1.0, rel_tol=0.0, abs_tol=1e-6):
+        raise JevInvalidResponseError(
+            f"A distribuição de probabilidades de {question_id} não soma 1."
+        )
+    return distribution
 
 
 class OpenRouterJevClient:
@@ -190,5 +308,5 @@ class OpenRouterJevClient:
         return validate_jev_response(
             decoded,
             latency_ms=latency_ms,
-            expected_noul_keys=tuple(questions),
+            expected_questions=questions,
         )

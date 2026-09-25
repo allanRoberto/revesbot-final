@@ -9,8 +9,16 @@ from fastapi.testclient import TestClient
 from api.core.config import settings
 from api.routes import jev as jev_route
 from api.schemas.jev import GROUP_KEYS
-from api.services.jev_openrouter import ValidatedJevResponse
-from api.services.jev_ranking import NUMBER_KEYS
+from api.services.jev_openrouter import (
+    ValidatedChoiceAnswer,
+    ValidatedJevResponse,
+    ValidatedScoreAnswer,
+)
+from api.services.jev_ranking import (
+    NEXT_SPIN_CHOICE_KEY,
+    NUMBER_KEYS,
+    REGIME_CHOICE_KEY,
+)
 
 
 AUTHORIZATION = "Basic " + base64.b64encode(b"admin:secret").decode("ascii")
@@ -101,26 +109,48 @@ class FakeRankingJevClient:
             question_id: (
                 0.99
                 if question_id == "numero_00"
-                else 0.80
-                if question_id.startswith("relacao_")
                 else 0.50 - int(question_id.removeprefix("numero_")) / 1000
             )
-            for question_id in questions
+            for question_id in NUMBER_KEYS
+        }
+        next_probabilities = {str(number): (0.20 if number == 0 else 0.80 / 36) for number in range(37)}
+        regime_probabilities = {
+            "neutral": 0.1,
+            "frequency_concentration": 0.1,
+            "transition_driven": 0.6,
+            "gap_driven": 0.1,
+            "unstable": 0.1,
+        }
+        score_keys = [key for key, question in questions.items() if question["type"] == "score"]
+        scores = {
+            key: ValidatedScoreAnswer(
+                score=2.4,
+                confidence=0.8,
+                probabilities={"0": 0.05, "1": 0.10, "2": 0.35, "3": 0.50},
+                legend={"0": "insuficiente", "1": "fraca", "2": "consistente", "3": "forte"},
+            )
+            for key in score_keys
         }
         return ValidatedJevResponse(
             raw={
                 "id": "gen-ranking-test",
                 "model": "typesafe/jev-1.13-returned",
                 "provider": "TypeSafe",
-                "answers": {
-                    key: {"type": "noul", "noul": value}
-                    for key, value in probabilities.items()
-                },
+                "answers": {key: {"type": "noul", "noul": value} for key, value in probabilities.items()},
                 "usage": {"cost": 0},
             },
             probabilities=probabilities,
             returned_model="typesafe/jev-1.13-returned",
             latency_ms=18,
+            choices={
+                NEXT_SPIN_CHOICE_KEY: ValidatedChoiceAnswer(
+                    choice="0", confidence=0.7, probabilities=next_probabilities
+                ),
+                REGIME_CHOICE_KEY: ValidatedChoiceAnswer(
+                    choice="transition_driven", confidence=0.6, probabilities=regime_probabilities
+                ),
+            },
+            scores=scores,
         )
 
 
@@ -340,9 +370,14 @@ def test_ranking_includes_zero_all_numbers_and_pull_catalog(monkeypatch) -> None
     assert {item["numero"] for item in body["ranking"]} == set(range(37))
     assert body["ranking"][0]["numero"] == 0
     assert body["ranking"][0]["posicao"] == 1
+    assert len(body["ranking_proxima_rodada"]) == 37
+    assert body["ranking_proxima_rodada"][0]["numero"] == 0
+    assert body["proxima_rodada"]["numero_escolhido"] == 0
+    assert body["regime_atual"]["choice"] == "transition_driven"
     assert body["ultimo_numero"] == 17
     assert body["historico_contexto_enviado"]["latest_observed_number"] == 17
     assert any(item["target_number"] == 0 for item in body["catalogo_padroes"])
+    assert body["catalogo_padroes"][0]["qualidade_jev"]["score"] == 2.4
     assert len(jev_client.calls) == 1
     assert tuple(jev_client.calls[0]["questions"])[:37] == NUMBER_KEYS
     assert jev_client.calls[0]["state"]["task"]["include_zero"] is True
@@ -371,3 +406,62 @@ def test_invalid_ranking_stops_before_paid_call(monkeypatch) -> None:
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "jev_invalid_history"
     assert jev_client.calls == []
+
+
+def test_manual_evaluation_uses_saved_ranking_without_paid_call(monkeypatch) -> None:
+    jev_client = FakeRankingJevClient()
+    app = _app(monkeypatch, jev_client=jev_client)
+    saved_rankings = []
+    saved_evaluations = []
+
+    async def capture_ranking(record, _results_dir):
+        saved_rankings.append(record)
+
+    async def load_ranking(analysis_id, _results_dir):
+        assert analysis_id == saved_rankings[0]["analysis_id"]
+        return saved_rankings[0]
+
+    async def capture_evaluation(record, _results_dir):
+        saved_evaluations.append(record)
+
+    monkeypatch.setattr(jev_route, "persist_analysis", capture_ranking)
+    monkeypatch.setattr(jev_route, "load_analysis", load_ranking)
+    monkeypatch.setattr(jev_route, "persist_evaluation", capture_evaluation)
+    client = TestClient(app)
+    csrf = _csrf(client)
+    history = ", ".join(str(value) for _ in range(40) for value in (17, 0, 1, 2)) + ", 17"
+    ranking_response = client.post(
+        "/api/jev/ranking",
+        headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
+        json={"history_order": "oldest_to_newest", "historico_texto": history},
+    )
+    evaluation_response = client.post(
+        "/api/jev/avaliar",
+        headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
+        json={
+            "analysis_id": ranking_response.json()["analysis_id"],
+            "resultados_reais_texto": "0, 1, 2",
+        },
+    )
+
+    assert evaluation_response.status_code == 200
+    body = evaluation_response.json()
+    assert body["metrica_proxima_rodada"]["acertou_escolha"] is True
+    assert body["metricas_tres_rodadas"]["acertos_por_corte"]["top_1"] is True
+    assert len(saved_evaluations) == 1
+    assert len(jev_client.calls) == 1
+
+
+def test_manual_evaluation_requires_exactly_three_results(monkeypatch) -> None:
+    client = TestClient(_app(monkeypatch))
+    csrf = _csrf(client)
+    response = client.post(
+        "/api/jev/avaliar",
+        headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
+        json={
+            "analysis_id": "8f3bbcf2-11dc-4f50-aec5-4ff9001e7502",
+            "resultados_reais_texto": "0, 1",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "jev_invalid_actual_results_count"

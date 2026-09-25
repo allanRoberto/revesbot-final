@@ -100,12 +100,21 @@
         <div><dt>Respondido em</dt><dd id="ranking-result-at">—</dd></div>
         <div><dt>Latência</dt><dd id="ranking-result-latency">—</dd></div>
         <div><dt>Padrões avaliados</dt><dd id="ranking-pattern-count">—</dd></div>
+        <div><dt>Próxima rodada</dt><dd id="ranking-next-choice">—</dd></div>
+        <div><dt>Regime atual</dt><dd id="ranking-regime">—</dd></div>
         <div id="ranking-result-cost-row" hidden><dt>Custo informado</dt><dd id="ranking-result-cost">—</dd></div>
       </dl>
 
+      <div class="ranking-controls" aria-label="Filtros do ranking">
+        <label for="ranking-view">Visão<select id="ranking-view"><option value="next_three">Próximas 3 rodadas</option><option value="next_one">Próxima rodada</option></select></label>
+        <label for="ranking-pattern-filter">Padrão<select id="ranking-pattern-filter"><option value="all">Todos</option><option value="stable">Estáveis</option><option value="positive">Positivos</option><option value="negative">Negativos</option><option value="zero">Somente zero</option></select></label>
+        <label for="ranking-min-support">Suporte mínimo<input id="ranking-min-support" type="number" min="0" step="1" value="0" inputmode="numeric"></label>
+        <span id="ranking-filter-count">37 números</span>
+      </div>
+
       <div class="table-scroll">
         <table class="ranking-table">
-          <thead><tr><th>Posição</th><th>Número</th><th>Estimativa Jev</th><th>Base</th><th>Diferença</th><th>Relação A → B</th></tr></thead>
+          <thead><tr><th>Posição</th><th>Número</th><th id="ranking-estimate-heading">Estimativa Jev · 3 rodadas</th><th>Base</th><th>Diferença</th><th>Relação A → B</th></tr></thead>
           <tbody id="ranking-results-body"></tbody>
         </table>
       </div>
@@ -115,10 +124,25 @@
         <p id="ranking-catalog-empty" class="inline-note" hidden>Nenhuma relação atingiu o suporte e os critérios mínimos desta execução.</p>
         <div id="ranking-catalog-table" class="table-scroll" hidden>
           <table>
-            <thead><tr><th>Relação</th><th>Classe</th><th>Suporte</th><th>Ocorrências</th><th>Lift histórico</th><th>Relevância Jev</th></tr></thead>
+            <thead><tr><th>Relação</th><th>Classe</th><th>Suporte</th><th>Ocorrências</th><th>Lift histórico</th><th>Qualidade Jev</th><th>Confiança</th></tr></thead>
             <tbody id="ranking-catalog-body"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="ranking-evaluation" aria-labelledby="ranking-evaluation-title">
+        <div class="catalog-heading"><h3 id="ranking-evaluation-title">Avaliar quando os resultados chegarem</h3><p>Esta etapa não chama o Jev nem gera custo.</p></div>
+        <form id="ranking-evaluation-form" class="evaluation-form" novalidate>
+          <label for="ranking-actual-results">Três resultados seguintes, na ordem<input id="ranking-actual-results" type="text" autocomplete="off" spellcheck="false" placeholder="Ex.: 0, 17, 32"></label>
+          <button id="ranking-evaluate-button" class="secondary-button" type="submit" data-operation-control>Avaliar ranking</button>
+        </form>
+        <p id="ranking-evaluation-error" class="field-error" role="alert" hidden></p>
+        <dl id="ranking-evaluation-results" class="evaluation-results" hidden>
+          <div><dt>Brier médio · 37 números</dt><dd id="evaluation-brier">—</dd></div>
+          <div><dt>Log loss binário médio</dt><dd id="evaluation-log-loss">—</dd></div>
+          <div><dt>Acertos por corte</dt><dd id="evaluation-top-hits">—</dd></div>
+          <div><dt>Próxima rodada</dt><dd id="evaluation-next-hit">—</dd></div>
+        </dl>
       </section>
 
       <ul id="ranking-warnings" class="warnings" hidden></ul>

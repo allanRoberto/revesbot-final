@@ -15,6 +15,7 @@
   const operationError = byId("operation-error");
   let busy = false;
   let historyEdited = false;
+  let latestRankingData = null;
 
   function parseSequence(text, label) {
     const stripped = text.replace(/^[ ,;\t\r\n]+|[ ,;\t\r\n]+$/g, "");
@@ -88,6 +89,7 @@
     });
     byId("analyze-label").textContent = nextBusy && label === "analysis" ? "Analisando grupos..." : "Analisar seis grupos";
     byId("ranking-label").textContent = nextBusy && label === "ranking" ? "Gerando ranking..." : "Gerar ranking 0–36";
+    byId("ranking-evaluate-button").textContent = nextBusy && label === "evaluation" ? "Calculando..." : "Avaliar ranking";
     byId("open-history-dialog").textContent = nextBusy && label === "history" ? "Buscando números..." : "Buscar números";
     if (!nextBusy) validateForm();
   }
@@ -165,6 +167,7 @@
       byId("result-stale").hidden = true;
       byId("ranking-results-section").hidden = true;
       byId("ranking-result-stale").hidden = true;
+      latestRankingData = null;
       setOperation(data.historico.length ? "Busca concluída. Você pode revisar e editar o histórico." : "Busca concluída sem resultados.");
     } catch (error) {
       historyInput.value = previousText;
@@ -244,16 +247,79 @@
     return labels[value] || String(value || "não classificada");
   }
 
+  function regimeLabel(value) {
+    const labels = {
+      neutral: "neutro",
+      frequency_concentration: "concentração de frequência",
+      transition_driven: "orientado por transições",
+      gap_driven: "orientado por atrasos",
+      unstable: "instável",
+    };
+    return labels[value] || String(value || "não informado");
+  }
+
+  function matchesPattern(result, filter) {
+    if (filter === "all") return true;
+    if (filter === "zero") return result.numero === 0;
+    const classification = result.relacao_do_ultimo_numero.classification;
+    if (filter === "stable") return classification === "stable_positive_pull" || classification === "stable_negative_relation";
+    if (filter === "positive") return ["stable_positive_pull", "positive_pull", "recent_positive_pull"].includes(classification);
+    if (filter === "negative") return ["stable_negative_relation", "recent_negative_relation"].includes(classification);
+    return true;
+  }
+
+  function renderRankingRows() {
+    if (!latestRankingData) return;
+    const percent = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const view = byId("ranking-view").value;
+    const patternFilter = byId("ranking-pattern-filter").value;
+    const rawMinimum = Number(byId("ranking-min-support").value);
+    const minimumSupport = Number.isFinite(rawMinimum) && rawMinimum >= 0 ? rawMinimum : 0;
+    const mainByNumber = new Map(latestRankingData.ranking.map((item) => [item.numero, item]));
+    const source = view === "next_one" ? latestRankingData.ranking_proxima_rodada : latestRankingData.ranking;
+    const rows = source.filter((item) => {
+      const main = mainByNumber.get(item.numero);
+      return matchesPattern(main, patternFilter) && main.relacao_do_ultimo_numero.support >= minimumSupport;
+    });
+    const fragment = document.createDocumentFragment();
+    rows.forEach((item) => {
+      const main = mainByNumber.get(item.numero);
+      const relation = main.relacao_do_ultimo_numero;
+      const probability = view === "next_one" ? item.probabilidade : item.estimativa_jev_nao_validada;
+      const baseline = item.probabilidade_base;
+      const differenceFromBase = item.diferenca_da_base;
+      const row = document.createElement("tr");
+      appendCell(row, String(item.posicao));
+      const numberCell = appendCell(row, String(item.numero));
+      numberCell.classList.add("ranking-number");
+      if (item.numero === 0) numberCell.classList.add("zero-number");
+      appendCell(row, percent.format(probability));
+      appendCell(row, percent.format(baseline));
+      appendCell(row, `${differenceFromBase >= 0 ? "+" : "−"}${percent.format(Math.abs(differenceFromBase))}`);
+      appendCell(row, `${relation.source_number} → ${relation.target_number} · ${patternLabel(relation.classification)} · suporte ${relation.support}`);
+      fragment.append(row);
+    });
+    byId("ranking-results-body").replaceChildren(fragment);
+    byId("ranking-estimate-heading").textContent = view === "next_one"
+      ? "Choice Jev · próxima rodada"
+      : "Noul Jev · próximas 3 rodadas";
+    byId("ranking-filter-count").textContent = `${rows.length} ${rows.length === 1 ? "número" : "números"}`;
+  }
+
   function renderRanking(data) {
     if (!data || data.analysis_type !== "number_ranking"
         || !Array.isArray(data.ranking) || data.ranking.length !== 37
+        || !Array.isArray(data.ranking_proxima_rodada) || data.ranking_proxima_rodada.length !== 37
+        || !data.proxima_rodada || !Number.isInteger(data.proxima_rodada.numero_escolhido)
+        || typeof data.proxima_rodada.confidence !== "number"
+        || !data.regime_atual || typeof data.regime_atual.choice !== "string"
+        || typeof data.regime_atual.confidence !== "number"
         || !Array.isArray(data.catalogo_padroes)) {
       throw new Error("A API retornou um ranking incompleto.");
     }
     const percent = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const decimal = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const seenNumbers = new Set();
-    const rankingFragment = document.createDocumentFragment();
     data.ranking.forEach((result, index) => {
       const relation = result && result.relacao_do_ultimo_numero;
       if (!result || result.posicao !== index + 1 || !Number.isInteger(result.numero)
@@ -261,36 +327,44 @@
           || typeof result.estimativa_jev_nao_validada !== "number"
           || typeof result.probabilidade_base !== "number"
           || typeof result.diferenca_da_base !== "number"
+          || typeof result.probabilidade_proxima_rodada !== "number"
+          || !Number.isInteger(result.posicao_proxima_rodada)
           || !relation || relation.target_number !== result.numero
           || !Number.isInteger(relation.source_number)) {
         throw new Error("A API retornou um item inválido no ranking.");
       }
       seenNumbers.add(result.numero);
-      const row = document.createElement("tr");
-      appendCell(row, String(result.posicao));
-      const numberCell = appendCell(row, String(result.numero));
-      numberCell.classList.add("ranking-number");
-      if (result.numero === 0) numberCell.classList.add("zero-number");
-      appendCell(row, percent.format(result.estimativa_jev_nao_validada));
-      appendCell(row, percent.format(result.probabilidade_base));
-      const difference = percent.format(Math.abs(result.diferenca_da_base));
-      appendCell(row, `${result.diferenca_da_base >= 0 ? "+" : "−"}${difference}`);
-      appendCell(
-        row,
-        `${relation.source_number} → ${relation.target_number} · ${patternLabel(relation.classification)} · suporte ${relation.support}`,
-      );
-      rankingFragment.append(row);
     });
     if (seenNumbers.size !== 37 || !seenNumbers.has(0)) {
       throw new Error("O ranking não contém todos os números de 0 a 36.");
     }
-    byId("ranking-results-body").replaceChildren(rankingFragment);
+    const immediateNumbers = new Set();
+    data.ranking_proxima_rodada.forEach((result, index) => {
+      if (!result || result.posicao !== index + 1 || !Number.isInteger(result.numero)
+          || result.numero < 0 || result.numero > 36 || immediateNumbers.has(result.numero)
+          || typeof result.probabilidade !== "number"
+          || typeof result.probabilidade_base !== "number"
+          || typeof result.diferenca_da_base !== "number") {
+        throw new Error("A API retornou um ranking imediato inválido.");
+      }
+      immediateNumbers.add(result.numero);
+    });
+    if (immediateNumbers.size !== 37 || !immediateNumbers.has(0)) {
+      throw new Error("O ranking imediato não contém todos os números de 0 a 36.");
+    }
+    latestRankingData = data;
+    byId("ranking-view").value = "next_three";
+    byId("ranking-pattern-filter").value = "all";
+    byId("ranking-min-support").value = "0";
+    renderRankingRows();
 
     const catalogFragment = document.createDocumentFragment();
     data.catalogo_padroes.forEach((pattern) => {
       if (!pattern || !Number.isInteger(pattern.source_number)
           || !Number.isInteger(pattern.target_number)
-          || typeof pattern.estimativa_jev_relevancia !== "number") {
+          || !pattern.qualidade_jev
+          || typeof pattern.qualidade_jev.score !== "number"
+          || typeof pattern.qualidade_jev.confidence !== "number") {
         throw new Error("A API retornou um padrão catalogado inválido.");
       }
       const row = document.createElement("tr");
@@ -299,7 +373,8 @@
       appendCell(row, String(pattern.support));
       appendCell(row, String(pattern.hits));
       appendCell(row, decimal.format(pattern.lift_vs_baseline));
-      appendCell(row, percent.format(pattern.estimativa_jev_relevancia));
+      appendCell(row, `${decimal.format(pattern.qualidade_jev.score)} / 3`);
+      appendCell(row, percent.format(pattern.qualidade_jev.confidence));
       catalogFragment.append(row);
     });
     byId("ranking-catalog-body").replaceChildren(catalogFragment);
@@ -313,6 +388,8 @@
     byId("ranking-result-at").textContent = formatDate(data.respondido_em);
     byId("ranking-result-latency").textContent = `${data.latencia_ms} ms`;
     byId("ranking-pattern-count").textContent = String(data.catalogo_padroes.length);
+    byId("ranking-next-choice").textContent = `${data.proxima_rodada.numero_escolhido} · confiança ${percent.format(data.proxima_rodada.confidence)}`;
+    byId("ranking-regime").textContent = `${regimeLabel(data.regime_atual.choice)} · confiança ${percent.format(data.regime_atual.confidence)}`;
 
     const usage = data.resposta_jev && typeof data.resposta_jev === "object" ? data.resposta_jev.usage : null;
     const hasCost = usage && typeof usage === "object"
@@ -331,8 +408,60 @@
     byId("ranking-warnings").replaceChildren(...warningNodes);
     byId("ranking-warnings").hidden = warningNodes.length === 0;
     byId("ranking-jev-json").textContent = JSON.stringify(data.resposta_jev, null, 2);
+    byId("ranking-actual-results").value = "";
+    byId("ranking-evaluation-error").hidden = true;
+    byId("ranking-evaluation-results").hidden = true;
     byId("ranking-result-stale").hidden = true;
     byId("ranking-results-section").hidden = false;
+  }
+
+  async function evaluateRanking(event) {
+    event.preventDefault();
+    if (busy || !latestRankingData) return;
+    const parsed = parseSequence(byId("ranking-actual-results").value, "Resultados reais");
+    const error = parsed.error || (parsed.values.length !== 3 ? "Informe exatamente os três resultados seguintes, na ordem." : "");
+    byId("ranking-evaluation-error").textContent = error;
+    byId("ranking-evaluation-error").hidden = !error;
+    if (error) return;
+    setBusy(true, "evaluation");
+    setOperation("Calculando métricas do ranking salvo...");
+    try {
+      const response = await fetch("/api/jev/avaliar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-Token": csrfToken },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({
+          analysis_id: latestRankingData.analysis_id,
+          resultados_reais_texto: byId("ranking-actual-results").value,
+        }),
+      });
+      const data = await readResponse(response);
+      const metrics = data && data.metricas_tres_rodadas;
+      const immediate = data && data.metrica_proxima_rodada;
+      if (!metrics || !immediate || typeof metrics.brier_medio_37_numeros !== "number"
+          || typeof metrics.log_loss_binario_medio_37_numeros !== "number") {
+        throw new Error("A API retornou uma avaliação incompleta.");
+      }
+      const decimal = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+      byId("evaluation-brier").textContent = decimal.format(metrics.brier_medio_37_numeros);
+      byId("evaluation-log-loss").textContent = decimal.format(metrics.log_loss_binario_medio_37_numeros);
+      byId("evaluation-top-hits").textContent = [1, 3, 5, 10]
+        .map((size) => `Top ${size}: ${metrics.acertos_por_corte[`top_${size}`] ? "sim" : "não"}`)
+        .join(" · ");
+      byId("evaluation-next-hit").textContent = immediate.acertou_escolha
+        ? `Acertou o ${immediate.numero_real}`
+        : `Não acertou · real ${immediate.numero_real} na posição ${immediate.posicao_do_numero_real}`;
+      byId("ranking-evaluation-results").hidden = false;
+      setOperation("Avaliação concluída sem nova chamada ao Jev.");
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Falha inesperada na avaliação.";
+      byId("ranking-evaluation-error").textContent = message;
+      byId("ranking-evaluation-error").hidden = false;
+      setOperation("A avaliação não foi concluída.", message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function rankNumbers() {
@@ -404,6 +533,10 @@
   byId("cancel-history-dialog").addEventListener("click", () => dialog.close());
   byId("history-dialog-form").addEventListener("submit", fetchHistory);
   rankingButton.addEventListener("click", rankNumbers);
+  byId("ranking-evaluation-form").addEventListener("submit", evaluateRanking);
+  byId("ranking-view").addEventListener("change", renderRankingRows);
+  byId("ranking-pattern-filter").addEventListener("change", renderRankingRows);
+  byId("ranking-min-support").addEventListener("input", renderRankingRows);
   form.addEventListener("submit", analyze);
   historyInput.addEventListener("input", () => {
     historyEdited = true;

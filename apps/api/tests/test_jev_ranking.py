@@ -4,7 +4,9 @@ import pytest
 
 from api.services.jev_ranking import (
     HISTORY_TAIL_LIMIT,
+    NEXT_SPIN_CHOICE_KEY,
     NUMBER_KEYS,
+    REGIME_CHOICE_KEY,
     ROULETTE_NUMBERS,
     SINGLE_NUMBER_BASELINE,
     build_ranking_payload,
@@ -38,7 +40,12 @@ def test_ranking_payload_has_37_number_questions_and_structured_candidates() -> 
     questions = payload["questions"]
 
     assert list(questions)[:37] == list(NUMBER_KEYS)
-    assert all(questions[key]["type"] == "noul" for key in questions)
+    assert all(questions[key]["type"] == "noul" for key in NUMBER_KEYS)
+    assert questions[NEXT_SPIN_CHOICE_KEY]["type"] == "choice"
+    assert set(questions[NEXT_SPIN_CHOICE_KEY]["criteria"]) == {
+        str(number) for number in range(37)
+    }
+    assert questions[REGIME_CHOICE_KEY]["type"] == "choice"
     assert questions["numero_00"]["instructions"]["target_number"] == 0
     assert len(state["number_profiles"]) == 37
     zero = state["number_profiles"][0]
@@ -52,6 +59,16 @@ def test_ranking_payload_has_37_number_questions_and_structured_candidates() -> 
     assert state["task"]["include_zero"] is True
     assert state["task"]["universe"] == list(range(37))
     assert any(key.startswith("relacao_17_00") for key in questions)
+    assert questions["relacao_17_00"]["type"] == "score"
+    assert len(questions["relacao_17_00"]["criteria"]) == 4
+    relation = zero["pull_relation_from_latest"]
+    assert set(relation["horizons"]) == {"horizon_1", "horizon_2", "horizon_3"}
+    assert relation["horizons"]["horizon_1"]["fair_baseline"] == pytest.approx(1 / 37)
+    assert relation["pair_relation_from_latest_pair"]["previous_number"] == 2
+    assert "historical_percentile" in zero["gap"]
+    assert state["regime_evidence"]["deterministic_hint"] in {
+        "neutral", "frequency_concentration", "transition_driven", "unstable"
+    }
 
 
 def test_ranking_state_caps_raw_tail_but_keeps_full_aggregates_and_digest() -> None:

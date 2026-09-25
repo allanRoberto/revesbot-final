@@ -171,3 +171,69 @@ def test_client_validates_the_dynamic_ranking_question_set_exactly() -> None:
     extra["answers"]["unexpected"] = {"type": "noul", "noul": 0.5}
     with pytest.raises(JevInvalidResponseError):
         validate_jev_response(extra)
+
+
+def test_response_validation_accepts_choice_score_and_noul_together() -> None:
+    questions = {
+        "numero_00": {"type": "noul"},
+        "proxima_rodada": {"type": "choice", "criteria": {"0": "zero", "1": "one"}},
+        "relacao_17_00": {"type": "score", "criteria": ["weak", "medium", "strong"]},
+    }
+    payload = {
+        "answers": {
+            "numero_00": {"type": "noul", "noul": 0.2},
+            "proxima_rodada": {
+                "type": "choice",
+                "choice": "0",
+                "confidence": 0.7,
+                "probabilities": {"0": 0.6, "1": 0.4},
+            },
+            "relacao_17_00": {
+                "type": "score",
+                "score": 1.5,
+                "confidence": 0.8,
+                "probabilities": {"0": 0.1, "1": 0.3, "2": 0.6},
+                "legend": {"0": "weak", "1": "medium", "2": "strong"},
+            },
+        }
+    }
+    result = validate_jev_response(payload, expected_questions=questions)
+    assert result.probabilities == {"numero_00": 0.2}
+    assert result.choices["proxima_rodada"].choice == "0"
+    assert result.scores["relacao_17_00"].score == 1.5
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda payload: payload["answers"]["proxima_rodada"]["probabilities"].update({"0": 0.8}),
+        lambda payload: payload["answers"]["proxima_rodada"].update(choice="2"),
+        lambda payload: payload["answers"]["relacao_17_00"].update(score=4),
+        lambda payload: payload["answers"]["relacao_17_00"]["probabilities"].pop("3"),
+    ],
+)
+def test_response_validation_rejects_invalid_choice_or_score(mutate) -> None:
+    questions = {
+        "proxima_rodada": {"type": "choice", "criteria": {"0": "zero", "1": "one"}},
+        "relacao_17_00": {"type": "score", "criteria": ["a", "b", "c", "d"]},
+    }
+    payload = {
+        "answers": {
+            "proxima_rodada": {
+                "type": "choice",
+                "choice": "0",
+                "confidence": 0.7,
+                "probabilities": {"0": 0.6, "1": 0.4},
+            },
+            "relacao_17_00": {
+                "type": "score",
+                "score": 2.5,
+                "confidence": 0.8,
+                "probabilities": {"0": 0.1, "1": 0.2, "2": 0.3, "3": 0.4},
+                "legend": {"0": "a", "1": "b", "2": "c", "3": "d"},
+            },
+        }
+    }
+    mutate(payload)
+    with pytest.raises(JevInvalidResponseError):
+        validate_jev_response(payload, expected_questions=questions)

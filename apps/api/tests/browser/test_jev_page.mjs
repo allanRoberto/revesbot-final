@@ -25,6 +25,8 @@ let analysisBody = null;
 let failNextAnalysis = false;
 let rankingCalls = 0;
 let rankingBody = null;
+let evaluationCalls = 0;
+let evaluationBody = null;
 
 const systemChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const browser = await chromium.launch({
@@ -121,6 +123,8 @@ await page.route("http://jev.test/**", async (route) => {
         probabilidade_base: 0.07890944267861726,
         diferenca_da_base: (index === 0 ? 0.19 : 0.12 - index / 1000) - 0.07890944267861726,
         lift_jev_sobre_base: 1.1,
+        probabilidade_proxima_rodada: index === 0 ? 0.2 : 0.8 / 36,
+        posicao_proxima_rodada: index + 1,
         relacao_do_ultimo_numero: {
           source_number: 0,
           target_number: number,
@@ -132,6 +136,13 @@ await page.route("http://jev.test/**", async (route) => {
         padroes_associados: [],
       };
     });
+    const immediateRanking = Array.from({ length: 37 }, (_unused, number) => ({
+      posicao: number + 1,
+      numero: number,
+      probabilidade: number === 0 ? 0.2 : 0.8 / 36,
+      probabilidade_base: 1 / 37,
+      diferenca_da_base: (number === 0 ? 0.2 : 0.8 / 36) - 1 / 37,
+    }));
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -145,6 +156,17 @@ await page.route("http://jev.test/**", async (route) => {
         respondido_em: "2026-09-25T12:02:00Z",
         latencia_ms: 18,
         ranking,
+        ranking_proxima_rodada: immediateRanking,
+        proxima_rodada: {
+          numero_escolhido: 0,
+          confidence: 0.72,
+          probabilities: Object.fromEntries(immediateRanking.map((item) => [String(item.numero), item.probabilidade])),
+        },
+        regime_atual: {
+          choice: "transition_driven",
+          confidence: 0.64,
+          probabilities: { neutral: 0.1, frequency_concentration: 0.1, transition_driven: 0.6, gap_driven: 0.1, unstable: 0.1 },
+        },
         catalogo_padroes: [{
           relation_id: "pull:0->0:h3",
           source_number: 0,
@@ -153,9 +175,36 @@ await page.route("http://jev.test/**", async (route) => {
           support: 40,
           hits: 8,
           lift_vs_baseline: 1.6,
-          estimativa_jev_relevancia: 0.82,
+          qualidade_jev: { score: 2.6, score_normalizado: 2.6 / 3, confidence: 0.82, probabilities: { 0: 0.02, 1: 0.08, 2: 0.18, 3: 0.72 }, legend: {} },
         }],
         resposta_jev: { id: "gen-ranking", usage: { cost: 0 } },
+        avisos: [],
+      }),
+    });
+    return;
+  }
+  if (url.pathname === "/api/jev/avaliar") {
+    evaluationCalls += 1;
+    evaluationBody = request.postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        evaluation_id: "evaluation-browser-test",
+        analysis_id: evaluationBody.analysis_id,
+        metricas_tres_rodadas: {
+          brier_medio_37_numeros: 0.071234,
+          log_loss_binario_medio_37_numeros: 0.245678,
+          acertos_por_corte: { top_1: true, top_3: true, top_5: true, top_10: true },
+          posicoes_dos_resultados_reais: [],
+        },
+        metrica_proxima_rodada: {
+          numero_escolhido: 0,
+          numero_real: 0,
+          acertou_escolha: true,
+          posicao_do_numero_real: 1,
+          probabilidade_do_numero_real: 0.2,
+        },
         avisos: [],
       }),
     });
@@ -208,6 +257,22 @@ try {
   assert.equal(await page.textContent("#ranking-results-body tr:first-child .ranking-number"), "0");
   assert.equal(await page.locator("#ranking-catalog-body tr").count(), 1);
   assert.equal(await page.isVisible("#ranking-result-cost-row"), true, "zero ranking cost must remain visible");
+  assert.match(await page.textContent("#ranking-next-choice"), /^0/);
+  assert.match(await page.textContent("#ranking-regime"), /transições/);
+
+  await page.selectOption("#ranking-pattern-filter", "zero");
+  assert.equal(await page.locator("#ranking-results-body tr").count(), 1, "zero filter must keep only zero");
+  await page.selectOption("#ranking-pattern-filter", "all");
+  await page.selectOption("#ranking-view", "next_one");
+  assert.match(await page.textContent("#ranking-estimate-heading"), /próxima rodada/);
+  assert.equal(await page.textContent("#ranking-results-body tr:first-child .ranking-number"), "0");
+
+  await page.fill("#ranking-actual-results", "0, 7, 17");
+  await page.click("#ranking-evaluate-button");
+  await page.waitForSelector("#ranking-evaluation-results:not([hidden])");
+  assert.equal(evaluationCalls, 1, "manual evaluation must use one non-paid endpoint call");
+  assert.equal(evaluationBody.analysis_id, "ranking-browser-test");
+  assert.match(await page.textContent("#evaluation-next-hit"), /Acertou/);
 
   await page.fill("#grupo_1", "0, 1, 2");
   assert.equal(await page.isVisible("#result-stale"), true);
@@ -223,6 +288,7 @@ try {
   assert.equal(historyCalls, 1, "there must be no periodic history refresh");
   assert.equal(analysisCalls, 2, "there must be no automatic analysis retry");
   assert.equal(rankingCalls, 1, "there must be no automatic ranking retry");
+  assert.equal(evaluationCalls, 1, "there must be no automatic evaluation retry");
   console.log("jev-browser-tests: ok");
 } finally {
   await browser.close();

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 
@@ -78,3 +79,23 @@ class JevRankingRequest(BaseModel):
 
     history_order: Literal["oldest_to_newest"]
     historico_texto: str
+
+
+class JevEvaluationRequest(BaseModel):
+    """Three observed spins used to evaluate one saved ranking."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    analysis_id: str
+    resultados_reais_texto: str
+
+    @field_validator("analysis_id")
+    @classmethod
+    def validate_analysis_id(cls, value: str) -> str:
+        try:
+            parsed = UUID(value)
+        except (ValueError, AttributeError) as exc:
+            raise ValueError("analysis_id deve ser um UUID válido") from exc
+        if str(parsed) != value:
+            raise ValueError("analysis_id deve usar o formato UUID canônico")
+        return value

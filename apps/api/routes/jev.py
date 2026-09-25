@@ -20,6 +20,7 @@ from api.core.runtime_db import history_coll
 from api.schemas.jev import (
     GROUP_KEYS,
     JevAnalysisRequest,
+    JevEvaluationRequest,
     JevInputError,
     JevRankingRequest,
     parse_roulette_text,
@@ -39,11 +40,21 @@ from api.services.jev_openrouter import (
     OpenRouterJevClient,
     ValidatedJevResponse,
 )
-from api.services.jev_persistence import persist_analysis
+from api.services.jev_evaluation import JevEvaluationError, evaluate_saved_ranking
+from api.services.jev_persistence import (
+    JevInvalidRecordError,
+    JevRecordNotFoundError,
+    load_analysis,
+    persist_analysis,
+    persist_evaluation,
+)
 from api.services.jev_ranking import (
+    NEXT_SPIN_CHOICE_KEY,
     NUMBER_KEYS,
+    REGIME_CHOICE_KEY,
     ROULETTE_NUMBERS,
     SINGLE_NUMBER_BASELINE,
+    SINGLE_SPIN_BASELINE,
     build_ranking_payload,
     number_key,
 )
@@ -430,18 +441,44 @@ async def jev_ranking(
     candidates_by_target = {
         candidate["target_number"]: candidate for candidate in catalog["candidates"]
     }
-    catalog_results = [
-        {
-            **candidate,
-            "estimativa_jev_relevancia": jev_response.probabilities[
-                candidate["question_id"]
-            ],
-        }
-        for candidate in catalog["candidates"]
-    ]
+    catalog_results = []
+    for candidate in catalog["candidates"]:
+        score_answer = jev_response.scores[candidate["question_id"]]
+        catalog_results.append(
+            {
+                **candidate,
+                "qualidade_jev": {
+                    "score": score_answer.score,
+                    "score_normalizado": score_answer.score / 3,
+                    "confidence": score_answer.confidence,
+                    "probabilities": score_answer.probabilities,
+                    "legend": score_answer.legend,
+                },
+            }
+        )
     relations_by_target = {
         relation["target_number"]: relation for relation in catalog["relations"]
     }
+
+    next_choice = jev_response.choices[NEXT_SPIN_CHOICE_KEY]
+    immediate_ranking = sorted(
+        (
+            {
+                "numero": number,
+                "probabilidade": next_choice.probabilities[str(number)],
+                "probabilidade_base": SINGLE_SPIN_BASELINE,
+                "diferenca_da_base": (
+                    next_choice.probabilities[str(number)] - SINGLE_SPIN_BASELINE
+                ),
+            }
+            for number in ROULETTE_NUMBERS
+        ),
+        key=lambda item: (-item["probabilidade"], item["numero"]),
+    )
+    for position, result in enumerate(immediate_ranking, start=1):
+        result["posicao"] = position
+    immediate_by_number = {item["numero"]: item for item in immediate_ranking}
+
     unordered_ranking: list[dict[str, Any]] = []
     for number in ROULETTE_NUMBERS:
         probability = jev_response.probabilities[number_key(number)]
@@ -453,9 +490,11 @@ async def jev_ranking(
                     "relation_id": candidate["relation_id"],
                     "classification": candidate["classification"],
                     "deterministic_strength": candidate["deterministic_strength"],
-                    "estimativa_jev_relevancia": jev_response.probabilities[
-                        candidate["question_id"]
-                    ],
+                    "qualidade_jev": next(
+                        item["qualidade_jev"]
+                        for item in catalog_results
+                        if item["target_number"] == number
+                    ),
                 }
             )
         unordered_ranking.append(
@@ -465,6 +504,8 @@ async def jev_ranking(
                 "probabilidade_base": SINGLE_NUMBER_BASELINE,
                 "diferenca_da_base": probability - SINGLE_NUMBER_BASELINE,
                 "lift_jev_sobre_base": probability / SINGLE_NUMBER_BASELINE,
+                "probabilidade_proxima_rodada": immediate_by_number[number]["probabilidade"],
+                "posicao_proxima_rodada": immediate_by_number[number]["posicao"],
                 "relacao_do_ultimo_numero": relations_by_target[number],
                 "padroes_associados": patterns,
             }
@@ -482,6 +523,7 @@ async def jev_ranking(
             "Nenhuma relação A → B atingiu os critérios mínimos para avaliação de relevância; "
             "o ranking ainda contém os 37 números e suas evidências descritivas."
         )
+    regime_choice = jev_response.choices[REGIME_CHOICE_KEY]
     response_body: dict[str, Any] = {
         "analysis_id": analysis_id,
         "analysis_type": "number_ranking",
@@ -498,6 +540,17 @@ async def jev_ranking(
         "respondido_em": responded_at,
         "latencia_ms": jev_response.latency_ms,
         "ranking": ordered_ranking,
+        "ranking_proxima_rodada": immediate_ranking,
+        "proxima_rodada": {
+            "numero_escolhido": int(next_choice.choice),
+            "confidence": next_choice.confidence,
+            "probabilities": next_choice.probabilities,
+        },
+        "regime_atual": {
+            "choice": regime_choice.choice,
+            "confidence": regime_choice.confidence,
+            "probabilities": regime_choice.probabilities,
+        },
         "catalogo_padroes": catalog_results,
         "resposta_jev": jev_response.raw,
         "avisos": warnings,
@@ -516,4 +569,86 @@ async def jev_ranking(
             "O ranking foi concluído, mas não foi possível gravar o registro privado no servidor."
         )
 
+    return _json_response(request, response_body)
+
+
+@router.post("/api/jev/avaliar")
+async def jev_evaluate(
+    request: Request,
+    _user: str = Depends(require_jev_access),
+    _csrf: None = Depends(require_jev_csrf),
+):
+    raw_body = await _read_json_body(request)
+    try:
+        payload = JevEvaluationRequest.model_validate(raw_body)
+    except ValidationError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_evaluation_input",
+            message="Identificador ou resultados reais inválidos.",
+        ) from exc
+
+    try:
+        actual_results = parse_roulette_text(
+            payload.resultados_reais_texto, field_name="Resultados reais"
+        )
+    except JevInputError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_actual_results",
+            message=str(exc),
+        ) from exc
+    if len(actual_results) != FORECAST_HORIZON_SPINS:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_actual_results_count",
+            message="Informe exatamente os três resultados reais seguintes, na ordem.",
+        )
+
+    try:
+        analysis = await load_analysis(payload.analysis_id, settings.jev_results_dir)
+    except JevRecordNotFoundError as exc:
+        raise jev_http_error(
+            request,
+            status_code=404,
+            code="jev_ranking_not_found",
+            message="O ranking informado não foi encontrado.",
+        ) from exc
+    except JevInvalidRecordError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_saved_ranking",
+            message="O registro salvo não é um ranking válido.",
+        ) from exc
+
+    try:
+        metrics = evaluate_saved_ranking(analysis, actual_results)
+    except JevEvaluationError as exc:
+        raise jev_http_error(
+            request,
+            status_code=422,
+            code="jev_invalid_saved_ranking",
+            message=str(exc),
+        ) from exc
+
+    evaluated_at = utc_iso(datetime.now(timezone.utc))
+    evaluation_record = {
+        "evaluation_id": str(uuid4()),
+        "analysis_id": payload.analysis_id,
+        "analysis_type": "number_ranking_evaluation",
+        "avaliado_em": evaluated_at,
+        **metrics,
+    }
+    response_body = {**evaluation_record, "avisos": []}
+    try:
+        await persist_evaluation(evaluation_record, settings.jev_results_dir)
+    except Exception:
+        logging.exception("Falha ao registrar avaliação Jev %s", evaluation_record["evaluation_id"])
+        response_body["avisos"].append(
+            "A avaliação foi calculada, mas não foi possível gravar o registro privado no servidor."
+        )
     return _json_response(request, response_body)

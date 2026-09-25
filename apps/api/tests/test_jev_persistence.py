@@ -5,7 +5,12 @@ import json
 
 import pytest
 
-from api.services.jev_persistence import persist_analysis
+from api.services.jev_persistence import (
+    JevRecordNotFoundError,
+    load_analysis,
+    persist_analysis,
+    persist_evaluation,
+)
 
 
 def test_persistence_writes_one_private_json_record(tmp_path) -> None:
@@ -32,3 +37,29 @@ def test_persistence_refuses_non_finite_json(tmp_path) -> None:
             )
         )
     assert list(tmp_path.iterdir()) == []
+
+
+def test_persistence_loads_analysis_and_writes_separate_evaluation(tmp_path) -> None:
+    analysis_id = "8f3bbcf2-11dc-4f50-aec5-4ff9001e7502"
+    evaluation_id = "f266f9fb-ef32-4398-ada7-a269d14f697d"
+    analysis = {"analysis_id": analysis_id, "analysis_type": "number_ranking"}
+    asyncio.run(persist_analysis(analysis, str(tmp_path)))
+    assert asyncio.run(load_analysis(analysis_id, str(tmp_path))) == analysis
+
+    evaluation = {
+        "analysis_id": analysis_id,
+        "evaluation_id": evaluation_id,
+        "analysis_type": "number_ranking_evaluation",
+    }
+    destination = asyncio.run(persist_evaluation(evaluation, str(tmp_path)))
+    assert destination.name == f"{analysis_id}.evaluation.{evaluation_id}.json"
+    assert json.loads(destination.read_text(encoding="utf-8")) == evaluation
+
+
+def test_load_analysis_does_not_accept_unknown_or_non_uuid_paths(tmp_path) -> None:
+    with pytest.raises(JevRecordNotFoundError):
+        asyncio.run(
+            load_analysis("8f3bbcf2-11dc-4f50-aec5-4ff9001e7502", str(tmp_path))
+        )
+    with pytest.raises(ValueError):
+        asyncio.run(load_analysis("../private", str(tmp_path)))
