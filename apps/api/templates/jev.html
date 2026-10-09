@@ -45,6 +45,7 @@
           <p class="backtest-table-label">Mesa: <strong id="suggestion-roulette-name">Auto Roulette</strong></p>
         </div>
         <p id="suggestion-empty" class="inline-note">Gere um ranking na aba Ranking para calcular a sugestão.</p>
+        <p class="field-help">Base fixa da sugestão: <strong>JEV Original · próximas 3</strong>.</p>
         <section id="ranking-neighbor-section" class="ranking-neighbor-card" aria-labelledby="ranking-neighbor-title" hidden>
           <div class="ranking-neighbor-heading">
             <div><h3 id="ranking-neighbor-title">Sugestão atual · 13 números</h3><p id="ranking-neighbor-context"></p></div>
@@ -61,7 +62,7 @@
             </label>
             <button id="suggestion-monitor-toggle" class="primary-button" type="button">Iniciar monitoramento</button>
           </div>
-          <p class="field-help">Desativada, mantém a lista inicial em todas as tentativas. Ativada, reancora a lista após cada resultado fora dos 13 números, usando o mesmo ranking.</p>
+          <p class="field-help">Desativada, mantém a mesma lista e inicia um novo ciclo após cada sinal. Ativada, reancora a lista após cada resultado fora; sinais anteriores continuam sendo avaliados até três giros.</p>
           <dl class="result-metadata suggestion-monitor-metrics" aria-live="polite">
             <div><dt>Conexão</dt><dd id="suggestion-monitor-status">Desligado</dd></div>
             <div><dt>Último resultado</dt><dd id="suggestion-last-result">—</dd></div>
@@ -69,6 +70,22 @@
             <div><dt>Dentro / fora da sugestão</dt><dd id="suggestion-hit-miss">0 / 0</dd></div>
           </dl>
           <p id="suggestion-monitor-note" class="inline-note">O monitor apenas atualiza e exibe a sugestão; ele não envia apostas.</p>
+        </section>
+        <section class="suggestion-history" aria-labelledby="suggestion-history-title">
+          <div class="catalog-heading">
+            <h3 id="suggestion-history-title">Histórico dos sinais</h3>
+            <p>Cada sinal registra os próximos três resultados e a tentativa do primeiro acerto.</p>
+          </div>
+          <p id="suggestion-history-empty" class="inline-note">Os sinais monitorados nesta mesa aparecerão aqui.</p>
+          <p id="suggestion-history-status" class="inline-note" role="status" hidden></p>
+          <div id="suggestion-history-table-region" class="table-scroll" hidden>
+            <table class="suggestion-history-table">
+              <thead>
+                <tr><th>Iniciado</th><th>Referência</th><th>13 números</th><th>Tentativa 1</th><th>Tentativa 2</th><th>Tentativa 3</th><th>Resultado</th></tr>
+              </thead>
+              <tbody id="suggestion-history-body"></tbody>
+            </table>
+          </div>
         </section>
       </section>
     </div>
