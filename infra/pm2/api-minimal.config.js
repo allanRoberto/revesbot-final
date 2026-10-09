@@ -60,6 +60,7 @@ module.exports = {
         JEV_MAX_HISTORY: process.env.JEV_MAX_HISTORY || "10000",
         JEV_MAX_BODY_BYTES: process.env.JEV_MAX_BODY_BYTES || "262144",
         JEV_RESULTS_DIR: process.env.JEV_RESULTS_DIR || "resultados/jev",
+        JEV_PUBLIC_ACCESS: "true",
         JEV_PANEL_USER: process.env.JEV_PANEL_USER,
         JEV_PANEL_PASSWORD: process.env.JEV_PANEL_PASSWORD,
         TRIPLE_CONTEXT_LIVE_DASHBOARD_TOKEN:

@@ -22,6 +22,7 @@ try:
         jev_results_dir: str = "resultados/jev"
         jev_backtest_max_calls: int = 1_000
         jev_input_price_per_million: float = 0.042
+        jev_public_access: bool = False
         jev_panel_user: str | None = None
         jev_panel_password: str | None = None
 
@@ -54,6 +55,7 @@ except Exception:  # pragma: no cover - fallback for older envs
         jev_results_dir: str = "resultados/jev"
         jev_backtest_max_calls: int = 1_000
         jev_input_price_per_million: float = 0.042
+        jev_public_access: bool = False
         jev_panel_user: str | None = None
         jev_panel_password: str | None = None
 

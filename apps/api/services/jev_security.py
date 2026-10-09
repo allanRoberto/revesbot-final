@@ -5,8 +5,8 @@ import re
 import secrets
 from uuid import uuid4
 
-from fastapi import Depends, HTTPException, Request
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import HTTPException, Request
+from fastapi.security import HTTPBasic
 
 from api.core.config import settings
 
@@ -49,10 +49,12 @@ def jev_http_error(
     )
 
 
-async def require_jev_access(
-    request: Request,
-    credentials: HTTPBasicCredentials | None = Depends(_basic),
-) -> str:
+async def require_jev_access(request: Request) -> str:
+    if settings.jev_public_access:
+        return "public"
+
+    # Parse credentials only when the panel is explicitly in protected mode.
+    credentials = await _basic(request)
     configured_user = (settings.jev_panel_user or "").strip()
     configured_password = settings.jev_panel_password or ""
     if not configured_user or not configured_password:
