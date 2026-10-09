@@ -1,4 +1,4 @@
-"""Feature-scoped HTTP Basic and CSRF protection for the paid Jev panel."""
+"""Configurable HTTP Basic access and CSRF protection for the Jev panel."""
 from __future__ import annotations
 
 import re
@@ -53,7 +53,8 @@ async def require_jev_access(request: Request) -> str:
     if settings.jev_public_access:
         return "public"
 
-    # Parse credentials only when the panel is explicitly in protected mode.
+    # Parse only in protected mode: cached or malformed Basic headers must not
+    # challenge users when the server explicitly enables public access.
     credentials = await _basic(request)
     configured_user = (settings.jev_panel_user or "").strip()
     configured_password = settings.jev_panel_password or ""

@@ -12,9 +12,18 @@ from uuid import UUID
 
 from api.services.jev_history_service import ROULETTE_SLUG, utc_iso
 from api.services.jev_ranking import NEXT_SPIN_CHOICE_KEY, build_ranking_payload
+from api.services.jev_confidence import (
+    CONFIDENCE_SCHEMA_VERSION,
+    build_confidence_sample,
+)
+from api.services.jev_adaptive_ranking import (
+    ADAPTIVE_SCHEMA_VERSION,
+    new_adaptive_state,
+    record_adaptive_outcome,
+)
 
 
-BACKTEST_VERSION = "jev_original_ranking_v3"
+BACKTEST_VERSION = "jev_adaptive_shadow_v6"
 OBSERVATION_HORIZON = 10
 SIGNAL_MODES = frozenset({"overlapping", "sequential"})
 
@@ -109,6 +118,7 @@ def build_backtest_job(
     history_fetched_at: str,
     signal_mode: str = "overlapping",
     observation_horizon: int = OBSERVATION_HORIZON,
+    roulette_slug: str = ROULETTE_SLUG,
 ) -> dict[str, Any]:
     if signal_mode not in SIGNAL_MODES:
         raise JevBacktestError("A modalidade de sinais é inválida.")
@@ -134,7 +144,7 @@ def build_backtest_job(
         "analysis_type": "jev_historical_backtest",
         "version": BACKTEST_VERSION,
         "status": "ready",
-        "roulette_slug": ROULETTE_SLUG,
+        "roulette_slug": roulette_slug,
         "created_at": created_at,
         "updated_at": created_at,
         "completed_at": None,
@@ -181,6 +191,35 @@ def build_backtest_job(
             "projected_cost_per_1000_calls_usd": None,
             "average_input_tokens_per_reported_call": None,
         },
+        "confidence": {
+            "schema_version": CONFIDENCE_SCHEMA_VERSION,
+            "samples_collected": 0,
+            "latest_assessment": None,
+            "decision_metrics": {
+                decision: {"signals": 0, "hits": 0, "misses": 0, "accuracy": None}
+                for decision in ("enter", "observe", "no_entry")
+            },
+        },
+        "confidence_samples": [],
+        "adaptive": {
+            "schema_version": ADAPTIVE_SCHEMA_VERSION,
+            "sample_count": 0,
+            "status": "warming_up",
+            "reason": "Aquecendo: 0/30 sinais resolvidos.",
+            "jev": {
+                "signals": 0, "hits": 0, "misses": 0, "accuracy": None,
+                "brier_sum": 0.0, "brier": None, "log_loss_sum": 0.0,
+                "log_loss": None, "winner_rank_sum": 0, "average_winner_rank": None,
+            },
+            "challenger": {
+                "signals": 0, "hits": 0, "misses": 0, "accuracy": None,
+                "brier_sum": 0.0, "brier": None, "log_loss_sum": 0.0,
+                "log_loss": None, "winner_rank_sum": 0, "average_winner_rank": None,
+            },
+            "latest_prediction": None,
+        },
+        "adaptive_state": new_adaptive_state(),
+        "adaptive_recent_evaluations": [],
         "last_step": None,
         "last_error": None,
     }
@@ -206,13 +245,17 @@ def step_window(job: dict[str, Any], step: int) -> tuple[list[int], list[int], l
     return history, future[:attempts], future[:observation_horizon]
 
 
-def build_original_jev_step_payload(history: Sequence[int]) -> dict[str, Any]:
+def build_original_jev_step_payload(
+    history: Sequence[int], *, roulette_slug: str = ROULETTE_SLUG
+) -> dict[str, Any]:
     """Build the production ranking state but ask only for Jev's original next-spin ranking."""
-    ranking_payload = build_ranking_payload(history)
+    ranking_payload = build_ranking_payload(history, roulette_slug=roulette_slug)
     question = ranking_payload["questions"][NEXT_SPIN_CHOICE_KEY]
     return {
         "state": ranking_payload["state"],
         "questions": {NEXT_SPIN_CHOICE_KEY: question},
+        "walk_forward": ranking_payload["walk_forward"],
+        "catalog": ranking_payload["catalog"],
     }
 
 
@@ -373,6 +416,10 @@ def record_success(
     latency_ms: int,
     raw_response: dict[str, Any],
     observation_numbers: Sequence[int] | None = None,
+    confidence_features: dict[str, Any] | None = None,
+    confidence_assessment: dict[str, Any] | None = None,
+    adaptive_snapshot: dict[str, Any] | None = None,
+    adaptive_prediction: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     progress = job["progress"]
     if step != int(progress["next_step"]):
@@ -391,6 +438,7 @@ def record_success(
     )
     cost, input_tokens = _usage_values(raw_response)
     step_record = {
+        "roulette_slug": job.get("roulette_slug", ROULETTE_SLUG),
         "step": step,
         "status": "success",
         "selected_numbers": list(selected_numbers),
@@ -404,6 +452,50 @@ def record_success(
         "latency_ms": latency_ms,
         "usage": {"cost_usd": cost, "input_tokens": input_tokens},
     }
+    if confidence_features is not None and confidence_assessment is not None:
+        decision = str(confidence_assessment.get("decision", "no_entry"))
+        if decision not in {"enter", "observe", "no_entry"}:
+            raise JevBacktestError("A decisão de confiança é inválida.")
+        confidence_sample = build_confidence_sample(
+            confidence_features,
+            top_k=int(config["chip_count"]),
+            attempts=int(config["attempts"]),
+            model=str(job["requested_model"]),
+            outcome=bool(evaluation["hit"]),
+            roulette_slug=job.get("roulette_slug", ROULETTE_SLUG),
+        )
+        step_record["confidence"] = confidence_assessment
+        step_record["confidence_sample"] = confidence_sample
+        samples = job.setdefault("confidence_samples", [])
+        samples.append(confidence_sample)
+        confidence = job.setdefault(
+            "confidence",
+            {
+                "schema_version": CONFIDENCE_SCHEMA_VERSION,
+                "samples_collected": 0,
+                "latest_assessment": None,
+                "decision_metrics": {},
+            },
+        )
+        confidence["samples_collected"] = len(samples)
+        confidence["latest_assessment"] = confidence_assessment
+        decision_metrics = confidence.setdefault("decision_metrics", {})
+        bucket = decision_metrics.setdefault(
+            decision, {"signals": 0, "hits": 0, "misses": 0, "accuracy": None}
+        )
+        bucket["signals"] += 1
+        bucket["hits" if evaluation["hit"] else "misses"] += 1
+        bucket["accuracy"] = bucket["hits"] / bucket["signals"]
+    if adaptive_snapshot is not None and adaptive_prediction is not None:
+        adaptive_record = record_adaptive_outcome(
+            job,
+            snapshot=adaptive_snapshot,
+            prediction=adaptive_prediction,
+            future_numbers=future_numbers,
+            model=str(job["requested_model"]),
+        )
+        step_record["adaptive_prediction"] = adaptive_record["prediction"]
+        step_record["adaptive_sample"] = adaptive_record["sample"]
     progress["next_step"] = min(
         int(progress["total_calls"]),
         int(progress["next_step"]) + timeline_advance,
@@ -450,6 +542,7 @@ def record_failure(job: dict[str, Any], *, step: int, code: str, message: str) -
     if step != int(progress["next_step"]):
         raise JevBacktestError("A etapa não corresponde ao próximo ponto pendente.")
     step_record = {
+        "roulette_slug": job.get("roulette_slug", ROULETTE_SLUG),
         "step": step,
         "status": "failed",
         "error": {"code": code, "message": message},
@@ -481,7 +574,11 @@ def public_backtest(job: dict[str, Any], *, include_last_step: bool = True) -> d
     result = {
         key: value
         for key, value in job.items()
-        if key != "history_snapshot" and (include_last_step or key != "last_step")
+        if key not in {
+            "history_snapshot", "confidence_samples", "adaptive_state",
+            "adaptive_recent_evaluations",
+        }
+        and (include_last_step or key != "last_step")
     }
     return result
 

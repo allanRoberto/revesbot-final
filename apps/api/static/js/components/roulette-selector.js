@@ -15,6 +15,6 @@ export function fillRouletteCounts(list, roulettes) {
   list.querySelectorAll("[data-roulette-slug]").forEach((item) => {
     const count = counts.get(item.dataset.rouletteSlug);
     const target = item.querySelector("[data-roulette-count]");
-    if (target) target.textContent = count == null ? "Sem dados" : `${count.toLocaleString("pt-BR")} resultados`;
+    if (target) target.textContent = count == null ? "—" : `${count.toLocaleString("pt-BR")} resultados`;
   });
 }

@@ -5,7 +5,20 @@ import re
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
+
+
+from api.helpers.active_roulettes import ACTIVE_ROULETTE_BY_SLUG
+from api.services.jev_history_service import ROULETTE_SLUG
+
+
+def validate_roulette_slug(value: str) -> str:
+    if value not in ACTIVE_ROULETTE_BY_SLUG:
+        raise ValueError("Roleta não monitorada.")
+    return value
+
+
+RouletteSlug = Annotated[str, AfterValidator(validate_roulette_slug)]
 
 
 GROUP_KEYS = tuple(f"grupo_{index}" for index in range(1, 7))
@@ -52,6 +65,7 @@ class JevAnalysisRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
+    roulette_slug: RouletteSlug = ROULETTE_SLUG
     history_order: Literal["oldest_to_newest"]
     historico_texto: str
     grupos: dict[str, list[RouletteNumber]]
@@ -77,8 +91,11 @@ class JevRankingRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
+    roulette_slug: RouletteSlug = ROULETTE_SLUG
     history_order: Literal["oldest_to_newest"]
     historico_texto: str
+    confidence_top_k: Annotated[StrictInt, Field(ge=1, le=36)] = 6
+    confidence_attempts: Annotated[StrictInt, Field(ge=1, le=10)] = 1
 
 
 class JevEvaluationRequest(BaseModel):
@@ -106,6 +123,7 @@ class JevBacktestStartRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
+    roulette_slug: RouletteSlug = ROULETTE_SLUG
     history_points: Annotated[StrictInt, Field(ge=1)]
     context_numbers: Annotated[StrictInt, Field(ge=50)]
     chip_count: Annotated[StrictInt, Field(ge=1, le=36)]
