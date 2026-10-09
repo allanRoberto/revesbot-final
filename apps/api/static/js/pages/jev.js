@@ -2,6 +2,7 @@
   "use strict";
 
   const byId = (id) => document.getElementById(id);
+  const tabNames = ["suggestion", "ranking", "backtest"];
   const groupIds = ["grupo_1", "grupo_2", "grupo_3", "grupo_4", "grupo_5", "grupo_6"];
   const maxHistory = Number(document.querySelector('meta[name="jev-max-history"]').content);
   const maxBacktestCalls = Number(document.querySelector('meta[name="jev-backtest-max-calls"]').content);
@@ -26,6 +27,11 @@
   let backtestRunning = false;
   let backtestStopRequested = false;
   let restoreVersion = 0;
+  let suggestionState = { ranking: null, anchorNumber: null, rouletteSlug: null, frozen: false };
+  let suggestionSocket = null;
+  let suggestionSocketVersion = 0;
+  const suggestionSeenEvents = new Set();
+  let suggestionCounters = { rounds: 0, inside: 0, outside: 0 };
 
   function rouletteName(slug = rouletteSelect.value) {
     return Array.from(rouletteSelect.options).find((option) => option.value === slug)?.textContent || slug;
@@ -40,7 +46,7 @@
   }
 
   function selectTab(name, focus = false) {
-    ["ranking", "backtest"].forEach((tab) => {
+    tabNames.forEach((tab) => {
       const active = tab === name;
       byId(`${tab}-tab`).setAttribute("aria-selected", String(active));
       byId(`${tab}-tab`).tabIndex = active ? 0 : -1;
@@ -50,7 +56,7 @@
   }
 
   function updateRouletteLabels() {
-    ["fetch-roulette-name", "editor-roulette-name", "backtest-roulette-name"].forEach((id) => {
+    ["fetch-roulette-name", "editor-roulette-name", "backtest-roulette-name", "suggestion-roulette-name"].forEach((id) => {
       byId(id).textContent = rouletteName();
     });
   }
@@ -59,10 +65,18 @@
     historyInput.value = "";
     historyEdited = false;
     latestRankingData = null;
+    stopSuggestionMonitor(`Monitoramento parado: mesa alterada para ${rouletteName()}.`, true);
+    suggestionState = { ranking: null, anchorNumber: null, rouletteSlug: null, frozen: false };
     activeBacktest = null;
     byId("results-section").hidden = true;
     byId("ranking-results-section").hidden = true;
     byId("ranking-empty").hidden = false;
+    byId("suggestion-empty").hidden = false;
+    byId("ranking-neighbor-section").hidden = true;
+    byId("suggestion-monitor-controls").hidden = true;
+    byId("suggestion-monitor-toggle").disabled = true;
+    byId("suggestion-auto-update").checked = false;
+    byId("suggestion-auto-update").disabled = true;
     byId("fetch-metadata").hidden = true;
     byId("fetch-note").hidden = true;
     byId("history-origin").textContent = "Nenhum histórico carregado para esta mesa.";
@@ -198,6 +212,7 @@
     dialog.close();
     const previousText = historyInput.value;
     const requestedRoulette = rouletteSelect.value;
+    stopSuggestionMonitor("Busca iniciada; monitoramento parado.");
     setBusy(true, "history");
     setOperation("Buscando números...");
     try {
@@ -235,6 +250,14 @@
       byId("ranking-empty").hidden = false;
       byId("ranking-result-stale").hidden = true;
       latestRankingData = null;
+      suggestionState = { ranking: null, anchorNumber: null, rouletteSlug: null, frozen: false };
+      stopSuggestionMonitor("Desligado", true);
+      byId("suggestion-empty").hidden = false;
+      byId("ranking-neighbor-section").hidden = true;
+      byId("suggestion-monitor-controls").hidden = true;
+      byId("suggestion-monitor-toggle").disabled = true;
+      byId("suggestion-auto-update").checked = false;
+      byId("suggestion-auto-update").disabled = true;
       setOperation(data.historico.length ? "Busca concluída. Você pode revisar e editar o histórico." : "Busca concluída sem resultados.");
     } catch (error) {
       historyInput.value = previousText;
@@ -397,35 +420,39 @@
     return true;
   }
 
-  function renderRankingNeighborNumbers(ranking) {
-    const section = byId("ranking-neighbor-section");
-    const list = byId("ranking-neighbor-numbers");
-    const anchorNumber = latestRankingData && latestRankingData.ultimo_numero;
-    if (!Array.isArray(ranking) || ranking.length !== 37 || !Number.isInteger(anchorNumber)) {
-      section.hidden = true;
-      list.replaceChildren();
-      return;
-    }
+  function rankingSourceForView(data, view) {
+    if (!data) return null;
+    if (view === "next_one") return data.ranking_proxima_rodada;
+    if (view === "next_three") return data.ranking;
+    if (view === "meta_one") return data.ranking_meta_proxima_rodada;
+    if (view === "meta_three") return data.ranking_meta;
+    return null;
+  }
 
+  function calculateSuggestionWindow(ranking, anchorNumber) {
+    if (!Array.isArray(ranking) || ranking.length !== 37 || !Number.isInteger(anchorNumber)) return null;
     const ordered = [...ranking].sort((left, right) => left.posicao - right.posicao);
     const anchorIndex = ordered.findIndex((item) => item.numero === anchorNumber);
-    if (anchorIndex < 0) {
-      section.hidden = true;
-      list.replaceChildren();
-      return;
-    }
-
+    if (anchorIndex < 0) return null;
     const firstIndex = Math.max(0, Math.min(anchorIndex - 6, ordered.length - 13));
     const selected = ordered.slice(firstIndex, firstIndex + 13);
-    if (selected.length !== 13 || !selected.some((item) => item.numero === anchorNumber)) {
+    if (selected.length !== 13 || !selected.some((item) => item.numero === anchorNumber)) return null;
+    return { ordered, selected, anchorPosition: ordered[anchorIndex].posicao };
+  }
+
+  function renderSuggestionWindow() {
+    const section = byId("ranking-neighbor-section");
+    const list = byId("ranking-neighbor-numbers");
+    const window = calculateSuggestionWindow(suggestionState.ranking, suggestionState.anchorNumber);
+    if (!window) {
       section.hidden = true;
       list.replaceChildren();
       return;
     }
 
-    const anchorPosition = ordered[anchorIndex].posicao;
+    const { selected, anchorPosition } = window;
     byId("ranking-neighbor-context").textContent =
-      `Último resultado: ${anchorNumber} · posição ${anchorPosition} · janela nas posições ${selected[0].posicao}–${selected[selected.length - 1].posicao}`;
+      `Referência: ${suggestionState.anchorNumber} · posição ${anchorPosition} · janela nas posições ${selected[0].posicao}–${selected[selected.length - 1].posicao}`;
 
     const fragment = document.createDocumentFragment();
     selected
@@ -435,10 +462,10 @@
         const item = document.createElement("li");
         const value = document.createElement("strong");
         value.textContent = String(number);
-        if (number === anchorNumber) {
+        if (number === suggestionState.anchorNumber) {
           item.classList.add("is-anchor");
-          item.title = "Último resultado";
-          item.setAttribute("aria-label", `${number}, último resultado`);
+          item.title = "Número de referência";
+          item.setAttribute("aria-label", `${number}, número de referência`);
         } else {
           item.setAttribute("aria-label", String(number));
         }
@@ -447,6 +474,139 @@
       });
     list.replaceChildren(fragment);
     section.hidden = false;
+  }
+
+  function updateSuggestionCounters() {
+    byId("suggestion-round-count").textContent = String(suggestionCounters.rounds);
+    byId("suggestion-hit-miss").textContent = `${suggestionCounters.inside} / ${suggestionCounters.outside}`;
+  }
+
+  function stopSuggestionMonitor(status = "Monitoramento parado.", resetCounters = false) {
+    const socket = suggestionSocket;
+    suggestionSocket = null;
+    suggestionSocketVersion += 1;
+    if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
+    byId("suggestion-monitor-toggle").textContent = "Iniciar monitoramento";
+    byId("suggestion-monitor-toggle").disabled = !latestRankingData;
+    byId("suggestion-auto-update").disabled = !latestRankingData;
+    byId("ranking-view").disabled = false;
+    byId("suggestion-monitor-status").textContent = status;
+    if (resetCounters) {
+      suggestionCounters = { rounds: 0, inside: 0, outside: 0 };
+      suggestionSeenEvents.clear();
+      byId("suggestion-last-result").textContent = "—";
+      updateSuggestionCounters();
+    }
+  }
+
+  function resultEventKey(event) {
+    const fullResult = event.full_result && typeof event.full_result === "object" ? event.full_result : {};
+    const id = fullResult.external_game_id || fullResult._id || fullResult.timestamp || fullResult.captured_at;
+    return id ? `${event.slug}:${id}` : `${event.slug}:${event.result}:${JSON.stringify(fullResult)}`;
+  }
+
+  function receiveSuggestionResult(event, slug) {
+    if (!event || event.slug !== slug || !Number.isInteger(event.result) || event.result < 0 || event.result > 36) return;
+    const eventKey = resultEventKey(event);
+    if (suggestionSeenEvents.has(eventKey)) return;
+    suggestionSeenEvents.add(eventKey);
+    if (suggestionSeenEvents.size > 2000) suggestionSeenEvents.delete(suggestionSeenEvents.values().next().value);
+
+    const currentWindow = calculateSuggestionWindow(suggestionState.ranking, suggestionState.anchorNumber);
+    if (!currentWindow) return;
+    const selectedNumbers = new Set(currentWindow.selected.map((item) => item.numero));
+    const inside = selectedNumbers.has(event.result);
+    suggestionCounters.rounds += 1;
+    if (inside) suggestionCounters.inside += 1;
+    else suggestionCounters.outside += 1;
+    byId("suggestion-last-result").textContent = `${event.result} · ${inside ? "dentro" : "fora"} da sugestão`;
+    updateSuggestionCounters();
+
+    if (!inside && byId("suggestion-auto-update").checked) {
+      suggestionState.anchorNumber = event.result;
+      renderSuggestionWindow();
+    }
+  }
+
+  function startSuggestionMonitor() {
+    if (!latestRankingData) return;
+    const slug = rouletteSelect.value;
+    if (!suggestionState.frozen || suggestionState.rouletteSlug !== slug || !suggestionState.ranking) {
+      const ranking = rankingSourceForView(latestRankingData, byId("ranking-view").value);
+      suggestionState = {
+        ranking: Array.isArray(ranking) ? [...ranking] : null,
+        anchorNumber: latestRankingData.ultimo_numero,
+        rouletteSlug: slug,
+        frozen: true,
+      };
+    }
+    if (!calculateSuggestionWindow(suggestionState.ranking, suggestionState.anchorNumber)) {
+      byId("suggestion-monitor-status").textContent = "Não foi possível criar a sugestão para este ranking.";
+      return;
+    }
+
+    suggestionState.frozen = true;
+    renderSuggestionWindow();
+    byId("ranking-view").disabled = true;
+    byId("suggestion-monitor-toggle").textContent = "Parar monitoramento";
+    byId("suggestion-monitor-toggle").disabled = false;
+    byId("suggestion-auto-update").disabled = false;
+    byId("suggestion-monitor-status").textContent = "Conectando…";
+    byId("suggestion-monitor-note").textContent =
+      `Usando o mesmo ranking (${byId("ranking-view").selectedOptions[0].textContent}); apenas a referência pode mudar.`;
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const url = `${protocol}://api.revesbot.com.br/ws?slug=${encodeURIComponent(slug)}`;
+    const version = ++suggestionSocketVersion;
+    let socket;
+    try {
+      socket = new WebSocket(url);
+    } catch (_error) {
+      byId("suggestion-monitor-status").textContent = "Não foi possível abrir o websocket.";
+      byId("suggestion-monitor-toggle").textContent = "Tentar novamente";
+      byId("ranking-view").disabled = false;
+      return;
+    }
+    suggestionSocket = socket;
+    socket.addEventListener("open", () => {
+      if (suggestionSocket !== socket || version !== suggestionSocketVersion) return;
+      byId("suggestion-monitor-status").textContent = `Monitorando ${rouletteName(slug)}`;
+    });
+    socket.addEventListener("message", (message) => {
+      if (suggestionSocket !== socket || version !== suggestionSocketVersion) return;
+      try {
+        receiveSuggestionResult(JSON.parse(message.data), slug);
+      } catch (_error) {
+        byId("suggestion-monitor-status").textContent = "Evento inválido recebido; monitoramento continua.";
+      }
+    });
+    socket.addEventListener("error", () => {
+      if (suggestionSocket === socket && version === suggestionSocketVersion) {
+        byId("suggestion-monitor-status").textContent = "Erro na conexão do websocket.";
+      }
+    });
+    socket.addEventListener("close", () => {
+      if (suggestionSocket !== socket || version !== suggestionSocketVersion) return;
+      suggestionSocket = null;
+      byId("suggestion-monitor-toggle").textContent = "Retomar monitoramento";
+      byId("ranking-view").disabled = false;
+      byId("suggestion-monitor-status").textContent = "Conexão interrompida; resultados durante a queda podem não ter sido recebidos.";
+      byId("suggestion-monitor-note").textContent = "Confira a conexão e retome o monitoramento para continuar acompanhando.";
+    });
+  }
+
+  function renderRankingNeighborNumbers(ranking) {
+    if (!suggestionState.frozen) {
+      const canKeepReference = suggestionState.rouletteSlug === rouletteSelect.value
+        && Number.isInteger(suggestionState.anchorNumber);
+      suggestionState = {
+        ranking: Array.isArray(ranking) ? [...ranking] : null,
+        anchorNumber: canKeepReference ? suggestionState.anchorNumber : latestRankingData && latestRankingData.ultimo_numero,
+        rouletteSlug: rouletteSelect.value,
+        frozen: false,
+      };
+    }
+    renderSuggestionWindow();
   }
 
   function renderRankingRows() {
@@ -464,9 +624,7 @@
       ? latestRankingData.ranking_meta_proxima_rodada
       : latestRankingData.ranking_meta;
     const metaByNumber = new Map(metaSource.map((item) => [item.numero, item]));
-    const source = usesMeta
-      ? metaSource
-      : (usesNextSpin ? latestRankingData.ranking_proxima_rodada : latestRankingData.ranking);
+    const source = rankingSourceForView(latestRankingData, view);
     renderRankingNeighborNumbers(source);
     const rows = source.filter((item) => {
       const main = mainByNumber.get(item.numero);
@@ -601,6 +759,19 @@
       }
     });
     latestRankingData = data;
+    suggestionState = { ranking: null, anchorNumber: null, rouletteSlug: null, frozen: false };
+    suggestionCounters = { rounds: 0, inside: 0, outside: 0 };
+    suggestionSeenEvents.clear();
+    updateSuggestionCounters();
+    byId("suggestion-empty").hidden = true;
+    byId("suggestion-monitor-controls").hidden = false;
+    byId("suggestion-monitor-toggle").disabled = false;
+    byId("suggestion-auto-update").disabled = false;
+    byId("suggestion-monitor-toggle").textContent = "Iniciar monitoramento";
+    byId("suggestion-monitor-status").textContent = "Desligado";
+    byId("suggestion-last-result").textContent = "—";
+    byId("suggestion-monitor-note").textContent = "O monitor apenas atualiza e exibe a sugestão; ele não envia apostas.";
+
     byId("ranking-view").value = "next_one";
     byId("ranking-pattern-filter").value = "all";
     byId("ranking-validation-filter").value = "all";
@@ -785,6 +956,7 @@
       setOperation("O ranking não foi iniciado.", "Informe entre 1 e 36 números e entre 1 e 10 tentativas para a confiança.");
       return;
     }
+    stopSuggestionMonitor("Novo ranking em processamento.");
     markResultStale("ranking");
     setBusy(true, "ranking");
     setOperation("Gerando ranking 0–36 e catalogando relações A → B com o Jev...");
@@ -1189,13 +1361,24 @@
   }
 
   rouletteSelect.addEventListener("change", changeRoulette);
-  ["ranking", "backtest"].forEach((name) => {
+  tabNames.forEach((name) => {
     byId(`${name}-tab`).addEventListener("click", () => selectTab(name));
     byId(`${name}-tab`).addEventListener("keydown", (event) => {
       if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       event.preventDefault();
-      selectTab(event.key === "Home" ? "ranking" : event.key === "End" ? "backtest" : name === "ranking" ? "backtest" : "ranking", true);
+      const currentIndex = tabNames.indexOf(name);
+      const nextIndex = event.key === "Home" ? 0
+        : event.key === "End" ? tabNames.length - 1
+          : (currentIndex + (event.key === "ArrowRight" ? 1 : tabNames.length - 1)) % tabNames.length;
+      selectTab(tabNames[nextIndex], true);
     });
+  });
+  byId("suggestion-monitor-toggle").addEventListener("click", () => {
+    if (suggestionSocket && suggestionSocket.readyState < WebSocket.CLOSING) {
+      stopSuggestionMonitor("Monitoramento parado.");
+    } else {
+      startSuggestionMonitor();
+    }
   });
   byId("open-history-dialog").addEventListener("click", openHistoryFetch);
   byId("editor-fetch-history").addEventListener("click", openHistoryFetch);
@@ -1211,7 +1394,10 @@
   byId("history-dialog-form").addEventListener("submit", fetchHistory);
   rankingButton.addEventListener("click", rankNumbers);
   byId("ranking-evaluation-form").addEventListener("submit", evaluateRanking);
-  byId("ranking-view").addEventListener("change", renderRankingRows);
+  byId("ranking-view").addEventListener("change", () => {
+    suggestionState.frozen = false;
+    renderRankingRows();
+  });
   byId("ranking-pattern-filter").addEventListener("change", renderRankingRows);
   byId("ranking-validation-filter").addEventListener("change", renderRankingRows);
   byId("ranking-min-support").addEventListener("input", renderRankingRows);

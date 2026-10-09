@@ -148,6 +148,7 @@ def _normalize_stream_payload(stream_name: str, message_id: str, fields):
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     channel = _resolve_result_channel(websocket.query_params.get("channel"))
+    requested_slug = str(websocket.query_params.get("slug") or "").strip()
     await websocket.accept()
     pubsub_client = create_pubsub_redis_client()
     pubsub = pubsub_client.pubsub()
@@ -159,7 +160,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if message["type"] != "message":
                     continue
                 data = _normalize_result_event(message.get("data"), channel)
-                if not data:
+                if not data or (requested_slug and data["slug"] != requested_slug):
                     continue
                 try:
                     await websocket.send_json(data)

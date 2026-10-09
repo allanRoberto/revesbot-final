@@ -34,8 +34,43 @@
       </label>
     </section>
     <div class="page-tabs" role="tablist" aria-label="Ferramentas JEV">
+      <button id="suggestion-tab" type="button" role="tab" aria-selected="false" aria-controls="suggestion-tab-panel" tabindex="-1">Sugestão</button>
       <button id="ranking-tab" type="button" role="tab" aria-selected="true" aria-controls="ranking-tab-panel" tabindex="0">Ranking</button>
       <button id="backtest-tab" type="button" role="tab" aria-selected="false" aria-controls="backtest-tab-panel" tabindex="-1">Backtest <span id="backtest-tab-status" hidden></span></button>
+    </div>
+    <div id="suggestion-tab-panel" role="tabpanel" aria-labelledby="suggestion-tab" hidden>
+      <section class="panel suggestion-panel" aria-labelledby="suggestion-panel-title">
+        <div class="results-heading">
+          <div><p class="eyebrow">SUGESTÃO AO VIVO</p><h2 id="suggestion-panel-title">13 números para acompanhar</h2></div>
+          <p class="backtest-table-label">Mesa: <strong id="suggestion-roulette-name">Auto Roulette</strong></p>
+        </div>
+        <p id="suggestion-empty" class="inline-note">Gere um ranking na aba Ranking para calcular a sugestão.</p>
+        <section id="ranking-neighbor-section" class="ranking-neighbor-card" aria-labelledby="ranking-neighbor-title" hidden>
+          <div class="ranking-neighbor-heading">
+            <div><h3 id="ranking-neighbor-title">Sugestão atual · 13 números</h3><p id="ranking-neighbor-context"></p></div>
+            <span>ORDEM CRESCENTE</span>
+          </div>
+          <ol id="ranking-neighbor-numbers" class="ranking-neighbor-numbers" aria-label="13 números sugeridos em ordem numérica crescente"></ol>
+        </section>
+        <section id="suggestion-monitor-controls" class="suggestion-monitor-controls" hidden aria-labelledby="suggestion-monitor-title">
+          <div class="catalog-heading"><h3 id="suggestion-monitor-title">Monitoramento de resultados</h3><p>Recebe os próximos resultados da mesa selecionada pelo websocket.</p></div>
+          <div class="suggestion-monitor-actions">
+            <label class="suggestion-auto-update" for="suggestion-auto-update">
+              <input id="suggestion-auto-update" type="checkbox">
+              <span>Atualizar a sugestão quando o resultado ficar fora dos 13 números</span>
+            </label>
+            <button id="suggestion-monitor-toggle" class="primary-button" type="button">Iniciar monitoramento</button>
+          </div>
+          <p class="field-help">Desativada, mantém a lista inicial em todas as tentativas. Ativada, reancora a lista após cada resultado fora dos 13 números, usando o mesmo ranking.</p>
+          <dl class="result-metadata suggestion-monitor-metrics" aria-live="polite">
+            <div><dt>Conexão</dt><dd id="suggestion-monitor-status">Desligado</dd></div>
+            <div><dt>Último resultado</dt><dd id="suggestion-last-result">—</dd></div>
+            <div><dt>Giros acompanhados</dt><dd id="suggestion-round-count">0</dd></div>
+            <div><dt>Dentro / fora da sugestão</dt><dd id="suggestion-hit-miss">0 / 0</dd></div>
+          </dl>
+          <p id="suggestion-monitor-note" class="inline-note">O monitor apenas atualiza e exibe a sugestão; ele não envia apostas.</p>
+        </section>
+      </section>
     </div>
     <div id="ranking-tab-panel" role="tabpanel" aria-labelledby="ranking-tab">
       <form id="jev-form" class="ranking-toolbar panel" novalidate>
@@ -67,13 +102,6 @@
       <p id="ranking-context-label" class="ranking-context-label"></p>
       <div class="top-ranking-heading"><h3>Primeiros números do ranking</h3><span id="ranking-top-label">JEV Original · próxima rodada</span></div>
       <ol id="ranking-top-numbers" class="ranking-top-numbers" aria-label="Primeiros seis números do ranking"></ol>
-      <section id="ranking-neighbor-section" class="ranking-neighbor-card" aria-labelledby="ranking-neighbor-title" hidden>
-        <div class="ranking-neighbor-heading">
-          <div><h3 id="ranking-neighbor-title">13 números ao redor do último resultado</h3><p id="ranking-neighbor-context"></p></div>
-          <span>ORDEM CRESCENTE</span>
-        </div>
-        <ol id="ranking-neighbor-numbers" class="ranking-neighbor-numbers" aria-label="13 números selecionados em ordem numérica crescente"></ol>
-      </section>
       <div class="ranking-controls" aria-label="Filtros do ranking">
         <label for="ranking-view">Visão<select id="ranking-view"><option value="next_one" selected>JEV Original · próxima rodada</option><option value="next_three">JEV Original · próximas 3</option><option value="meta_one">Meta · próxima rodada</option><option value="meta_three">Meta · próximas 3</option></select></label>
         <label for="ranking-pattern-filter">Padrão<select id="ranking-pattern-filter"><option value="all">Todos</option><option value="stable">Estáveis</option><option value="positive">Positivos</option><option value="negative">Negativos</option><option value="zero">Somente zero</option></select></label>
