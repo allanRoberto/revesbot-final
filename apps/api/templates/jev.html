@@ -168,6 +168,14 @@
         <div id="ranking-result-cost-row" hidden><dt>Custo informado</dt><dd id="ranking-result-cost">—</dd></div>
       </dl>
 
+      <section id="ranking-neighbor-section" class="ranking-neighbor-card" aria-labelledby="ranking-neighbor-title" hidden>
+        <div class="ranking-neighbor-heading">
+          <div><h3 id="ranking-neighbor-title">13 números ao redor do último resultado</h3><p id="ranking-neighbor-context"></p></div>
+          <span>ORDEM CRESCENTE</span>
+        </div>
+        <ol id="ranking-neighbor-numbers" class="ranking-neighbor-numbers" aria-label="13 números selecionados em ordem numérica crescente"></ol>
+      </section>
+
       <div class="ranking-controls" aria-label="Filtros do ranking">
         <label for="ranking-view">Visão<select id="ranking-view"><option value="meta_three">Meta · próximas 3</option><option value="meta_one">Meta · próxima rodada</option><option value="next_three">Jev original · próximas 3</option><option value="next_one">Jev original · próxima rodada</option></select></label>
         <label for="ranking-pattern-filter">Padrão<select id="ranking-pattern-filter"><option value="all">Todos</option><option value="stable">Estáveis</option><option value="positive">Positivos</option><option value="negative">Negativos</option><option value="zero">Somente zero</option></select></label>
