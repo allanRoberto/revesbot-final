@@ -292,6 +292,58 @@
     return true;
   }
 
+  function renderRankingNeighborNumbers(ranking) {
+    const section = byId("ranking-neighbor-section");
+    const list = byId("ranking-neighbor-numbers");
+    const anchorNumber = latestRankingData && latestRankingData.ultimo_numero;
+    if (!Array.isArray(ranking) || ranking.length !== 37 || !Number.isInteger(anchorNumber)) {
+      section.hidden = true;
+      list.replaceChildren();
+      return;
+    }
+
+    const ordered = [...ranking].sort((left, right) => left.posicao - right.posicao);
+    const anchorIndex = ordered.findIndex((item) => item.numero === anchorNumber);
+    if (anchorIndex < 0) {
+      section.hidden = true;
+      list.replaceChildren();
+      return;
+    }
+
+    const firstIndex = Math.max(0, Math.min(anchorIndex - 6, ordered.length - 13));
+    const selected = ordered.slice(firstIndex, firstIndex + 13);
+    if (selected.length !== 13 || !selected.some((item) => item.numero === anchorNumber)) {
+      section.hidden = true;
+      list.replaceChildren();
+      return;
+    }
+
+    const anchorPosition = ordered[anchorIndex].posicao;
+    byId("ranking-neighbor-context").textContent =
+      `Último resultado: ${anchorNumber} · posição ${anchorPosition} · janela nas posições ${selected[0].posicao}–${selected[selected.length - 1].posicao}`;
+
+    const fragment = document.createDocumentFragment();
+    selected
+      .map((item) => item.numero)
+      .sort((left, right) => left - right)
+      .forEach((number) => {
+        const item = document.createElement("li");
+        const value = document.createElement("strong");
+        value.textContent = String(number);
+        if (number === anchorNumber) {
+          item.classList.add("is-anchor");
+          item.title = "Último resultado";
+          item.setAttribute("aria-label", `${number}, último resultado`);
+        } else {
+          item.setAttribute("aria-label", String(number));
+        }
+        item.append(value);
+        fragment.append(item);
+      });
+    list.replaceChildren(fragment);
+    section.hidden = false;
+  }
+
   function renderRankingRows() {
     if (!latestRankingData) return;
     const percent = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -310,6 +362,7 @@
     const source = usesMeta
       ? metaSource
       : (usesNextSpin ? latestRankingData.ranking_proxima_rodada : latestRankingData.ranking);
+    renderRankingNeighborNumbers(source);
     const rows = source.filter((item) => {
       const main = mainByNumber.get(item.numero);
       const meta = metaByNumber.get(item.numero);
