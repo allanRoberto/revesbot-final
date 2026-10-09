@@ -8,7 +8,11 @@
   const jevInputPricePerMillion = Number(document.querySelector('meta[name="jev-input-price-per-million"]').content);
   const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
   const form = byId("jev-form");
+  const rouletteSelect = byId("roulette-select");
+  const historyEditor = byId("history-editor-dialog");
+  const groupsDialog = byId("groups-dialog");
   const historyInput = byId("history-input");
+  const reverseHistoryButton = byId("reverse-history");
   const analyzeButton = byId("analyze-button");
   const rankingButton = byId("ranking-button");
   const dialog = byId("history-dialog");
@@ -21,6 +25,57 @@
   let activeBacktest = null;
   let backtestRunning = false;
   let backtestStopRequested = false;
+  let restoreVersion = 0;
+
+  function rouletteName(slug = rouletteSelect.value) {
+    return Array.from(rouletteSelect.options).find((option) => option.value === slug)?.textContent || slug;
+  }
+
+  function backtestStorageKey(slug = rouletteSelect.value) {
+    return `jev-active-backtest-id:${slug}`;
+  }
+
+  function syncRouletteLock() {
+    rouletteSelect.disabled = busy || backtestRunning;
+  }
+
+  function selectTab(name, focus = false) {
+    ["ranking", "backtest"].forEach((tab) => {
+      const active = tab === name;
+      byId(`${tab}-tab`).setAttribute("aria-selected", String(active));
+      byId(`${tab}-tab`).tabIndex = active ? 0 : -1;
+      byId(`${tab}-tab-panel`).hidden = !active;
+    });
+    if (focus) byId(`${name}-tab`).focus();
+  }
+
+  function updateRouletteLabels() {
+    ["fetch-roulette-name", "editor-roulette-name", "backtest-roulette-name"].forEach((id) => {
+      byId(id).textContent = rouletteName();
+    });
+  }
+
+  function changeRoulette() {
+    historyInput.value = "";
+    historyEdited = false;
+    latestRankingData = null;
+    activeBacktest = null;
+    byId("results-section").hidden = true;
+    byId("ranking-results-section").hidden = true;
+    byId("ranking-empty").hidden = false;
+    byId("fetch-metadata").hidden = true;
+    byId("fetch-note").hidden = true;
+    byId("history-origin").textContent = "Nenhum histórico carregado para esta mesa.";
+    byId("backtest-progress-region").hidden = true;
+    byId("backtest-error").hidden = true;
+    byId("backtest-confirm").checked = false;
+    byId("backtest-tab-status").hidden = true;
+    updateRouletteLabels();
+    validateForm();
+    setBacktestControls(false);
+    setOperation(`Mesa selecionada: ${rouletteName()}. Busque ou cole o histórico desta mesa.`);
+    restoreBacktest();
+  }
 
   function parseSequence(text, label) {
     const stripped = text.replace(/^[ ,;\t\r\n]+|[ ,;\t\r\n]+$/g, "");
@@ -66,6 +121,9 @@
     byId("current-count").textContent = historyError ? "—" : String(parsedHistory.values.length);
     byId("current-last").textContent = historyError || parsedHistory.values.length === 0
       ? "—" : String(parsedHistory.values[parsedHistory.values.length - 1]);
+    byId("history-brief").textContent = historyError
+      ? "Nenhum histórico válido carregado"
+      : `${parsedHistory.values.length} números · último: ${parsedHistory.values.at(-1)}`;
 
     const groups = {};
     let groupError = false;
@@ -82,6 +140,7 @@
     });
     const rankingValid = !historyError;
     const valid = rankingValid && !groupError;
+    reverseHistoryButton.disabled = busy || !rankingValid;
     rankingButton.disabled = busy || !rankingValid;
     analyzeButton.disabled = busy || !valid;
     return { valid, rankingValid, history: parsedHistory.values, groups };
@@ -92,6 +151,7 @@
     document.querySelectorAll(".editable-control, [data-operation-control]").forEach((control) => {
       control.disabled = nextBusy;
     });
+    syncRouletteLock();
     byId("analyze-label").textContent = nextBusy && label === "analysis" ? "Analisando grupos..." : "Analisar seis grupos";
     byId("ranking-label").textContent = nextBusy && label === "ranking" ? "Gerando ranking..." : "Gerar ranking 0–36";
     byId("ranking-evaluate-button").textContent = nextBusy && label === "evaluation" ? "Calculando..." : "Avaliar ranking";
@@ -137,17 +197,18 @@
     byId("quantity-error").hidden = true;
     dialog.close();
     const previousText = historyInput.value;
+    const requestedRoulette = rouletteSelect.value;
     setBusy(true, "history");
     setOperation("Buscando números...");
     try {
-      const response = await fetch(`/api/jev/historico?quantidade=${encodeURIComponent(String(quantity))}`, {
+      const response = await fetch(`/api/jev/historico?quantidade=${encodeURIComponent(String(quantity))}&roulette_slug=${encodeURIComponent(requestedRoulette)}`, {
         method: "GET",
         headers: { Accept: "application/json" },
         credentials: "same-origin",
         cache: "no-store",
       });
       const data = await readResponse(response);
-      if (!data || data.roulette_slug !== "pragmatic-auto-roulette"
+      if (!data || data.roulette_slug !== requestedRoulette
           || data.history_order !== "oldest_to_newest" || !Array.isArray(data.historico)
           || !data.historico.every((number) => Number.isInteger(number) && number >= 0 && number <= 36)) {
         throw new Error("A API retornou um histórico inválido.");
@@ -155,7 +216,7 @@
       historyInput.value = data.historico.join(", ");
       historyEdited = false;
       byId("history-origin").textContent = data.historico.length
-        ? "Histórico carregado do servidor; revise antes de analisar."
+        ? `Histórico de ${rouletteName(requestedRoulette)} carregado do servidor; revise antes de analisar.`
         : "A busca foi concluída, mas nenhum resultado estava disponível.";
       byId("fetch-metadata").hidden = false;
       byId("fetched-requested").textContent = String(data.quantidade_solicitada);
@@ -171,6 +232,7 @@
       byId("results-section").hidden = true;
       byId("result-stale").hidden = true;
       byId("ranking-results-section").hidden = true;
+      byId("ranking-empty").hidden = false;
       byId("ranking-result-stale").hidden = true;
       latestRankingData = null;
       setOperation(data.historico.length ? "Busca concluída. Você pode revisar e editar o histórico." : "Busca concluída sem resultados.");
@@ -180,6 +242,22 @@
     } finally {
       setBusy(false);
     }
+  }
+
+  function reverseHistory() {
+    if (busy) return;
+    const parsed = parseSequence(historyInput.value, "Histórico");
+    if (parsed.error || parsed.values.length === 0 || parsed.values.length > maxHistory) {
+      validateForm();
+      historyInput.focus();
+      return;
+    }
+    historyInput.value = parsed.values.reverse().join(", ");
+    historyEdited = true;
+    byId("history-origin").textContent = "A ordem do histórico foi invertida manualmente.";
+    markResultStale();
+    validateForm();
+    setOperation("Ordem invertida. O primeiro número agora é o mais antigo e o último é o mais recente.");
   }
 
   function appendCell(row, value) {
@@ -280,6 +358,33 @@
       no_reliable_signal: "sem sinal confiável",
     };
     return labels[value] || String(value || "não informado");
+  }
+
+  function confidenceDecisionLabel(value) {
+    const labels = { enter: "Entrar", observe: "Observar", no_entry: "Não entrar" };
+    return labels[value] || "Não entrar";
+  }
+
+  function confidenceStatusLabel(value) {
+    const labels = {
+      validated: "validado", experimental: "experimental", degraded: "degradado",
+      insufficient: "amostra insuficiente", unavailable: "indisponível",
+    };
+    return labels[value] || String(value || "indisponível");
+  }
+
+  function adaptiveStatusLabel(value) {
+    return ({
+      warming_up: "Aquecendo",
+      shadow: "Modo sombra",
+      promotion_eligible: "Elegível para promoção",
+      degraded: "Abaixo do JEV",
+      unavailable: "Indisponível",
+    })[value] || value || "Indisponível";
+  }
+
+  function joinedNumbers(value) {
+    return Array.isArray(value) && value.length ? value.join(", ") : "—";
   }
 
   function matchesPattern(result, filter) {
@@ -397,6 +502,17 @@
       fragment.append(row);
     });
     byId("ranking-results-body").replaceChildren(fragment);
+    const topItems = rows.slice(0, 6).map((item) => {
+      const entry = document.createElement("li");
+      const position = document.createElement("span");
+      position.textContent = `${item.posicao}º`;
+      const number = document.createElement("strong");
+      number.textContent = String(item.numero);
+      entry.append(position, number);
+      return entry;
+    });
+    byId("ranking-top-numbers").replaceChildren(...topItems);
+    byId("ranking-top-label").textContent = byId("ranking-view").selectedOptions[0].textContent;
     const headings = {
       meta_three: "Meta calibrado · próximas 3",
       meta_one: "Meta calibrado · próxima rodada",
@@ -415,6 +531,11 @@
         || !Array.isArray(data.ranking_meta_proxima_rodada) || data.ranking_meta_proxima_rodada.length !== 37
         || !data.sinal_meta || typeof data.sinal_meta.status !== "string"
         || typeof data.sinal_meta.available !== "boolean"
+        || !data.confianca_top_n || typeof data.confianca_top_n.decision !== "string"
+        || !Array.isArray(data.confianca_top_n.selected_numbers)
+        || !data.ranking_adaptativo || typeof data.ranking_adaptativo.status !== "string"
+        || !Array.isArray(data.ranking_adaptativo.jev_selected_numbers)
+        || !Array.isArray(data.ranking_adaptativo.adaptive_selected_numbers)
         || !data.validacao_walk_forward || typeof data.validacao_walk_forward.version !== "string"
         || !data.proxima_rodada || !Number.isInteger(data.proxima_rodada.numero_escolhido)
         || typeof data.proxima_rodada.confidence !== "number"
@@ -480,7 +601,7 @@
       }
     });
     latestRankingData = data;
-    byId("ranking-view").value = "meta_three";
+    byId("ranking-view").value = "next_one";
     byId("ranking-pattern-filter").value = "all";
     byId("ranking-validation-filter").value = "all";
     byId("ranking-min-support").value = "0";
@@ -510,6 +631,7 @@
     byId("ranking-catalog-table").hidden = data.catalogo_padroes.length === 0;
 
     byId("ranking-result-count").textContent = String(data.quantidade_analisada);
+    byId("ranking-context-label").textContent = `${rouletteName(data.roulette_slug)} · ${data.quantidade_analisada} números · último: ${data.ultimo_numero}`;
     byId("ranking-result-source").textContent = String(data.ultimo_numero);
     byId("ranking-result-horizon").textContent = `${data.forecast_horizon_spins} rodadas`;
     byId("ranking-result-model").textContent = data.modelo_retornado || "Não informado";
@@ -520,6 +642,40 @@
     byId("ranking-regime").textContent = `${regimeLabel(data.regime_atual.choice)} · confiança ${percent.format(data.regime_atual.confidence)}`;
     byId("ranking-meta-signal").textContent = `${signalLabel(data.sinal_meta.status)} · cobertura ${percent.format(data.sinal_meta.coverage)}`;
     byId("ranking-walk-forward").textContent = `${data.validacao_walk_forward.version} · treino mín. ${data.validacao_walk_forward.minimum_training_support}`;
+    const confidence = data.confianca_top_n;
+    byId("ranking-confidence-numbers").textContent = confidence.selected_numbers.join(", ");
+    byId("ranking-confidence-decision").textContent = `${confidenceDecisionLabel(confidence.decision)} · ${confidenceStatusLabel(confidence.status)}`;
+    byId("ranking-confidence-probability").textContent = typeof confidence.calibrated_probability === "number"
+      ? percent.format(confidence.calibrated_probability) : "Aguardando amostra";
+    byId("ranking-confidence-bound").textContent = typeof confidence.conservative_lower_bound === "number"
+      ? percent.format(confidence.conservative_lower_bound) : "—";
+    byId("ranking-confidence-baseline").textContent = typeof confidence.fair_baseline === "number"
+      ? percent.format(confidence.fair_baseline) : "—";
+    byId("ranking-confidence-samples").textContent = String(confidence.sample_count || 0);
+    byId("ranking-confidence-reason").textContent = confidence.reason || "Sem justificativa disponível.";
+    const adaptive = data.ranking_adaptativo;
+    const adaptiveMetrics = adaptive.training_metrics || {};
+    const metricPair = (champion, challenger, formatter) => (
+      typeof champion === "number" && typeof challenger === "number"
+        ? `${formatter(champion)} / ${formatter(challenger)}` : "—"
+    );
+    byId("ranking-adaptive-status").textContent = adaptiveStatusLabel(adaptive.status);
+    byId("ranking-adaptive-samples").textContent = String(adaptive.sample_count || 0);
+    byId("ranking-adaptive-jev-numbers").textContent = joinedNumbers(adaptive.jev_selected_numbers);
+    byId("ranking-adaptive-numbers").textContent = joinedNumbers(adaptive.adaptive_selected_numbers);
+    byId("ranking-adaptive-maintained").textContent = joinedNumbers(adaptive.maintained_numbers);
+    byId("ranking-adaptive-added").textContent = joinedNumbers(adaptive.added_numbers);
+    byId("ranking-adaptive-removed").textContent = joinedNumbers(adaptive.removed_numbers);
+    byId("ranking-adaptive-accuracy").textContent = metricPair(
+      adaptiveMetrics.jev_top_k_accuracy, adaptiveMetrics.adaptive_top_k_accuracy, (value) => percent.format(value),
+    );
+    byId("ranking-adaptive-brier").textContent = metricPair(
+      adaptiveMetrics.jev_brier, adaptiveMetrics.adaptive_brier, (value) => value.toFixed(4),
+    );
+    byId("ranking-adaptive-logloss").textContent = metricPair(
+      adaptiveMetrics.jev_log_loss, adaptiveMetrics.adaptive_log_loss, (value) => value.toFixed(4),
+    );
+    byId("ranking-adaptive-reason").textContent = adaptive.reason || "Sem justificativa disponível.";
 
     const usage = data.resposta_jev && typeof data.resposta_jev === "object" ? data.resposta_jev.usage : null;
     const hasCost = usage && typeof usage === "object"
@@ -543,6 +699,10 @@
     byId("ranking-evaluation-results").hidden = true;
     byId("ranking-result-stale").hidden = true;
     byId("ranking-results-section").hidden = false;
+    byId("ranking-empty").hidden = true;
+    byId("ranking-details").open = false;
+    selectTab("ranking");
+    window.scrollTo({ top: 0, behavior: "instant" });
   }
 
   async function evaluateRanking(event) {
@@ -614,9 +774,17 @@
     const current = validateForm();
     if (!current.rankingValid) return;
     const captured = {
+      roulette_slug: rouletteSelect.value,
       history_order: "oldest_to_newest",
       historico_texto: historyInput.value,
+      confidence_top_k: Number(byId("ranking-confidence-top-k").value),
+      confidence_attempts: Number(byId("ranking-confidence-attempts").value),
     };
+    if (!Number.isInteger(captured.confidence_top_k) || captured.confidence_top_k < 1 || captured.confidence_top_k > 36
+        || !Number.isInteger(captured.confidence_attempts) || captured.confidence_attempts < 1 || captured.confidence_attempts > 10) {
+      setOperation("O ranking não foi iniciado.", "Informe entre 1 e 36 números e entre 1 e 10 tentativas para a confiança.");
+      return;
+    }
     markResultStale("ranking");
     setBusy(true, "ranking");
     setOperation("Gerando ranking 0–36 e catalogando relações A → B com o Jev...");
@@ -646,10 +814,12 @@
     const current = validateForm();
     if (!current.valid) return;
     const captured = {
+      roulette_slug: rouletteSelect.value,
       history_order: "oldest_to_newest",
       historico_texto: historyInput.value,
       grupos: current.groups,
     };
+    groupsDialog.close();
     markResultStale("groups");
     setBusy(true, "analysis");
     setOperation("Analisando com Jev...");
@@ -697,6 +867,7 @@
 
   function setBacktestControls(running) {
     backtestRunning = running;
+    syncRouletteLock();
     document.querySelectorAll("#backtest-form input, #backtest-form select, #backtest-start").forEach((control) => {
       control.disabled = running;
     });
@@ -721,6 +892,9 @@
       throw new Error("A API retornou um backtest inválido.");
     }
     activeBacktest = data;
+    byId("backtest-roulette-name").textContent = rouletteName(data.roulette_slug || "pragmatic-auto-roulette");
+    byId("backtest-tab-status").hidden = false;
+    byId("backtest-tab-status").textContent = backtestStatusLabel(data);
     const { progress, metrics, usage } = data;
     const attempted = progress.attempted_calls;
     const total = progress.total_calls;
@@ -746,6 +920,50 @@
     byId("backtest-projected-cost").textContent = typeof usage.projected_cost_per_1000_calls_usd === "number"
       ? usd.format(usage.projected_cost_per_1000_calls_usd) : "Aguardando custo real";
     byId("backtest-id").textContent = data.backtest_id;
+    const confidence = data.confidence && typeof data.confidence === "object" ? data.confidence : null;
+    const latestConfidence = confidence && confidence.latest_assessment;
+    byId("backtest-confidence-decision").textContent = latestConfidence
+      ? `${confidenceDecisionLabel(latestConfidence.decision)} · ${confidenceStatusLabel(latestConfidence.status)}` : "Aguardando primeiro sinal";
+    byId("backtest-confidence-probability").textContent = latestConfidence
+      && typeof latestConfidence.calibrated_probability === "number"
+      ? percent.format(latestConfidence.calibrated_probability) : "Aguardando amostra";
+    byId("backtest-confidence-bound").textContent = latestConfidence
+      && typeof latestConfidence.conservative_lower_bound === "number"
+      ? `${percent.format(latestConfidence.conservative_lower_bound)} / ${percent.format(latestConfidence.fair_baseline)}`
+      : (latestConfidence && typeof latestConfidence.fair_baseline === "number" ? `— / ${percent.format(latestConfidence.fair_baseline)}` : "—");
+    byId("backtest-confidence-samples").textContent = latestConfidence
+      ? `${latestConfidence.sample_count} anteriores · ${confidence.samples_collected} coletadas` : "0";
+    const decisionMetrics = confidence && confidence.decision_metrics ? confidence.decision_metrics : {};
+    const confidenceBars = ["enter", "observe", "no_entry"].map((decision) => {
+      const bucket = decisionMetrics[decision] || { signals: 0, hits: 0, accuracy: null };
+      const item = document.createElement("div");
+      item.className = "attempt-bar";
+      const label = document.createElement("span");
+      label.textContent = confidenceDecisionLabel(decision);
+      const value = document.createElement("strong");
+      value.textContent = typeof bucket.accuracy === "number"
+        ? `${bucket.hits}/${bucket.signals} · ${percent.format(bucket.accuracy)}` : `${bucket.signals} sinais`;
+      item.append(label, value);
+      return item;
+    });
+    byId("backtest-confidence-bars").replaceChildren(...confidenceBars);
+    const adaptive = data.adaptive && typeof data.adaptive === "object" ? data.adaptive : null;
+    const champion = adaptive && adaptive.jev ? adaptive.jev : {};
+    const challenger = adaptive && adaptive.challenger ? adaptive.challenger : {};
+    const latestAdaptive = adaptive && adaptive.latest_prediction ? adaptive.latest_prediction : null;
+    const paired = (first, second, formatter) => (
+      typeof first === "number" && typeof second === "number"
+        ? `${formatter(first)} / ${formatter(second)}` : "—"
+    );
+    byId("backtest-adaptive-status").textContent = adaptiveStatusLabel(adaptive && adaptive.status);
+    byId("backtest-adaptive-samples").textContent = String(adaptive ? adaptive.sample_count || 0 : 0);
+    byId("backtest-adaptive-accuracy").textContent = paired(champion.accuracy, challenger.accuracy, (value) => percent.format(value));
+    byId("backtest-adaptive-brier").textContent = paired(champion.brier, challenger.brier, (value) => value.toFixed(4));
+    byId("backtest-adaptive-logloss").textContent = paired(champion.log_loss, challenger.log_loss, (value) => value.toFixed(4));
+    byId("backtest-adaptive-rank").textContent = paired(champion.average_winner_rank, challenger.average_winner_rank, (value) => decimal.format(value));
+    byId("backtest-adaptive-jev-numbers").textContent = joinedNumbers(latestAdaptive && latestAdaptive.jev_selected_numbers);
+    byId("backtest-adaptive-numbers").textContent = joinedNumbers(latestAdaptive && latestAdaptive.adaptive_selected_numbers);
+    byId("backtest-adaptive-reason").textContent = adaptive && adaptive.reason ? adaptive.reason : "Aguardando primeiro sinal.";
     const bars = Object.entries(metrics.hits_by_attempt).map(([attempt, count]) => {
       const item = document.createElement("div");
       item.className = "attempt-bar";
@@ -850,7 +1068,7 @@
     } else {
       byId("backtest-last-step").textContent = "Nenhuma chamada executada ainda.";
     }
-    localStorage.setItem("jev-active-backtest-id", data.backtest_id);
+    localStorage.setItem(backtestStorageKey(data.roulette_slug || "pragmatic-auto-roulette"), data.backtest_id);
   }
 
   async function runBacktest() {
@@ -889,6 +1107,7 @@
   async function startBacktest(event) {
     event.preventDefault();
     if (backtestRunning) return;
+    restoreVersion += 1;
     byId("backtest-error").hidden = true;
     try {
       const historyPoints = backtestInteger("backtest-history-points", 1, maxBacktestCalls, "Pontos históricos");
@@ -913,6 +1132,7 @@
         credentials: "same-origin",
         cache: "no-store",
         body: JSON.stringify({
+          roulette_slug: rouletteSelect.value,
           history_points: historyPoints,
           context_numbers: contextNumbers,
           chip_count: chipCount,
@@ -934,26 +1154,59 @@
   }
 
   async function restoreBacktest() {
-    const backtestId = localStorage.getItem("jev-active-backtest-id");
+    const version = ++restoreVersion;
+    const slug = rouletteSelect.value;
+    const key = backtestStorageKey(slug);
+    const legacyId = slug === "pragmatic-auto-roulette" ? localStorage.getItem("jev-active-backtest-id") : null;
+    const backtestId = localStorage.getItem(key) || legacyId;
     if (!backtestId) return;
     try {
       const response = await fetch(`/api/jev/backtest/${encodeURIComponent(backtestId)}`, {
         headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store",
       });
       const data = await readResponse(response);
+      if (version !== restoreVersion || rouletteSelect.value !== slug) return;
+      if ((data.roulette_slug || "pragmatic-auto-roulette") !== slug) {
+        localStorage.removeItem(key);
+        return;
+      }
       renderBacktest(data);
+      if (legacyId) localStorage.removeItem("jev-active-backtest-id");
       setBacktestControls(false);
     } catch (_error) {
-      localStorage.removeItem("jev-active-backtest-id");
+      if (version !== restoreVersion) return;
+      localStorage.removeItem(key);
+      if (legacyId) localStorage.removeItem("jev-active-backtest-id");
     }
   }
 
-  byId("open-history-dialog").addEventListener("click", () => {
+  function openHistoryFetch() {
     if (busy) return;
+    historyEditor.close();
     byId("quantity-error").hidden = true;
     dialog.showModal();
     quantityInput.focus();
+  }
+
+  rouletteSelect.addEventListener("change", changeRoulette);
+  ["ranking", "backtest"].forEach((name) => {
+    byId(`${name}-tab`).addEventListener("click", () => selectTab(name));
+    byId(`${name}-tab`).addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      selectTab(event.key === "Home" ? "ranking" : event.key === "End" ? "backtest" : name === "ranking" ? "backtest" : "ranking", true);
+    });
   });
+  byId("open-history-dialog").addEventListener("click", openHistoryFetch);
+  byId("editor-fetch-history").addEventListener("click", openHistoryFetch);
+  byId("open-history-editor").addEventListener("click", () => {
+    historyEditor.showModal();
+    historyInput.focus();
+  });
+  byId("close-history-editor").addEventListener("click", () => historyEditor.close());
+  byId("open-groups-dialog").addEventListener("click", () => groupsDialog.showModal());
+  byId("close-groups-dialog").addEventListener("click", () => groupsDialog.close());
+  reverseHistoryButton.addEventListener("click", reverseHistory);
   byId("cancel-history-dialog").addEventListener("click", () => dialog.close());
   byId("history-dialog-form").addEventListener("submit", fetchHistory);
   rankingButton.addEventListener("click", rankNumbers);
@@ -987,6 +1240,7 @@
     validateForm();
   }));
 
+  updateRouletteLabels();
   validateForm();
   updateBacktestEstimate();
   restoreBacktest();

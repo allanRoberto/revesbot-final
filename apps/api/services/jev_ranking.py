@@ -4,11 +4,15 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Sequence
 
+from api.services.jev_history_service import ROULETTE_SLUG
 from api.services.jev_meta_ranking import (
     build_walk_forward_catalog,
     walk_forward_state_table,
 )
-from api.services.jev_statistics import FORECAST_HORIZON_SPINS
+from api.services.jev_statistics import (
+    FORECAST_HORIZON_SPINS,
+    build_ranking_relational_context,
+)
 
 
 ROULETTE_NUMBERS = tuple(range(37))
@@ -16,7 +20,7 @@ NUMBER_KEYS = tuple(f"numero_{number:02d}" for number in ROULETTE_NUMBERS)
 NEXT_SPIN_CHOICE_KEY = "proxima_rodada"
 REGIME_CHOICE_KEY = "regime_atual"
 CATALOG_VERSION = "pull_relations_v2"
-STATE_SCHEMA_VERSION = "roulette_ranking_v4"
+STATE_SCHEMA_VERSION = "roulette_ranking_v5_relational"
 MIN_RELATION_SUPPORT = 30
 HISTORY_TAIL_LIMIT = 200
 MAX_PATTERN_QUESTIONS = 12
@@ -435,6 +439,7 @@ def build_ranking_state(
     history: Sequence[int],
     catalog: dict[str, Any],
     walk_forward: dict[str, Any],
+    *, roulette_slug: str = ROULETTE_SLUG,
 ) -> dict[str, Any]:
     tail = list(history[-HISTORY_TAIL_LIMIT:])
     raw_scope = "full_history" if len(tail) == len(history) else f"last_{len(tail)}_of_{len(history)}"
@@ -443,7 +448,7 @@ def build_ranking_state(
         "task": {
             "type": "rank_numbers_from_multi_horizon_evidence",
             "roulette": "single_zero_0_to_36",
-            "roulette_slug": "pragmatic-auto-roulette",
+            "roulette_slug": roulette_slug,
             "forecast_horizons_spins": list(RELATION_HORIZONS),
             "universe": list(ROULETTE_NUMBERS),
             "include_zero": True,
@@ -464,6 +469,7 @@ def build_ranking_state(
             "recent_history": tail,
             "full_history_sha256": _history_digest(history),
         },
+        "relational_context": build_ranking_relational_context(history),
         "regime_evidence": _build_regime_evidence(history, catalog["relations"]),
         "walk_forward_validation": {
             "version": walk_forward["version"],
@@ -515,6 +521,8 @@ def build_ranking_state(
             "Treat insufficient, degraded or inconclusive walk-forward evidence conservatively.",
             "Compare every estimate with its supplied fair-independent baseline.",
             "Low support, recency, gaps and absence alone do not establish predictability.",
+            "Use relational context as additional evidence; no relation is a guaranteed substitution.",
+            "A candidate wins only when that exact number is observed, not when a related number appears.",
             "Next-spin Choice probabilities must form one distribution across all 37 numbers.",
             "The three-spin Noul estimates are marginal events and need not sum to one.",
         ],
@@ -528,14 +536,17 @@ def build_ranking_questions(catalog: dict[str, Any]) -> dict[str, dict[str, Any]
             "type": "noul",
             "instructions": (
                 f"Estimate whether roulette number {number} appears at least once within the next "
-                "3 spins. Use its rows in evidence_tables and walk_forward_validation."
+                "3 spins. Use its rows in evidence_tables, walk_forward_validation and "
+                "relational_context. Relations are evidence only; the event requires the exact number."
             ),
         }
 
     questions[NEXT_SPIN_CHOICE_KEY] = {
         "type": "choice",
         "instructions": (
-            "Choose the immediately next roulette number using h1 evidence; include 0 equally."
+            "Choose the immediately next exact roulette number using h1 evidence, leakage-safe "
+            "walk-forward validation and relational_context; include 0 equally. Mirror, wheel, "
+            "terminal, digit-sum and sequence relations are descriptive evidence, not guaranteed substitutions."
         ),
         "criteria": {str(number): f"Next result is {number}." for number in ROULETTE_NUMBERS},
     }
@@ -551,7 +562,7 @@ def build_ranking_questions(catalog: dict[str, Any]) -> dict[str, dict[str, Any]
             "instructions": (
                 f"Score descriptive evidence for {candidate['source_number']} -> "
                 f"{candidate['target_number']}; consider support, smoothing, horizons, windows "
-                "and leakage-safe walk-forward validation."
+                "leakage-safe walk-forward validation and relational_context."
             ),
             "criteria": [
                 "Insufficient or conflicting evidence.",
@@ -563,10 +574,12 @@ def build_ranking_questions(catalog: dict[str, Any]) -> dict[str, dict[str, Any]
     return questions
 
 
-def build_ranking_payload(history: Sequence[int]) -> dict[str, Any]:
+def build_ranking_payload(
+    history: Sequence[int], *, roulette_slug: str = ROULETTE_SLUG
+) -> dict[str, Any]:
     catalog = calculate_pull_relations(history)
     walk_forward = build_walk_forward_catalog(history, catalog)
-    state = build_ranking_state(history, catalog, walk_forward)
+    state = build_ranking_state(history, catalog, walk_forward, roulette_slug=roulette_slug)
     questions = build_ranking_questions(catalog)
     return {
         "catalog": catalog,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -63,13 +64,14 @@ class FakeCursor:
 
 
 class FakeCollection:
-    def __init__(self, documents):
+    def __init__(self, documents, *, roulette_slug="pragmatic-auto-roulette"):
         self.documents = list(documents)
+        self.roulette_slug = roulette_slug
         self.calls = 0
 
     def find(self, query, projection):
         self.calls += 1
-        assert query == {"roulette_id": "pragmatic-auto-roulette"}
+        assert query == {"roulette_id": self.roulette_slug}
         assert projection == {"value": 1, "timestamp": 1}
         return FakeCursor(list(self.documents))
 
@@ -174,7 +176,8 @@ class ProviderContextLimitJevClient:
         )
 
 
-def _app(monkeypatch, *, collection=None, jev_client=None) -> FastAPI:
+def _app(monkeypatch, *, collection=None, jev_client=None, public_access=False) -> FastAPI:
+    monkeypatch.setattr(settings, "jev_public_access", public_access)
     monkeypatch.setattr(settings, "jev_panel_user", "admin")
     monkeypatch.setattr(settings, "jev_panel_password", "secret")
     monkeypatch.setattr(settings, "jev_max_history", 10_000)
@@ -204,7 +207,8 @@ def test_page_is_protected_empty_and_does_not_call_history_or_openrouter(monkeyp
     response = client.get("/jev", headers=AUTH_HEADERS)
     assert response.status_code == 200
     assert 'id="history-input"' in response.text
-    assert '<textarea id="history-input"' in response.text
+    assert 'id="reverse-history"' in response.text
+    assert re.search(r'<textarea\b[^>]*\bid="history-input"', response.text)
     assert ">1, 7, 0" not in response.text
     assert "OPENROUTER_API_KEY" not in response.text
     assert response.headers["cache-control"] == "no-store"
@@ -213,6 +217,7 @@ def test_page_is_protected_empty_and_does_not_call_history_or_openrouter(monkeyp
 
 
 def test_missing_panel_configuration_blocks_only_feature_routes(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "jev_public_access", False)
     monkeypatch.setattr(settings, "jev_panel_user", None)
     monkeypatch.setattr(settings, "jev_panel_password", None)
     app = FastAPI()
@@ -224,6 +229,98 @@ def test_missing_panel_configuration_blocks_only_feature_routes(monkeypatch) -> 
     assert blocked.status_code == 503
     assert blocked.json()["detail"]["code"] == "jev_access_not_configured"
     assert client.get("/health").json() == {"ok": True}
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    [None, "Basic !!!", "Basic " + base64.b64encode(b"missing-colon").decode("ascii"), AUTHORIZATION],
+)
+def test_public_page_ignores_credentials_and_does_not_call_provider(monkeypatch, authorization) -> None:
+    collection = FakeCollection([])
+    jev_client = FakeJevClient()
+    app = _app(monkeypatch, collection=collection, jev_client=jev_client, public_access=True)
+    monkeypatch.setattr(settings, "jev_panel_user", None)
+    monkeypatch.setattr(settings, "jev_panel_password", None)
+    client = TestClient(app)
+
+    headers = {"Authorization": authorization} if authorization else {}
+    response = client.get("/jev", headers=headers)
+
+    assert response.status_code == 200
+    assert 'id="history-input"' in response.text
+    assert client.cookies.get("jev_csrf")
+    assert "www-authenticate" not in response.headers
+    assert response.headers["cache-control"] == "no-store"
+    assert collection.calls == 0
+    assert jev_client.calls == []
+
+
+def test_public_history_works_without_authentication(monkeypatch) -> None:
+    collection = FakeCollection([{"value": 3}, {"value": 7}, {"value": 1}])
+    client = TestClient(_app(monkeypatch, collection=collection, public_access=True))
+
+    response = client.get("/api/jev/historico?quantidade=3")
+
+    assert response.status_code == 200
+    assert response.json()["historico"] == [1, 7, 3]
+    assert response.headers["cache-control"] == "no-store"
+    assert collection.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("csrf_case", "expected_code"),
+    [
+        ("missing", "jev_csrf_invalid"),
+        ("mismatch", "jev_csrf_invalid"),
+        ("cross-site", "jev_cross_site_request"),
+        ("invalid-origin", "jev_origin_invalid"),
+    ],
+)
+def test_public_analysis_keeps_csrf_protection(monkeypatch, csrf_case, expected_code) -> None:
+    jev_client = FakeJevClient()
+    client = TestClient(_app(monkeypatch, jev_client=jev_client, public_access=True))
+    assert client.get("/jev").status_code == 200
+    csrf = client.cookies.get("jev_csrf")
+    headers = {"X-CSRF-Token": csrf}
+    if csrf_case == "missing":
+        headers = {}
+    elif csrf_case == "mismatch":
+        headers["X-CSRF-Token"] = "wrong-token"
+    elif csrf_case == "cross-site":
+        headers["Sec-Fetch-Site"] = "cross-site"
+    else:
+        headers["Origin"] = "https://other.example"
+
+    response = client.post("/api/jev/analisar", headers=headers, json=_payload())
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == expected_code
+    assert jev_client.calls == []
+
+
+def test_public_analysis_with_csrf_works_without_login(monkeypatch) -> None:
+    jev_client = FakeJevClient()
+    app = _app(monkeypatch, jev_client=jev_client, public_access=True)
+    monkeypatch.setattr(settings, "jev_panel_user", None)
+    monkeypatch.setattr(settings, "jev_panel_password", None)
+    saved = []
+
+    async def fake_persist(record, results_dir):
+        saved.append(record)
+
+    monkeypatch.setattr(jev_route, "persist_analysis", fake_persist)
+    client = TestClient(app)
+    assert client.get("/jev").status_code == 200
+    response = client.post(
+        "/api/jev/analisar",
+        headers={"X-CSRF-Token": client.cookies.get("jev_csrf")},
+        json=_payload(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["historico_utilizado"] == [1, 7, 0, 2, 8, 3]
+    assert len(jev_client.calls) == 1
+    assert len(saved) == 1
 
 
 def test_history_route_uses_fixed_table_order_and_no_store(monkeypatch) -> None:
@@ -254,7 +351,8 @@ def test_history_quantity_validation_happens_before_source(monkeypatch) -> None:
     assert collection.calls == 0
 
 
-def test_analysis_uses_edited_text_and_never_queries_history(monkeypatch) -> None:
+@pytest.mark.parametrize("roulette_slug", ["pragmatic-auto-roulette", "pragmatic-mega-roulette"])
+def test_analysis_uses_edited_text_and_never_queries_history(monkeypatch, roulette_slug) -> None:
     collection = FakeCollection([{"value": 36}])
     jev_client = FakeJevClient()
     app = _app(monkeypatch, collection=collection, jev_client=jev_client)
@@ -270,11 +368,14 @@ def test_analysis_uses_edited_text_and_never_queries_history(monkeypatch) -> Non
     response = client.post(
         "/api/jev/analisar",
         headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
-        json=_payload("9, 7, 7, 0"),
+        json={**_payload("9, 7, 7, 0"), "roulette_slug": roulette_slug},
     )
 
     assert response.status_code == 200
     body = response.json()
+    assert body["roulette_slug"] == roulette_slug
+    assert jev_client.calls[0]["state"]["roulette_slug"] == roulette_slug
+    assert saved[0][0]["roulette_slug"] == roulette_slug
     assert body["historico_utilizado"] == [9, 7, 7, 0]
     assert body["ultimo_numero"] == 0
     assert body["quantidade_analisada"] == 4
@@ -380,7 +481,8 @@ def test_persistence_failure_returns_analysis_warning_without_second_call(monkey
     assert len(jev_client.calls) == 1
 
 
-def test_ranking_includes_zero_all_numbers_and_pull_catalog(monkeypatch) -> None:
+@pytest.mark.parametrize("roulette_slug", ["pragmatic-auto-roulette", "pragmatic-mega-roulette"])
+def test_ranking_includes_zero_all_numbers_and_pull_catalog(monkeypatch, roulette_slug) -> None:
     jev_client = FakeRankingJevClient()
     app = _app(monkeypatch, jev_client=jev_client)
     saved = []
@@ -397,11 +499,15 @@ def test_ranking_includes_zero_all_numbers_and_pull_catalog(monkeypatch) -> None
     response = client.post(
         "/api/jev/ranking",
         headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
-        json={"history_order": "oldest_to_newest", "historico_texto": history},
+        json={"history_order": "oldest_to_newest", "historico_texto": history, "roulette_slug": roulette_slug},
     )
 
     assert response.status_code == 200
     body = response.json()
+    assert body["roulette_slug"] == roulette_slug
+    assert jev_client.calls[0]["state"]["task"]["roulette_slug"] == roulette_slug
+    assert body["confianca_top_n"]["roulette_slug"] == roulette_slug
+    assert saved[0][0]["roulette_slug"] == roulette_slug
     assert body["analysis_type"] == "number_ranking"
     assert len(body["ranking"]) == 37
     assert {item["numero"] for item in body["ranking"]} == set(range(37))
@@ -418,6 +524,14 @@ def test_ranking_includes_zero_all_numbers_and_pull_catalog(monkeypatch) -> None
     assert body["sinal_meta"]["status"] in {
         "validated", "experimental", "no_reliable_signal"
     }
+    assert body["confianca_top_n"]["top_k"] == 6
+    assert body["confianca_top_n"]["attempts"] == 1
+    assert body["confianca_top_n"]["decision"] == "no_entry"
+    assert body["confianca_top_n"]["status"] == "insufficient"
+    assert body["ranking_adaptativo"]["status"] == "warming_up"
+    assert body["ranking_adaptativo"]["sample_count"] == 0
+    assert body["ranking_adaptativo"]["jev_selected_numbers"] == [0, 1, 2, 3, 4, 5]
+    assert body["ranking_adaptativo"]["adaptive_selected_numbers"] == [0, 1, 2, 3, 4, 5]
     assert body["proxima_rodada_meta"]["numero_escolhido"] in range(37)
     assert body["validacao_walk_forward"]["version"] == "source_conditioned_v1"
     assert body["proxima_rodada"]["numero_escolhido"] == 0
@@ -456,7 +570,8 @@ def test_invalid_ranking_stops_before_paid_call(monkeypatch) -> None:
     assert jev_client.calls == []
 
 
-def test_manual_evaluation_uses_saved_ranking_without_paid_call(monkeypatch) -> None:
+@pytest.mark.parametrize("roulette_slug", ["pragmatic-auto-roulette", "pragmatic-mega-roulette"])
+def test_manual_evaluation_uses_saved_ranking_without_paid_call(monkeypatch, roulette_slug) -> None:
     jev_client = FakeRankingJevClient()
     app = _app(monkeypatch, jev_client=jev_client)
     saved_rankings = []
@@ -481,7 +596,7 @@ def test_manual_evaluation_uses_saved_ranking_without_paid_call(monkeypatch) -> 
     ranking_response = client.post(
         "/api/jev/ranking",
         headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
-        json={"history_order": "oldest_to_newest", "historico_texto": history},
+        json={"history_order": "oldest_to_newest", "historico_texto": history, "roulette_slug": roulette_slug},
     )
     evaluation_response = client.post(
         "/api/jev/avaliar",
@@ -494,6 +609,8 @@ def test_manual_evaluation_uses_saved_ranking_without_paid_call(monkeypatch) -> 
 
     assert evaluation_response.status_code == 200
     body = evaluation_response.json()
+    assert body["roulette_slug"] == roulette_slug
+    assert saved_evaluations[0]["roulette_slug"] == roulette_slug
     assert body["metrica_proxima_rodada"]["acertou_escolha"] is True
     assert body["metricas_tres_rodadas"]["acertos_por_corte"]["top_1"] is True
     assert len(saved_evaluations) == 1
@@ -513,3 +630,42 @@ def test_manual_evaluation_requires_exactly_three_results(monkeypatch) -> None:
     )
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "jev_invalid_actual_results_count"
+
+
+def test_history_route_uses_selected_table_and_rejects_unknown_before_query(monkeypatch) -> None:
+    slug = "pragmatic-mega-roulette"
+    collection = FakeCollection([{"value": 12}, {"value": 29}], roulette_slug=slug)
+    client = TestClient(_app(monkeypatch, collection=collection))
+    response = client.get(
+        f"/api/jev/historico?quantidade=2&roulette_slug={slug}", headers=AUTH_HEADERS
+    )
+    assert response.status_code == 200
+    assert response.json()["roulette_slug"] == slug
+    assert response.json()["historico"] == [29, 12]
+    invalid = client.get(
+        "/api/jev/historico?quantidade=2&roulette_slug=unknown", headers=AUTH_HEADERS
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["detail"]["code"] == "jev_invalid_roulette"
+    assert collection.calls == 1
+
+
+@pytest.mark.parametrize("route, payload", [
+    ("analisar", _payload()),
+    ("ranking", {"history_order": "oldest_to_newest", "historico_texto": "1,2,3"}),
+    ("backtest/iniciar", {"history_points": 1, "context_numbers": 50, "chip_count": 6,
+                          "attempts": 1, "confirm_paid_run": True}),
+])
+def test_unknown_table_is_rejected_before_paid_calls_or_history(monkeypatch, route, payload) -> None:
+    collection = FakeCollection([])
+    jev_client = FakeJevClient()
+    client = TestClient(_app(monkeypatch, collection=collection, jev_client=jev_client))
+    csrf = _csrf(client)
+    response = client.post(
+        f"/api/jev/{route}",
+        headers={**AUTH_HEADERS, "X-CSRF-Token": csrf},
+        json={**payload, "roulette_slug": "unknown"},
+    )
+    assert response.status_code == 422
+    assert collection.calls == 0
+    assert jev_client.calls == []

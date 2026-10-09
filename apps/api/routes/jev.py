@@ -18,6 +18,7 @@ from pydantic import ValidationError
 
 from api.core.config import settings
 from api.core.runtime_db import history_coll
+from api.helpers.active_roulettes import ACTIVE_ROULETTES
 from api.schemas.jev import (
     GROUP_KEYS,
     JevAnalysisRequest,
@@ -27,6 +28,7 @@ from api.schemas.jev import (
     JevInputError,
     JevRankingRequest,
     parse_roulette_text,
+    validate_roulette_slug,
 )
 from api.services.jev_backtest import (
     OBSERVATION_HORIZON,
@@ -43,6 +45,20 @@ from api.services.jev_backtest import (
     save_backtest_step,
     select_chips,
     step_window,
+)
+from api.services.jev_confidence import (
+    JevConfidenceError,
+    assess_top_k_confidence,
+    extract_top_k_features,
+    load_persisted_confidence_samples,
+)
+from api.services.jev_adaptive_ranking import (
+    JevAdaptiveRankingError,
+    build_live_adaptive_report,
+    extract_adaptive_snapshot,
+    load_adaptive_samples,
+    predict_adaptive_ranking,
+    replay_adaptive_samples,
 )
 from api.services.jev_history_service import (
     ROULETTE_SLUG,
@@ -320,6 +336,8 @@ async def jev_page(request: Request, _user: str = Depends(require_jev_access)):
         name="jev.html",
         context={
             "asset_version": _asset_version(),
+            "jev_roulettes": [{"slug": item["slug"], "name": item["name"]} for item in ACTIVE_ROULETTES],
+            "jev_default_roulette_slug": ROULETTE_SLUG,
             "csrf_token": csrf_token,
             "max_history": maximum,
             "suggested_history": min(300, maximum),
@@ -344,9 +362,16 @@ async def jev_page(request: Request, _user: str = Depends(require_jev_access)):
 async def jev_history(
     request: Request,
     quantidade: str = Query("300"),
+    roulette_slug: str = Query(ROULETTE_SLUG),
     _user: str = Depends(require_jev_access),
     collection=Depends(get_jev_history_collection),
 ):
+    try:
+        validate_roulette_slug(roulette_slug)
+    except ValueError as exc:
+        raise jev_http_error(
+            request, status_code=422, code="jev_invalid_roulette", message=str(exc)
+        ) from exc
     maximum = _max_history()
     if not _POSITIVE_ASCII_INTEGER.fullmatch(quantidade):
         raise jev_http_error(
@@ -372,7 +397,7 @@ async def jev_history(
             message=f"Quantidade deve estar entre 1 e {maximum}.",
         )
     try:
-        result = await fetch_recent_history(collection, parsed_quantity)
+        result = await fetch_recent_history(collection, parsed_quantity, roulette_slug=roulette_slug)
     except JevHistorySourceError as exc:
         raise jev_http_error(
             request,
@@ -405,7 +430,7 @@ async def jev_analyze(
 
     groups = {group_id: list(payload.grupos[group_id]) for group_id in GROUP_KEYS}
     statistics = calculate_all_group_statistics(history, groups)
-    state = build_jev_state(history, statistics)
+    state = build_jev_state(history, statistics, roulette_slug=payload.roulette_slug)
     questions = build_jev_questions(groups)
     jev_payload = {"model": client.model, "state": state, "questions": questions}
 
@@ -425,7 +450,7 @@ async def jev_analyze(
     ]
     response_body: dict[str, Any] = {
         "analysis_id": analysis_id,
-        "roulette_slug": ROULETTE_SLUG,
+        "roulette_slug": payload.roulette_slug,
         "history_order": "oldest_to_newest",
         "historico_utilizado": history,
         "quantidade_analisada": len(history),
@@ -507,7 +532,7 @@ async def jev_backtest_start(
             ),
         )
     try:
-        fetched = await fetch_recent_history(collection, required)
+        fetched = await fetch_recent_history(collection, required, roulette_slug=payload.roulette_slug)
     except JevHistorySourceError as exc:
         raise jev_http_error(
             request,
@@ -541,6 +566,7 @@ async def jev_backtest_start(
             requested_model=client.model,
             created_at=created_at,
             history_fetched_at=fetched["buscado_em"],
+            roulette_slug=payload.roulette_slug,
         )
         await create_backtest(job, settings.jev_results_dir)
     except (JevBacktestError, OSError) as exc:
@@ -633,7 +659,9 @@ async def jev_backtest_next(
 
         try:
             history, future, observation = step_window(job, next_step)
-            jev_payload = build_original_jev_step_payload(history)
+            jev_payload = build_original_jev_step_payload(
+                history, roulette_slug=job.get("roulette_slug", ROULETTE_SLUG)
+            )
         except JevBacktestError as exc:
             raise jev_http_error(
                 request,
@@ -698,6 +726,30 @@ async def jev_backtest_next(
 
         try:
             next_choice = jev_response.choices[NEXT_SPIN_CHOICE_KEY]
+            confidence_features = extract_top_k_features(
+                next_choice.probabilities,
+                jev_payload["walk_forward"],
+                top_k=int(job["configuration"]["chip_count"]),
+            )
+            confidence_features["context_sha256"] = jev_payload["state"]["history_context"][
+                "full_history_sha256"
+            ]
+            confidence_assessment = assess_top_k_confidence(
+                confidence_features,
+                job.get("confidence_samples", []),
+                top_k=int(job["configuration"]["chip_count"]),
+                attempts=int(job["configuration"]["attempts"]),
+                model=str(job["requested_model"]),
+                roulette_slug=job.get("roulette_slug", ROULETTE_SLUG),
+            )
+            adaptive_snapshot = extract_adaptive_snapshot(
+                jev_payload, next_choice.probabilities
+            )
+            adaptive_prediction = predict_adaptive_ranking(
+                adaptive_snapshot,
+                job.get("adaptive_state"),
+                top_k=int(job["configuration"]["chip_count"]),
+            )
             selected = select_chips(
                 next_choice.probabilities,
                 int(job["configuration"]["chip_count"]),
@@ -711,9 +763,16 @@ async def jev_backtest_next(
                 returned_model=jev_response.returned_model,
                 latency_ms=jev_response.latency_ms,
                 raw_response=jev_response.raw,
+                confidence_features=confidence_features,
+                confidence_assessment=confidence_assessment,
+                adaptive_snapshot=adaptive_snapshot,
+                adaptive_prediction=adaptive_prediction,
             )
             await save_backtest_step(job, step_record, settings.jev_results_dir)
-        except (JevBacktestError, KeyError, OSError) as exc:
+        except (
+            JevBacktestError, JevConfidenceError, JevAdaptiveRankingError,
+            KeyError, OSError,
+        ) as exc:
             logging.exception(
                 "Falha ao registrar etapa de backtest Jev %s/%s",
                 payload.backtest_id,
@@ -747,7 +806,7 @@ async def jev_ranking(
         ) from exc
 
     history = _parse_history(request, payload.historico_texto)
-    ranking_payload = build_ranking_payload(history)
+    ranking_payload = build_ranking_payload(history, roulette_slug=payload.roulette_slug)
     catalog = ranking_payload["catalog"]
     walk_forward = ranking_payload["walk_forward"]
     state = ranking_payload["state"]
@@ -855,6 +914,89 @@ async def jev_ranking(
         regime=regime_choice.choice,
     )
 
+    try:
+        confidence_features = extract_top_k_features(
+            next_choice.probabilities,
+            walk_forward,
+            top_k=payload.confidence_top_k,
+        )
+        confidence_features["context_sha256"] = state["history_context"]["full_history_sha256"]
+        confidence_samples = await asyncio.to_thread(
+            load_persisted_confidence_samples,
+            settings.jev_results_dir,
+            top_k=payload.confidence_top_k,
+            attempts=payload.confidence_attempts,
+            model=client.model,
+            roulette_slug=payload.roulette_slug,
+        )
+        top_k_confidence = assess_top_k_confidence(
+            confidence_features,
+            confidence_samples,
+            top_k=payload.confidence_top_k,
+            attempts=payload.confidence_attempts,
+            model=client.model,
+            roulette_slug=payload.roulette_slug,
+        )
+    except (JevConfidenceError, OSError) as exc:
+        logging.warning("Falha ao calcular confiança top-N analysis_id=%s: %s", analysis_id, exc)
+        top_k_confidence = {
+            "schema_version": "jev-top-k-confidence-v1",
+            "roulette_slug": payload.roulette_slug,
+            "top_k": payload.confidence_top_k,
+            "attempts": payload.confidence_attempts,
+            "selected_numbers": [
+                item["numero"] for item in immediate_ranking[:payload.confidence_top_k]
+            ],
+            "sample_count": 0,
+            "status": "unavailable",
+            "decision": "no_entry",
+            "calibrated_probability": None,
+            "conservative_lower_bound": None,
+            "reason": "A confiança não pôde ser calculada com segurança.",
+        }
+
+    try:
+        adaptive_snapshot = extract_adaptive_snapshot(
+            ranking_payload, next_choice.probabilities
+        )
+        adaptive_samples = await asyncio.to_thread(
+            load_adaptive_samples,
+            settings.jev_results_dir,
+            model=client.model,
+            roulette_slug=payload.roulette_slug,
+        )
+        adaptive_state, adaptive_training = await asyncio.to_thread(
+            replay_adaptive_samples,
+            adaptive_samples,
+            top_k=payload.confidence_top_k,
+        )
+        adaptive_prediction = predict_adaptive_ranking(
+            adaptive_snapshot,
+            adaptive_state,
+            top_k=payload.confidence_top_k,
+        )
+        adaptive_report = build_live_adaptive_report(
+            adaptive_prediction, adaptive_training
+        )
+    except (JevAdaptiveRankingError, OSError) as exc:
+        logging.warning("Falha ao calcular ranking adaptativo analysis_id=%s: %s", analysis_id, exc)
+        adaptive_report = {
+            "schema_version": "jev-adaptive-softmax-v1",
+            "status": "unavailable",
+            "reason": "O ranking adaptativo não pôde ser calculado com segurança.",
+            "sample_count": 0,
+            "top_k": payload.confidence_top_k,
+            "jev_selected_numbers": [
+                item["numero"] for item in immediate_ranking[:payload.confidence_top_k]
+            ],
+            "adaptive_selected_numbers": [],
+            "maintained_numbers": [],
+            "added_numbers": [],
+            "removed_numbers": [],
+            "adaptive_ranking": [],
+            "training_metrics": {},
+        }
+
     warnings: list[str] = []
     if not catalog_results:
         warnings.append(
@@ -866,7 +1008,7 @@ async def jev_ranking(
     response_body: dict[str, Any] = {
         "analysis_id": analysis_id,
         "analysis_type": "number_ranking",
-        "roulette_slug": ROULETTE_SLUG,
+        "roulette_slug": payload.roulette_slug,
         "history_order": "oldest_to_newest",
         "historico_utilizado": history,
         "historico_contexto_enviado": state["history_context"],
@@ -883,6 +1025,8 @@ async def jev_ranking(
         "ranking_meta": meta["ranking_tres_rodadas"],
         "ranking_meta_proxima_rodada": meta["ranking_proxima_rodada"],
         "sinal_meta": meta["signal"],
+        "confianca_top_n": top_k_confidence,
+        "ranking_adaptativo": adaptive_report,
         "validacao_walk_forward": {
             "version": walk_forward["version"],
             "method": walk_forward["method"],
@@ -997,6 +1141,7 @@ async def jev_evaluate(
         "evaluation_id": str(uuid4()),
         "analysis_id": payload.analysis_id,
         "analysis_type": "number_ranking_evaluation",
+        "roulette_slug": analysis.get("roulette_slug", ROULETTE_SLUG),
         "avaliado_em": evaluated_at,
         **metrics,
     }

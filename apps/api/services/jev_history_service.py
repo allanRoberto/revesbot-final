@@ -1,8 +1,10 @@
-"""Ordered MongoDB history adapter for the fixed Jev roulette."""
+"""Ordered MongoDB history adapter for monitored Jev roulettes."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+
+from api.helpers.active_roulettes import ACTIVE_ROULETTE_BY_SLUG
 
 
 ROULETTE_SLUG = "pragmatic-auto-roulette"
@@ -18,11 +20,15 @@ def utc_iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-async def fetch_recent_history(collection: Any, quantity: int) -> dict[str, Any]:
+async def fetch_recent_history(
+    collection: Any, quantity: int, *, roulette_slug: str = ROULETTE_SLUG
+) -> dict[str, Any]:
     """Select newest N records, then return their numbers oldest-to-newest."""
+    if roulette_slug not in ACTIVE_ROULETTE_BY_SLUG:
+        raise JevHistorySourceError("Roleta não monitorada.")
     try:
         cursor = collection.find(
-            {"roulette_id": ROULETTE_SLUG},
+            {"roulette_id": roulette_slug},
             {"value": 1, "timestamp": 1},
         )
         cursor = cursor.sort([("timestamp", -1), ("_id", -1)]).limit(quantity)
@@ -48,7 +54,7 @@ async def fetch_recent_history(collection: Any, quantity: int) -> dict[str, Any]
         newest_first.append(value)
 
     return {
-        "roulette_slug": ROULETTE_SLUG,
+        "roulette_slug": roulette_slug,
         "quantidade_solicitada": quantity,
         "quantidade_retornada": len(newest_first),
         "history_order": "oldest_to_newest",
