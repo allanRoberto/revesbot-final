@@ -29,6 +29,8 @@ o resultado que saiu imediatamente depois daquela ocorrência anterior.
    expansível mostra a contagem completa em cada sentido, começando pela base.
 5. Resumo: repetições contam presença entre apostas, uma vez por aposta. Exibe
    frequência decrescente, com desempate pelo número, e união geral crescente.
+6. Mapa de calor automático: acompanha as dez ocorrências mais recentes,
+   independentemente das seleções manuais, conforme a especificação abaixo.
 
 Não existe exigência de dez números distintos nesta interface: setores
 sobrepostos são apresentados com sua quantidade real, incluindo casas zero.
@@ -43,6 +45,69 @@ intervalo entram em buffer e são aplicados sem duplicar IDs após o snapshot.
 Essa consulta adicional também cobre o intervalo entre a consulta inicial e a
 inscrição no stream. Uma falha de sincronização suspende o stream e mantém o
 snapshot anterior identificado, com opção de tentar novamente.
+
+## Mapa de calor automático — ampliação autorizada
+
+O mapa usa até dez ocorrências concretas: `items[0]` a `items[9]`, ou todas as
+disponíveis se houver menos de dez. Não são dez valores diferentes nem as dez
+primeiras apostas com dez números distintos. Ocorrências repetidas do mesmo
+número continuam independentes; setores sobrepostos conservam sua quantidade
+real de números. A análise de cada ocorrência reutiliza `analyzeSelection`,
+buscando a ocorrência anterior no histórico completo de até 1.000 resultados.
+Uma ocorrência sem par anterior válido não contribui para o calor e deve aparecer
+como indisponível no detalhamento; não é substituída por uma ocorrência mais antiga.
+
+Cada aposta válida começa com peso 1. Um controle de redução por acerto permite
+escolher de 0% a 100%, em passos de 1%, com padrão de 100%. Para redução `p` e
+`k` acertos posteriores à ativação, o peso remanescente é:
+
+```text
+peso = (1 - p / 100) ^ k
+```
+
+Sem acertos, o peso permanece 1, inclusive quando a redução é 100%. Redução 0%
+mantém o peso; 50% deixa 1, 0,5, 0,25… após zero, um, dois… acertos; 100% zera
+a aposta inteira no primeiro acerto. Um acerto é qualquer resultado posterior
+contido na aposta, e cada giro conta uma única vez. A redução afeta todos os
+números daquela aposta, não somente o número sorteado. A alteração do controle
+recalcula os pesos imediatamente usando o mesmo histórico, sem nova consulta.
+
+O cálculo é causal: a ocorrência selecionada é o giro que ativa a aposta, e a
+primeira tentativa é o giro seguinte. Para a ocorrência de índice `i`, somente
+os índices `i - 1` até `0` podem reduzir seu peso. O próprio giro de ativação não
+é acerto da aposta que acabou de formar, mesmo quando seu número está nela.
+O novo resultado pode reduzir apostas anteriores e formar sua própria aposta
+com peso inicial 1; essas contribuições são independentes.
+
+O calor de um número é a soma dos pesos das apostas válidas que o contêm,
+contando esse número uma vez por aposta. Não existe redução por idade, passagem
+de tempo ou giro sem acerto. Ao chegar um novo resultado, a ocorrência que sai
+da janela das dez mais recentes deixa de contribuir por sair da janela, não
+por uma redução temporal. Os pesos são reconstruídos do histórico atual em
+vez de acumulados em memória, preservando o mesmo resultado após atualizar,
+reconectar ou receber um evento duplicado.
+
+A escala visual é absoluta, de 0 a 10, e mantém as mesmas referências de cor
+entre atualizações. Não dividir pelo maior peso do instante: reduzir um peso
+deve esfriar sua representação mesmo que ele continue sendo o maior. Cor,
+intensidade e peso numérico devem tornar essa redução perceptível; a legenda
+identifica a progressão de frio a quente. Os pesos descrevem a composição das
+apostas e não são percentuais de assertividade.
+
+A race automática fica como primeiro filho de `.result-grid-viewport`, antes
+de `#result-grid`, nunca dentro da grade, cujos filhos representam resultados.
+Ela rola junto do histórico, sem reservar uma área fixa que esconda a grade ou
+a barra lateral. O detalhamento das dez ocorrências é expansível e começa
+fechado. O desenho se adapta ao desktop e celular e aos temas claro/escuro.
+Reutiliza `RouletteRacetrack` sem modificar o plugin global, com uma instância
+própria e IDs SVG distintos das races das seleções manuais.
+
+O mapa não adiciona, remove ou modifica seleções manuais nem seus snapshots e
+resumos. Atualiza junto da janela de resultados já validada pelo fluxo existente
+de carregamento/sincronização. Trocar de mesa limpa o mapa anterior imediatamente;
+respostas antigas e eventos de outra geração não podem alterar o mapa atual.
+Pausa, retomada e falhas seguem o comportamento existente da página. Não cria
+endpoints, dependências, processos ou alterações em banco, Nginx e PM2.
 
 ## Sistema visual e referência
 
@@ -87,3 +152,27 @@ vetores já ativo em produção. A nova rota usa o catálogo oferecido pela vers
 da API de histórico em execução, incluindo extensões quando disponíveis.
 Publicação usa o fluxo atual por SHA da main, testes e rollback automático.
 O release anterior verificado é `71da4b68269fd5448d7795203e3e0f4327e071c4`.
+
+### Validação da ampliação com mapa de calor
+
+Os resultados de verificação acima pertencem à versão anterior da página,
+publicada sem o mapa automático. Para esta ampliação, passaram 23 testes do
+modelo e 10 testes de rota/regressão. O teste de navegador com dados controlados
+também passou, com 30 consultas de histórico, em desktop e celular. As capturas
+de tela foram inspecionadas nos dois layouts.
+
+A verificação cobre reduções 0%, 50% e 100% e valores intermediários; exclusão do
+próprio gatilho; acertos afetando a aposta inteira; ausência de redução por idade;
+janela de dez ocorrências, incluindo valores repetidos e setores sobrepostos;
+falta de par anterior; transição da janela; deduplicação e sincronização ao vivo;
+troca de mesa; alteração imediata do controle; isolamento das seleções manuais;
+escala que esfria sem normalização relativa; temas e acesso à grade e barra
+lateral em desktop e celular.
+
+A revisão independente não encontrou bloqueadores de causalidade, integração
+ao vivo ou isolamento dos IDs SVG. O ajuste de contraste escolhe preto ou branco
+pela luminância da cor, mantendo a cor de texto do tema para peso zero; o limiar
+adotado garante contraste mínimo superior a 4,5:1 nas cores positivas. A
+reexecução final passou após esse ajuste, com contraste mínimo observado de
+4,829:1, incluindo o cenário de peso 10. Esta seção registra validações locais;
+a verificação dos resultados reais em produção é feita após o deploy.

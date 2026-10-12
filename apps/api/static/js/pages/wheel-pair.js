@@ -8,7 +8,7 @@ import { bindRoulettePicker, fillRouletteCounts } from "../components/roulette-s
 
 const app = document.querySelector("#history-app");
 // Version the calculation with the page; existing shared modules keep their own versions.
-const { analyzeSelection, summarizeBets } = await import(`../core/wheel-pair-model.js?v=${app.dataset.assetVersion}`);
+const { analyzeSelection, summarizeBets, analyzeHeatmap } = await import(`../core/wheel-pair-model.js?v=${app.dataset.assetVersion}`);
 const $ = (selector) => document.querySelector(selector);
 const grid = $("#result-grid");
 const panel = $("#wheel-pair-panel");
@@ -24,6 +24,159 @@ let loading = false;
 let requestGeneration = 0;
 let localId = 0;
 let lastSelectionKey = null;
+let heatmapRace = null;
+let heatmapSnapshot = null;
+let inspectedHeatNumber = null;
+let decayPercent = 100;
+const heatWeightFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
+
+function formattedWeight(weight) {
+  return weight > 0 && weight < 0.001 ? "<0,001" : heatWeightFormat.format(weight);
+}
+
+// Absolute stops: reducing all bets also cools the colors instead of rescaling them.
+const heatStops = [
+  [0, [36, 87, 154]], [1, [104, 184, 245]], [2, [250, 204, 85]],
+  [3, [251, 146, 60]], [5, [248, 113, 113]], [10, [220, 38, 38]],
+];
+function heatColor(weight) {
+  if (weight <= 0) return "var(--wp-heat-zero)";
+  const upper = heatStops.findIndex(([stop]) => stop >= weight);
+  const [end, to] = heatStops[upper === -1 ? heatStops.length - 1 : upper];
+  const [start, from] = heatStops[Math.max(0, upper - 1)];
+  const ratio = end === start ? 1 : Math.min(1, (weight - start) / (end - start));
+  return `rgb(${to.map((channel, index) => Math.round(from[index] + (channel - from[index]) * ratio)).join(", ")})`;
+}
+
+function heatInk(color) {
+  const linear = color.match(/\d+/g).map((channel) => {
+    const value = Number(channel) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+  return luminance > 0.179 ? "#000" : "#fff";
+}
+
+function namespaceRace(race) {
+  const prefix = `wp-race-${++localId}-`;
+  race.svg.querySelectorAll("[id]").forEach((node) => { node.id = prefix + node.id; });
+  race.svg.querySelectorAll("[fill]").forEach((node) => {
+    const fill = node.getAttribute("fill");
+    if (fill.startsWith("url(#")) node.setAttribute("fill", fill.replace("url(#", `url(#${prefix}`));
+  });
+}
+
+function inspectHeatNumber(number) {
+  inspectedHeatNumber = number;
+  const score = heatmapSnapshot?.scores[number];
+  if (!score) return;
+  $("#heatmap-pocket-info").textContent = `${number} · peso ${formattedWeight(score.weight)} · ${score.rawCount} apostas antes da redução · ${score.activeCount} com peso ativo`;
+}
+
+function ensureHeatmapRace() {
+  if (heatmapRace) return;
+  heatmapRace = new window.RouletteRacetrack($("#heatmap-race"), {
+    responsive: false,
+    onNumberHover: ({ number }) => inspectHeatNumber(number),
+    onNumberClick: ({ number }) => inspectHeatNumber(number),
+  });
+  namespaceRace(heatmapRace);
+  heatmapRace.svg.setAttribute("viewBox", "0 38 680 204");
+  heatmapRace.svg.setAttribute("role", "img");
+  heatmapRace.sectionsGroup.replaceChildren();
+  for (const [y, text] of [[133, "Últimas 10 ocorrências"], [158, "Peso das apostas por número"]]) {
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", 340);
+    label.setAttribute("y", y);
+    label.setAttribute("class", "wheel-heatmap__annotation");
+    label.textContent = text;
+    heatmapRace.sectionsGroup.append(label);
+  }
+  heatmapRace.svg.querySelectorAll(".number-cell").forEach((cell) => {
+    cell.append(document.createElementNS("http://www.w3.org/2000/svg", "title"));
+  });
+}
+
+function renderHeatmap() {
+  const container = $("#wheel-heatmap");
+  container.hidden = !items.length;
+  container.setAttribute("aria-busy", String(loading));
+  heatmapSnapshot = analyzeHeatmap(items, decayPercent);
+  $("#heatmap-decay").value = decayPercent;
+  $("#heatmap-decay").setAttribute("aria-valuetext", `${decayPercent}% de redução por acerto`);
+  $("#heatmap-decay-value").textContent = `${decayPercent}%`;
+  container.querySelectorAll("[data-decay-preset]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(Number(button.dataset.decayPreset) === decayPercent));
+  });
+  if (!items.length) return;
+  const model = heatmapSnapshot;
+  ensureHeatmapRace();
+  $("#heatmap-window").textContent = `Últimas ${model.sourceCount} ocorrências`;
+  heatmapRace.sectionsGroup.firstElementChild.textContent = `Últimas ${model.sourceCount} ocorrências`;
+  heatmapRace.svg.setAttribute("aria-label", `Mapa de calor das últimas ${model.sourceCount} ocorrências. Redução de ${decayPercent}% por acerto posterior. Peso máximo: ${formattedWeight(model.maxScore)}. Passe ou toque nos números para consultar os pesos.`);
+  heatmapRace.svg.querySelectorAll(".number-cell").forEach((cell) => {
+    const score = model.scores[Number(cell.dataset.n)];
+    cell.dataset.heatNumber = score.number;
+    cell.dataset.heatWeight = score.weight;
+    cell.dataset.heatRawCount = score.rawCount;
+    cell.dataset.heatActive = String(score.weight > 0);
+    const color = heatColor(score.weight);
+    cell.style.setProperty("--wp-heat-color", color);
+    cell.style.setProperty("--wp-heat-ink", score.weight === 0 ? "var(--wp-heat-text)" : heatInk(color));
+    cell.querySelector("title").textContent = `${score.number}: peso ${formattedWeight(score.weight)}; ${score.rawCount} apostas antes da redução; ${score.activeCount} com peso ativo.`;
+  });
+  $("#heatmap-status").textContent = `${model.readyCount} apostas analisadas · ${model.unpaidCount} ainda não atingidas · ${model.paidCount} já atingidas${model.skippedCount ? ` · ${model.skippedCount} sem análise válida` : ""}`;
+  const ranking = $("#heatmap-ranking");
+  ranking.replaceChildren();
+  const leaders = model.scores.filter((score) => score.weight > 0)
+    .sort((left, right) => right.weight - left.weight || left.number - right.number).slice(0, 8);
+  for (const score of leaders) {
+    const chip = element("span", "wheel-heatmap__rank");
+    chip.dataset.heatRankedNumber = score.number;
+    chip.dataset.heatWeight = score.weight;
+    chip.append(numberChip(score.number), element("small", "", formattedWeight(score.weight)));
+    chip.setAttribute("aria-label", `${score.number}: peso ${formattedWeight(score.weight)}`);
+    ranking.append(chip);
+  }
+  if (!leaders.length) ranking.append(element("span", "wheel-pair-note", model.readyCount ? "Todas as apostas foram zeradas pela redução escolhida." : "Nenhuma aposta válida nesta janela."));
+  const tbody = $("#heatmap-table-body");
+  tbody.replaceChildren();
+  for (const slot of model.slots) {
+    const a = slot.analysis;
+    const row = element("tr", slot.status !== "ready" ? "wheel-heatmap__skipped" : slot.hitCount ? "wheel-heatmap__paid" : "");
+    row.dataset.heatSourceIndex = slot.index;
+    row.dataset.heatSourceId = a.selectedId ?? items[slot.index]._wheelPairKey;
+    row.dataset.heatSourceWeight = slot.weight ?? "";
+    row.dataset.heatHitCount = slot.hitCount ?? "";
+    const position = element("th", "", `${slot.index + 1}ª · base ${a.base ?? "—"}`);
+    position.scope = "row";
+    position.title = formattedTime(items[slot.index]);
+    row.append(position);
+    const ready = slot.status === "ready";
+    const hitText = !ready ? slot.status === "no_previous" ? "Sem ocorrência anterior" : "Dados inválidos ou acompanhamento incompleto"
+      : slot.hitCount ? `${slot.hitCount} · ${slot.hits.map((hit) => `${hit.value} (${hit.index + 1}ª)`).join(", ")}` : "Nenhum";
+    [a.status === "ready" ? `[${a.offset}, ${a.base}]` : "—", a.status === "ready" ? `${a.leftCenter} / ${a.rightCenter}` : "—",
+      a.bet.length ? a.bet.join(", ") : "—", hitText, ready ? formattedWeight(slot.weight) : "—"].forEach((text) => row.append(element("td", "", text)));
+    tbody.append(row);
+  }
+  $("#heatmap-details summary").textContent = `Ver as ${model.sourceCount} ocorrências e seus acertos`;
+  if (inspectedHeatNumber !== null) inspectHeatNumber(inspectedHeatNumber);
+}
+
+function changeDecay(value) {
+  if (!Number.isInteger(value) || value < 0 || value > 100) return;
+  decayPercent = value;
+  renderHeatmap();
+  try { localStorage.setItem("revesbot-wheel-heatmap-decay", String(value)); } catch (_) { /* Optional preference. */ }
+}
+try {
+  const saved = localStorage.getItem("revesbot-wheel-heatmap-decay");
+  if (saved !== null && /^\d{1,3}$/.test(saved) && Number(saved) <= 100) decayPercent = Number(saved);
+} catch (_) { /* Keep the default when preferences are unavailable. */ }
+$("#heatmap-decay").addEventListener("input", (event) => changeDecay(Number(event.target.value)));
+$("#wheel-heatmap").querySelectorAll("[data-decay-preset]").forEach((button) => {
+  button.addEventListener("click", () => changeDecay(Number(button.dataset.decayPreset)));
+});
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -64,6 +217,7 @@ function setPanelOpen(open) {
 }
 
 function paintGridSelection() {
+  $("#wheel-heatmap").setAttribute("aria-busy", String(loading));
   [...grid.children].forEach((card, index) => {
     const item = items[index];
     const active = selected.has(item._wheelPairKey);
@@ -78,6 +232,7 @@ function paintGridSelection() {
 function updateHistoryView() {
   renderResults(grid, items);
   paintGridSelection();
+  renderHeatmap();
   $("#results-summary").textContent = `${items.length.toLocaleString("pt-BR")} resultados`;
   $("#empty-state").hidden = items.length > 0;
   // Selected analyses are snapshots anchored to their result ID, never to a shifted live index.
@@ -92,12 +247,7 @@ function addRace(container, analysis) {
   race.svg.setAttribute("role", "img");
   race.svg.setAttribute("aria-label", `Base ${analysis.base}. ${analysis.offset} casas em cada direção. Esquerda: ${analysis.left.join(", ")}. Direita: ${analysis.right.join(", ")}.`);
   // The shared plugin is unchanged. Namespace its SVG definitions for multiple races.
-  const prefix = `wp-race-${++localId}-`;
-  race.svg.querySelectorAll("[id]").forEach((node) => { node.id = prefix + node.id; });
-  race.svg.querySelectorAll("[fill]").forEach((node) => {
-    const fill = node.getAttribute("fill");
-    if (fill.startsWith("url(#")) node.setAttribute("fill", fill.replace("url(#", `url(#${prefix}`));
-  });
+  namespaceRace(race);
   race.svg.querySelectorAll(".number-cell").forEach((cell) => {
     const number = Number(cell.dataset.n);
     cell.classList.toggle("wp-left", analysis.left.includes(number));
