@@ -271,6 +271,14 @@ try {
     if (screenshotDirectory) {
       await fs.mkdir(screenshotDirectory, { recursive: true });
       await page.screenshot({ path: path.join(screenshotDirectory, `wheel-pair-${viewport.width}.png`), fullPage: true });
+      if (viewport.width === 390) {
+        await selection(2).locator(".wheel-pair-sector--left").scrollIntoViewIfNeeded();
+        assert.ok(await selection(2).locator("[data-number-weight]").evaluateAll((nodes) => nodes.every((node) => {
+          const bounds = node.getBoundingClientRect();
+          return bounds.left >= 0 && bounds.right <= document.documentElement.clientWidth;
+        })), "mobile weighted chips must stay inside the viewport");
+        await page.screenshot({ path: path.join(screenshotDirectory, "wheel-pair-weights-390.png"), fullPage: true });
+      }
       await page.locator("#wheel-pair-summary").scrollIntoViewIfNeeded();
       await page.screenshot({ path: path.join(screenshotDirectory, `wheel-pair-summary-${viewport.width}.png`), fullPage: true });
       await page.locator(".wheel-pair-scroll").evaluate((element) => { element.scrollTop = 0; });
