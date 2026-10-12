@@ -80,6 +80,7 @@ from api.routes.analysis_sequences import router as analysis_sequences_router
 from api.routes.analysis_overview import router as analysis_overview_router
 from api.routes.jev import router as jev_router
 from api.routes.roulette_history import router as roulette_history_router
+from api.routes.wheel_pair import router as wheel_pair_router
 from api.routes.triple_context_ranking import router as triple_context_ranking_router
 from api.routes.triple_context_backtest import router as triple_context_backtest_router
 from api.routes.websocket_signals import router as websocket_signals_router
@@ -227,6 +228,7 @@ app.include_router(analysis_sequences_router)
 app.include_router(analysis_overview_router)
 app.include_router(jev_router)
 app.include_router(roulette_history_router)
+app.include_router(wheel_pair_router)
 app.include_router(triple_context_ranking_router)
 app.include_router(triple_context_backtest_router)
 app.include_router(websocket_signals_router)

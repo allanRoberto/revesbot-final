@@ -1,0 +1,81 @@
+.wheel-pair-page { --wp-left: #7dd3fc; --wp-right: #fbbf24; --wp-overlap: #d8b4fe; }
+.wheel-pair-page [hidden] { display: none !important; }
+.wheel-pair-hint, .wheel-pair-settings-note { margin: -8px 0 16px; color: var(--muted); font-size: 12px; }
+.wheel-pair-settings-note { margin: 12px 0 0; }
+.wheel-pair-page #page-message { margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--wp-right); border-radius: 10px; font-size: 13px; }
+.wheel-pair-page .result-card[aria-pressed="true"] { outline: 3px solid var(--accent); outline-offset: -3px; box-shadow: inset 0 0 0 5px var(--bg); }
+.wheel-pair-page .result-card { position: relative; }
+.wheel-pair-page .result-card[aria-pressed="true"]::after { content: '✓'; position: absolute; top: 2px; right: 6px; color: #fff; font-size: 13px; font-weight: 900; }
+.wheel-pair-page .number-context-panel__header { gap: 10px; }
+.wheel-pair-page .number-context-panel__header h2 { font-size: 23px; }
+.wheel-pair-page .number-context-panel__header .icon-button { flex-shrink: 0; }
+.wheel-pair-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 12px; color: var(--muted); font-size: 12px; }
+.wheel-pair-toolbar .button { min-height: 32px; padding: 0 12px; font-size: 12px; }
+.wheel-pair-scroll { min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; padding: 0 3px 8px 0; }
+.wheel-pair-placeholder { padding: 18px 0; color: var(--muted); font-size: 14px; }
+.wheel-pair-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; background: var(--surface-strong); }
+.wheel-pair-card__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.wheel-pair-card h3 { margin: 0 0 3px; font-size: 18px; }
+.wheel-pair-card__remove { width: 30px; min-height: 30px; flex-shrink: 0; font-size: 18px; }
+.wheel-pair-meta { margin: 0 0 10px; color: var(--muted); font-size: 11px; }
+.wheel-pair-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 12px 0; }
+.wheel-pair-facts div { display: grid; gap: 2px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; }
+.wheel-pair-facts dt { color: var(--muted); font-size: 11px; }
+.wheel-pair-facts dd { margin: 0; font-size: 18px; font-weight: 900; }
+.wheel-pair-race { width: 100%; margin: 0 0 10px; }
+.wheel-pair-race svg { display: block; pointer-events: none; }
+.wheel-pair-race .number-cell { opacity: .55; }
+.wheel-pair-page .wheel-pair-race .number-text { font-size: 20px !important; }
+.wheel-pair-race .number-cell.wp-left, .wheel-pair-race .number-cell.wp-right, .wheel-pair-race .number-cell.wp-base { opacity: 1; }
+.wheel-pair-race .wp-left > :is(path,rect) { fill: var(--wp-left); stroke: #075985; stroke-width: 2; }
+.wheel-pair-race .wp-right > :is(path,rect) { fill: var(--wp-right); stroke: #92400e; stroke-width: 2; }
+.wheel-pair-race .wp-left.wp-right > :is(path,rect) { fill: var(--wp-overlap); stroke: #7e22ce; }
+.wheel-pair-race :is(.wp-left,.wp-right) .number-text { fill: #102032; }
+.wheel-pair-race .wp-center > :is(path,rect) { stroke: #fff; stroke-width: 3; }
+.wheel-pair-race .wp-base > :is(path,rect) { stroke: #fff; stroke-width: 5; stroke-dasharray: 5 2; }
+.wheel-pair-race .wp-annotation { fill: #fff; font-size: 18px; font-weight: 800; text-anchor: middle; }
+.wheel-pair-race .wp-annotation--left { fill: var(--wp-left); }
+.wheel-pair-race .wp-annotation--right { fill: var(--wp-right); }
+.wheel-pair-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; color: var(--muted); font-size: 11px; }
+.wheel-pair-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 3px; margin-right: 5px; background: var(--wp-left); }
+.wheel-pair-legend .wheel-pair-legend__right::before { background: var(--wp-right); }
+.wheel-pair-legend .wheel-pair-legend__base::before { background: #fff; border: 1px solid #64748b; }
+.wheel-pair-sector { margin: 10px 0; }
+.wheel-pair-sector__label { display: block; margin-bottom: 5px; font-size: 12px; font-weight: 800; }
+.wheel-pair-sector--left .wheel-pair-sector__label { color: var(--wp-left); }
+.wheel-pair-sector--right .wheel-pair-sector__label { color: var(--wp-right); }
+.wheel-pair-numbers { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.wheel-pair-number { display: inline-grid; place-items: center; min-width: 29px; height: 29px; padding: 0 5px; border: 1px solid var(--border); border-radius: 7px; color: #fff; font-size: 13px; font-weight: 900; }
+.wheel-pair-number--red { background: var(--roulette-red); }
+.wheel-pair-number--black { background: var(--roulette-black); }
+.wheel-pair-number--green { background: var(--roulette-green); }
+.wheel-pair-bet { padding-top: 10px; margin-top: 12px; border-top: 1px solid var(--border); }
+.wheel-pair-bet h4 { margin: 0 0 7px; font-size: 12px; }
+.wheel-pair-note, .wheel-pair-unavailable { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+.wheel-pair-counting { margin-top: 12px; font-size: 12px; }
+.wheel-pair-counting summary { cursor: pointer; color: var(--muted); }
+.wheel-pair-counting p { overflow-wrap: anywhere; line-height: 1.8; margin: 8px 0 0; }
+.wheel-pair-page #wheel-pair-summary { border-top: 1px solid var(--border); padding-top: 16px; }
+.wheel-pair-page #wheel-pair-summary h3 { margin: 0 0 5px; font-size: 18px; }
+.wheel-pair-repeat { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); padding: 4px 6px 4px 4px; border-radius: 9px; }
+.wheel-pair-repeat small { min-width: 19px; color: var(--muted); font-size: 11px; font-weight: 800; }
+.wheel-pair-union-label { margin: 16px 0 7px; font-size: 12px; font-weight: 800; }
+@media (min-width: 900px) {
+  .wheel-pair-page.number-context-panel-open .history-layout { grid-template-columns: minmax(0, 1fr) minmax(390px, 460px); }
+}
+@media (max-width: 899px) {
+  .wheel-pair-page #wheel-pair-panel { height: min(52dvh, 510px); }
+  .wheel-pair-page.number-context-panel-open .result-grid { padding-bottom: calc(min(52dvh, 510px) + 16px); }
+}
+@media (max-width: 640px) {
+  .wheel-pair-page .action-toolbar { gap: 5px; }
+  .wheel-pair-page .action-toolbar .icon-button { width: 36px; min-height: 36px; }
+  .wheel-pair-page .page-header h1 { font-size: 26px; }
+  .wheel-pair-page .results-panel__header { gap: 8px; }
+  .wheel-pair-page #results-summary { font-size: 12px; white-space: nowrap; }
+  .wheel-pair-hint { font-size: 11px; margin-bottom: 12px; }
+  .wheel-pair-card { padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .wheel-pair-page * { scroll-behavior: auto !important; transition: none !important; } }
+html[data-theme="light"] .wheel-pair-page { --wp-left: #0284c7; --wp-right: #a16207; }
+html[data-theme="light"] .wheel-pair-race { --wp-left: #7dd3fc; --wp-right: #fbbf24; }

@@ -214,6 +214,9 @@ sudo -u "$runtime_user" node --check infra/pm2/api-minimal.config.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/behavior-lab.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/triple-context-live.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/jev.js
+sudo -u "$runtime_user" node --input-type=module --check < apps/api/static/js/pages/wheel-pair.js
+sudo -u "$runtime_user" node --input-type=module --check < apps/api/static/js/core/wheel-pair-model.js
+sudo -u "$runtime_user" node --test apps/api/tests/browser/test_wheel_pair_model.mjs
 sudo -u "$runtime_user" env REVESBOT_API_CURRENT="$validation_root" \
   node -e 'require("./infra/pm2/api-minimal.config.js")'
 sudo -u "$runtime_user" bash -n \
@@ -241,6 +244,7 @@ sudo -u "$runtime_user" env \
   apps/behavior_lab/tests \
   apps/api/tests/test_behavior_lab_routes.py \
   apps/api/tests/test_roulette_history_route.py \
+  apps/api/tests/test_wheel_pair_route.py \
   apps/api/tests/test_results_websocket.py \
   apps/api/tests/test_minimal_api.py \
   apps/api/tests/test_pattern_monitoring.py \

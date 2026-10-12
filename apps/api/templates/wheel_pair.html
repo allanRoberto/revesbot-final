@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Compare apostas pela ocorrência anterior e pela contagem de casas na roleta.">
+  <title>Contagem de casas | {{ roulette.name }} | Revesbot</title>
+  <link rel="stylesheet" href="/static/css/tokens.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/base.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/roulette-selector.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/live-status.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/result-grid.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/number-context-panel.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/components/action-toolbar.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/pages/history.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/pages/wheel-pair.css?v={{ asset_version }}">
+</head>
+<body class="wheel-pair-page">
+  <main class="history-page" id="history-app" data-slug="{{ slug }}" data-asset-version="{{ asset_version }}">
+    <header class="page-header">
+      <div class="page-header__title">
+        <p class="eyebrow">Contagem de casas</p>
+        <h1 id="roulette-title">
+          <button class="roulette-selector__trigger" id="roulette-picker-open" type="button" aria-haspopup="dialog" aria-controls="roulette-picker"><span>{{ roulette.name }}</span><span aria-hidden="true">⌄</span></button>
+        </h1>
+      </div>
+      <div class="action-toolbar" aria-label="Ações do histórico">
+        <div class="live-status live-status--compact" id="live-status" role="status" aria-live="polite" title="Status da conexão"><span class="live-status__dot"></span><span class="live-status__text" id="live-status-text">Conectando</span></div>
+        <details class="toolbar-menu" id="history-settings">
+          <summary class="icon-button" aria-label="Ajustar números por linha" title="Ajustar exibição">⚙</summary>
+          <div class="toolbar-menu__popover">
+            <label class="field field--compact"><span>Números por linha</span><select id="grid-columns" aria-label="Selecionar números por linha"><option value="auto">Automático</option>{% for columns in [5, 8, 10, 12, 15, 20] %}<option value="{{ columns }}">{{ columns }}</option>{% endfor %}</select></label>
+            <p class="wheel-pair-settings-note">Histórico de até 1.000 resultados.</p>
+          </div>
+        </details>
+        <button class="icon-button" id="socket-toggle" type="button" aria-label="Pausar resultados ao vivo" title="Pausar resultados ao vivo"><span id="socket-toggle-icon" aria-hidden="true">⏸</span></button>
+        <button class="icon-button" id="selection-toggle" type="button" aria-label="Mostrar apostas selecionadas" title="Mostrar apostas selecionadas" aria-controls="wheel-pair-panel" aria-expanded="false">◎</button>
+        <button class="icon-button" id="refresh-history" type="button" aria-label="Atualizar histórico" title="Atualizar histórico">↻</button>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Alternar tema" title="Alternar tema">◐</button>
+        <button class="icon-button" id="copy-results" type="button" aria-label="Copiar números" title="Copiar números">⧉</button>
+        <a class="icon-button action-toolbar__link" id="history-link" href="/history/{{ slug }}" aria-label="Abrir histórico de ocorrências" title="Abrir histórico de ocorrências">↗</a>
+      </div>
+    </header>
+    <div class="history-layout">
+      <section class="results-panel" aria-labelledby="results-heading">
+        <div class="results-panel__header"><h2 id="results-heading">Últimos resultados</h2><span id="results-summary" role="status">Carregando…</span></div>
+        <p class="wheel-pair-hint">Selecione um ou mais resultados para comparar as apostas. Clique novamente para retirar.</p>
+        <p id="page-message" role="status" hidden></p>
+        <div class="result-grid-viewport"><div class="result-grid" id="result-grid" aria-label="Resultados, do mais recente para o mais antigo" aria-busy="true"></div></div>
+        <p class="empty-state" id="empty-state" hidden>Nenhum resultado encontrado.</p>
+      </section>
+      <aside class="number-context-panel" id="wheel-pair-panel" aria-labelledby="wheel-pair-title" hidden>
+        <div class="number-context-panel__surface">
+          <header class="number-context-panel__header">
+            <div><p class="eyebrow">Ocorrência anterior</p><h2 id="wheel-pair-title">Suas apostas</h2><p class="number-context-panel__count" id="wheel-pair-count" role="status">Nenhum resultado selecionado</p></div>
+            <button class="icon-button" id="wheel-pair-close" type="button" aria-label="Fechar análise">×</button>
+          </header>
+          <div class="wheel-pair-toolbar"><span>Seleções independentes</span><button class="button button--secondary" id="wheel-pair-clear" type="button">Limpar</button></div>
+          <div class="wheel-pair-scroll">
+            <p class="wheel-pair-placeholder" id="wheel-pair-placeholder">Clique em um resultado para ver a base, o par anterior e os cinco números de cada lado.</p>
+            <div id="wheel-pair-list"></div>
+            <section id="wheel-pair-summary" aria-labelledby="wheel-pair-summary-title" hidden></section>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+  <dialog class="roulette-picker" id="roulette-picker" aria-labelledby="roulette-picker-title">
+    <div class="roulette-picker__surface">
+      <header class="roulette-picker__header"><div><p class="eyebrow">Mesas monitoradas</p><h2 id="roulette-picker-title">Escolha uma roleta</h2></div><button class="icon-button" id="roulette-picker-close" type="button" aria-label="Fechar lista de roletas">×</button></header>
+      <nav class="roulette-picker__list" id="roulette-list" aria-label="Roletas disponíveis">
+        {% for item in roulettes %}
+        <a class="roulette-picker__item{% if item.slug == slug %} roulette-picker__item--current{% endif %}" href="/contagem-casas?slug={{ item.slug }}" data-roulette-slug="{{ item.slug }}"{% if item.slug == slug %} aria-current="page"{% endif %}><span>{{ item.name }}</span><small data-roulette-count>—</small></a>
+        {% endfor %}
+      </nav>
+    </div>
+  </dialog>
+  <script src="/static/js/roulette-racetrack_3.js?v={{ asset_version }}"></script>
+  <script type="module" src="/static/js/pages/wheel-pair.js?v={{ asset_version }}"></script>
+</body>
+</html>
