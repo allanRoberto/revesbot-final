@@ -29,6 +29,7 @@ let heatmapSnapshot = null;
 let inspectedHeatNumber = null;
 let decayPercent = 100;
 const heatWeightFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
+const spatialWeightFormat = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 function formattedWeight(weight) {
   return weight > 0 && weight < 0.001 ? "<0,001" : heatWeightFormat.format(weight);
@@ -156,7 +157,8 @@ function renderHeatmap() {
     const hitText = !ready ? slot.status === "no_previous" ? "Sem ocorrência anterior" : "Dados inválidos ou acompanhamento incompleto"
       : slot.hitCount ? `${slot.hitCount} · ${slot.hits.map((hit) => `${hit.value} (${hit.index + 1}ª)`).join(", ")}` : "Nenhum";
     [a.status === "ready" ? `[${a.offset}, ${a.base}]` : "—", a.status === "ready" ? `${a.leftCenter} / ${a.rightCenter}` : "—",
-      a.bet.length ? a.bet.join(", ") : "—", hitText, ready ? formattedWeight(slot.weight) : "—"].forEach((text) => row.append(element("td", "", text)));
+      a.betWeighted.length ? a.betWeighted.map(({ number, weight }) => `${number} (${spatialWeightFormat.format(weight)})`).join("; ") : "—",
+      hitText, ready ? formattedWeight(slot.weight) : "—"].forEach((text) => row.append(element("td", "", text)));
     tbody.append(row);
   }
   $("#heatmap-details summary").textContent = `Ver as ${model.sourceCount} ocorrências e seus acertos`;
@@ -209,6 +211,22 @@ function numberList(numbers, attribute) {
   return row;
 }
 
+function weightedNumberList(numbers, attribute) {
+  const row = element("div", "wheel-pair-numbers");
+  numbers.forEach(({ number, weight }) => {
+    const weighted = element("span", "wheel-pair-weighted-number");
+    const label = spatialWeightFormat.format(weight);
+    weighted.setAttribute("aria-label", `${number}: peso ${label}`);
+    const chip = numberChip(number, attribute);
+    chip.dataset.numberWeight = weight;
+    const caption = element("small", "", label);
+    caption.setAttribute("aria-hidden", "true");
+    weighted.append(chip, caption);
+    row.append(weighted);
+  });
+  return row;
+}
+
 function setPanelOpen(open) {
   panel.hidden = !open;
   panel.classList.toggle("number-context-panel--open", open);
@@ -257,7 +275,8 @@ function addRace(container, analysis) {
     const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
     const leftStep = analysis.leftPath.indexOf(number);
     const rightStep = analysis.rightPath.indexOf(number);
-    title.textContent = `${number}${number === analysis.base ? ": base" : ""}${leftStep > 0 ? `; esquerda: casa ${leftStep}` : ""}${rightStep > 0 ? `; direita: casa ${rightStep}` : ""}`;
+    const weight = analysis.betWeighted.find((entry) => entry.number === number)?.weight;
+    title.textContent = `${number}${number === analysis.base ? ": base" : ""}${leftStep > 0 ? `; esquerda: casa ${leftStep}` : ""}${rightStep > 0 ? `; direita: casa ${rightStep}` : ""}${weight != null ? `; peso ${spatialWeightFormat.format(weight)}` : ""}`;
     cell.append(title);
   });
   race.sectionsGroup.replaceChildren();
@@ -310,14 +329,15 @@ function selectionCard(key, entry) {
   const legend = element("div", "wheel-pair-legend");
   legend.append(element("span", "", "Esquerda"), element("span", "wheel-pair-legend__right", "Direita"), element("span", "wheel-pair-legend__base", "Base: borda tracejada"));
   card.append(legend);
-  [["left", "← Esquerda", a.leftCenter, a.left], ["right", "Direita →", a.rightCenter, a.right]].forEach(([side, label, center, numbers]) => {
+  card.append(element("p", "wheel-pair-note", "Pesos: centro 1,0 · 1º vizinho 0,7 · 2º vizinho 0,3."));
+  [["left", "← Esquerda", a.leftCenter, a.leftWeighted], ["right", "Direita →", a.rightCenter, a.rightWeighted]].forEach(([side, label, center, numbers]) => {
     const section = element("div", `wheel-pair-sector wheel-pair-sector--${side}`);
-    section.append(element("span", "wheel-pair-sector__label", `${label} · centro ${center}`), numberList(numbers));
+    section.append(element("span", "wheel-pair-sector__label", `${label} · centro ${center}`), weightedNumberList(numbers));
     card.append(section);
   });
   const bet = element("section", "wheel-pair-bet");
-  bet.append(element("h4", "", `Aposta em ordem crescente · ${a.bet.length} números`), numberList(a.bet, "data-bet-number"));
-  if (a.bet.length < 10) bet.append(element("p", "wheel-pair-note", `Os setores se sobrepõem: são ${a.bet.length} números distintos, sem repetir na aposta.`));
+  bet.append(element("h4", "", `Aposta em ordem crescente · ${a.bet.length} números`), weightedNumberList(a.betWeighted, "data-bet-number"));
+  if (a.bet.length < 10) bet.append(element("p", "wheel-pair-note", `Os setores se sobrepõem: são ${a.bet.length} números distintos. Cada número recebe o maior peso entre os dois setores.`));
   card.append(bet);
   const counting = element("details", "wheel-pair-counting");
   counting.append(element("summary", "", "Ver contagem casa por casa"));

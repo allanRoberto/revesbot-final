@@ -3,6 +3,10 @@ import test from "node:test";
 import { WHEEL, analyzeSelection, summarizeBets, analyzeHeatmap } from "../../static/js/core/wheel-pair-model.js";
 
 const history = (...values) => values.map((value, index) => ({ _id: `spin-${index}`, value }));
+const approximately = (actual, expected) => assert.ok(
+  Math.abs(actual - expected) < 1e-12,
+  `Expected ${actual} to be approximately ${expected}`,
+);
 
 test("the canonical wheel has every European roulette number exactly once", () => {
   assert.equal(WHEEL.length, 37);
@@ -187,8 +191,10 @@ test("one later 26 pays three independently formed bets with centers 26, 0, and 
   assert.equal(result.maxScore, 5);
 
   const half = analyzeHeatmap(paidHeatmapFixture(), 50);
-  assert.deepEqual(half.scores[26], { number: 26, weight: 1.5, rawCount: 3, activeCount: 3 });
-  assert.equal(half.maxScore, 5.5);
+  approximately(half.scores[26].weight, 1.2);
+  assert.equal(half.scores[26].rawCount, 3);
+  assert.equal(half.scores[26].activeCount, 3);
+  assert.equal(half.maxScore, 5);
 });
 
 test("every later hit reduces the whole bet again and records hits in chronological order", () => {
@@ -203,9 +209,9 @@ test("every later hit reduces the whole bet again and records hits in chronologi
     assert.equal(half.slots[index].hitCount, 2);
     assert.equal(half.slots[index].weight, 0.25);
   }
-  assert.equal(half.scores[26].weight, 0.75);
+  approximately(half.scores[26].weight, 0.6);
   // 35 also belongs to these paid bets even though the paying result was 26.
-  assert.equal(half.scores[35].weight, 0.5);
+  approximately(half.scores[35].weight, 0.25);
   assert.equal(analyzeHeatmap(items, 100).scores[26].weight, 0);
 });
 
@@ -213,15 +219,17 @@ test("a 25 percent reduction compounds per hit and zero percent preserves paid w
   const items = paidHeatmapFixture();
   const first = analyzeHeatmap(items, 25);
   assert.equal(first.slots[9].weight, 0.75);
-  assert.equal(first.scores[26].weight, 2.25);
+  approximately(first.scores[26].weight, 1.8);
   items[5].value = 26;
   const second = analyzeHeatmap(items, 25);
   assert.equal(second.slots[9].weight, 0.5625);
-  assert.equal(second.scores[26].weight, 1.6875);
+  approximately(second.scores[26].weight, 1.35);
 
   const noReduction = analyzeHeatmap(items, 0);
   assert.equal(noReduction.slots[9].weight, 1);
-  assert.deepEqual(noReduction.scores[26], { number: 26, weight: 3, rawCount: 3, activeCount: 3 });
+  approximately(noReduction.scores[26].weight, 2.4);
+  assert.equal(noReduction.scores[26].rawCount, 3);
+  assert.equal(noReduction.scores[26].activeCount, 3);
   assert.equal(noReduction.slots[9].hitCount, 2);
   assert.ok(noReduction.paidCount > 0);
 });
@@ -242,8 +250,8 @@ test("a bet is born after its base and older results cannot pay it", () => {
 test("overlapping sectors count a number once per occurrence without grouping equal bases", () => {
   const overlap = analyzeHeatmap(history(0, 1, 0));
   assert.equal(overlap.slots[0].analysis.bet.length, 7);
-  assert.deepEqual(overlap.scores[0], { number: 0, weight: 1, rawCount: 1, activeCount: 1 });
-  assert.equal(overlap.scores.reduce((total, score) => total + score.weight, 0), 7);
+  assert.deepEqual(overlap.scores[0], { number: 0, weight: 0.7, rawCount: 1, activeCount: 1 });
+  approximately(overlap.scores.reduce((total, score) => total + score.weight, 0), 4.7);
 
   const equalBases = analyzeHeatmap(history(0, 0, 0), 0);
   assert.equal(equalBases.readyCount, 2);
@@ -275,7 +283,7 @@ test("unpaid older bets keep their weight regardless of age", () => {
     assert.equal(result.slots[index].hitCount, 0);
     assert.equal(result.slots[index].weight, 1);
   }
-  assert.equal(result.scores[26].weight, 3);
+  approximately(result.scores[26].weight, 2.4);
 });
 
 test("recomputing and switching reduction settings is idempotent without mutating inputs", () => {
@@ -340,4 +348,100 @@ test("decay requires an integer percentage without coercion", () => {
   assert.equal(analyzeHeatmap([]).decayPercent, 100);
   assert.equal(analyzeHeatmap([], 0).decayPercent, 0);
   assert.equal(analyzeHeatmap([], 100).decayPercent, 100);
+});
+
+test("spatial sector weights follow physical distance and the merged bet stays numerically ordered", () => {
+  const result = analyzeSelection(history(25, 4, 11, 25), 0);
+  assert.deepEqual(result.leftWeighted, [
+    { number: 7, weight: 0.3 },
+    { number: 28, weight: 0.7 },
+    { number: 12, weight: 1 },
+    { number: 35, weight: 0.7 },
+    { number: 3, weight: 0.3 },
+  ]);
+  assert.deepEqual(result.rightWeighted, [
+    { number: 8, weight: 0.3 },
+    { number: 23, weight: 0.7 },
+    { number: 10, weight: 1 },
+    { number: 5, weight: 0.7 },
+    { number: 24, weight: 0.3 },
+  ]);
+  assert.deepEqual(result.betWeighted, [
+    { number: 3, weight: 0.3 },
+    { number: 5, weight: 0.7 },
+    { number: 7, weight: 0.3 },
+    { number: 8, weight: 0.3 },
+    { number: 10, weight: 1 },
+    { number: 12, weight: 1 },
+    { number: 23, weight: 0.7 },
+    { number: 24, weight: 0.3 },
+    { number: 28, weight: 0.7 },
+    { number: 35, weight: 0.7 },
+  ]);
+  assert.deepEqual(result.betWeighted.map(({ number }) => number), result.bet);
+  approximately(result.betWeighted.reduce((sum, entry) => sum + entry.weight, 0), 6);
+});
+
+test("coincident sectors at zero houses preserve one weight per pocket rather than doubling", () => {
+  const result = analyzeSelection(history(25, 0, 25), 0);
+  assert.deepEqual(result.leftWeighted, result.rightWeighted);
+  assert.deepEqual(result.betWeighted, [
+    { number: 2, weight: 0.7 },
+    { number: 17, weight: 0.7 },
+    { number: 21, weight: 0.3 },
+    { number: 25, weight: 1 },
+    { number: 34, weight: 0.3 },
+  ]);
+  approximately(result.betWeighted.reduce((sum, entry) => sum + entry.weight, 0), 3);
+});
+
+test("overlapping sectors choose the maximum weight for shared pockets through zero", () => {
+  const result = analyzeSelection(history(0, 1, 0), 0);
+  assert.deepEqual(result.betWeighted, [
+    { number: 0, weight: 0.7 },
+    { number: 3, weight: 0.7 },
+    { number: 15, weight: 0.7 },
+    { number: 19, weight: 0.3 },
+    { number: 26, weight: 1 },
+    { number: 32, weight: 1 },
+    { number: 35, weight: 0.3 },
+  ]);
+  assert.equal(result.leftWeighted.find(({ number }) => number === 26).weight, 1);
+  assert.equal(result.rightWeighted.find(({ number }) => number === 26).weight, 0.3);
+  assert.equal(result.betWeighted.find(({ number }) => number === 26).weight, 1);
+});
+
+test("spatial weights multiply the temporal factor without changing how hits are counted", () => {
+  const unpaid = analyzeHeatmap(history(25, 4, 11, 25));
+  assert.equal(unpaid.slots[0].weight, 1);
+  assert.deepEqual(unpaid.scores[12], { number: 12, weight: 1, rawCount: 1, activeCount: 1 });
+  assert.deepEqual(unpaid.scores[35], { number: 35, weight: 0.7, rawCount: 1, activeCount: 1 });
+  assert.deepEqual(unpaid.scores[3], { number: 3, weight: 0.3, rawCount: 1, activeCount: 1 });
+
+  // A hit on a distant neighbor pays the whole bet, despite its lower spatial weight.
+  const once = analyzeHeatmap(history(3, 25, 4, 11, 25), 50);
+  assert.equal(once.slots[1].hitCount, 1);
+  assert.equal(once.slots[1].weight, 0.5);
+  assert.deepEqual(once.scores[12], { number: 12, weight: 0.5, rawCount: 1, activeCount: 1 });
+  approximately(once.scores[35].weight, 0.35);
+  approximately(once.scores[3].weight, 0.15);
+
+  const twice = analyzeHeatmap(history(35, 3, 25, 4, 11, 25), 50);
+  assert.equal(twice.slots[2].hitCount, 2);
+  assert.equal(twice.slots[2].weight, 0.25);
+  approximately(twice.scores[12].weight, 0.25);
+  approximately(twice.scores[35].weight, 0.175);
+  approximately(twice.scores[3].weight, 0.075);
+
+  const removed = analyzeHeatmap(history(3, 25, 4, 11, 25), 100);
+  assert.deepEqual(removed.scores[35], { number: 35, weight: 0, rawCount: 1, activeCount: 0 });
+});
+
+test("unavailable selections expose empty weighted sectors with the existing status", () => {
+  for (const analysis of [analyzeSelection(null, 0), analyzeSelection(history(25, 11, 4), 0)]) {
+    assert.notEqual(analysis.status, "ready");
+    assert.deepEqual(analysis.leftWeighted, []);
+    assert.deepEqual(analysis.rightWeighted, []);
+    assert.deepEqual(analysis.betWeighted, []);
+  }
 });
