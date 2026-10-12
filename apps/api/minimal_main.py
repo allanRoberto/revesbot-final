@@ -15,6 +15,7 @@ from api.routes.pixgo_webhook import router as pixgo_webhook_router
 from api.routes.pattern_monitoring import router as pattern_monitoring_router
 from api.routes.results_websocket import router as results_websocket_router
 from api.routes.roulette_history import router as roulette_history_router
+from api.routes.wheel_pair import router as wheel_pair_router
 from api.routes.triple_context_ranking import router as triple_context_ranking_router
 from api.routes.triple_context_backtest import router as triple_context_backtest_router
 from api.routes.triple_context_live import router as triple_context_live_router
@@ -56,6 +57,7 @@ app.add_middleware(
 )
 
 app.include_router(roulette_history_router)
+app.include_router(wheel_pair_router)
 app.include_router(jev_router)
 app.include_router(results_websocket_router)
 app.include_router(pixgo_webhook_router)

@@ -15,6 +15,11 @@ on:
       - "apps/api/routes/pattern_monitoring.py"
       - "apps/api/routes/results_websocket.py"
       - "apps/api/routes/roulette_history.py"
+      - "apps/api/routes/wheel_pair.py"
+      - "apps/api/templates/wheel_pair.html"
+      - "apps/api/tests/test_wheel_pair_route.py"
+      - "apps/api/tests/browser/test_wheel_pair_model.mjs"
+      - "apps/api/tests/browser/test_wheel_pair_page.mjs"
       - "apps/api/routes/jev.py"
       - "apps/api/schemas/jev.py"
       - "apps/api/services/jev_*.py"
@@ -89,6 +94,9 @@ jobs:
           node --check apps/api/static/js/pages/triple-context-backtest.js
           node --check apps/api/static/js/pages/triple-context-live.js
           node --check apps/api/static/js/pages/jev.js
+          node --input-type=module --check < apps/api/static/js/pages/wheel-pair.js
+          node --input-type=module --check < apps/api/static/js/core/wheel-pair-model.js
+          node --test apps/api/tests/browser/test_wheel_pair_model.mjs
           REVESBOT_API_CURRENT="${GITHUB_WORKSPACE}" node -e 'require("./infra/pm2/api-minimal.config.js")'
           bash -n infra/deploy/api/driver.sh infra/deploy/api/deploy.sh infra/deploy/api/bootstrap.sh infra/deploy/api/healthcheck.sh infra/deploy/api/watchdog.sh
           python -m compileall -q apps/behavior_lab apps/monitoring/scripts/triple_context_live_worker.py apps/api/minimal_main.py apps/api/routes/behavior_lab.py apps/api/routes/triple_context_live.py
@@ -100,6 +108,7 @@ jobs:
           apps/behavior_lab/tests
           apps/api/tests/test_behavior_lab_routes.py
           apps/api/tests/test_roulette_history_route.py
+          apps/api/tests/test_wheel_pair_route.py
           apps/api/tests/test_results_websocket.py
           apps/api/tests/test_minimal_api.py
           apps/api/tests/test_pattern_monitoring.py
