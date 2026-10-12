@@ -122,3 +122,85 @@ export function summarizeBets(analyses) {
       .sort((left, right) => right.count - left.count || left.number - right.number),
   };
 }
+
+/**
+ * Weight the bets born after the ten newest occurrences, using the full history
+ * to reconstruct each pair. Only strictly newer results can pay a bet. Hits are
+ * chronological, from the first following spin toward the newest one.
+ *
+ * A ready slot has complete valid follow-up; other slots contribute no scores.
+ * Unknown follow-up is distinct from zero hits. rawCount includes paid ready
+ * bets, while activeCount includes only ready bets with positive residual weight.
+ */
+export function analyzeHeatmap(items, decayPercent = 100) {
+  if (!Number.isInteger(decayPercent) || decayPercent < 0 || decayPercent > 100) {
+    throw new RangeError("A redução por acerto deve ser um percentual inteiro entre 0 e 100.");
+  }
+  if (!Array.isArray(items)) {
+    throw new TypeError("O histórico deve ser uma lista de resultados.");
+  }
+
+  const sourceCount = Math.min(10, items.length);
+  const scores = Array.from({ length: WHEEL.length }, (_, number) => ({
+    number, weight: 0, rawCount: 0, activeCount: 0,
+  }));
+  const slots = [];
+  let unpaidCount = 0;
+  let paidCount = 0;
+  let skippedCount = 0;
+
+  for (let index = 0; index < sourceCount; index += 1) {
+    const analysis = analyzeSelection(items, index);
+    const slot = {
+      analysis, index, hits: [], hitCount: null, weight: null, status: analysis.status,
+    };
+    if (analysis.status !== "ready") {
+      skippedCount += 1;
+      slots.push(slot);
+      continue;
+    }
+
+    let followupValid = true;
+    const hits = [];
+    for (let newerIndex = index - 1; newerIndex >= 0; newerIndex -= 1) {
+      const item = items[newerIndex];
+      if (!validNumber(item?.value)) {
+        followupValid = false;
+        break;
+      }
+      if (analysis.bet.includes(item.value)) {
+        hits.push({ index: newerIndex, id: itemId(item), value: item.value });
+      }
+    }
+    if (!followupValid) {
+      slot.status = "unknown";
+      skippedCount += 1;
+      slots.push(slot);
+      continue;
+    }
+
+    slot.hits = hits;
+    slot.hitCount = hits.length;
+    slot.weight = (1 - decayPercent / 100) ** slot.hitCount;
+    if (slot.hitCount === 0) unpaidCount += 1;
+    else paidCount += 1;
+    for (const number of analysis.bet) {
+      scores[number].rawCount += 1;
+      scores[number].weight += slot.weight;
+      if (slot.weight > 0) scores[number].activeCount += 1;
+    }
+    slots.push(slot);
+  }
+
+  return {
+    decayPercent,
+    sourceCount,
+    slots,
+    scores,
+    readyCount: unpaidCount + paidCount,
+    unpaidCount,
+    paidCount,
+    skippedCount,
+    maxScore: Math.max(...scores.map((score) => score.weight)),
+  };
+}

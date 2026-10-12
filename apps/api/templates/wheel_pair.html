@@ -46,7 +46,35 @@
         <div class="results-panel__header"><h2 id="results-heading">Últimos resultados</h2><span id="results-summary" role="status">Carregando…</span></div>
         <p class="wheel-pair-hint">Selecione um ou mais resultados para comparar as apostas. Clique novamente para retirar.</p>
         <p id="page-message" role="status" hidden></p>
-        <div class="result-grid-viewport"><div class="result-grid" id="result-grid" aria-label="Resultados, do mais recente para o mais antigo" aria-busy="true"></div></div>
+        <div class="result-grid-viewport">
+          <section class="wheel-heatmap" id="wheel-heatmap" aria-labelledby="heatmap-title" aria-busy="true" hidden>
+            <header class="wheel-heatmap__header">
+              <div><p class="eyebrow">Confluência das apostas</p><h3 id="heatmap-title">Mapa de calor</h3></div>
+              <span id="heatmap-window">Últimas 10 ocorrências</span>
+            </header>
+            <div class="wheel-heatmap__layout">
+              <div>
+                <div id="heatmap-race" class="wheel-heatmap__race"></div>
+                <div class="wheel-heatmap__legend" aria-label="Escala fixa de peso, de zero a dez"><span>Sem peso</span><span class="wheel-heatmap__gradient" aria-hidden="true"></span><span>Peso 10</span></div>
+                <p id="heatmap-pocket-info" class="wheel-heatmap__pocket-info">Passe ou toque em um número da race para ver seu peso.</p>
+              </div>
+              <div class="wheel-heatmap__controls">
+                <label for="heatmap-decay">Redução por acerto <output id="heatmap-decay-value" for="heatmap-decay">100%</output></label>
+                <input id="heatmap-decay" type="range" min="0" max="100" step="1" value="100" aria-describedby="heatmap-decay-help">
+                <div class="wheel-heatmap__presets" aria-label="Ajustes rápidos da redução"><button type="button" data-decay-preset="0" aria-pressed="false">0%</button><button type="button" data-decay-preset="50" aria-pressed="false">50%</button><button type="button" data-decay-preset="100" aria-pressed="true">100%</button></div>
+                <p id="heatmap-decay-help">100% zera no primeiro acerto; 50% reduz pela metade a cada acerto; 0% mantém o peso.</p>
+                <p id="heatmap-status" role="status"></p>
+              </div>
+            </div>
+            <div class="wheel-heatmap__ranking"><h4>Maiores pesos</h4><div id="heatmap-ranking"></div></div>
+            <p class="wheel-heatmap__note">Cada aposta começa com peso 1. Só os giros posteriores à sua formação reduzem seu peso inteiro. O calor é a soma dos pesos, sem desconto por idade.</p>
+            <details id="heatmap-details" class="wheel-heatmap__details">
+              <summary>Ver as 10 ocorrências e seus acertos</summary>
+              <div class="wheel-heatmap__table-scroll"><table><caption>Posições do mais recente para o mais antigo; apostas dos dois lados juntas.</caption><thead><tr><th scope="col">Posição</th><th scope="col">Par anterior</th><th scope="col">Centros E / D</th><th scope="col">Aposta crescente</th><th scope="col">Acertos posteriores</th><th scope="col">Peso</th></tr></thead><tbody id="heatmap-table-body"></tbody></table></div>
+            </details>
+          </section>
+          <div class="result-grid" id="result-grid" aria-label="Resultados, do mais recente para o mais antigo" aria-busy="true"></div>
+        </div>
         <p class="empty-state" id="empty-state" hidden>Nenhum resultado encontrado.</p>
       </section>
       <aside class="number-context-panel" id="wheel-pair-panel" aria-labelledby="wheel-pair-title" hidden>

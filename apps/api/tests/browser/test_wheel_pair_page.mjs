@@ -51,6 +51,7 @@ const pendingPlans = new Map();
 const sockets = [];
 const pageErrors = [];
 const routeErrors = [];
+const contrastChecks = [];
 
 function nextHistory(slug, plan) {
   const queue = pendingPlans.get(slug) || [];
@@ -130,6 +131,60 @@ const result = (index) => page.locator(`#result-grid .result-card[data-result-in
 const selection = (index) => page.locator(`#wheel-pair-list .wheel-pair-card[data-selection-index="${index}"]`);
 const selectedCards = () => page.locator("#wheel-pair-list .wheel-pair-card");
 const repeatedNumbers = () => page.locator("#wheel-pair-summary [data-repeated-number]");
+const heatCell = (number) => page.locator(`#heatmap-race .number-cell[data-heat-number="${number}"]`);
+
+async function assertHeat(number, weight, rawCount) {
+  await page.waitForFunction(({ number: pocket, weight: expected, rawCount: raw }) => {
+    const cell = document.querySelector(`#heatmap-race [data-heat-number="${pocket}"]`);
+    return cell && cell.hasAttribute("data-heat-weight") && cell.hasAttribute("data-heat-raw-count")
+      && Math.abs(Number(cell.dataset.heatWeight) - expected) < 1e-9 && Number(cell.dataset.heatRawCount) === raw;
+  }, { number, weight, rawCount });
+}
+
+async function heatSnapshot() {
+  return page.locator("#heatmap-race [data-heat-number]").evaluateAll((cells) => cells.map((cell) => [
+    Number(cell.dataset.heatNumber), Number(cell.dataset.heatWeight), Number(cell.dataset.heatRawCount),
+  ]));
+}
+
+async function assertPositiveHeatContrast() {
+  const pockets = await page.locator('#heatmap-race [data-heat-number]').evaluateAll((cells) => cells
+    .filter((cell) => Number(cell.dataset.heatWeight) > 0)
+    .map((cell) => ({
+      number: Number(cell.dataset.heatNumber),
+      background: getComputedStyle(cell.querySelector("path, rect")).fill,
+      foreground: getComputedStyle(cell.querySelector(".number-text")).fill,
+    })));
+  assert.ok(pockets.length > 0, "the contrast fixture must include active pockets");
+  // Evaluate the computed SVG colors against WCAG's text contrast threshold;
+  // this does not assume a particular palette or text-color selection algorithm.
+  const luminance = (color) => {
+    assert.match(color, /^rgba?\(/, `expected a resolved SVG color, received ${color}`);
+    const channels = color.match(/[\d.]+/g).slice(0, 3).map(Number).map((channel) => {
+      const normalized = channel / 255;
+      return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+    });
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  for (const pocket of pockets) {
+    const light = luminance(pocket.foreground);
+    const dark = luminance(pocket.background);
+    const ratio = (Math.max(light, dark) + 0.05) / (Math.min(light, dark) + 0.05);
+    assert.ok(ratio >= 4.5, `pocket ${pocket.number} must have at least 4.5:1 text contrast: ${ratio.toFixed(3)} (${pocket.foreground} over ${pocket.background})`);
+    contrastChecks.push(ratio);
+  }
+}
+
+async function chooseDecay(value) {
+  const preset = page.locator(`#wheel-heatmap [data-decay-preset="${value}"]`);
+  if (await preset.count()) await preset.click();
+  else await page.locator("#heatmap-decay").evaluate((input, next) => {
+    input.value = String(next);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+  assert.equal(await page.inputValue("#heatmap-decay"), String(value));
+  assert.equal(await page.textContent("#heatmap-decay-value"), `${value}%`);
+}
 
 async function waitForHistory(slug, firstValue) {
   await page.waitForFunction(({ slug: expected, first }) => {
@@ -338,9 +393,155 @@ try {
   assert.equal(historyCalls.length, historyCallsBeforeReconnect + 1,
     "reconnection must fetch one fresh window without creating a subscription refresh loop");
 
+  // The automatic heatmap has its own ten occurrence window and searches the
+  // full 1,000 results for their older pairs, independent of manual selections.
+  await page.click("#wheel-pair-clear");
+  const heatValues = [20, 20, 20, 20, 20, 20, 26, 2, 21, 25, 8, 25, 5, 21, 8, 2];
+  heatValues.push(...Array(1000 - heatValues.length).fill(36));
+  const heatItems = makeItems(autoSlug, heatValues).map((item, index) => ({ ...item, _id: `heat-auto-${index}` }));
+  fixtures.set(autoSlug, heatItems);
+  await page.click("#refresh-history");
+  await waitForHistory(autoSlug, 20);
+  assert.equal(await selectedCards().count(), 0);
+  assert.equal(await page.inputValue("#heatmap-decay"), "100", "the heatmap starts with complete reduction after a hit");
+  assert.equal(await page.textContent("#heatmap-decay-value"), "100%");
+  assert.equal(await page.locator("#wheel-heatmap").isVisible(), true);
+  assert.equal(await page.locator("#wheel-heatmap").evaluate((node) => node.parentElement.classList.contains("result-grid-viewport")
+    && Boolean(node.compareDocumentPosition(document.getElementById("result-grid")) & Node.DOCUMENT_POSITION_FOLLOWING)), true,
+  "the heatmap belongs before the results in the history viewport");
+  assert.deepEqual((await heatSnapshot()).map(([number]) => number).sort((left, right) => left - right), Array.from({ length: 37 }, (_, index) => index));
+  assert.equal(await page.locator("#heatmap-status").getAttribute("role"), "status");
+  assert.match(await page.textContent("#heatmap-status"), /8 apostas analisadas/);
+  assert.deepEqual(await page.locator("#heatmap-details tr[data-heat-source-index]").evaluateAll((rows) => rows.map((row) => Number(row.dataset.heatSourceIndex))), Array.from({ length: 10 }, (_, index) => index));
+  assert.equal(await page.locator('#heatmap-details tr[data-heat-source-index="7"]').getAttribute("data-heat-hit-count"), "1");
+  await assertHeat(26, 0, 3);
+
+  const beforeManualSelection = await heatSnapshot();
+  await result(7).click();
+  await result(8).click();
+  assert.equal(await selectedCards().count(), 2);
+  assert.deepEqual(await heatSnapshot(), beforeManualSelection, "manual bets must not become additional heatmap sources");
+  await page.click("#wheel-pair-clear");
+  assert.deepEqual(await heatSnapshot(), beforeManualSelection, "clearing manual bets must preserve the automatic heatmap");
+
+  const historyCallsBeforeDecay = historyCalls.length;
+  await chooseDecay(0);
+  await assertHeat(26, 3, 3);
+  await assertPositiveHeatContrast();
+  const fullColor = await heatCell(26).evaluate((node) => getComputedStyle(node.querySelector("path, rect")).fill);
+  await chooseDecay(50);
+  await assertHeat(26, 1.5, 3);
+  await assertPositiveHeatContrast();
+  const halfColor = await heatCell(26).evaluate((node) => getComputedStyle(node.querySelector("path, rect")).fill);
+  await chooseDecay(100);
+  await assertHeat(26, 0, 3);
+  const zeroColor = await heatCell(26).evaluate((node) => getComputedStyle(node.querySelector("path, rect")).fill);
+  assert.equal(new Set([fullColor, halfColor, zeroColor]).size, 3, "the rendered pocket color must cool as its absolute weight falls");
+  await chooseDecay(25);
+  await assertHeat(26, 2.25, 3);
+  await assertPositiveHeatContrast();
+  const ranking = await page.locator("#heatmap-ranking [data-heat-ranked-number]").evaluateAll((chips) => chips.map((chip) => ({ number: Number(chip.dataset.heatRankedNumber), weight: Number(chip.dataset.heatWeight) })));
+  assert.equal(ranking.length, 8);
+  assert.deepEqual(ranking, [...ranking].sort((left, right) => right.weight - left.weight || left.number - right.number));
+  for (const ranked of ranking) assert.equal(Number(await heatCell(ranked.number).getAttribute("data-heat-weight")), ranked.weight);
+  assert.equal(historyCalls.length, historyCallsBeforeDecay, "changing decay must use the already loaded snapshot");
+  await chooseDecay(50);
+  await assertHeat(26, 1.5, 3);
+  await heatCell(26).click();
+  assert.match(await page.textContent("#heatmap-pocket-info"), /26.*1,5.*3 apostas/);
+
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.locator(".result-grid-viewport").evaluate((node) => { node.scrollTop = 0; });
+    const dimensions = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+    assert.ok(dimensions.scrollWidth <= dimensions.width, `heatmap must fit ${viewport.width}px without document overflow: ${JSON.stringify(dimensions)}`);
+    assert.equal(await page.locator("#wheel-heatmap").isVisible(), true);
+    const screenshotDirectory = process.env.WHEEL_PAIR_BROWSER_SCREENSHOT_DIR;
+    if (screenshotDirectory) {
+      await page.screenshot({ path: path.join(screenshotDirectory, `wheel-heatmap-${viewport.width}.png`), fullPage: true });
+      await page.locator("#heatmap-details > summary").click();
+      await page.screenshot({ path: path.join(screenshotDirectory, `wheel-heatmap-details-${viewport.width}.png`), fullPage: true });
+      await page.locator("#heatmap-details > summary").click();
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  // A new 26 changes both the newest ten sources and their subsequent hits.
+  // Of the former three contributing bets, two remain and each now has two hits.
+  const heatLiveItem = { _id: "heat-live-26", value: 26, roulette_id: autoSlug, timestamp: "2026-10-12T07:00:38Z" };
+  fixtures.set(autoSlug, [heatLiveItem, ...heatItems].slice(0, 1000));
+  const heatSocket = sockets.findLast((entry) => entry.slug === autoSlug);
+  heatSocket.socket.send(JSON.stringify({ result: 26, full_result: heatLiveItem }));
+  await waitForHistory(autoSlug, 26);
+  await assertHeat(26, 0.5, 2);
+  assert.equal(await page.locator('#heatmap-details tr[data-heat-source-index="0"]').getAttribute("data-heat-source-id"), "heat-live-26");
+  heatSocket.socket.send(JSON.stringify({ result: 26, full_result: heatLiveItem }));
+  await page.waitForTimeout(50);
+  await assertHeat(26, 0.5, 2);
+  assert.equal(await page.locator('#result-grid [data-result-id="heat-live-26"]').count(), 1, "duplicate live events must not add a heatmap source or another hit");
+  assert.equal(await selectedCards().count(), 0, "automatic heatmap updates must not select manual bets");
+
+  // Reconnection contributes a missed zero: the one remaining contributing
+  // bet now has three subsequent hits, giving (1 - 0.5)^3 = 0.125.
+  const heatMissedItem = { _id: "heat-offline-0", value: 0, roulette_id: autoSlug, timestamp: "2026-10-12T07:01:16Z" };
+  fixtures.set(autoSlug, [heatMissedItem, ...fixtures.get(autoSlug)].slice(0, 1000));
+  const callsBeforeHeatReconnect = historyCalls.length;
+  heatSocket.socket.close({ code: 1012, reason: "Heatmap fixture missed a round" });
+  await waitForHistory(autoSlug, 0);
+  await assertHeat(26, 0.125, 1);
+  assert.equal(await page.inputValue("#heatmap-decay"), "50");
+  assert.equal(historyCalls.length, callsBeforeHeatReconnect + 1);
+
+  const emptyHeatTable = deferredHistory(megaSlug, { items: [] });
+  await chooseRoulette(megaSlug);
+  await emptyHeatTable.started;
+  assert.equal(await page.locator("#wheel-heatmap").isVisible(), false, "switching tables must immediately hide the previous table's heatmap");
+  assert.equal(await page.inputValue("#heatmap-decay"), "50", "the global decay preference must survive table changes");
+  emptyHeatTable.release();
+  await page.waitForFunction(() => document.getElementById("live-status").dataset.state === "online"
+    && document.getElementById("result-grid").getAttribute("aria-busy") !== "true");
+  assert.equal(await page.locator("#wheel-heatmap").isVisible(), false);
+  await chooseRoulette(autoSlug);
+  await waitForHistory(autoSlug, 0);
+  await assertHeat(26, 0.125, 1);
+
+  // The selected occurrence is the trigger, not a subsequent hit. With a zero
+  // offset, base 25 belongs to its own five-number bet but must retain weight 1.
+  const selfValues = [25, 0, 25, ...Array(997).fill(36)];
+  fixtures.set(autoSlug, makeItems(autoSlug, selfValues).map((item, index) => ({ ...item, _id: `heat-self-${index}` })));
+  await page.click("#refresh-history");
+  await waitForHistory(autoSlug, 25);
+  await chooseDecay(100);
+  await assertHeat(25, 1, 1);
+  assert.equal(await page.locator('#heatmap-details tr[data-heat-source-index="0"]').getAttribute("data-heat-hit-count"), "0");
+  assert.equal(await page.locator('#heatmap-details tr[data-heat-source-index="0"]').getAttribute("data-heat-source-weight"), "1");
+  await chooseDecay(25);
+  await page.reload();
+  await waitForHistory(autoSlug, 25);
+  assert.equal(await page.inputValue("#heatmap-decay"), "25", "a reload must restore the saved decay preference");
+  assert.equal(await page.textContent("#heatmap-decay-value"), "25%");
+  await assertHeat(25, 1, 1);
+
+  // Ten overlapping, unreduced bets reach the darkest end of the heat scale.
+  // Its label must remain readable without tying the test to black or white ink.
+  fixtures.set(autoSlug, makeItems(autoSlug, Array(1000).fill(36)).map((item, index) => ({ ...item, _id: `heat-maximum-${index}` })));
+  await page.click("#refresh-history");
+  await waitForHistory(autoSlug, 36);
+  await chooseDecay(0);
+  await assertHeat(36, 10, 10);
+  await assertPositiveHeatContrast();
+  await heatCell(36).click();
+  await page.locator("#heatmap-title").hover();
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.locator(".result-grid-viewport").evaluate((node) => { node.scrollTop = 0; });
+    const screenshotDirectory = process.env.WHEEL_PAIR_BROWSER_SCREENSHOT_DIR;
+    if (screenshotDirectory) await page.screenshot({ path: path.join(screenshotDirectory, `wheel-heatmap-maximum-${viewport.width}.png`), fullPage: true });
+  }
+
   assert.deepEqual(routeErrors, [], "all browser fixture requests must succeed or be explicitly simulated failures");
   assert.deepEqual(pageErrors, [], "the page must not emit JavaScript errors");
-  console.log(JSON.stringify({ status: "wheel-pair-browser-tests: ok", historyCalls: historyCalls.length, resultsPerTable: 1000 }));
+  console.log(JSON.stringify({ status: "wheel-pair-browser-tests: ok", historyCalls: historyCalls.length, resultsPerTable: 1000, minimumActivePocketContrast: Math.min(...contrastChecks) }));
 } finally {
   await browser.close();
 }
