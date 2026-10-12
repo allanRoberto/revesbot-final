@@ -57,35 +57,55 @@ buscando a ocorrência anterior no histórico completo de até 1.000 resultados.
 Uma ocorrência sem par anterior válido não contribui para o calor e deve aparecer
 como indisponível no detalhamento; não é substituída por uma ocorrência mais antiga.
 
-Cada aposta válida começa com peso 1. Um controle de redução por acerto permite
-escolher de 0% a 100%, em passos de 1%, com padrão de 100%. Para redução `p` e
-`k` acertos posteriores à ativação, o peso remanescente é:
+Cada setor de cinco números usa pesos espaciais `[0,3; 0,7; 1; 0,7; 0,3]`, na
+ordem dos dois vizinhos de um lado, centro e dois vizinhos do outro lado. O centro
+vale 1; os vizinhos imediatos, a uma casa do centro (v1), valem 0,7; os vizinhos
+externos, a duas casas (v2), valem 0,3. Essa ponderação vale igualmente para os
+setores esquerdo e direito.
+
+Quando um número aparece nos dois setores da mesma aposta, seu peso espacial é
+o maior dos dois pesos, sem somá-los. Por exemplo, um número com peso 0,3 em um
+setor e 0,7 no outro contribui com 0,7 por essa aposta. Mesmo com sobreposição,
+cada aposta fornece uma única contribuição para cada número. A união crescente
+dos números da aposta e suas contagens de presença permanecem as mesmas.
+
+Cada aposta válida começa com fator temporal 1. Um controle de redução por acerto
+permite escolher de 0% a 100%, em passos de 1%, com padrão de 100%. Para redução
+`p` e `k` acertos posteriores à ativação, o fator temporal remanescente é:
 
 ```text
-peso = (1 - p / 100) ^ k
+fator_temporal = (1 - p / 100) ^ k
+contribuicao(aposta, numero) = peso_espacial(aposta, numero) * fator_temporal(aposta)
+calor(numero) = soma das contribuicoes das apostas validas
 ```
 
-Sem acertos, o peso permanece 1, inclusive quando a redução é 100%. Redução 0%
-mantém o peso; 50% deixa 1, 0,5, 0,25… após zero, um, dois… acertos; 100% zera
-a aposta inteira no primeiro acerto. Um acerto é qualquer resultado posterior
-contido na aposta, e cada giro conta uma única vez. A redução afeta todos os
-números daquela aposta, não somente o número sorteado. A alteração do controle
-recalcula os pesos imediatamente usando o mesmo histórico, sem nova consulta.
+Sem acertos, o fator temporal permanece 1, inclusive quando a redução é 100%.
+Redução 0% mantém esse fator; 50% deixa 1, 0,5, 0,25… após zero, um, dois… acertos;
+100% zera a aposta inteira no primeiro acerto. Um acerto é qualquer resultado
+posterior contido na aposta, inclusive um vizinho externo de peso espacial 0,3,
+e cada giro conta uma única vez. O peso espacial não reduz o efeito do acerto:
+a redução temporal afeta todos os números daquela aposta, não somente o número
+sorteado. A alteração do controle recalcula os pesos imediatamente usando o
+mesmo histórico, sem nova consulta.
 
 O cálculo é causal: a ocorrência selecionada é o giro que ativa a aposta, e a
 primeira tentativa é o giro seguinte. Para a ocorrência de índice `i`, somente
 os índices `i - 1` até `0` podem reduzir seu peso. O próprio giro de ativação não
 é acerto da aposta que acabou de formar, mesmo quando seu número está nela.
 O novo resultado pode reduzir apostas anteriores e formar sua própria aposta
-com peso inicial 1; essas contribuições são independentes.
+com fator temporal inicial 1; essas contribuições são independentes.
 
-O calor de um número é a soma dos pesos das apostas válidas que o contêm,
-contando esse número uma vez por aposta. Não existe redução por idade, passagem
-de tempo ou giro sem acerto. Ao chegar um novo resultado, a ocorrência que sai
-da janela das dez mais recentes deixa de contribuir por sair da janela, não
-por uma redução temporal. Os pesos são reconstruídos do histórico atual em
-vez de acumulados em memória, preservando o mesmo resultado após atualizar,
-reconectar ou receber um evento duplicado.
+O calor de um número soma o produto do seu peso espacial pelo fator temporal
+de cada aposta válida que o contém. As contagens não passam a ser ponderadas:
+`rawCount` continua contando apostas válidas que contêm o número, antes da
+redução; `activeCount` conta as que conservam contribuição positiva; frequência
+e repetições entre seleções manuais continuam contando presença uma vez por
+aposta. Não existe redução por idade, passagem de tempo ou giro sem acerto.
+Ao chegar um novo resultado, a ocorrência que sai da janela das dez mais
+recentes deixa de contribuir por sair da janela, não por uma redução temporal.
+Os pesos são reconstruídos do histórico atual em vez de acumulados em memória,
+preservando o mesmo resultado após atualizar, reconectar ou receber um evento
+duplicado.
 
 A escala visual é absoluta, de 0 a 10, e mantém as mesmas referências de cor
 entre atualizações. Não dividir pelo maior peso do instante: reduzir um peso
@@ -156,10 +176,12 @@ O release anterior verificado é `71da4b68269fd5448d7795203e3e0f4327e071c4`.
 ### Validação da ampliação com mapa de calor
 
 Os resultados de verificação acima pertencem à versão anterior da página,
-publicada sem o mapa automático. Para esta ampliação, passaram 23 testes do
-modelo e 10 testes de rota/regressão. O teste de navegador com dados controlados
-também passou, com 30 consultas de histórico, em desktop e celular. As capturas
-de tela foram inspecionadas nos dois layouts.
+publicada sem o mapa automático. Os resultados desta seção pertencem à primeira
+versão do mapa, com contribuições espaciais uniformes, antes da ponderação por
+centro e vizinhos. Nessa versão, passaram 23 testes do modelo e 10 testes de
+rota/regressão. O teste de navegador com dados controlados também passou, com
+30 consultas de histórico, em desktop e celular. As capturas de tela foram
+inspecionadas nos dois layouts.
 
 A verificação cobre reduções 0%, 50% e 100% e valores intermediários; exclusão do
 próprio gatilho; acertos afetando a aposta inteira; ausência de redução por idade;
@@ -176,3 +198,20 @@ adotado garante contraste mínimo superior a 4,5:1 nas cores positivas. A
 reexecução final passou após esse ajuste, com contraste mínimo observado de
 4,829:1, incluindo o cenário de peso 10. Esta seção registra validações locais;
 a verificação dos resultados reais em produção é feita após o deploy.
+
+### Validação da ponderação espacial
+
+Passaram 28 testes do modelo e 10 testes de rota/regressão da página. A cobertura
+inclui os pesos `[0,3; 0,7; 1; 0,7; 0,3]` em ambos os setores, a escolha do maior
+peso em sobreposições (inclusive casas zero), o produto espacial × temporal,
+sua soma entre apostas independentes e as contagens de presença sem ponderação.
+Um caso verifica que o acerto em um número de peso 0,3 reduz a aposta inteira.
+
+O teste de navegador com dados controlados passou em desktop e celular, mantendo
+o carregamento de 1.000 resultados por mesa. Verificou pesos nos setores e na
+aposta crescente, sobreposição por máximo, reduções e recomputação ao vivo,
+reconexão, troca de mesa, deduplicação, snapshots manuais e escala absoluta.
+As capturas foram inspecionadas; o contraste mínimo observado nos números com
+calor positivo foi 4,636:1. A revisão independente do modelo e da integração
+não encontrou problemas acionáveis. Estes resultados são locais; a publicação
+segue o fluxo existente de CI, deploy por SHA e verificação dos dados reais.

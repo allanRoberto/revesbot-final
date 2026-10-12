@@ -67,10 +67,10 @@
               </div>
             </div>
             <div class="wheel-heatmap__ranking"><h4>Maiores pesos</h4><div id="heatmap-ranking"></div></div>
-            <p class="wheel-heatmap__note">Cada aposta começa com peso 1. Só os giros posteriores à sua formação reduzem seu peso inteiro. O calor é a soma dos pesos, sem desconto por idade.</p>
+            <p class="wheel-heatmap__note">Pesos por setor: centro 1,0 · vizinho imediato 0,7 · segundo vizinho 0,3. O mapa soma esses pesos após a redução pelos acertos posteriores, sem desconto por idade. Na sobreposição, vale o maior peso por aposta.</p>
             <details id="heatmap-details" class="wheel-heatmap__details">
               <summary>Ver as 10 ocorrências e seus acertos</summary>
-              <div class="wheel-heatmap__table-scroll"><table><caption>Posições do mais recente para o mais antigo; apostas dos dois lados juntas.</caption><thead><tr><th scope="col">Posição</th><th scope="col">Par anterior</th><th scope="col">Centros E / D</th><th scope="col">Aposta crescente</th><th scope="col">Acertos posteriores</th><th scope="col">Peso</th></tr></thead><tbody id="heatmap-table-body"></tbody></table></div>
+              <div class="wheel-heatmap__table-scroll"><table><caption>Posições do mais recente para o mais antigo. Cada número contribui com seu peso inicial multiplicado pelo fator pós-acerto da aposta.</caption><thead><tr><th scope="col">Posição</th><th scope="col">Par anterior</th><th scope="col">Centros E / D</th><th scope="col">Número (peso inicial) · ordem crescente</th><th scope="col">Acertos posteriores</th><th scope="col">Fator pós-acerto</th></tr></thead><tbody id="heatmap-table-body"></tbody></table></div>
             </details>
           </section>
           <div class="result-grid" id="result-grid" aria-label="Resultados, do mais recente para o mais antigo" aria-busy="true"></div>

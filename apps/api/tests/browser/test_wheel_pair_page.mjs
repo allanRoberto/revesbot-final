@@ -204,6 +204,13 @@ async function chooseRoulette(slug) {
 async function assertSelectionBet(index) {
   assert.deepEqual(await selection(index).locator("[data-bet-number]").evaluateAll((nodes) => nodes.map((node) => Number(node.dataset.betNumber))), bet,
     "a selection must use its earlier occurrence, not the next displayed number of the clicked result");
+  assert.deepEqual(await selection(index).locator("[data-bet-number]").evaluateAll((nodes) => nodes.map((node) => [Number(node.dataset.betNumber), Number(node.dataset.numberWeight)])), [
+    [3, 0.3], [5, 0.7], [7, 0.3], [8, 0.3], [10, 1], [12, 1], [23, 0.7], [24, 0.3], [28, 0.7], [35, 0.7],
+  ], "the sorted bet must retain each pocket's center or neighbor weight");
+  for (const side of ["left", "right"]) {
+    assert.deepEqual(await selection(index).locator(`.wheel-pair-sector--${side} [data-number-weight]`).evaluateAll((nodes) => nodes.map((node) => Number(node.dataset.numberWeight))), [0.3, 0.7, 1, 0.7, 0.3],
+      "each sector must show two lighter neighbors around its full-weight center");
+  }
   assert.equal(await selection(index).locator(".wheel-pair-race .number-cell[data-n]").count(), 37, "each selection needs its own full racetrack");
   assert.equal(await selection(index).locator('.wheel-pair-race .number-cell[data-n="25"].wp-base').count(), 1);
   assert.equal(await selection(index).locator('.wheel-pair-race .number-cell[data-n="12"].wp-left').count(), 1);
@@ -264,6 +271,14 @@ try {
     if (screenshotDirectory) {
       await fs.mkdir(screenshotDirectory, { recursive: true });
       await page.screenshot({ path: path.join(screenshotDirectory, `wheel-pair-${viewport.width}.png`), fullPage: true });
+      if (viewport.width === 390) {
+        await selection(2).locator(".wheel-pair-sector--left").scrollIntoViewIfNeeded();
+        assert.ok(await selection(2).locator("[data-number-weight]").evaluateAll((nodes) => nodes.every((node) => {
+          const bounds = node.getBoundingClientRect();
+          return bounds.left >= 0 && bounds.right <= document.documentElement.clientWidth;
+        })), "mobile weighted chips must stay inside the viewport");
+        await page.screenshot({ path: path.join(screenshotDirectory, "wheel-pair-weights-390.png"), fullPage: true });
+      }
       await page.locator("#wheel-pair-summary").scrollIntoViewIfNeeded();
       await page.screenshot({ path: path.join(screenshotDirectory, `wheel-pair-summary-${viewport.width}.png`), fullPage: true });
       await page.locator(".wheel-pair-scroll").evaluate((element) => { element.scrollTop = 0; });
@@ -388,6 +403,9 @@ try {
   await result(2).click();
   assert.deepEqual(await selection(2).locator("[data-bet-number]").evaluateAll((nodes) => nodes.map((node) => Number(node.dataset.betNumber))), [2, 4, 6, 17, 21, 25, 34],
     "a round missed while offline must be selectable and use the reconciled earlier pair");
+  assert.deepEqual(await selection(2).locator("[data-bet-number]").evaluateAll((nodes) => nodes.map((node) => [Number(node.dataset.betNumber), Number(node.dataset.numberWeight)])), [
+    [2, 1], [4, 0.3], [6, 0.3], [17, 1], [21, 0.7], [25, 0.7], [34, 0.7],
+  ], "overlapping sectors must keep the larger pocket weight once rather than adding both sides");
   assert.equal(await selectedCards().count(), 3);
   await page.waitForTimeout(250);
   assert.equal(historyCalls.length, historyCallsBeforeReconnect + 1,
@@ -426,11 +444,11 @@ try {
 
   const historyCallsBeforeDecay = historyCalls.length;
   await chooseDecay(0);
-  await assertHeat(26, 3, 3);
+  await assertHeat(26, 2.4, 3);
   await assertPositiveHeatContrast();
   const fullColor = await heatCell(26).evaluate((node) => getComputedStyle(node.querySelector("path, rect")).fill);
   await chooseDecay(50);
-  await assertHeat(26, 1.5, 3);
+  await assertHeat(26, 1.2, 3);
   await assertPositiveHeatContrast();
   const halfColor = await heatCell(26).evaluate((node) => getComputedStyle(node.querySelector("path, rect")).fill);
   await chooseDecay(100);
@@ -438,7 +456,7 @@ try {
   const zeroColor = await heatCell(26).evaluate((node) => getComputedStyle(node.querySelector("path, rect")).fill);
   assert.equal(new Set([fullColor, halfColor, zeroColor]).size, 3, "the rendered pocket color must cool as its absolute weight falls");
   await chooseDecay(25);
-  await assertHeat(26, 2.25, 3);
+  await assertHeat(26, 1.8, 3);
   await assertPositiveHeatContrast();
   const ranking = await page.locator("#heatmap-ranking [data-heat-ranked-number]").evaluateAll((chips) => chips.map((chip) => ({ number: Number(chip.dataset.heatRankedNumber), weight: Number(chip.dataset.heatWeight) })));
   assert.equal(ranking.length, 8);
@@ -446,9 +464,9 @@ try {
   for (const ranked of ranking) assert.equal(Number(await heatCell(ranked.number).getAttribute("data-heat-weight")), ranked.weight);
   assert.equal(historyCalls.length, historyCallsBeforeDecay, "changing decay must use the already loaded snapshot");
   await chooseDecay(50);
-  await assertHeat(26, 1.5, 3);
+  await assertHeat(26, 1.2, 3);
   await heatCell(26).click();
-  assert.match(await page.textContent("#heatmap-pocket-info"), /26.*1,5.*3 apostas/);
+  assert.match(await page.textContent("#heatmap-pocket-info"), /26.*1,2.*3 apostas/);
 
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
@@ -467,28 +485,28 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   // A new 26 changes both the newest ten sources and their subsequent hits.
-  // Of the former three contributing bets, two remain and each now has two hits.
+  // Two contributing bets remain, each with spatial weight 0.7 and two hits.
   const heatLiveItem = { _id: "heat-live-26", value: 26, roulette_id: autoSlug, timestamp: "2026-10-12T07:00:38Z" };
   fixtures.set(autoSlug, [heatLiveItem, ...heatItems].slice(0, 1000));
   const heatSocket = sockets.findLast((entry) => entry.slug === autoSlug);
   heatSocket.socket.send(JSON.stringify({ result: 26, full_result: heatLiveItem }));
   await waitForHistory(autoSlug, 26);
-  await assertHeat(26, 0.5, 2);
+  await assertHeat(26, 0.35, 2);
   assert.equal(await page.locator('#heatmap-details tr[data-heat-source-index="0"]').getAttribute("data-heat-source-id"), "heat-live-26");
   heatSocket.socket.send(JSON.stringify({ result: 26, full_result: heatLiveItem }));
   await page.waitForTimeout(50);
-  await assertHeat(26, 0.5, 2);
+  await assertHeat(26, 0.35, 2);
   assert.equal(await page.locator('#result-grid [data-result-id="heat-live-26"]').count(), 1, "duplicate live events must not add a heatmap source or another hit");
   assert.equal(await selectedCards().count(), 0, "automatic heatmap updates must not select manual bets");
 
   // Reconnection contributes a missed zero: the one remaining contributing
-  // bet now has three subsequent hits, giving (1 - 0.5)^3 = 0.125.
+  // bet has spatial weight 0.7 and three hits: 0.7 * (1 - 0.5)^3 = 0.0875.
   const heatMissedItem = { _id: "heat-offline-0", value: 0, roulette_id: autoSlug, timestamp: "2026-10-12T07:01:16Z" };
   fixtures.set(autoSlug, [heatMissedItem, ...fixtures.get(autoSlug)].slice(0, 1000));
   const callsBeforeHeatReconnect = historyCalls.length;
   heatSocket.socket.close({ code: 1012, reason: "Heatmap fixture missed a round" });
   await waitForHistory(autoSlug, 0);
-  await assertHeat(26, 0.125, 1);
+  await assertHeat(26, 0.0875, 1);
   assert.equal(await page.inputValue("#heatmap-decay"), "50");
   assert.equal(historyCalls.length, callsBeforeHeatReconnect + 1);
 
@@ -503,7 +521,7 @@ try {
   assert.equal(await page.locator("#wheel-heatmap").isVisible(), false);
   await chooseRoulette(autoSlug);
   await waitForHistory(autoSlug, 0);
-  await assertHeat(26, 0.125, 1);
+  await assertHeat(26, 0.0875, 1);
 
   // The selected occurrence is the trigger, not a subsequent hit. With a zero
   // offset, base 25 belongs to its own five-number bet but must retain weight 1.
@@ -528,9 +546,12 @@ try {
   await page.click("#refresh-history");
   await waitForHistory(autoSlug, 36);
   await chooseDecay(0);
-  await assertHeat(36, 10, 10);
+  await assertHeat(11, 10, 10);
+  await assertHeat(13, 10, 10);
+  await assertHeat(36, 7, 10);
+  await assertHeat(6, 3, 10);
   await assertPositiveHeatContrast();
-  await heatCell(36).click();
+  await heatCell(11).click();
   await page.locator("#heatmap-title").hover();
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);

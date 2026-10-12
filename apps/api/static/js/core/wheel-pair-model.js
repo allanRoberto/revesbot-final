@@ -9,6 +9,7 @@ const wheelAt = (index) => WHEEL[((index % WHEEL.length) + WHEEL.length) % WHEEL
 const validNumber = (value) => Number.isInteger(value) && value >= 0 && value <= 36;
 const itemId = (item) => item?._id ?? item?.id ?? item?.external_game_id ?? null;
 const numericOrder = (left, right) => left - right;
+const sectorWeights = Object.freeze([0.3, 0.7, 1, 0.7, 0.3]);
 
 function initialAnalysis(index) {
   return {
@@ -27,6 +28,9 @@ function initialAnalysis(index) {
     left: [],
     right: [],
     bet: [],
+    leftWeighted: [],
+    rightWeighted: [],
+    betWeighted: [],
     leftPath: [],
     rightPath: [],
   };
@@ -34,6 +38,20 @@ function initialAnalysis(index) {
 
 function sector(centerIndex) {
   return [-2, -1, 0, 1, 2].map((delta) => wheelAt(centerIndex + delta));
+}
+
+function weightedSector(numbers) {
+  return numbers.map((number, index) => ({ number, weight: sectorWeights[index] }));
+}
+
+function mergeWeightedSectors(left, right) {
+  const weights = new Map();
+  for (const { number, weight } of [...left, ...right]) {
+    weights.set(number, Math.max(weights.get(number) || 0, weight));
+  }
+  return [...weights.entries()]
+    .map(([number, weight]) => ({ number, weight }))
+    .sort((leftEntry, rightEntry) => leftEntry.number - rightEntry.number);
 }
 
 /**
@@ -86,6 +104,8 @@ export function analyzeSelection(items, index) {
   const rightIndex = basePosition + offset;
   const left = sector(leftIndex);
   const right = sector(rightIndex);
+  const leftWeighted = weightedSector(left);
+  const rightWeighted = weightedSector(right);
 
   return {
     ...analysis,
@@ -100,6 +120,9 @@ export function analyzeSelection(items, index) {
     left,
     right,
     bet: [...new Set([...left, ...right])].sort(numericOrder),
+    leftWeighted,
+    rightWeighted,
+    betWeighted: mergeWeightedSectors(leftWeighted, rightWeighted),
     leftPath: Array.from({ length: offset + 1 }, (_, step) => wheelAt(basePosition - step)),
     rightPath: Array.from({ length: offset + 1 }, (_, step) => wheelAt(basePosition + step)),
   };
@@ -131,6 +154,8 @@ export function summarizeBets(analyses) {
  * A ready slot has complete valid follow-up; other slots contribute no scores.
  * Unknown follow-up is distinct from zero hits. rawCount includes paid ready
  * bets, while activeCount includes only ready bets with positive residual weight.
+ * Scores combine spatial weights with the temporal factor retained in slot.weight;
+ * overlapping sectors contribute their maximum spatial weight within each bet.
  */
 export function analyzeHeatmap(items, decayPercent = 100) {
   if (!Number.isInteger(decayPercent) || decayPercent < 0 || decayPercent > 100) {
@@ -184,9 +209,9 @@ export function analyzeHeatmap(items, decayPercent = 100) {
     slot.weight = (1 - decayPercent / 100) ** slot.hitCount;
     if (slot.hitCount === 0) unpaidCount += 1;
     else paidCount += 1;
-    for (const number of analysis.bet) {
+    for (const { number, weight: spatialWeight } of analysis.betWeighted) {
       scores[number].rawCount += 1;
-      scores[number].weight += slot.weight;
+      scores[number].weight += slot.weight * spatialWeight;
       if (slot.weight > 0) scores[number].activeCount += 1;
     }
     slots.push(slot);

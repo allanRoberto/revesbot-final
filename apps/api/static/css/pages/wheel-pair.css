@@ -45,6 +45,8 @@
 .wheel-pair-sector--left .wheel-pair-sector__label { color: var(--wp-left); }
 .wheel-pair-sector--right .wheel-pair-sector__label { color: var(--wp-right); }
 .wheel-pair-numbers { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.wheel-pair-weighted-number { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; }
+.wheel-pair-weighted-number small { color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1.2; }
 .wheel-pair-number { display: inline-grid; place-items: center; min-width: 29px; height: 29px; padding: 0 5px; border: 1px solid var(--border); border-radius: 7px; color: #fff; font-size: 13px; font-weight: 900; }
 .wheel-pair-number--red { background: var(--roulette-red); }
 .wheel-pair-number--black { background: var(--roulette-black); }
