@@ -445,3 +445,84 @@ test("unavailable selections expose empty weighted sectors with the existing sta
     assert.deepEqual(analysis.betWeighted, []);
   }
 });
+
+test("the default ranking window is identical to an explicit ten-occurrence window", () => {
+  const items = paidHeatmapFixture();
+  for (const decayPercent of [0, 25, 100]) {
+    assert.deepEqual(analyzeHeatmap(items, decayPercent), analyzeHeatmap(items, decayPercent, 10));
+  }
+  assert.equal(analyzeHeatmap(items).sourceLimit, 10);
+  assert.equal(analyzeHeatmap(items).sourceCount, 10);
+});
+
+test("a one-occurrence window uses only the newest bet without counting its own base as a hit", () => {
+  const result = analyzeHeatmap(history(25, 0, 25), 50, 1);
+  assert.equal(result.sourceLimit, 1);
+  assert.equal(result.sourceCount, 1);
+  assert.equal(result.slots.length, 1);
+  assert.equal(result.slots[0].index, 0);
+  assert.equal(result.slots[0].analysis.previousIndex, 2);
+  assert.ok(result.slots[0].analysis.bet.includes(25));
+  assert.equal(result.slots[0].hitCount, 0);
+  assert.equal(result.slots[0].weight, 1);
+  assert.equal(result.readyCount, 1);
+  assert.equal(result.unpaidCount, 1);
+  assert.equal(result.paidCount, 0);
+  assert.deepEqual(result.scores[25], { number: 25, weight: 1, rawCount: 1, activeCount: 1 });
+});
+
+test("a three-occurrence window still finds older pairs and counts all causal newer hits", () => {
+  const items = history(35, 3, 25, 4, 11, 25);
+  const result = analyzeHeatmap(items, 50, 3);
+  assert.equal(result.sourceCount, 3);
+  assert.deepEqual(result.slots.map((slot) => slot.index), [0, 1, 2]);
+  assert.equal(result.slots[2].analysis.previousIndex, 5);
+  assert.equal(result.slots[2].analysis.offsetIndex, 4);
+  assert.equal(result.slots[2].analysis.offset, 11);
+  assert.deepEqual(result.slots[2].hits, [
+    { index: 1, id: "spin-1", value: 3 },
+    { index: 0, id: "spin-0", value: 35 },
+  ]);
+  assert.equal(result.slots[2].hitCount, 2);
+  assert.equal(result.slots[2].weight, 0.25);
+  assert.equal(result.readyCount, 1);
+  assert.equal(result.skippedCount, 2);
+  assert.deepEqual(result.scores[12], { number: 12, weight: 0.25, rawCount: 1, activeCount: 1 });
+  assert.deepEqual(result.slots, analyzeHeatmap(items, 50, 10).slots.slice(0, 3));
+});
+
+test("window changes preserve common slots and do not accumulate weights across refreshes", () => {
+  const items = Object.freeze(paidHeatmapFixture().map((item) => Object.freeze(item)));
+  const before = JSON.stringify(items);
+  const five = analyzeHeatmap(items, 50, 5);
+  const ten = analyzeHeatmap(items, 50, 10);
+  assert.deepEqual(five.slots, ten.slots.slice(0, 5));
+  assert.equal(five.slots[4].analysis.previousIndex, 5);
+  assert.equal(five.scores[26].weight, 0);
+  approximately(ten.scores[26].weight, 1.2);
+  analyzeHeatmap(items, 50, 3);
+  assert.deepEqual(analyzeHeatmap(items, 50, 10), ten);
+  assert.deepEqual(analyzeHeatmap(items, 50, 5), five);
+  assert.equal(JSON.stringify(items), before);
+});
+
+test("the requested window is preserved when fewer occurrences are available", () => {
+  const result = analyzeHeatmap(history(25, 11, 25), 100, 8);
+  assert.equal(result.sourceLimit, 8);
+  assert.equal(result.sourceCount, 3);
+  assert.equal(result.slots.length, 3);
+  const empty = analyzeHeatmap([], 100, 1);
+  assert.equal(empty.sourceLimit, 1);
+  assert.equal(empty.sourceCount, 0);
+  assert.deepEqual(empty.slots, []);
+  assert.equal(empty.maxScore, 0);
+});
+
+test("ranking windows require an integer between one and ten without coercion", () => {
+  for (const invalid of [0, -1, 11, 1.5, "1", "10", null, false, NaN, Infinity, {}, []]) {
+    assert.throws(() => analyzeHeatmap([], 100, invalid), RangeError);
+  }
+  assert.equal(analyzeHeatmap([], 100, 1).sourceLimit, 1);
+  assert.equal(analyzeHeatmap([], 100, 10).sourceLimit, 10);
+  assert.equal(analyzeHeatmap([], 100, undefined).sourceLimit, 10);
+});

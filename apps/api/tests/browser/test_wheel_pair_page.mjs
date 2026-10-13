@@ -186,6 +186,11 @@ async function chooseDecay(value) {
   assert.equal(await page.textContent("#heatmap-decay-value"), `${value}%`);
 }
 
+async function chooseSourceLimit(value) {
+  await page.selectOption("#heatmap-source-limit", String(value));
+  assert.equal(await page.inputValue("#heatmap-source-limit"), String(value));
+}
+
 async function waitForHistory(slug, firstValue) {
   await page.waitForFunction(({ slug: expected, first }) => {
     const app = document.getElementById("history-app");
@@ -423,6 +428,9 @@ try {
   assert.equal(await selectedCards().count(), 0);
   assert.equal(await page.inputValue("#heatmap-decay"), "100", "the heatmap starts with complete reduction after a hit");
   assert.equal(await page.textContent("#heatmap-decay-value"), "100%");
+  assert.equal(await page.inputValue("#heatmap-source-limit"), "10", "the ranking starts with the latest ten occurrences");
+  assert.deepEqual(await page.locator("#heatmap-source-limit option").evaluateAll((options) => options.map((option) => Number(option.value))),
+    Array.from({ length: 10 }, (_, index) => index + 1), "the source selector must offer every window from one through ten rounds");
   assert.equal(await page.locator("#wheel-heatmap").isVisible(), true);
   assert.equal(await page.locator("#wheel-heatmap").evaluate((node) => node.parentElement.classList.contains("result-grid-viewport")
     && Boolean(node.compareDocumentPosition(document.getElementById("result-grid")) & Node.DOCUMENT_POSITION_FOLLOWING)), true,
@@ -551,6 +559,69 @@ try {
   await assertHeat(36, 7, 10);
   await assertHeat(6, 3, 10);
   await assertPositiveHeatContrast();
+
+  // A uniform fixture makes the source window observable without relying on
+  // the calculation module: at 50% reduction, n centers sum 1 + 1/2 + ... .
+  await result(0).click();
+  const manualWindowSnapshot = await selection(0).innerHTML();
+  await chooseDecay(50);
+  const callsBeforeSourceChanges = historyCalls.length;
+  const windowColors = [];
+  for (const [limit, center, near, far] of [
+    [1, 1, 0.7, 0.3],
+    [3, 1.75, 1.225, 0.525],
+    [10, 1.998046875, 1.3986328125, 0.5994140625],
+  ]) {
+    await chooseSourceLimit(limit);
+    await assertHeat(11, center, limit);
+    await assertHeat(36, near, limit);
+    await assertHeat(6, far, limit);
+    assert.equal(await page.inputValue("#heatmap-decay"), "50", "changing the source window must preserve the temporal reduction");
+    assert.deepEqual(await page.locator("#heatmap-details tr[data-heat-source-index]").evaluateAll((rows) => rows.map((row) => Number(row.dataset.heatSourceIndex))),
+      Array.from({ length: limit }, (_, index) => index), "the source table must follow the selected window");
+    const windowRanking = await page.locator("#heatmap-ranking [data-heat-ranked-number]").evaluateAll((chips) => chips.map((chip) => ({
+      number: Number(chip.dataset.heatRankedNumber), weight: Number(chip.dataset.heatWeight),
+    })));
+    assert.equal(windowRanking.length, 7, "seven distinct pockets in the uniform bet must remain ranked");
+    assert.deepEqual(windowRanking.slice(0, 2), [{ number: 11, weight: center }, { number: 13, weight: center }],
+      "the ranking must recompute both full-weight centers for the selected window");
+    for (const ranked of windowRanking) assert.equal(Number(await heatCell(ranked.number).getAttribute("data-heat-weight")), ranked.weight);
+    assert.equal(await selection(0).innerHTML(), manualWindowSnapshot, "changing the source window must preserve the independent manual analysis");
+    assert.equal(historyCalls.length, callsBeforeSourceChanges, "source window changes must reuse the loaded snapshot");
+    windowColors.push(await heatCell(11).evaluate((node) => getComputedStyle(node.querySelector("path, rect")).fill));
+  }
+  assert.equal(new Set(windowColors).size, 3, "the racetrack must repaint when the selected source window changes");
+  await page.click("#wheel-pair-clear");
+  await chooseSourceLimit(3);
+  assert.equal(await page.evaluate(() => localStorage.getItem("revesbot-wheel-heatmap-source-limit")), "3");
+
+  const windowMissedItem = { _id: "heat-window-offline-36", value: 36, roulette_id: autoSlug, timestamp: "2026-10-12T07:01:54Z" };
+  fixtures.set(autoSlug, [windowMissedItem, ...fixtures.get(autoSlug)].slice(0, 1000));
+  const callsBeforeWindowReconnect = historyCalls.length;
+  sockets.findLast((entry) => entry.slug === autoSlug).socket.close({ code: 1012, reason: "Source window preference fixture" });
+  await page.waitForFunction(() => document.querySelector('#result-grid .result-card[data-result-index="0"]')?.dataset.resultId === "heat-window-offline-36"
+    && document.getElementById("result-grid").getAttribute("aria-busy") !== "true"
+    && document.getElementById("live-status").dataset.state === "online");
+  assert.equal(await page.inputValue("#heatmap-source-limit"), "3", "reconnection must preserve the selected source window");
+  assert.equal(await page.inputValue("#heatmap-decay"), "50");
+  await assertHeat(11, 1.75, 3);
+  assert.equal(historyCalls.length, callsBeforeWindowReconnect + 1);
+  fixtures.set(megaSlug, makeItems(megaSlug, megaValues));
+  await chooseRoulette(megaSlug);
+  await waitForHistory(megaSlug, 30);
+  assert.equal(await page.inputValue("#heatmap-source-limit"), "3", "the source preference must survive a table change");
+  assert.equal(await page.inputValue("#heatmap-decay"), "50");
+  await chooseRoulette(autoSlug);
+  await waitForHistory(autoSlug, 36);
+  await assertHeat(11, 1.75, 3);
+  await page.reload();
+  await waitForHistory(autoSlug, 36);
+  assert.equal(await page.inputValue("#heatmap-source-limit"), "3", "a reload must restore the saved source preference");
+  assert.equal(await page.inputValue("#heatmap-decay"), "50");
+  await assertHeat(11, 1.75, 3);
+  await chooseSourceLimit(10);
+  await chooseDecay(0);
+  await assertHeat(11, 10, 10);
   await heatCell(11).click();
   await page.locator("#heatmap-title").hover();
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {

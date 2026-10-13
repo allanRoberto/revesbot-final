@@ -147,7 +147,7 @@ export function summarizeBets(analyses) {
 }
 
 /**
- * Weight the bets born after the ten newest occurrences, using the full history
+ * Weight the bets born after the sourceLimit newest occurrences, using the full history
  * to reconstruct each pair. Only strictly newer results can pay a bet. Hits are
  * chronological, from the first following spin toward the newest one.
  *
@@ -157,15 +157,18 @@ export function summarizeBets(analyses) {
  * Scores combine spatial weights with the temporal factor retained in slot.weight;
  * overlapping sectors contribute their maximum spatial weight within each bet.
  */
-export function analyzeHeatmap(items, decayPercent = 100) {
+export function analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10) {
   if (!Number.isInteger(decayPercent) || decayPercent < 0 || decayPercent > 100) {
     throw new RangeError("A redução por acerto deve ser um percentual inteiro entre 0 e 100.");
+  }
+  if (!Number.isInteger(sourceLimit) || sourceLimit < 1 || sourceLimit > 10) {
+    throw new RangeError("A quantidade de giros deve ser um número inteiro entre 1 e 10.");
   }
   if (!Array.isArray(items)) {
     throw new TypeError("O histórico deve ser uma lista de resultados.");
   }
 
-  const sourceCount = Math.min(10, items.length);
+  const sourceCount = Math.min(sourceLimit, items.length);
   const scores = Array.from({ length: WHEEL.length }, (_, number) => ({
     number, weight: 0, rawCount: 0, activeCount: 0,
   }));
@@ -219,6 +222,7 @@ export function analyzeHeatmap(items, decayPercent = 100) {
 
   return {
     decayPercent,
+    sourceLimit,
     sourceCount,
     slots,
     scores,

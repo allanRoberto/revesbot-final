@@ -59,6 +59,8 @@
                 <p id="heatmap-pocket-info" class="wheel-heatmap__pocket-info">Passe ou toque em um número da race para ver seu peso.</p>
               </div>
               <div class="wheel-heatmap__controls">
+                <label class="field field--compact wheel-heatmap__window-control" for="heatmap-source-limit"><span>Giros no ranking</span><select id="heatmap-source-limit" aria-describedby="heatmap-source-limit-help">{% for count in range(1, 11) %}<option value="{{ count }}"{% if count == 10 %} selected{% endif %}>{{ count }} {{ 'giro' if count == 1 else 'giros' }}</option>{% endfor %}</select></label>
+                <p id="heatmap-source-limit-help">Quantidade de giros mais recentes usados no ranking e no mapa.</p>
                 <label for="heatmap-decay">Redução por acerto <output id="heatmap-decay-value" for="heatmap-decay">100%</output></label>
                 <input id="heatmap-decay" type="range" min="0" max="100" step="1" value="100" aria-describedby="heatmap-decay-help">
                 <div class="wheel-heatmap__presets" aria-label="Ajustes rápidos da redução"><button type="button" data-decay-preset="0" aria-pressed="false">0%</button><button type="button" data-decay-preset="50" aria-pressed="false">50%</button><button type="button" data-decay-preset="100" aria-pressed="true">100%</button></div>
