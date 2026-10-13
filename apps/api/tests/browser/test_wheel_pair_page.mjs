@@ -133,6 +133,11 @@ const selectedCards = () => page.locator("#wheel-pair-list .wheel-pair-card");
 const repeatedNumbers = () => page.locator("#wheel-pair-summary [data-repeated-number]");
 const heatCell = (number) => page.locator(`#heatmap-race .number-cell[data-heat-number="${number}"]`);
 
+async function assertHighlighted(indices) {
+  assert.deepEqual(await page.locator("#result-grid .result-card--highlighted").evaluateAll((cards) => cards.map((card) => Number(card.dataset.resultIndex))), indices,
+    "highlights must cover each selected occurrence and only its matching older occurrences");
+}
+
 async function assertHeat(number, weight, rawCount) {
   await page.waitForFunction(({ number: pocket, weight: expected, rawCount: raw }) => {
     const cell = document.querySelector(`#heatmap-race [data-heat-number="${pocket}"]`);
@@ -262,11 +267,15 @@ try {
   assert.equal(await result(1).getAttribute("aria-pressed"), "true", "native keyboard activation must select the exact occurrence");
   assert.equal(await result(4).getAttribute("aria-pressed"), "false", "another occurrence of 25 must remain unselected");
   await assertSelectionBet(1);
+  await assertHighlighted([1, 4, 7]);
+  await assertHeatReference(fixtures.get(autoSlug)[1], 1, true);
   assert.equal(await repeatedNumbers().count(), 0, "one bet alone must not produce repeated numbers");
 
   await result(4).click();
   assert.equal(await selectedCards().count(), 2, "two occurrences of the same base must coexist");
   await assertSelectionBet(4);
+  await assertHighlighted([1, 4, 7]);
+  await assertHeatReference(fixtures.get(autoSlug)[4], 4, true);
   assert.deepEqual(await repeatedNumbers().evaluateAll((nodes) => nodes.map((node) => [Number(node.dataset.repeatedNumber), Number(node.dataset.count)])), bet.map((number) => [number, 2]),
     "the summary counts presence once in each bet and sorts equal counts numerically");
 
@@ -276,6 +285,8 @@ try {
   assert.equal(await selection(4).count(), 1);
   assert.equal(await result(1).getAttribute("aria-pressed"), "false");
   assert.equal(await repeatedNumbers().count(), 0);
+  await assertHighlighted([4, 7]);
+  await assertHeatReference(fixtures.get(autoSlug)[1], 1, true);
   await result(1).click();
 
   // A new result shifts positions but must preserve the selected identities.
@@ -290,6 +301,8 @@ try {
   assert.equal(await result(5).getAttribute("aria-pressed"), "true");
   await assertSelectionBet(2);
   await assertSelectionBet(5);
+  await assertHighlighted([2, 5, 8]);
+  await assertHeatReference(fixtures.get(autoSlug)[1], 1, true);
 
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
@@ -318,11 +331,14 @@ try {
     }
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
+  const beforeSidebarRemoval = await heatAnalysisSnapshot();
   await selection(5).locator(".wheel-pair-card__remove").click();
   assert.equal(await selectedCards().count(), 1, "a sidebar remove button must remove only its own bet");
   assert.equal(await selection(2).count(), 1);
   assert.equal(await result(5).getAttribute("aria-pressed"), "false");
   assert.equal(await repeatedNumbers().count(), 0);
+  await assertHighlighted([2, 5, 8]);
+  assert.deepEqual(await heatAnalysisSnapshot(), beforeSidebarRemoval, "sidebar removal must preserve the clicked historical reference");
   await result(5).click();
   await page.keyboard.press("Escape");
   assert.equal(await page.locator("#wheel-pair-panel").isVisible(), false, "Escape must close the sidebar");
@@ -332,9 +348,12 @@ try {
   await page.click("#wheel-pair-close");
   assert.equal(await selectedCards().count(), 2, "closing the sidebar must preserve selections");
   await page.click("#selection-toggle");
+  const beforeInitialClear = await heatAnalysisSnapshot();
   await page.click("#wheel-pair-clear");
   assert.equal(await selectedCards().count(), 0);
   assert.equal(await page.locator('#result-grid .result-card[aria-pressed="true"]').count(), 0);
+  await assertHighlighted([]);
+  assert.deepEqual(await heatAnalysisSnapshot(), beforeInitialClear, "clearing bets must leave the captured map unchanged");
 
   await page.click("#refresh-history");
   await waitForHistory(autoSlug, 1);
@@ -450,6 +469,7 @@ try {
   // The automatic heatmap has its own ten occurrence window and searches the
   // full 1,000 results for their older pairs, independent of manual selections.
   await page.click("#wheel-pair-clear");
+  await page.click("#heatmap-current");
   const heatValues = [20, 20, 20, 20, 20, 20, 26, 2, 21, 25, 8, 25, 5, 21, 8, 2];
   heatValues.push(...Array(1000 - heatValues.length).fill(36));
   const heatItems = makeItems(autoSlug, heatValues).map((item, index) => ({ ...item, _id: `heat-auto-${index}` }));
@@ -474,12 +494,21 @@ try {
   await assertHeat(26, 0, 3);
 
   const beforeManualSelection = await heatSnapshot();
+  await chooseSourceLimit(3);
   await result(7).click();
+  await assertHeatReference(heatItems[7], 7, true);
+  await assertHeat(26, 2.4, 3);
   await result(8).click();
   assert.equal(await selectedCards().count(), 2);
-  assert.deepEqual(await heatSnapshot(), beforeManualSelection, "manual bets must not become additional heatmap sources");
+  await assertHeatReference(heatItems[8], 8, true);
+  assert.deepEqual(await page.locator("#heatmap-details tr[data-heat-source-index]").evaluateAll((rows) => rows.map((row) => row.dataset.heatSourceId)),
+    heatItems.slice(8, 11).map((item) => item._id), "each click replaces the captured reference while keeping the configured source window");
+  const beforeManualClear = await heatAnalysisSnapshot();
   await page.click("#wheel-pair-clear");
-  assert.deepEqual(await heatSnapshot(), beforeManualSelection, "clearing manual bets must preserve the automatic heatmap");
+  assert.deepEqual(await heatAnalysisSnapshot(), beforeManualClear, "clearing manual bets must preserve the last clicked reference");
+  await page.click("#heatmap-current");
+  await chooseSourceLimit(10);
+  assert.deepEqual(await heatSnapshot(), beforeManualSelection, "returning to the current view must restore the live analysis");
 
   const historyCallsBeforeDecay = historyCalls.length;
   await chooseDecay(0);
@@ -623,6 +652,7 @@ try {
   }
   assert.equal(new Set(windowColors).size, 3, "the racetrack must repaint when the selected source window changes");
   await page.click("#wheel-pair-clear");
+  await page.click("#heatmap-current");
   await chooseSourceLimit(3);
   assert.equal(await page.evaluate(() => localStorage.getItem("revesbot-wheel-heatmap-source-limit")), "3");
 
@@ -787,6 +817,92 @@ try {
   await assertHeatReference(lockedPausedItem, 0, false);
   assert.equal(await page.inputValue("#heatmap-source-limit"), "3", "only the source preference persists across a reload, not the historical snapshot");
   assert.equal(await page.inputValue("#heatmap-decay"), "100");
+
+  // Selection anchors form a union of matching older occurrences. A newer
+  // equal value must remain unhighlighted until that newer occurrence is picked.
+  const clickValues = [25, 0, 25, 11, 0, 25, 11, 0, 25, 11, ...Array(990).fill(36)];
+  const clickItems = makeItems(autoSlug, clickValues).map((item, index) => ({ ...item, _id: `click-auto-${index}` }));
+  fixtures.set(autoSlug, clickItems);
+  await page.click("#refresh-history");
+  await waitForHistory(autoSlug, 25);
+  await result(2).click();
+  await assertHighlighted([2, 5, 8]);
+  await assertHeatReference(clickItems[2], 2, true);
+  await result(4).click();
+  await assertHighlighted([2, 4, 5, 7, 8]);
+  await assertHeatReference(clickItems[4], 4, true);
+  await result(5).click();
+  await assertHighlighted([2, 4, 5, 7, 8]);
+  assert.equal(await selectedCards().count(), 3);
+  await assertHeatReference(clickItems[5], 5, true);
+  await result(2).click();
+  await assertHighlighted([4, 5, 7, 8]);
+  assert.equal(await selectedCards().count(), 2);
+  await assertHeatReference(clickItems[2], 2, true);
+  await result(0).click();
+  await assertHighlighted([0, 2, 4, 5, 7, 8]);
+  const beforeNewestSidebarRemoval = await heatAnalysisSnapshot();
+  await selection(0).locator(".wheel-pair-card__remove").click();
+  await assertHighlighted([4, 5, 7, 8]);
+  assert.deepEqual(await heatAnalysisSnapshot(), beforeNewestSidebarRemoval, "removing a newer anchor must shrink highlights without changing the map reference");
+  await result(1).click();
+  await assertHighlighted([1, 4, 5, 7, 8]);
+  await assertHeatReference(clickItems[1], 1, true);
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('#result-grid [data-result-index="1"]')).backgroundColor === "rgb(243, 204, 89)");
+  assert.equal(await result(1).evaluate((node) => getComputedStyle(node).backgroundColor), "rgb(243, 204, 89)", "zero must use the same yellow highlight as other selected values");
+  assert.equal(await result(1).evaluate((node) => getComputedStyle(node, "::after").color), "rgb(37, 25, 0)", "the selected marker must remain readable over yellow");
+  const clickFrozenSnapshot = await heatAnalysisSnapshot();
+  const newerZero = { _id: "click-live-newer-zero", value: 0, roulette_id: autoSlug, timestamp: "2026-10-12T07:04:26Z" };
+  fixtures.set(autoSlug, [newerZero, ...clickItems].slice(0, 1000));
+  const clickSocket = sockets.findLast((entry) => entry.slug === autoSlug);
+  clickSocket.socket.send(JSON.stringify({ result: 0, full_result: newerZero }));
+  await waitForHistory(autoSlug, 0);
+  await assertHighlighted([2, 5, 6, 8, 9]);
+  assert.equal(await result(0).getAttribute("aria-pressed"), "false");
+  assert.equal(await result(2).getAttribute("data-result-id"), clickItems[1]._id);
+  assert.equal(await result(2).getAttribute("aria-pressed"), "true");
+  assert.deepEqual(await heatAnalysisSnapshot(), clickFrozenSnapshot, "prepending results must preserve the clicked reference and source history");
+  clickSocket.socket.send(JSON.stringify({ result: 0, full_result: newerZero }));
+  await page.waitForTimeout(50);
+  await assertHighlighted([2, 5, 6, 8, 9]);
+  assert.equal(await page.locator('#result-grid [data-result-id="click-live-newer-zero"]').count(), 1);
+  await result(0).click();
+  await assertHighlighted([0, 2, 5, 6, 8, 9]);
+  await assertHeatReference(newerZero, 0, true);
+  assert.equal(await selectedCards().count(), 4, "capturing a new map reference must keep the other manual selections");
+  const beforeClickClear = await heatAnalysisSnapshot();
+  await page.click("#wheel-pair-close");
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await result(0).scrollIntoViewIfNeeded();
+    const dimensions = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+    assert.ok(dimensions.scrollWidth <= dimensions.width, `highlighted results must fit ${viewport.width}px without document overflow`);
+    const screenshotDirectory = process.env.WHEEL_PAIR_BROWSER_SCREENSHOT_DIR;
+    if (screenshotDirectory) await page.screenshot({ path: path.join(screenshotDirectory, `wheel-pair-click-highlight-${viewport.width}.png`), fullPage: true });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.click("#selection-toggle");
+  await page.click("#wheel-pair-clear");
+  await assertHighlighted([]);
+  assert.deepEqual(await heatAnalysisSnapshot(), beforeClickClear, "clearing every selection must preserve the latest clicked snapshot");
+  await page.click("#heatmap-current");
+  await assertHeatReference(newerZero, 0, false);
+  await result(2).click();
+  await chooseRoulette(megaSlug);
+  await waitForHistory(megaSlug, 30);
+  await assertHighlighted([]);
+  assert.equal(await selectedCards().count(), 0);
+  await assertHeatReference(fixtures.get(megaSlug)[0], 0, false);
+  await chooseRoulette(autoSlug);
+  await waitForHistory(autoSlug, 0);
+  await assertHighlighted([]);
+  await assertHeatReference(newerZero, 0, false);
+  await result(2).click();
+  await page.reload();
+  await waitForHistory(autoSlug, 0);
+  await assertHighlighted([]);
+  assert.equal(await selectedCards().count(), 0);
+  await assertHeatReference(newerZero, 0, false);
 
   assert.deepEqual(routeErrors, [], "all browser fixture requests must succeed or be explicitly simulated failures");
   assert.deepEqual(pageErrors, [], "the page must not emit JavaScript errors");

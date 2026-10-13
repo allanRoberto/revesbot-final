@@ -6,6 +6,7 @@
 .wheel-pair-page .result-card[aria-pressed="true"] { outline: 3px solid var(--accent); outline-offset: -3px; box-shadow: inset 0 0 0 5px var(--bg); }
 .wheel-pair-page .result-card { position: relative; }
 .wheel-pair-page .result-card[aria-pressed="true"]::after { content: '✓'; position: absolute; top: 2px; right: 6px; color: #fff; font-size: 13px; font-weight: 900; }
+.wheel-pair-page .result-card--highlighted[aria-pressed="true"]::after { color: #251900; }
 .wheel-pair-page .number-context-panel__header { gap: 10px; }
 .wheel-pair-page .number-context-panel__header h2 { font-size: 23px; }
 .wheel-pair-page .number-context-panel__header .icon-button { flex-shrink: 0; }

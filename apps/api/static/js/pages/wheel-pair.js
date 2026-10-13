@@ -225,15 +225,18 @@ function changeLookback(value) {
   if (Number.isInteger(value) && value >= 0 && value < items.length) lookback = value;
   renderHeatmap();
 }
+function captureHeatmapReference(index) {
+  lookback = index;
+  // Preserve the chosen occurrence and all older context independently of the live grid.
+  frozenReference = { items: items.map((item) => ({ ...item })), lookback };
+}
 $("#heatmap-lookback").addEventListener("change", (event) => changeLookback(event.target.value === "" ? NaN : Number(event.target.value)));
 $("#heatmap-previous").addEventListener("click", () => changeLookback(lookback + 1));
 $("#heatmap-next").addEventListener("click", () => changeLookback(lookback - 1));
 $("#heatmap-lock").addEventListener("click", () => {
   if (frozenReference) frozenReference = null;
   else if (!loading && items.length) {
-    // Keep the full reference history, including its keys and times, independently
-    // of the live window. The model excludes results newer than the chosen point.
-    frozenReference = { items: items.map((item) => ({ ...item })), lookback };
+    captureHeatmapReference(lookback);
   }
   renderHeatmap();
 });
@@ -312,9 +315,16 @@ function paintGridSelection() {
   $("#wheel-heatmap").setAttribute("aria-busy", String(loading && !frozenReference));
   const reference = frozenReference || { items, lookback };
   renderHeatmapReference(reference, reference.items.slice(reference.lookback));
+  const highlightedFrom = new Map();
+  // The live list is newest first. Only anchors still present in this window
+  // can highlight their own occurrence and matching older occurrences.
+  items.forEach((item, index) => {
+    if (selected.has(item._wheelPairKey) && !highlightedFrom.has(item.value)) highlightedFrom.set(item.value, index);
+  });
   [...grid.children].forEach((card, index) => {
     const item = items[index];
     const active = selected.has(item._wheelPairKey);
+    card.classList.toggle("result-card--highlighted", index >= (highlightedFrom.get(item.value) ?? Infinity));
     card.dataset.resultIndex = index;
     card.dataset.resultId = item._id ?? item._wheelPairKey;
     card.setAttribute("aria-pressed", String(active));
@@ -459,9 +469,11 @@ grid.addEventListener("click", (event) => {
   const card = event.target.closest(".result-card");
   if (!card || !grid.contains(card) || loading) return;
   const index = Number(card.dataset.resultIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= items.length) return;
   const item = items[index];
   const key = item._wheelPairKey;
   lastSelectionKey = key;
+  captureHeatmapReference(index);
   if (selected.has(key)) removeSelection(key);
   else {
     const analysis = analyzeSelection(items, index);
@@ -470,6 +482,7 @@ grid.addEventListener("click", (event) => {
     paintGridSelection();
     renderSelections();
   }
+  renderHeatmap();
 });
 
 function showMessage(message) {

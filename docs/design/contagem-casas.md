@@ -19,9 +19,12 @@ o resultado que saiu imediatamente depois daquela ocorrência anterior.
    escolha de colunas, tema e cópia do histórico. Trocar de mesa limpa as seleções.
 2. Grade: reaproveita cartões e cores de `/history`, com seleção múltipla por
    ocorrência, `aria-pressed`, borda e marcador. Um segundo clique retira a seleção.
+   Cada seleção ativa destaca em amarelo a própria ocorrência e as iguais mais
+   antigas; os destaques de todas as seleções são unidos.
 3. Barra lateral: cada cartão mostra horário selecionado e anterior, par, base,
    casas, race, setores e aposta crescente. Fechar mantém seleções; Limpar retira
-   todas. Desktop usa barra à direita; celular usa o painel inferior com rolagem
+   todas. Remover na barra ou Limpar atualiza os destaques, preservando a referência
+   do mapa. Desktop usa barra à direita; celular usa o painel inferior com rolagem
    existente, ampliado para acomodar a race. Escape fecha e devolve foco.
 4. Race: usa `RouletteRacetrack` existente sem alterar o plugin. Azul identifica
    esquerda, amarelo direita, lilás sobreposição, borda tracejada a base. Os
@@ -31,8 +34,9 @@ o resultado que saiu imediatamente depois daquela ocorrência anterior.
    frequência decrescente, com desempate pelo número, e união geral crescente.
 6. Mapa de calor automático e ranking: acompanham N ocorrências a partir do ponto
    de referência escolhido, com seletor de 1 a 10 giros e padrão 10. Permitem
-   navegar para giros anteriores e travar uma referência, independentemente das
-   seleções manuais, conforme a especificação abaixo.
+   navegar para giros anteriores e travar uma referência. Cada clique na grade
+   escolhe e trava o instante daquela ocorrência; as fontes do mapa não se limitam
+   às seleções manuais, conforme a especificação abaixo.
 
 Não existe exigência de dez números distintos nesta interface: setores
 sobrepostos são apresentados com sua quantidade real, incluindo casas zero.
@@ -196,6 +200,53 @@ a trava, limpa o histórico fixo e reinicia o recuo em 0. Recarregar a página
 começa destravado no atual: trava, cópia e recuo não são persistidos. A preferência
 da janela de 1 a 10 giros e a redução por acerto conservam suas regras existentes.
 
+## Destaques e referência pelo clique — ampliação autorizada
+
+O amarelo da grade reutiliza a aparência de `/history`, mas sua aplicação é local
+à página Contagem de casas. Cada seleção ativa destaca a própria ocorrência e
+todas as ocorrências iguais mais antigas. Com múltiplas seleções, o resultado é
+a união desses conjuntos, incluindo seleções de valores diferentes. Não são
+pintadas ocorrências iguais mais recentes que todas as seleções daquele valor.
+
+Para cada valor, calcular o menor índice das suas seleções ativas presentes na
+grade atual. Um cartão fica amarelo se possui esse valor e índice igual ou maior
+que esse limite. Por exemplo, selecionar 25 nos índices 1 e 4 destaca os 25 do
+índice 1 em diante; se ficar ativa apenas a seleção do índice 4, o 25 do índice 1
+perde o amarelo. Remover uma seleção retira somente sua contribuição: um cartão
+continua amarelo quando outra seleção ainda o abrange.
+
+As seleções são identificadas por ID/chave de ocorrência, e os limites de índice
+são recalculados ao renderizar o histórico. Novos giros deslocam as posições sem
+trocar as identidades selecionadas nem pintar novas ocorrências iguais que saíram
+depois delas. Uma seleção fora da janela carregada não destaca por engano as
+ocorrências mais recentes de mesmo valor. `aria-pressed`, borda e marcador
+continuam identificando apenas as seleções ativas; amarelo também pode aparecer
+em ocorrências anteriores que não estão selecionadas. O marcador permanece
+legível sobre o fundo amarelo. Fechar a barra preserva seleções e destaques;
+Limpar retira todas as seleções e, portanto, todos os destaques.
+
+Todo clique válido em um resultado, inclusive o segundo clique que retira uma
+seleção, escolhe aquela ocorrência como referência do mapa e trava uma nova
+cópia do histórico completo com `lookback` igual ao índice clicado. Um clique
+posterior substitui a referência travada anterior, preservando as demais seleções
+manuais e seus snapshots. Isso também vale para o clique no resultado mais
+recente, de índice 0. Durante carregamento, a grade continua impedindo cliques.
+
+O mapa usa somente o sufixo que começa na ocorrência clicada: nenhum giro mais
+recente entra como fonte, contexto de par ou acerto. Ranking, race, tabela, IDs e
+horários correspondem àquela referência e permanecem fixos quando a grade recebe
+novos giros, consultas ou reconexões. Janela N e redução continuam recalculando
+essa mesma cópia conforme as regras da trava; pesos espaciais e fórmulas não
+mudam. Esta integração reutiliza o contrato existente do modelo, sem novos
+imports compartilhados, endpoints ou movimentações de arquivos.
+
+Remover uma aposta pelo botão da barra lateral ou usar Limpar modifica apenas
+seleções, resumos e destaques; não troca, destrava ou recalcula a referência do
+mapa. Voltar ao atual remove a trava e retoma o mapa no recuo 0, preservando as
+seleções manuais e seus destaques. Destravar conserva o comportamento de atraso
+móvel no recuo capturado. Trocar de mesa e recarregar a página reiniciam a
+referência e as seleções conforme as regras existentes.
+
 ## Sistema visual e referência
 
 Referência fornecida: https://api.revesbot.com.br/history/pragmatic-brazilian-roulette
@@ -317,3 +368,21 @@ inspecionadas sem transbordamento horizontal; contraste mínimo observado de
 4,636:1. A revisão independente confirmou causalidade, estabilidade da cópia e
 os ajustes dos controles durante carregamento. Estes resultados são locais;
 a publicação segue o fluxo existente de CI, deploy e verificação real.
+
+### Validação dos destaques e referência pelo clique
+
+Passaram 10 testes de rota/regressão, a verificação de sintaxe do JavaScript e
+o teste de navegador com saída 0, 62 consultas de histórico e 1.000 resultados
+por mesa. O modelo causal permanece inalterado.
+
+A cobertura verifica união de destaques por valor/ocorrência, exclusão de iguais
+mais recentes, zero, remoção parcial e limpeza, preservação por ID após giros,
+clique causal com trava automática (inclusive no toggle de remoção), troca da
+referência por novo clique e conservação do mapa em remoções laterais. Também
+revalida janela/redução, atualização, reconexão, retorno ao atual e resets.
+As capturas desktop/celular foram inspecionadas sem transbordamento horizontal,
+com números e marcadores escuros legíveis sobre o amarelo. O teste aguarda o
+fim da transição de cor de 150 ms antes de conferir a cor final. O contraste
+mínimo observado no mapa foi 4,636:1. As revisões independentes não encontraram
+bloqueadores. Estes resultados são locais; a publicação segue o fluxo existente
+de CI, deploy e verificação real.
