@@ -80,6 +80,8 @@
 .wheel-heatmap__gradient { width: 150px; height: 6px; border-radius: 9px; background: linear-gradient(to right, var(--wp-heat-zero), #68b8f5 10%, #facc55 20%, #fb923c 30%, #f87171 50%, #dc2626); }
 .wheel-heatmap__pocket-info { min-height: 18px; margin: 8px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
 .wheel-heatmap__controls label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; }
+.wheel-heatmap__controls .wheel-heatmap__window-control select { min-width: 98px; min-height: 36px; padding: 0 8px; }
+.wheel-heatmap__controls #heatmap-source-limit-help { margin: 6px 0 16px; }
 .wheel-heatmap__controls output { color: var(--accent); font-size: 18px; }
 .wheel-heatmap__controls input { display: block; width: 100%; margin: 12px 0; accent-color: var(--accent); cursor: pointer; }
 .wheel-heatmap__presets { display: flex; gap: 6px; }

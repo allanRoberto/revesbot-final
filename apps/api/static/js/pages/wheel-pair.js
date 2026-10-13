@@ -28,11 +28,16 @@ let heatmapRace = null;
 let heatmapSnapshot = null;
 let inspectedHeatNumber = null;
 let decayPercent = 100;
+let sourceLimit = 10;
 const heatWeightFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 const spatialWeightFormat = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 function formattedWeight(weight) {
   return weight > 0 && weight < 0.001 ? "<0,001" : heatWeightFormat.format(weight);
+}
+
+function betCountLabel(count) {
+  return `${count} ${count === 1 ? "aposta" : "apostas"}`;
 }
 
 // Absolute stops: reducing all bets also cools the colors instead of rescaling them.
@@ -71,7 +76,7 @@ function inspectHeatNumber(number) {
   inspectedHeatNumber = number;
   const score = heatmapSnapshot?.scores[number];
   if (!score) return;
-  $("#heatmap-pocket-info").textContent = `${number} · peso ${formattedWeight(score.weight)} · ${score.rawCount} apostas antes da redução · ${score.activeCount} com peso ativo`;
+  $("#heatmap-pocket-info").textContent = `${number} · peso ${formattedWeight(score.weight)} · ${betCountLabel(score.rawCount)} antes da redução · ${score.activeCount} com peso ativo`;
 }
 
 function ensureHeatmapRace() {
@@ -85,7 +90,7 @@ function ensureHeatmapRace() {
   heatmapRace.svg.setAttribute("viewBox", "0 38 680 204");
   heatmapRace.svg.setAttribute("role", "img");
   heatmapRace.sectionsGroup.replaceChildren();
-  for (const [y, text] of [[133, "Últimas 10 ocorrências"], [158, "Peso das apostas por número"]]) {
+  for (const [y, text] of [[133, "Ocorrências recentes"], [158, "Peso das apostas por número"]]) {
     const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
     label.setAttribute("x", 340);
     label.setAttribute("y", y);
@@ -102,7 +107,8 @@ function renderHeatmap() {
   const container = $("#wheel-heatmap");
   container.hidden = !items.length;
   container.setAttribute("aria-busy", String(loading));
-  heatmapSnapshot = analyzeHeatmap(items, decayPercent);
+  heatmapSnapshot = analyzeHeatmap(items, decayPercent, sourceLimit);
+  $("#heatmap-source-limit").value = sourceLimit;
   $("#heatmap-decay").value = decayPercent;
   $("#heatmap-decay").setAttribute("aria-valuetext", `${decayPercent}% de redução por acerto`);
   $("#heatmap-decay-value").textContent = `${decayPercent}%`;
@@ -112,9 +118,10 @@ function renderHeatmap() {
   if (!items.length) return;
   const model = heatmapSnapshot;
   ensureHeatmapRace();
-  $("#heatmap-window").textContent = `Últimas ${model.sourceCount} ocorrências`;
-  heatmapRace.sectionsGroup.firstElementChild.textContent = `Últimas ${model.sourceCount} ocorrências`;
-  heatmapRace.svg.setAttribute("aria-label", `Mapa de calor das últimas ${model.sourceCount} ocorrências. Redução de ${decayPercent}% por acerto posterior. Peso máximo: ${formattedWeight(model.maxScore)}. Passe ou toque nos números para consultar os pesos.`);
+  const windowLabel = model.sourceCount === 1 ? "Última ocorrência" : `Últimas ${model.sourceCount} ocorrências`;
+  $("#heatmap-window").textContent = windowLabel;
+  heatmapRace.sectionsGroup.firstElementChild.textContent = windowLabel;
+  heatmapRace.svg.setAttribute("aria-label", `Mapa de calor: ${windowLabel.toLowerCase()}. Redução de ${decayPercent}% por acerto posterior. Peso máximo: ${formattedWeight(model.maxScore)}. Passe ou toque nos números para consultar os pesos.`);
   heatmapRace.svg.querySelectorAll(".number-cell").forEach((cell) => {
     const score = model.scores[Number(cell.dataset.n)];
     cell.dataset.heatNumber = score.number;
@@ -124,9 +131,12 @@ function renderHeatmap() {
     const color = heatColor(score.weight);
     cell.style.setProperty("--wp-heat-color", color);
     cell.style.setProperty("--wp-heat-ink", score.weight === 0 ? "var(--wp-heat-text)" : heatInk(color));
-    cell.querySelector("title").textContent = `${score.number}: peso ${formattedWeight(score.weight)}; ${score.rawCount} apostas antes da redução; ${score.activeCount} com peso ativo.`;
+    cell.querySelector("title").textContent = `${score.number}: peso ${formattedWeight(score.weight)}; ${betCountLabel(score.rawCount)} antes da redução; ${score.activeCount} com peso ativo.`;
   });
-  $("#heatmap-status").textContent = `${model.readyCount} apostas analisadas · ${model.unpaidCount} ainda não atingidas · ${model.paidCount} já atingidas${model.skippedCount ? ` · ${model.skippedCount} sem análise válida` : ""}`;
+  const analyzedLabel = `${betCountLabel(model.readyCount)} ${model.readyCount === 1 ? "analisada" : "analisadas"}`;
+  const unpaidLabel = `${model.unpaidCount} ainda não ${model.unpaidCount === 1 ? "atingida" : "atingidas"}`;
+  const paidLabel = `${model.paidCount} já ${model.paidCount === 1 ? "atingida" : "atingidas"}`;
+  $("#heatmap-status").textContent = `${analyzedLabel} · ${unpaidLabel} · ${paidLabel}${model.skippedCount ? ` · ${model.skippedCount} sem análise válida` : ""}`;
   const ranking = $("#heatmap-ranking");
   ranking.replaceChildren();
   const leaders = model.scores.filter((score) => score.weight > 0)
@@ -161,7 +171,7 @@ function renderHeatmap() {
       hitText, ready ? formattedWeight(slot.weight) : "—"].forEach((text) => row.append(element("td", "", text)));
     tbody.append(row);
   }
-  $("#heatmap-details summary").textContent = `Ver as ${model.sourceCount} ocorrências e seus acertos`;
+  $("#heatmap-details summary").textContent = model.sourceCount === 1 ? "Ver a ocorrência e seus acertos" : `Ver as ${model.sourceCount} ocorrências e seus acertos`;
   if (inspectedHeatNumber !== null) inspectHeatNumber(inspectedHeatNumber);
 }
 
@@ -171,10 +181,19 @@ function changeDecay(value) {
   renderHeatmap();
   try { localStorage.setItem("revesbot-wheel-heatmap-decay", String(value)); } catch (_) { /* Optional preference. */ }
 }
+function changeSourceLimit(value) {
+  if (!Number.isInteger(value) || value < 1 || value > 10) return;
+  sourceLimit = value;
+  renderHeatmap();
+  try { localStorage.setItem("revesbot-wheel-heatmap-source-limit", String(value)); } catch (_) { /* Optional preference. */ }
+}
 try {
   const saved = localStorage.getItem("revesbot-wheel-heatmap-decay");
   if (saved !== null && /^\d{1,3}$/.test(saved) && Number(saved) <= 100) decayPercent = Number(saved);
+  const savedSourceLimit = localStorage.getItem("revesbot-wheel-heatmap-source-limit");
+  if (savedSourceLimit !== null && /^(?:[1-9]|10)$/.test(savedSourceLimit)) sourceLimit = Number(savedSourceLimit);
 } catch (_) { /* Keep the default when preferences are unavailable. */ }
+$("#heatmap-source-limit").addEventListener("change", (event) => changeSourceLimit(Number(event.target.value)));
 $("#heatmap-decay").addEventListener("input", (event) => changeDecay(Number(event.target.value)));
 $("#wheel-heatmap").querySelectorAll("[data-decay-preset]").forEach((button) => {
   button.addEventListener("click", () => changeDecay(Number(button.dataset.decayPreset)));

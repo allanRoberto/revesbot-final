@@ -29,8 +29,9 @@ o resultado que saiu imediatamente depois daquela ocorrência anterior.
    expansível mostra a contagem completa em cada sentido, começando pela base.
 5. Resumo: repetições contam presença entre apostas, uma vez por aposta. Exibe
    frequência decrescente, com desempate pelo número, e união geral crescente.
-6. Mapa de calor automático: acompanha as dez ocorrências mais recentes,
-   independentemente das seleções manuais, conforme a especificação abaixo.
+6. Mapa de calor automático e ranking: acompanham as N ocorrências mais recentes,
+   com seletor de 1 a 10 giros e padrão 10, independentemente das seleções manuais,
+   conforme a especificação abaixo.
 
 Não existe exigência de dez números distintos nesta interface: setores
 sobrepostos são apresentados com sua quantidade real, incluindo casas zero.
@@ -48,14 +49,28 @@ snapshot anterior identificado, com opção de tentar novamente.
 
 ## Mapa de calor automático — ampliação autorizada
 
-O mapa usa até dez ocorrências concretas: `items[0]` a `items[9]`, ou todas as
-disponíveis se houver menos de dez. Não são dez valores diferentes nem as dez
+O seletor da janela aceita uma quantidade inteira N de 1 a 10 giros, com padrão
+10; zero não é válido. N é uma contagem de ocorrências, não um deslocamento ou
+índice inicial: o mapa e seu ranking usam `items[0]` a `items[N - 1]`, ou todas
+as disponíveis se houver menos de N. Não são N valores diferentes nem as N
 primeiras apostas com dez números distintos. Ocorrências repetidas do mesmo
 número continuam independentes; setores sobrepostos conservam sua quantidade
 real de números. A análise de cada ocorrência reutiliza `analyzeSelection`,
-buscando a ocorrência anterior no histórico completo de até 1.000 resultados.
-Uma ocorrência sem par anterior válido não contribui para o calor e deve aparecer
-como indisponível no detalhamento; não é substituída por uma ocorrência mais antiga.
+buscando a ocorrência anterior no histórico completo de até 1.000 resultados,
+mesmo que ela esteja fora das N ocorrências que contribuem para o calor. Uma
+ocorrência sem par anterior válido não contribui e deve aparecer como
+indisponível no detalhamento; não é substituída por uma ocorrência mais antiga.
+
+O contrato do modelo é `analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10)`.
+`sourceLimit` deve ser inteiro entre 1 e 10, inclusive; valores fora desse intervalo,
+zero e frações não são válidos. A quantidade efetiva de fontes é
+`min(sourceLimit, items.length)`. Alterar a janela recalcula imediatamente o mapa,
+ranking e detalhamento, sem nova consulta ou alteração no limite de 1.000 resultados
+carregados. A preferência usa a chave localStorage
+`revesbot-wheel-heatmap-source-limit` e é restaurada ao reabrir a página; uma
+preferência ausente ou inválida mantém o padrão 10. Essa escolha não altera a
+quantidade de casas do par, os pesos espaciais, a redução por acerto, as seleções
+manuais ou seus snapshots.
 
 Cada setor de cinco números usa pesos espaciais `[0,3; 0,7; 1; 0,7; 0,3]`, na
 ordem dos dois vizinhos de um lado, centro e dois vizinhos do outro lado. O centro
@@ -101,14 +116,15 @@ de cada aposta válida que o contém. As contagens não passam a ser ponderadas:
 redução; `activeCount` conta as que conservam contribuição positiva; frequência
 e repetições entre seleções manuais continuam contando presença uma vez por
 aposta. Não existe redução por idade, passagem de tempo ou giro sem acerto.
-Ao chegar um novo resultado, a ocorrência que sai da janela das dez mais
+Ao chegar um novo resultado, a ocorrência que sai da janela das N mais
 recentes deixa de contribuir por sair da janela, não por uma redução temporal.
 Os pesos são reconstruídos do histórico atual em vez de acumulados em memória,
 preservando o mesmo resultado após atualizar, reconectar ou receber um evento
 duplicado.
 
 A escala visual é absoluta, de 0 a 10, e mantém as mesmas referências de cor
-entre atualizações. Não dividir pelo maior peso do instante: reduzir um peso
+entre atualizações e tamanhos da janela, inclusive quando N é menor que 10.
+Não dividir pelo maior peso do instante nem por N: reduzir um peso
 deve esfriar sua representação mesmo que ele continue sendo o maior. Cor,
 intensidade e peso numérico devem tornar essa redução perceptível; a legenda
 identifica a progressão de frio a quente. Os pesos descrevem a composição das
@@ -117,7 +133,7 @@ apostas e não são percentuais de assertividade.
 A race automática fica como primeiro filho de `.result-grid-viewport`, antes
 de `#result-grid`, nunca dentro da grade, cujos filhos representam resultados.
 Ela rola junto do histórico, sem reservar uma área fixa que esconda a grade ou
-a barra lateral. O detalhamento das dez ocorrências é expansível e começa
+a barra lateral. O detalhamento das ocorrências da janela escolhida é expansível e começa
 fechado. O desenho se adapta ao desktop e celular e aos temas claro/escuro.
 Reutiliza `RouletteRacetrack` sem modificar o plugin global, com uma instância
 própria e IDs SVG distintos das races das seleções manuais.
@@ -215,3 +231,19 @@ As capturas foram inspecionadas; o contraste mínimo observado nos números com
 calor positivo foi 4,636:1. A revisão independente do modelo e da integração
 não encontrou problemas acionáveis. Estes resultados são locais; a publicação
 segue o fluxo existente de CI, deploy por SHA e verificação dos dados reais.
+
+### Validação da janela configurável do ranking e mapa
+
+Passaram 34 testes do modelo e 10 testes de rota/regressão da página. Os novos
+casos verificam os limites 1 e 10, o padrão 10, a rejeição de zero e valores
+inválidos, os pares encontrados além da janela, o histórico curto, a causalidade
+dos acertos e a recomputação sem mutação ou acúmulo de pesos.
+
+O teste de navegador passou com 37 consultas de histórico e 1.000 resultados
+por mesa. Verificou opções 1 a 10 e mudanças entre 1, 3 e 10, atualização do
+ranking, race e detalhamento sem consulta extra, preservação dos pesos espaciais
+e redução, snapshots manuais intactos e preferência mantida em reconexão,
+troca de mesa e recarga. Capturas desktop/celular foram inspecionadas, sem
+transbordamento horizontal; o contraste mínimo observado no mapa foi 4,636:1.
+A revisão independente não encontrou bloqueadores funcionais. Estes resultados
+são locais; a publicação segue o fluxo existente de CI, deploy e verificação real.
