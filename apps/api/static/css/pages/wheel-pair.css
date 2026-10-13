@@ -67,6 +67,17 @@
 .wheel-heatmap__header .eyebrow { margin: 0 0 3px; font-size: 10px; }
 .wheel-heatmap__header h3 { margin: 0; font-size: 20px; }
 .wheel-heatmap__header > span { color: var(--muted); font-size: 11px; text-align: right; }
+.wheel-heatmap__timeline { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.wheel-heatmap__timeline .field { width: 100px; min-width: 100px; }
+.wheel-heatmap__timeline input { width: 100%; min-height: 36px; }
+.wheel-heatmap__timeline-nav { display: flex; gap: 6px; }
+.wheel-heatmap__timeline .icon-button { width: 36px; min-height: 36px; font-size: 18px; }
+.wheel-heatmap__timeline .button { min-height: 36px; padding: 0 12px; font-size: 12px; }
+.wheel-heatmap__timeline :disabled { opacity: .45; cursor: default; }
+.wheel-heatmap__timeline #heatmap-lock[aria-pressed="true"] { background: var(--accent); color: #092016; border-color: var(--accent); }
+.wheel-heatmap__timeline-help { margin: 8px 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.wheel-heatmap__reference { margin: 0 0 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.wheel-heatmap__reference[data-locked="true"] { border-color: var(--accent); color: var(--text); }
 .wheel-heatmap__layout { display: grid; gap: 14px; align-items: center; }
 .wheel-heatmap__race { max-width: 680px; margin: 0 auto; }
 .wheel-heatmap__race svg { display: block; }

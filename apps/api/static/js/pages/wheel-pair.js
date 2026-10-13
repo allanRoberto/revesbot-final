@@ -29,6 +29,8 @@ let heatmapSnapshot = null;
 let inspectedHeatNumber = null;
 let decayPercent = 100;
 let sourceLimit = 10;
+let lookback = 0;
+let frozenReference = null;
 const heatWeightFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 const spatialWeightFormat = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -103,11 +105,42 @@ function ensureHeatmapRace() {
   });
 }
 
+function renderHeatmapReference(reference, referenceItems) {
+  const locked = frozenReference !== null;
+  const unavailable = loading || !items.length;
+  const maximum = Math.max(0, reference.items.length - 1);
+  const input = $("#heatmap-lookback");
+  input.max = maximum;
+  input.value = reference.lookback;
+  input.disabled = locked || unavailable;
+  $("#heatmap-previous").disabled = locked || unavailable || reference.lookback >= maximum;
+  $("#heatmap-next").disabled = locked || unavailable || reference.lookback === 0;
+  const lock = $("#heatmap-lock");
+  lock.disabled = !locked && unavailable;
+  lock.textContent = locked ? "Destravar ranking" : "Travar ranking";
+  lock.setAttribute("aria-pressed", String(locked));
+  $("#heatmap-current").disabled = !locked && (unavailable || lookback === 0);
+  const anchor = referenceItems[0];
+  const status = $("#heatmap-reference");
+  status.dataset.referenceId = anchor?._id ?? anchor?._wheelPairKey ?? "";
+  status.dataset.referenceValue = anchor?.value ?? "";
+  status.dataset.referenceTime = anchor?.timestamp || anchor?.captured_at || "";
+  status.dataset.referenceLookback = reference.lookback;
+  status.dataset.locked = String(locked);
+  status.textContent = !anchor ? "Carregue resultados para consultar o ranking."
+    : `${locked ? "Ranking travado" : reference.lookback === 0 ? "Ranking atual" : "Ranking histórico"} · resultado ${anchor.value} · ${formattedTime(anchor)}${!locked && reference.lookback ? ` · ${reference.lookback} ${reference.lookback === 1 ? "giro atrás" : "giros atrás"}` : ""}`;
+}
+
 function renderHeatmap() {
   const container = $("#wheel-heatmap");
-  container.hidden = !items.length;
-  container.setAttribute("aria-busy", String(loading));
-  heatmapSnapshot = analyzeHeatmap(items, decayPercent, sourceLimit);
+  if (!frozenReference) lookback = Math.min(lookback, Math.max(0, items.length - 1));
+  const reference = frozenReference || { items, lookback };
+  const referenceItems = reference.items.slice(reference.lookback);
+  container.hidden = !referenceItems.length;
+  container.dataset.frozen = String(frozenReference !== null);
+  container.setAttribute("aria-busy", String(loading && !frozenReference));
+  heatmapSnapshot = analyzeHeatmap(reference.items, decayPercent, sourceLimit, reference.lookback);
+  renderHeatmapReference(reference, referenceItems);
   $("#heatmap-source-limit").value = sourceLimit;
   $("#heatmap-decay").value = decayPercent;
   $("#heatmap-decay").setAttribute("aria-valuetext", `${decayPercent}% de redução por acerto`);
@@ -115,13 +148,13 @@ function renderHeatmap() {
   container.querySelectorAll("[data-decay-preset]").forEach((button) => {
     button.setAttribute("aria-pressed", String(Number(button.dataset.decayPreset) === decayPercent));
   });
-  if (!items.length) return;
+  if (!referenceItems.length) return;
   const model = heatmapSnapshot;
   ensureHeatmapRace();
   const windowLabel = model.sourceCount === 1 ? "Última ocorrência" : `Últimas ${model.sourceCount} ocorrências`;
   $("#heatmap-window").textContent = windowLabel;
   heatmapRace.sectionsGroup.firstElementChild.textContent = windowLabel;
-  heatmapRace.svg.setAttribute("aria-label", `Mapa de calor: ${windowLabel.toLowerCase()}. Redução de ${decayPercent}% por acerto posterior. Peso máximo: ${formattedWeight(model.maxScore)}. Passe ou toque nos números para consultar os pesos.`);
+  heatmapRace.svg.setAttribute("aria-label", `Mapa de calor: ${windowLabel.toLowerCase()}. Referência: resultado ${referenceItems[0].value}, ${formattedTime(referenceItems[0])}.${frozenReference ? " Ranking travado." : ""} Redução de ${decayPercent}% por acerto posterior. Peso máximo: ${formattedWeight(model.maxScore)}. Passe ou toque nos números para consultar os pesos.`);
   heatmapRace.svg.querySelectorAll(".number-cell").forEach((cell) => {
     const score = model.scores[Number(cell.dataset.n)];
     cell.dataset.heatNumber = score.number;
@@ -156,12 +189,12 @@ function renderHeatmap() {
     const a = slot.analysis;
     const row = element("tr", slot.status !== "ready" ? "wheel-heatmap__skipped" : slot.hitCount ? "wheel-heatmap__paid" : "");
     row.dataset.heatSourceIndex = slot.index;
-    row.dataset.heatSourceId = a.selectedId ?? items[slot.index]._wheelPairKey;
+    row.dataset.heatSourceId = a.selectedId ?? referenceItems[slot.index]._wheelPairKey;
     row.dataset.heatSourceWeight = slot.weight ?? "";
     row.dataset.heatHitCount = slot.hitCount ?? "";
     const position = element("th", "", `${slot.index + 1}ª · base ${a.base ?? "—"}`);
     position.scope = "row";
-    position.title = formattedTime(items[slot.index]);
+    position.title = formattedTime(referenceItems[slot.index]);
     row.append(position);
     const ready = slot.status === "ready";
     const hitText = !ready ? slot.status === "no_previous" ? "Sem ocorrência anterior" : "Dados inválidos ou acompanhamento incompleto"
@@ -187,6 +220,28 @@ function changeSourceLimit(value) {
   renderHeatmap();
   try { localStorage.setItem("revesbot-wheel-heatmap-source-limit", String(value)); } catch (_) { /* Optional preference. */ }
 }
+function changeLookback(value) {
+  if (frozenReference || loading) return;
+  if (Number.isInteger(value) && value >= 0 && value < items.length) lookback = value;
+  renderHeatmap();
+}
+$("#heatmap-lookback").addEventListener("change", (event) => changeLookback(event.target.value === "" ? NaN : Number(event.target.value)));
+$("#heatmap-previous").addEventListener("click", () => changeLookback(lookback + 1));
+$("#heatmap-next").addEventListener("click", () => changeLookback(lookback - 1));
+$("#heatmap-lock").addEventListener("click", () => {
+  if (frozenReference) frozenReference = null;
+  else if (!loading && items.length) {
+    // Keep the full reference history, including its keys and times, independently
+    // of the live window. The model excludes results newer than the chosen point.
+    frozenReference = { items: items.map((item) => ({ ...item })), lookback };
+  }
+  renderHeatmap();
+});
+$("#heatmap-current").addEventListener("click", () => {
+  frozenReference = null;
+  lookback = 0;
+  renderHeatmap();
+});
 try {
   const saved = localStorage.getItem("revesbot-wheel-heatmap-decay");
   if (saved !== null && /^\d{1,3}$/.test(saved) && Number(saved) <= 100) decayPercent = Number(saved);
@@ -254,7 +309,9 @@ function setPanelOpen(open) {
 }
 
 function paintGridSelection() {
-  $("#wheel-heatmap").setAttribute("aria-busy", String(loading));
+  $("#wheel-heatmap").setAttribute("aria-busy", String(loading && !frozenReference));
+  const reference = frozenReference || { items, lookback };
+  renderHeatmapReference(reference, reference.items.slice(reference.lookback));
   [...grid.children].forEach((card, index) => {
     const item = items[index];
     const active = selected.has(item._wheelPairKey);
@@ -545,6 +602,9 @@ $("#roulette-list").addEventListener("click", (event) => {
   });
   history.replaceState(null, "", link.href);
   selected.clear();
+  frozenReference = null;
+  lookback = 0;
+  inspectedHeatNumber = null;
   items = [];
   setPanelOpen(false);
   updateHistoryView();

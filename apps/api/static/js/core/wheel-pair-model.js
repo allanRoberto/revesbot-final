@@ -156,8 +156,10 @@ export function summarizeBets(analyses) {
  * bets, while activeCount includes only ready bets with positive residual weight.
  * Scores combine spatial weights with the temporal factor retained in slot.weight;
  * overlapping sectors contribute their maximum spatial weight within each bet.
+ * lookback excludes newer spins entirely. All returned indices are relative to
+ * that historical suffix, whose full older context remains available for pairs.
  */
-export function analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10) {
+export function analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10, lookback = 0) {
   if (!Number.isInteger(decayPercent) || decayPercent < 0 || decayPercent > 100) {
     throw new RangeError("A redução por acerto deve ser um percentual inteiro entre 0 e 100.");
   }
@@ -167,8 +169,12 @@ export function analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10) {
   if (!Array.isArray(items)) {
     throw new TypeError("O histórico deve ser uma lista de resultados.");
   }
+  if (!Number.isInteger(lookback) || lookback < 0 || lookback > Math.max(0, items.length - 1)) {
+    throw new RangeError("A referência deve ser um número inteiro dentro do histórico disponível.");
+  }
 
-  const sourceCount = Math.min(sourceLimit, items.length);
+  const referenceItems = items.slice(lookback);
+  const sourceCount = Math.min(sourceLimit, referenceItems.length);
   const scores = Array.from({ length: WHEEL.length }, (_, number) => ({
     number, weight: 0, rawCount: 0, activeCount: 0,
   }));
@@ -178,7 +184,7 @@ export function analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10) {
   let skippedCount = 0;
 
   for (let index = 0; index < sourceCount; index += 1) {
-    const analysis = analyzeSelection(items, index);
+    const analysis = analyzeSelection(referenceItems, index);
     const slot = {
       analysis, index, hits: [], hitCount: null, weight: null, status: analysis.status,
     };
@@ -191,7 +197,7 @@ export function analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10) {
     let followupValid = true;
     const hits = [];
     for (let newerIndex = index - 1; newerIndex >= 0; newerIndex -= 1) {
-      const item = items[newerIndex];
+      const item = referenceItems[newerIndex];
       if (!validNumber(item?.value)) {
         followupValid = false;
         break;
@@ -223,6 +229,7 @@ export function analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10) {
   return {
     decayPercent,
     sourceLimit,
+    lookback,
     sourceCount,
     slots,
     scores,

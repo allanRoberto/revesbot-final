@@ -52,6 +52,14 @@
               <div><p class="eyebrow">Confluência das apostas</p><h3 id="heatmap-title">Mapa de calor</h3></div>
               <span id="heatmap-window">Últimas 10 ocorrências</span>
             </header>
+            <div class="wheel-heatmap__timeline" aria-label="Consulta histórica do ranking">
+              <label class="field field--compact" for="heatmap-lookback"><span>Giros atrás</span><input id="heatmap-lookback" type="number" min="0" max="999" step="1" value="0" inputmode="numeric" aria-describedby="heatmap-timeline-help"></label>
+              <div class="wheel-heatmap__timeline-nav" role="group" aria-label="Navegar pelos giros"><button class="icon-button" id="heatmap-previous" type="button" aria-label="Ver um giro mais antigo" title="Ver um giro mais antigo">←</button><button class="icon-button" id="heatmap-next" type="button" aria-label="Ver um giro mais recente" title="Ver um giro mais recente" disabled>→</button></div>
+              <button class="button button--secondary" id="heatmap-lock" type="button" aria-pressed="false">Travar ranking</button>
+              <button class="button button--secondary" id="heatmap-current" type="button" disabled>Voltar ao atual</button>
+            </div>
+            <p id="heatmap-timeline-help" class="wheel-heatmap__timeline-help">0 = atual. Consulte o ranking após um giro passado, usando apenas os resultados disponíveis naquele momento. Ao travar, a grade continua ao vivo.</p>
+            <p id="heatmap-reference" class="wheel-heatmap__reference" role="status">Carregando referência…</p>
             <div class="wheel-heatmap__layout">
               <div>
                 <div id="heatmap-race" class="wheel-heatmap__race"></div>

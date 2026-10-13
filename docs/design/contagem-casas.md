@@ -29,9 +29,10 @@ o resultado que saiu imediatamente depois daquela ocorrência anterior.
    expansível mostra a contagem completa em cada sentido, começando pela base.
 5. Resumo: repetições contam presença entre apostas, uma vez por aposta. Exibe
    frequência decrescente, com desempate pelo número, e união geral crescente.
-6. Mapa de calor automático e ranking: acompanham as N ocorrências mais recentes,
-   com seletor de 1 a 10 giros e padrão 10, independentemente das seleções manuais,
-   conforme a especificação abaixo.
+6. Mapa de calor automático e ranking: acompanham N ocorrências a partir do ponto
+   de referência escolhido, com seletor de 1 a 10 giros e padrão 10. Permitem
+   navegar para giros anteriores e travar uma referência, independentemente das
+   seleções manuais, conforme a especificação abaixo.
 
 Não existe exigência de dez números distintos nesta interface: setores
 sobrepostos são apresentados com sua quantidade real, incluindo casas zero.
@@ -51,20 +52,23 @@ snapshot anterior identificado, com opção de tentar novamente.
 
 O seletor da janela aceita uma quantidade inteira N de 1 a 10 giros, com padrão
 10; zero não é válido. N é uma contagem de ocorrências, não um deslocamento ou
-índice inicial: o mapa e seu ranking usam `items[0]` a `items[N - 1]`, ou todas
-as disponíveis se houver menos de N. Não são N valores diferentes nem as N
+índice inicial: o mapa e seu ranking usam `referenceItems[0]` a
+`referenceItems[N - 1]`, ou todas as disponíveis se houver menos de N. Sem recuo,
+`referenceItems` é o histórico atual completo. Não são N valores diferentes nem as N
 primeiras apostas com dez números distintos. Ocorrências repetidas do mesmo
 número continuam independentes; setores sobrepostos conservam sua quantidade
 real de números. A análise de cada ocorrência reutiliza `analyzeSelection`,
-buscando a ocorrência anterior no histórico completo de até 1.000 resultados,
+buscando a ocorrência anterior em todo o histórico disponível na referência,
+derivado da janela carregada de até 1.000 resultados,
 mesmo que ela esteja fora das N ocorrências que contribuem para o calor. Uma
 ocorrência sem par anterior válido não contribui e deve aparecer como
 indisponível no detalhamento; não é substituída por uma ocorrência mais antiga.
 
-O contrato do modelo é `analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10)`.
+O contrato do modelo é
+`analyzeHeatmap(items, decayPercent = 100, sourceLimit = 10, lookback = 0)`.
 `sourceLimit` deve ser inteiro entre 1 e 10, inclusive; valores fora desse intervalo,
 zero e frações não são válidos. A quantidade efetiva de fontes é
-`min(sourceLimit, items.length)`. Alterar a janela recalcula imediatamente o mapa,
+`min(sourceLimit, referenceItems.length)`. Alterar a janela recalcula imediatamente o mapa,
 ranking e detalhamento, sem nova consulta ou alteração no limite de 1.000 resultados
 carregados. A preferência usa a chave localStorage
 `revesbot-wheel-heatmap-source-limit` e é restaurada ao reabrir a página; uma
@@ -105,7 +109,8 @@ mesmo histórico, sem nova consulta.
 
 O cálculo é causal: a ocorrência selecionada é o giro que ativa a aposta, e a
 primeira tentativa é o giro seguinte. Para a ocorrência de índice `i`, somente
-os índices `i - 1` até `0` podem reduzir seu peso. O próprio giro de ativação não
+os índices `i - 1` até `0` do histórico de referência podem reduzir seu peso.
+O próprio giro de ativação não
 é acerto da aposta que acabou de formar, mesmo quando seu número está nela.
 O novo resultado pode reduzir apostas anteriores e formar sua própria aposta
 com fator temporal inicial 1; essas contribuições são independentes.
@@ -139,11 +144,57 @@ Reutiliza `RouletteRacetrack` sem modificar o plugin global, com uma instância
 própria e IDs SVG distintos das races das seleções manuais.
 
 O mapa não adiciona, remove ou modifica seleções manuais nem seus snapshots e
-resumos. Atualiza junto da janela de resultados já validada pelo fluxo existente
-de carregamento/sincronização. Trocar de mesa limpa o mapa anterior imediatamente;
+resumos. Destravado, atualiza junto da janela de resultados já validada pelo fluxo
+existente de carregamento/sincronização; travado, preserva sua referência conforme
+a especificação abaixo. Trocar de mesa limpa o mapa anterior imediatamente;
 respostas antigas e eventos de outra geração não podem alterar o mapa atual.
 Pausa, retomada e falhas seguem o comportamento existente da página. Não cria
 endpoints, dependências, processos ou alterações em banco, Nginx e PM2.
+
+## Navegação histórica e trava do mapa — ampliação autorizada
+
+`lookback` é a quantidade inteira de giros que o mapa recua em relação ao giro
+mais recente do histórico que está usando: 0 representa o atual; 1 representa
+um giro antes. Para histórico não vazio, o intervalo válido vai de 0 até
+`items.length - 1`; valores negativos, fracionários ou além da janela disponível
+não são válidos. A janela N continua sendo a quantidade de ocorrências a analisar,
+sem confundir essa contagem com o recuo. Se não houver resultados, não existe
+âncora de referência e o mapa fica indisponível.
+
+O cálculo histórico usa o sufixo `referenceItems = items.slice(lookback)`. As
+fontes, os pares e os acertos são calculados exclusivamente nesse sufixo. Assim,
+nenhum giro mais recente que a referência pode formar pares ou reduzir pesos
+na análise daquele instante. Os índices de fontes e acertos são relativos ao
+histórico de referência; horários, IDs, posição e linhas da tabela devem consultar
+esse mesmo histórico, sem buscar a ocorrência pelo índice na grade ao vivo.
+
+Destravado, o recuo representa um atraso móvel. Por exemplo, com recuo 3, cada
+novo giro mantém o mapa três giros atrás do resultado mais recente; a ocorrência
+de referência muda junto da grade. Carregamentos e sincronizações podem atualizar
+esse histórico, mantendo o recuo dentro do intervalo disponível. Navegar no
+histórico recalcula o mapa, ranking e tabela sem nova consulta.
+
+Travar captura uma cópia do histórico completo carregado, o recuo escolhido e
+a identidade e o horário da ocorrência de referência. A cópia precisa incluir
+o contexto anterior à janela N para permitir reconstruir os pares. O mapa usa
+o sufixo dessa cópia a partir do recuo capturado, sem depender de índices da grade
+ao vivo nem de IDs que possam sair da janela corrente. A grade, o WebSocket e
+o status da conexão continuam funcionando normalmente.
+
+Enquanto travado, novos giros, consultas, reconexões e o botão Atualizar histórico
+podem mudar a grade, mas não mudam os dados do ranking, race, referência ou tabela
+do mapa. Alterações manuais de N ou da redução por acerto continuam permitidas e
+recalculam usando o mesmo histórico fixo; os pesos espaciais permanecem iguais.
+Os controles de navegação histórica ficam desabilitados enquanto a trava estiver
+ativa. A interface identifica o estado travado e a ocorrência de referência por
+ID e horário quando esses campos estiverem disponíveis.
+
+Destravar descarta a cópia e retoma o histórico ao vivo com o recuo que foi
+capturado, agora como atraso móvel; não tenta reencontrar a antiga âncora por ID.
+Voltar ao atual remove a trava e define recuo 0. Trocar de mesa também remove
+a trava, limpa o histórico fixo e reinicia o recuo em 0. Recarregar a página
+começa destravado no atual: trava, cópia e recuo não são persistidos. A preferência
+da janela de 1 a 10 giros e a redução por acerto conservam suas regras existentes.
 
 ## Sistema visual e referência
 
@@ -247,3 +298,22 @@ troca de mesa e recarga. Capturas desktop/celular foram inspecionadas, sem
 transbordamento horizontal; o contraste mínimo observado no mapa foi 4,636:1.
 A revisão independente não encontrou bloqueadores funcionais. Estes resultados
 são locais; a publicação segue o fluxo existente de CI, deploy e verificação real.
+
+### Validação da navegação histórica e trava
+
+Passaram 41 testes do modelo e 10 testes de rota/regressão. Os novos casos cobrem
+recuos válidos e inválidos, referência no limite do histórico, contexto mais
+antigo preservado, exclusão de giros futuros dos acertos e dos dados inválidos,
+pureza e índices relativos ao sufixo. A fixture no recuo 7, com janela 3 e
+redução 100%, conserva peso 2,4 no número 26: o giro 26 posterior à referência
+não pode pagar aquelas apostas na visão histórica.
+
+O navegador passou com saída 0, 54 consultas de histórico e 1.000 resultados
+por mesa. Verificou IDs/horários históricos, navegação, trava mantendo a grade
+viva, eventos duplicados, ajustes de janela/redução na cópia, reconexão, refresh,
+pausa/retomada, histórico vivo vazio, controles durante carregamento, destrava,
+retorno ao atual e reset em troca de mesa/recarga. Capturas desktop/celular foram
+inspecionadas sem transbordamento horizontal; contraste mínimo observado de
+4,636:1. A revisão independente confirmou causalidade, estabilidade da cópia e
+os ajustes dos controles durante carregamento. Estes resultados são locais;
+a publicação segue o fluxo existente de CI, deploy e verificação real.
