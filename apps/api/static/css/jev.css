@@ -291,3 +291,15 @@ dialog input { height: 48px; padding: 0 12px; font-family: var(--mono); }
     .suggestion-monitor-actions .primary-button { width: 100%; }
     .suggestion-monitor-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.suggestion-history { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.suggestion-history .catalog-heading { margin-bottom: 10px; }
+.suggestion-history-table { min-width: 940px; }
+.suggestion-history-table td:nth-child(3) { min-width: 170px; font-family: var(--mono); font-size: 10px; line-height: 1.5; }
+.suggestion-history-table td:nth-child(n+4) { text-align: center; font-family: var(--mono); }
+.suggestion-history-table .signal-attempt-hit,
+.suggestion-history-table .signal-result-hit { color: var(--accent); font-weight: 650; }
+.suggestion-history-table .signal-attempt-miss,
+.suggestion-history-table .signal-result-miss { color: var(--muted); }
+.suggestion-history-table .signal-result-pending { color: var(--warning); }
+.suggestion-history-table .signal-result-interrupted { color: var(--muted); }

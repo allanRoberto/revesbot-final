@@ -3,6 +3,9 @@
 
   const byId = (id) => document.getElementById(id);
   const tabNames = ["suggestion", "ranking", "backtest"];
+  const SUGGESTION_SIGNAL_ATTEMPTS = 3;
+  const MAX_SUGGESTION_SIGNALS = 250;
+  const MAX_SUGGESTION_HISTORY_ROWS = 50;
   const groupIds = ["grupo_1", "grupo_2", "grupo_3", "grupo_4", "grupo_5", "grupo_6"];
   const maxHistory = Number(document.querySelector('meta[name="jev-max-history"]').content);
   const maxBacktestCalls = Number(document.querySelector('meta[name="jev-backtest-max-calls"]').content);
@@ -32,6 +35,9 @@
   let suggestionSocketVersion = 0;
   const suggestionSeenEvents = new Set();
   let suggestionCounters = { rounds: 0, inside: 0, outside: 0 };
+  let suggestionHistorySlug = "";
+  let suggestionHistory = [];
+  let suggestionHistoryWarning = "";
 
   function rouletteName(slug = rouletteSelect.value) {
     return Array.from(rouletteSelect.options).find((option) => option.value === slug)?.textContent || slug;
@@ -84,6 +90,9 @@
     byId("backtest-error").hidden = true;
     byId("backtest-confirm").checked = false;
     byId("backtest-tab-status").hidden = true;
+    suggestionHistorySlug = rouletteSelect.value;
+    suggestionHistory = loadSuggestionHistory(suggestionHistorySlug);
+    renderSuggestionHistory();
     updateRouletteLabels();
     validateForm();
     setBacktestControls(false);
@@ -452,7 +461,7 @@
 
     const { selected, anchorPosition } = window;
     byId("ranking-neighbor-context").textContent =
-      `Referência: ${suggestionState.anchorNumber} · posição ${anchorPosition} · janela nas posições ${selected[0].posicao}–${selected[selected.length - 1].posicao}`;
+      `JEV Original · próximas 3 · referência: ${suggestionState.anchorNumber} · posição ${anchorPosition} · janela nas posições ${selected[0].posicao}–${selected[selected.length - 1].posicao}`;
 
     const fragment = document.createDocumentFragment();
     selected
@@ -481,10 +490,217 @@
     byId("suggestion-hit-miss").textContent = `${suggestionCounters.inside} / ${suggestionCounters.outside}`;
   }
 
+  function suggestionHistoryStorageKey(slug) {
+    return "jev-suggestion-history:v1:" + slug;
+  }
+
+  function loadSuggestionHistory(slug) {
+    suggestionHistoryWarning = "";
+    try {
+      const raw = localStorage.getItem(suggestionHistoryStorageKey(slug));
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.schema_version !== 1 || parsed.roulette_slug !== slug
+          || !Array.isArray(parsed.signals)) {
+        suggestionHistoryWarning = "O histórico salvo tem um formato inválido e não foi carregado.";
+        return [];
+      }
+      const signals = parsed.signals
+        .filter((signal) => signal && signal.roulette_slug === slug
+          && Array.isArray(signal.numbers) && Array.isArray(signal.attempts))
+        .slice(-MAX_SUGGESTION_SIGNALS);
+      let changed = false;
+      const now = new Date().toISOString();
+      signals.forEach((signal) => {
+        if (signal.status === "pending") {
+          signal.status = "interrupted";
+          signal.completed_at = now;
+          signal.resolution_reason = "A página foi recarregada; resultados não observados não entram nas tentativas.";
+          changed = true;
+        }
+      });
+      if (changed) {
+        try {
+          localStorage.setItem(suggestionHistoryStorageKey(slug), JSON.stringify({
+            schema_version: 1, roulette_slug: slug, signals,
+          }));
+        } catch (_error) {
+          suggestionHistoryWarning = "O histórico foi carregado, mas não foi possível atualizar o estado local.";
+        }
+      }
+      return signals;
+    } catch (_error) {
+      suggestionHistoryWarning = "Não foi possível ler o histórico salvo neste navegador.";
+      return [];
+    }
+  }
+
+  function persistSuggestionHistory() {
+    try {
+      localStorage.setItem(suggestionHistoryStorageKey(suggestionHistorySlug), JSON.stringify({
+        schema_version: 1,
+        roulette_slug: suggestionHistorySlug,
+        signals: suggestionHistory.slice(-MAX_SUGGESTION_SIGNALS),
+      }));
+      suggestionHistoryWarning = "";
+      return true;
+    } catch (_error) {
+      suggestionHistoryWarning = "Não foi possível salvar o histórico local. O armazenamento do navegador pode estar cheio.";
+      return false;
+    }
+  }
+
+  function suggestionSignalStatusLabel(signal) {
+    if (signal.status === "hit") return "Acertou na " + signal.hit_attempt + "ª";
+    if (signal.status === "miss") return "Não acertou em 3";
+    if (signal.status === "interrupted") return "Interrompido · " + signal.attempts.length + "/3";
+    return "Em andamento · " + signal.attempts.length + "/3";
+  }
+
+  function renderSuggestionHistory() {
+    const body = byId("suggestion-history-body");
+    const empty = byId("suggestion-history-empty");
+    const region = byId("suggestion-history-table-region");
+    const status = byId("suggestion-history-status");
+    status.textContent = suggestionHistoryWarning;
+    status.hidden = !suggestionHistoryWarning;
+    const rows = suggestionHistory.slice().sort((left, right) => (
+      Date.parse(right.created_at || "") - Date.parse(left.created_at || "")
+    )).slice(0, MAX_SUGGESTION_HISTORY_ROWS);
+    const fragment = document.createDocumentFragment();
+    rows.forEach((signal) => {
+      const row = document.createElement("tr");
+      const createdCell = document.createElement("td");
+      createdCell.textContent = formatDate(signal.created_at);
+      row.append(createdCell);
+      const anchorCell = document.createElement("td");
+      anchorCell.textContent = String(signal.anchor_number);
+      row.append(anchorCell);
+      const numbersCell = document.createElement("td");
+      numbersCell.textContent = Array.isArray(signal.numbers) ? signal.numbers.join(", ") : "—";
+      row.append(numbersCell);
+      for (let attemptNumber = 1; attemptNumber <= SUGGESTION_SIGNAL_ATTEMPTS; attemptNumber += 1) {
+        const cell = document.createElement("td");
+        const attempt = signal.attempts.find((item) => item.attempt === attemptNumber);
+        if (attempt) {
+          cell.textContent = String(attempt.result) + (attempt.hit ? " ✓" : "");
+          cell.classList.add(attempt.hit ? "signal-attempt-hit" : "signal-attempt-miss");
+        } else {
+          cell.textContent = "—";
+        }
+        row.append(cell);
+      }
+      const resultCell = document.createElement("td");
+      resultCell.textContent = suggestionSignalStatusLabel(signal);
+      resultCell.classList.add("signal-result-" + signal.status);
+      row.append(resultCell);
+      fragment.append(row);
+    });
+    body.replaceChildren(fragment);
+    empty.hidden = rows.length > 0;
+    region.hidden = rows.length === 0;
+  }
+
+  function currentSuggestionNumbers() {
+    const windowData = calculateSuggestionWindow(suggestionState.ranking, suggestionState.anchorNumber);
+    return windowData
+      ? windowData.selected.map((item) => item.numero).sort((left, right) => left - right)
+      : [];
+  }
+
+  function createSuggestionSignal() {
+    const windowData = calculateSuggestionWindow(suggestionState.ranking, suggestionState.anchorNumber);
+    if (!windowData || suggestionState.rouletteSlug !== rouletteSelect.value
+        || suggestionHistorySlug !== rouletteSelect.value) return null;
+    const cryptoApi = globalThis.crypto || null;
+    const signalId = cryptoApi && typeof cryptoApi.randomUUID === "function"
+      ? cryptoApi.randomUUID()
+      : String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+    const signal = {
+      id: signalId,
+      created_at: new Date().toISOString(),
+      roulette_slug: rouletteSelect.value,
+      ranking: "JEV Original · próximas 3",
+      anchor_number: suggestionState.anchorNumber,
+      anchor_position: windowData.anchorPosition,
+      numbers: windowData.selected.map((item) => item.numero).sort((left, right) => left - right),
+      attempts: [],
+      status: "pending",
+      hit_attempt: null,
+    };
+    suggestionHistory.push(signal);
+    if (suggestionHistory.length > MAX_SUGGESTION_SIGNALS) {
+      suggestionHistory = suggestionHistory.slice(-MAX_SUGGESTION_SIGNALS);
+    }
+    persistSuggestionHistory();
+    renderSuggestionHistory();
+    return signal;
+  }
+
+  function ensureActiveSuggestionSignal() {
+    const numbers = currentSuggestionNumbers();
+    if (!numbers.length) return null;
+    const existing = suggestionHistory.find((signal) => signal.status === "pending"
+      && signal.roulette_slug === rouletteSelect.value
+      && signal.anchor_number === suggestionState.anchorNumber
+      && JSON.stringify(signal.numbers) === JSON.stringify(numbers));
+    return existing || createSuggestionSignal();
+  }
+
+  function recordSuggestionResultForSignals(event, slug) {
+    let changed = false;
+    const now = new Date().toISOString();
+    suggestionHistory.forEach((signal) => {
+      if (signal.status !== "pending" || signal.roulette_slug !== slug
+          || signal.attempts.length >= SUGGESTION_SIGNAL_ATTEMPTS) return;
+      const attemptNumber = signal.attempts.length + 1;
+      const hit = signal.numbers.includes(event.result);
+      signal.attempts.push({
+        attempt: attemptNumber,
+        result: event.result,
+        hit,
+        received_at: now,
+        event_key: resultEventKey(event),
+      });
+      signal.updated_at = now;
+      if (hit) {
+        signal.status = "hit";
+        signal.hit_attempt = attemptNumber;
+        signal.completed_at = now;
+      } else if (attemptNumber === SUGGESTION_SIGNAL_ATTEMPTS) {
+        signal.status = "miss";
+        signal.hit_attempt = null;
+        signal.completed_at = now;
+      }
+      changed = true;
+    });
+    if (changed) {
+      persistSuggestionHistory();
+      renderSuggestionHistory();
+    }
+  }
+
+  function interruptPendingSuggestionSignals(reason) {
+    let changed = false;
+    const now = new Date().toISOString();
+    suggestionHistory.forEach((signal) => {
+      if (signal.status !== "pending") return;
+      signal.status = "interrupted";
+      signal.completed_at = now;
+      signal.resolution_reason = reason || "Monitoramento interrompido; giros não observados não entram nas tentativas.";
+      changed = true;
+    });
+    if (changed) {
+      persistSuggestionHistory();
+      renderSuggestionHistory();
+    }
+  }
+
   function stopSuggestionMonitor(status = "Monitoramento parado.", resetCounters = false) {
     const socket = suggestionSocket;
     suggestionSocket = null;
     suggestionSocketVersion += 1;
+    if (socket) interruptPendingSuggestionSignals("Monitoramento parado; giros não observados não entram nas tentativas.");
     if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
     byId("suggestion-monitor-toggle").textContent = "Iniciar monitoramento";
     byId("suggestion-monitor-toggle").disabled = !latestRankingData;
@@ -514,17 +730,20 @@
 
     const currentWindow = calculateSuggestionWindow(suggestionState.ranking, suggestionState.anchorNumber);
     if (!currentWindow) return;
+    ensureActiveSuggestionSignal();
     const selectedNumbers = new Set(currentWindow.selected.map((item) => item.numero));
     const inside = selectedNumbers.has(event.result);
+    recordSuggestionResultForSignals(event, slug);
     suggestionCounters.rounds += 1;
     if (inside) suggestionCounters.inside += 1;
     else suggestionCounters.outside += 1;
-    byId("suggestion-last-result").textContent = `${event.result} · ${inside ? "dentro" : "fora"} da sugestão`;
+    byId("suggestion-last-result").textContent = event.result + " · " + (inside ? "dentro" : "fora") + " da sugestão";
     updateSuggestionCounters();
 
     if (!inside && byId("suggestion-auto-update").checked) {
       suggestionState.anchorNumber = event.result;
       renderSuggestionWindow();
+      createSuggestionSignal();
     }
   }
 
@@ -532,7 +751,7 @@
     if (!latestRankingData) return;
     const slug = rouletteSelect.value;
     if (!suggestionState.frozen || suggestionState.rouletteSlug !== slug || !suggestionState.ranking) {
-      const ranking = rankingSourceForView(latestRankingData, byId("ranking-view").value);
+      const ranking = latestRankingData.ranking;
       suggestionState = {
         ranking: Array.isArray(ranking) ? [...ranking] : null,
         anchorNumber: latestRankingData.ultimo_numero,
@@ -553,7 +772,7 @@
     byId("suggestion-auto-update").disabled = false;
     byId("suggestion-monitor-status").textContent = "Conectando…";
     byId("suggestion-monitor-note").textContent =
-      `Usando o mesmo ranking (${byId("ranking-view").selectedOptions[0].textContent}); apenas a referência pode mudar.`;
+      "Usando JEV Original · próximas 3; cada sinal acompanha até três resultados.";
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const url = `${protocol}://api.revesbot.com.br/ws?slug=${encodeURIComponent(slug)}`;
@@ -568,6 +787,7 @@
       return;
     }
     suggestionSocket = socket;
+    ensureActiveSuggestionSignal();
     socket.addEventListener("open", () => {
       if (suggestionSocket !== socket || version !== suggestionSocketVersion) return;
       byId("suggestion-monitor-status").textContent = `Monitorando ${rouletteName(slug)}`;
@@ -590,6 +810,7 @@
       suggestionSocket = null;
       byId("suggestion-monitor-toggle").textContent = "Retomar monitoramento";
       byId("ranking-view").disabled = false;
+      interruptPendingSuggestionSignals("Conexão interrompida; resultados não recebidos não entram nas tentativas.");
       byId("suggestion-monitor-status").textContent = "Conexão interrompida; resultados durante a queda podem não ter sido recebidos.";
       byId("suggestion-monitor-note").textContent = "Confira a conexão e retome o monitoramento para continuar acompanhando.";
     });
@@ -625,7 +846,7 @@
       : latestRankingData.ranking_meta;
     const metaByNumber = new Map(metaSource.map((item) => [item.numero, item]));
     const source = rankingSourceForView(latestRankingData, view);
-    renderRankingNeighborNumbers(source);
+    renderRankingNeighborNumbers(latestRankingData.ranking);
     const rows = source.filter((item) => {
       const main = mainByNumber.get(item.numero);
       const meta = metaByNumber.get(item.numero);
@@ -1426,6 +1647,9 @@
     validateForm();
   }));
 
+  suggestionHistorySlug = rouletteSelect.value;
+  suggestionHistory = loadSuggestionHistory(suggestionHistorySlug);
+  renderSuggestionHistory();
   updateRouletteLabels();
   validateForm();
   updateBacktestEstimate();
