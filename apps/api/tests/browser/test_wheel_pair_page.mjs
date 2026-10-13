@@ -191,6 +191,34 @@ async function chooseSourceLimit(value) {
   assert.equal(await page.inputValue("#heatmap-source-limit"), String(value));
 }
 
+async function chooseLookback(value) {
+  await page.locator("#heatmap-lookback").fill(String(value));
+  await page.locator("#heatmap-lookback").press("Tab");
+  assert.equal(await page.inputValue("#heatmap-lookback"), String(value));
+}
+
+async function assertHeatReference(item, lookback, locked) {
+  const reference = page.locator("#heatmap-reference");
+  assert.deepEqual(await reference.evaluate((node) => ({ ...node.dataset })), {
+    referenceId: item._id,
+    referenceValue: String(item.value),
+    referenceTime: item.timestamp,
+    referenceLookback: String(lookback),
+    locked: String(locked),
+  }, "the reference must identify the exact analyzed occurrence and snapshot state");
+  assert.equal(await page.inputValue("#heatmap-lookback"), String(lookback));
+  assert.equal(await page.getAttribute("#heatmap-lock", "aria-pressed"), String(locked));
+}
+
+async function heatAnalysisSnapshot() {
+  return {
+    race: await heatSnapshot(),
+    ranking: await page.locator("#heatmap-ranking").innerHTML(),
+    table: await page.locator("#heatmap-table-body").innerHTML(),
+    reference: await page.locator("#heatmap-reference").evaluate((node) => ({ ...node.dataset })),
+  };
+}
+
 async function waitForHistory(slug, firstValue) {
   await page.waitForFunction(({ slug: expected, first }) => {
     const app = document.getElementById("history-app");
@@ -335,6 +363,9 @@ try {
   const staleMega = deferredHistory(megaSlug);
   await chooseRoulette(megaSlug);
   await staleMega.started;
+  for (const selector of ["#heatmap-lookback", "#heatmap-previous", "#heatmap-next", "#heatmap-lock"]) {
+    assert.equal(await page.locator(selector).isDisabled(), true, "unlocked historical controls must disable as soon as a fetch starts");
+  }
   assert.equal(await selectedCards().count(), 0);
   await chooseRoulette(autoSlug);
   await waitForHistory(autoSlug, 1);
@@ -630,6 +661,132 @@ try {
     const screenshotDirectory = process.env.WHEEL_PAIR_BROWSER_SCREENSHOT_DIR;
     if (screenshotDirectory) await page.screenshot({ path: path.join(screenshotDirectory, `wheel-heatmap-maximum-${viewport.width}.png`), fullPage: true });
   }
+
+  // At reference 7, the three bets have not yet seen the 26 at position 6.
+  // Historical analysis must exclude that future hit even at 100% reduction.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  fixtures.set(autoSlug, heatItems);
+  await page.click("#refresh-history");
+  await waitForHistory(autoSlug, 20);
+  await chooseSourceLimit(3);
+  await chooseDecay(100);
+  assert.equal(await page.locator("#heatmap-reference").getAttribute("role"), "status");
+  assert.equal(await page.locator("#heatmap-lookback").getAttribute("type"), "number");
+  assert.equal(await page.locator("#heatmap-lookback").getAttribute("min"), "0");
+  assert.equal(await page.locator("#heatmap-lookback").getAttribute("max"), "999");
+  await assertHeatReference(heatItems[0], 0, false);
+  assert.equal(await page.locator("#heatmap-next").isDisabled(), true);
+  const callsBeforeHistoricalNavigation = historyCalls.length;
+  await chooseLookback(999);
+  await assertHeatReference(heatItems[999], 999, false);
+  assert.equal(await page.locator("#heatmap-previous").isDisabled(), true, "navigation must stop at the oldest loaded occurrence");
+  await chooseLookback(7);
+  await assertHeatReference(heatItems[7], 7, false);
+  await assertHeat(26, 2.4, 3);
+  assert.deepEqual(await page.locator("#heatmap-details tr[data-heat-source-index]").evaluateAll((rows) => rows.map((row) => row.dataset.heatSourceId)),
+    heatItems.slice(7, 10).map((item) => item._id), "historical sources must start at the reference rather than at the live head");
+  assert.deepEqual(await page.locator("#heatmap-details tr[data-heat-source-index]").evaluateAll((rows) => rows.map((row) => row.dataset.heatHitCount)), ["0", "0", "0"]);
+  const displayedSourceTimes = await page.locator("#heatmap-details tr[data-heat-source-index] th").evaluateAll((cells) => cells.map((cell) => cell.title));
+  const historicalTimes = await page.evaluate((timestamps) => timestamps.map((timestamp) => new Date(timestamp).toLocaleString("pt-BR")), heatItems.slice(7, 10).map((item) => item.timestamp));
+  assert.deepEqual(displayedSourceTimes, historicalTimes, "table timestamps must belong to the historical sources");
+  await page.click("#heatmap-previous");
+  await assertHeatReference(heatItems[8], 8, false);
+  await page.click("#heatmap-next");
+  await assertHeatReference(heatItems[7], 7, false);
+  assert.equal(historyCalls.length, callsBeforeHistoricalNavigation, "historical navigation must reuse the loaded full history");
+
+  await page.click("#heatmap-lock");
+  await assertHeatReference(heatItems[7], 7, true);
+  for (const selector of ["#heatmap-lookback", "#heatmap-previous", "#heatmap-next"]) {
+    assert.equal(await page.locator(selector).isDisabled(), true, "a locked reference must disable historical navigation");
+  }
+  const frozenHeatAnalysis = await heatAnalysisSnapshot();
+  const lockedLiveItem = { _id: "heat-locked-live-26", value: 26, roulette_id: autoSlug, timestamp: "2026-10-12T07:02:32Z" };
+  fixtures.set(autoSlug, [lockedLiveItem, ...heatItems].slice(0, 1000));
+  const lockedSocket = sockets.findLast((entry) => entry.slug === autoSlug);
+  lockedSocket.socket.send(JSON.stringify({ result: 26, full_result: lockedLiveItem }));
+  await waitForHistory(autoSlug, 26);
+  assert.deepEqual(await heatAnalysisSnapshot(), frozenHeatAnalysis, "a live round must update the grid without changing the locked ranking, race or table");
+  lockedSocket.socket.send(JSON.stringify({ result: 26, full_result: lockedLiveItem }));
+  await page.waitForTimeout(50);
+  assert.equal(await page.locator('#result-grid [data-result-id="heat-locked-live-26"]').count(), 1);
+  assert.deepEqual(await heatAnalysisSnapshot(), frozenHeatAnalysis, "a duplicate live round must preserve the locked snapshot");
+  const callsBeforeLockedConfiguration = historyCalls.length;
+  await chooseSourceLimit(1);
+  await assertHeat(26, 0.7, 1);
+  await chooseDecay(50);
+  await assertHeat(26, 0.7, 1);
+  await assertHeatReference(heatItems[7], 7, true);
+  assert.equal(await page.locator("#heatmap-details tr[data-heat-source-index]").count(), 1);
+  assert.equal(await page.locator("#heatmap-details tr[data-heat-source-index]").getAttribute("data-heat-source-id"), heatItems[7]._id);
+  await chooseSourceLimit(3);
+  await chooseDecay(100);
+  assert.deepEqual(await heatAnalysisSnapshot(), frozenHeatAnalysis, "configuration changes must recalculate the same captured history and reference");
+  assert.equal(historyCalls.length, callsBeforeLockedConfiguration);
+
+  const lockedMissedItem = { _id: "heat-locked-offline-0", value: 0, roulette_id: autoSlug, timestamp: "2026-10-12T07:03:10Z" };
+  fixtures.set(autoSlug, [lockedMissedItem, ...fixtures.get(autoSlug)].slice(0, 1000));
+  lockedSocket.socket.close({ code: 1012, reason: "Locked history fixture missed a round" });
+  await waitForHistory(autoSlug, 0);
+  assert.deepEqual(await heatAnalysisSnapshot(), frozenHeatAnalysis, "reconnection must preserve the complete captured history");
+  await page.click("#refresh-history");
+  await waitForHistory(autoSlug, 0);
+  assert.deepEqual(await heatAnalysisSnapshot(), frozenHeatAnalysis, "refreshing live history must preserve a locked analysis");
+  nextHistory(autoSlug, { empty: true });
+  nextHistory(autoSlug, { empty: true });
+  await page.click("#refresh-history");
+  await page.waitForFunction(() => document.querySelectorAll("#result-grid .result-card").length === 0
+    && document.getElementById("result-grid").getAttribute("aria-busy") !== "true"
+    && document.getElementById("live-status").dataset.state === "online");
+  assert.deepEqual(await heatAnalysisSnapshot(), frozenHeatAnalysis, "an empty live fetch must preserve the captured analysis");
+  assert.equal(await page.locator("#heatmap-current").isDisabled(), false, "returning to the current view must remain available with an empty live history");
+  await page.click("#refresh-history");
+  await waitForHistory(autoSlug, 0);
+  await page.click("#socket-toggle");
+  await page.waitForFunction(() => document.getElementById("live-status").dataset.state === "paused");
+  const lockedPausedItem = { _id: "heat-locked-paused-36", value: 36, roulette_id: autoSlug, timestamp: "2026-10-12T07:03:48Z" };
+  fixtures.set(autoSlug, [lockedPausedItem, ...fixtures.get(autoSlug)].slice(0, 1000));
+  assert.equal(await result(0).getAttribute("data-result-id"), lockedMissedItem._id, "pausing must keep the live grid unchanged until resumption");
+  await page.click("#socket-toggle");
+  await waitForHistory(autoSlug, 36);
+  assert.deepEqual(await heatAnalysisSnapshot(), frozenHeatAnalysis, "pause and resume must update the grid while preserving the locked analysis");
+
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.locator("#heatmap-reference").scrollIntoViewIfNeeded();
+    const dimensions = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+    assert.ok(dimensions.scrollWidth <= dimensions.width, `history controls must fit ${viewport.width}px without document overflow`);
+    const screenshotDirectory = process.env.WHEEL_PAIR_BROWSER_SCREENSHOT_DIR;
+    if (screenshotDirectory) await page.screenshot({ path: path.join(screenshotDirectory, `wheel-heatmap-history-lock-${viewport.width}.png`), fullPage: true });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.click("#heatmap-lock");
+  await assertHeatReference(fixtures.get(autoSlug)[7], 7, false);
+  assert.equal(await page.locator("#heatmap-lookback").isDisabled(), false, "unlocking must resume the captured offset in the current live history");
+  assert.notDeepEqual(await heatSnapshot(), frozenHeatAnalysis.race);
+  await page.click("#heatmap-current");
+  await assertHeatReference(lockedPausedItem, 0, false);
+  assert.equal(await page.locator("#heatmap-next").isDisabled(), true);
+  await page.click("#heatmap-lock");
+  await assertHeatReference(lockedPausedItem, 0, true);
+  await page.click("#heatmap-current");
+  await assertHeatReference(lockedPausedItem, 0, false);
+
+  await chooseLookback(7);
+  await page.click("#heatmap-lock");
+  await chooseRoulette(megaSlug);
+  await waitForHistory(megaSlug, 30);
+  await assertHeatReference(fixtures.get(megaSlug)[0], 0, false);
+  await chooseRoulette(autoSlug);
+  await waitForHistory(autoSlug, 36);
+  await assertHeatReference(lockedPausedItem, 0, false);
+  await chooseLookback(7);
+  await page.click("#heatmap-lock");
+  await page.reload();
+  await waitForHistory(autoSlug, 36);
+  await assertHeatReference(lockedPausedItem, 0, false);
+  assert.equal(await page.inputValue("#heatmap-source-limit"), "3", "only the source preference persists across a reload, not the historical snapshot");
+  assert.equal(await page.inputValue("#heatmap-decay"), "100");
 
   assert.deepEqual(routeErrors, [], "all browser fixture requests must succeed or be explicitly simulated failures");
   assert.deepEqual(pageErrors, [], "the page must not emit JavaScript errors");

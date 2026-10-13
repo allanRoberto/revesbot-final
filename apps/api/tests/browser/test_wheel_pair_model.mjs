@@ -526,3 +526,101 @@ test("ranking windows require an integer between one and ten without coercion", 
   assert.equal(analyzeHeatmap([], 100, 10).sourceLimit, 10);
   assert.equal(analyzeHeatmap([], 100, undefined).sourceLimit, 10);
 });
+
+test("the default historical reference is identical to an explicit zero lookback", () => {
+  const items = paidHeatmapFixture();
+  for (const sourceLimit of [1, 3, 10]) {
+    for (const decayPercent of [25, 100]) {
+      assert.deepEqual(
+        analyzeHeatmap(items, decayPercent, sourceLimit),
+        analyzeHeatmap(items, decayPercent, sourceLimit, 0),
+      );
+    }
+  }
+  assert.equal(analyzeHeatmap(items).lookback, 0);
+});
+
+test("historical rankings exclude future paying results and keep suffix-relative indices", () => {
+  const items = paidHeatmapFixture();
+  const past = analyzeHeatmap(items, 100, 3, 7);
+  assert.equal(past.lookback, 7);
+  assert.equal(past.sourceCount, 3);
+  assert.deepEqual(past.slots.map((slot) => slot.index), [0, 1, 2]);
+  assert.deepEqual(past.slots.map((slot) => slot.analysis.selectedId), ["spin-7", "spin-8", "spin-9"]);
+  assert.deepEqual(past.slots.map((slot) => slot.analysis.selectedIndex), [0, 1, 2]);
+  assert.deepEqual(past.slots.map((slot) => slot.analysis.previousIndex), [8, 6, 4]);
+  assert.deepEqual(past.slots.map((slot) => slot.analysis.leftCenter), [3, 0, 26]);
+  assert.ok(past.slots.every((slot) => slot.hitCount === 0 && slot.weight === 1));
+  assert.equal(past.readyCount, 3);
+  assert.equal(past.unpaidCount, 3);
+  assert.equal(past.paidCount, 0);
+  approximately(past.scores[26].weight, 2.4);
+  assert.equal(past.scores[26].rawCount, 3);
+  assert.equal(past.scores[26].activeCount, 3);
+  // The 26 at absolute index 6 happens after the historical reference.
+  assert.equal(analyzeHeatmap(items, 100, 10, 0).scores[26].weight, 0);
+});
+
+test("historical one-occurrence windows retain older pairing context but ignore future hits", () => {
+  const result = analyzeHeatmap(history(25, 3, 25, 4, 11, 25), 100, 1, 2);
+  const slot = result.slots[0];
+  assert.equal(result.sourceCount, 1);
+  assert.equal(slot.analysis.selectedId, "spin-2");
+  assert.equal(slot.analysis.previousId, "spin-5");
+  assert.equal(slot.analysis.previousIndex, 3);
+  assert.equal(slot.analysis.offsetIndex, 2);
+  assert.equal(slot.analysis.offset, 11);
+  assert.equal(slot.hitCount, 0);
+  assert.equal(slot.weight, 1);
+  assert.deepEqual(result.scores[3], { number: 3, weight: 0.3, rawCount: 1, activeCount: 1 });
+});
+
+test("invalid data from the future cannot invalidate an otherwise valid historical ranking", () => {
+  const items = paidHeatmapFixture();
+  const expected = analyzeHeatmap(items, 100, 3, 7);
+  for (const invalid of [null, undefined, "0", false, NaN, 37]) {
+    const changedFuture = items.map((item) => ({ ...item }));
+    changedFuture[0].value = invalid;
+    assert.deepEqual(analyzeHeatmap(changedFuture, 100, 3, 7), expected);
+  }
+});
+
+test("the oldest reference and empty histories expose insufficient context without inventing pairs", () => {
+  const oldest = analyzeHeatmap(history(25, 11, 25), 100, 10, 2);
+  assert.equal(oldest.lookback, 2);
+  assert.equal(oldest.sourceCount, 1);
+  assert.equal(oldest.slots[0].analysis.selectedId, "spin-2");
+  assert.equal(oldest.slots[0].index, 0);
+  assert.equal(oldest.slots[0].status, "no_previous");
+  assert.equal(oldest.readyCount, 0);
+  assert.equal(oldest.skippedCount, 1);
+  assert.equal(oldest.maxScore, 0);
+  const empty = analyzeHeatmap([], 100, 10, 0);
+  assert.equal(empty.lookback, 0);
+  assert.equal(empty.sourceCount, 0);
+  assert.deepEqual(empty.slots, []);
+  assert.equal(empty.scores.length, 37);
+});
+
+test("historical computations are pure and a preserved reference is unaffected by new live data", () => {
+  const snapshot = Object.freeze(paidHeatmapFixture().map((item) => Object.freeze(item)));
+  const before = JSON.stringify(snapshot);
+  const past = analyzeHeatmap(snapshot, 50, 3, 7);
+  const live = [{ _id: "new-spin", value: 26 }, ...snapshot];
+  const shifted = analyzeHeatmap(live, 50, 3, 8);
+  assert.deepEqual({ ...shifted, lookback: 7 }, past);
+  analyzeHeatmap(live, 50, 10, 0);
+  assert.deepEqual(analyzeHeatmap(snapshot, 50, 3, 7), past);
+  assert.equal(JSON.stringify(snapshot), before);
+});
+
+test("historical offsets require an integer within available history without coercion", () => {
+  const items = history(25, 11, 25);
+  for (const invalid of [-1, 3, 999, 0.5, "0", "2", null, false, NaN, Infinity, {}, []]) {
+    assert.throws(() => analyzeHeatmap(items, 100, 10, invalid), RangeError);
+  }
+  assert.throws(() => analyzeHeatmap([], 100, 10, 1), RangeError);
+  assert.equal(analyzeHeatmap(items, 100, 10, 0).lookback, 0);
+  assert.equal(analyzeHeatmap(items, 100, 10, 2).lookback, 2);
+  assert.equal(analyzeHeatmap(items, 100, 10, undefined).lookback, 0);
+});
