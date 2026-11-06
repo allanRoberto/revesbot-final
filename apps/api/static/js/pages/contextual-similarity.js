@@ -1,4 +1,4 @@
-import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js";
+import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js?v=20261106-50";
 
 const $ = (selector) => document.querySelector(selector);
 const status = $("#analysis-status");

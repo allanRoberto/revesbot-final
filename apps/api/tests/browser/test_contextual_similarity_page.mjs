@@ -17,6 +17,7 @@ const occurrences = ["episode-a", "episode-b", "episode-c"].map((id) => ({
   following: [5, 0, 17, 28, 36], preceding_complete: true, preceding_lookup_status: "complete",
 }));
 const searchRequests = [];
+const staticScripts = [];
 const errors = [];
 const browser = await chromium.launch({
   headless: true,
@@ -26,6 +27,12 @@ const browser = await chromium.launch({
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith("/contextual-similarity.js") || url.pathname.endsWith("/contextual-similarity-model.js")) {
+      staticScripts.push(url);
+    }
+  });
   await page.route(`${origin}/**`, async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/analise-similaridade-contextual") {
@@ -54,6 +61,8 @@ try {
   await page.goto(`${origin}/analise-similaridade-contextual`);
   await page.locator("#analysis-status").getByText("3 ocorrência(s) selecionada(s)").waitFor();
   assert.deepEqual(searchRequests[0].sequence, [5, 28, 0, 4]);
+  assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity.js") && url.searchParams.get("v") === "20261106-50"), true);
+  assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity-model.js") && url.searchParams.get("v") === "20261106-50"), true);
   assert.equal(searchRequests[0].roulette_id, "pragmatic-brazilian-roulette");
   assert.equal(await page.locator("#current-context .cs-number").count(), 5);
   assert.equal(await page.locator("#current-sequence .cs-number").count(), 4);
