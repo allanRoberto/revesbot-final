@@ -6,7 +6,7 @@ export const CONFIG = Object.freeze({
   selectedOccurrences: 3,
   exactPoints: 10,
   neighborPoints: 8,
-  minimumSimilarity: 60,
+  minimumSimilarity: 50,
 });
 
 export const WHEEL = Object.freeze([

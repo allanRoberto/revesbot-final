@@ -31,7 +31,7 @@ test("incomplete contexts are excluded without filling missing values", () => {
   assert.equal(result.rows.every((row) => row.score === null), true);
 });
 
-test("contextual selection applies the 60 percent cutoff and returns at most three", () => {
+test("contextual selection applies the 50 percent cutoff and returns at most three", () => {
   const occurrences = Array.from({ length: 5 }, (_, index) => ({
     id: `match-${index}`, context: [5, 28, 0, 4], preceding: [1, 2, 3, 4, 5],
     preceding_complete: true, following: [5, 9, 7, 19, 0],
@@ -40,6 +40,16 @@ test("contextual selection applies the 60 percent cutoff and returns at most thr
   assert.equal(result.comparableCount, 5);
   assert.equal(result.selected.length, 3);
   assert.deepEqual(result.selected.map((row) => row.id), ["match-0", "match-1", "match-2"]);
+});
+
+test("the 50 percent cutoff accepts a 52 percent context and rejects 48 percent", () => {
+  const occurrences = [
+    { id: "above", context: [5, 28, 0, 4], preceding: [0, 33, 21, 12, 18], preceding_complete: true, following: [1, 2, 3, 4, 5] },
+    { id: "below", context: [5, 28, 0, 4], preceding: [26, 33, 21, 12, 18], preceding_complete: true, following: [1, 2, 3, 4, 5] },
+  ];
+  const result = model.analyzeOccurrences([0, 1, 2, 3, 4], occurrences);
+  assert.deepEqual(result.rows.map((row) => row.score.similarity), [52, 48]);
+  assert.deepEqual(result.selected.map((row) => row.id), ["above"]);
 });
 
 test("following observations distribute to self and both physical neighbors, including zero rows", () => {
