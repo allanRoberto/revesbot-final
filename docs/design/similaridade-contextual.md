@@ -40,9 +40,12 @@ Modelo sem dependência de DOM em `apps/api/static/js/core/contextual-similarity
 interface em `apps/api/static/js/pages/contextual-similarity.js`; markup e estilos
 em `apps/api/templates/contextual_similarity.html` e
 `apps/api/static/css/pages/contextual-similarity.css`. A rota FastAPI está em
-`apps/api/routes/pages.py`; `infra/nginx/api-revesbot.conf` encaminha a rota à API.
+`apps/api/routes/contextual_similarity.py`; `infra/nginx/api-revesbot.conf`
+encaminha a rota à API.
 O endpoint vetorial continua protegido e publicado pelo location já existente
 `/busca-vetorial/api/search`. O fluxo só lê o histórico e o índice vetorial.
+Os URLs dos módulos JavaScript recebem uma versão explícita porque o CDN aplica
+cache de longa duração a `/static/`; atualizar a versão invalida código antigo.
 
 ## Verificação
 
