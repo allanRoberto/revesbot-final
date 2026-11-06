@@ -33,27 +33,4 @@ jobs:
         run: |
           test -n "$DEPLOY_HOST"
           test -n "$DEPLOY_USER"
-          ssh -T "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
-          set -euo pipefail
-          runtime="$(sudo -u revesbot-vector-experiments env \
-            PM2_HOME=/var/lib/revesbot-vector-experiments/pm2 \
-            pm2 jlist | /usr/bin/python3 -c '
-          import json, sys
-          processes = json.load(sys.stdin)
-          active = [p for p in processes if p.get("name") == "vector-experiments-api"
-                    and p.get("pm2_env", {}).get("status") == "online"]
-          if len(active) != 1:
-              raise SystemExit("expected_one_online_experimental_api")
-          print(active[0]["pm2_env"]["pm_cwd"])
-          ')"
-          case "$runtime" in
-            /opt/revesbot-vector-experiments/releases/*) ;;
-            *) echo "experimental_runtime_path_rejected" >&2; exit 1 ;;
-          esac
-          test -x "$runtime/.venv-experiments/bin/python"
-          test -f "$runtime/infra/deploy/vector-experiments/publish.py"
-          sudo "$runtime/.venv-experiments/bin/python" \
-            "$runtime/infra/deploy/vector-experiments/publish.py" \
-            --runtime "$runtime" \
-            --vhost /etc/nginx/sites-available/api-revesbot.conf
-          REMOTE
+          ssh -T "$DEPLOY_USER@$DEPLOY_HOST" restore-vector-experiments-routes

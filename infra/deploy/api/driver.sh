@@ -9,7 +9,41 @@ fi
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 unset CDPATH ENV BASH_ENV PYTHONHOME PYTHONPATH
 
-commit_sha="${1:-}"
+request="${1:-}"
+trusted_root="/var/lib/revesbot-api-deploy"
+driver_lock="$trusted_root/driver.lock"
+
+if [[ "$request" == "restore-vector-experiments-routes" ]]; then
+  [[ "$#" -eq 1 ]] || { echo "Comando operacional invalido." >&2; exit 2; }
+  test -d "$trusted_root"
+  exec 8>"$driver_lock"
+  flock -n 8 || { echo "Outro deploy da API esta sendo preparado." >&2; exit 1; }
+
+  experiment_runtime="$(sudo -u revesbot-vector-experiments env \
+    PM2_HOME=/var/lib/revesbot-vector-experiments/pm2 \
+    pm2 jlist | /usr/bin/python3 -c '
+import json, sys
+processes = json.load(sys.stdin)
+active = [p for p in processes if p.get("name") == "vector-experiments-api"
+          and p.get("pm2_env", {}).get("status") == "online"]
+if len(active) != 1:
+    raise SystemExit("expected_one_online_experimental_api")
+print(active[0]["pm2_env"]["pm_cwd"])
+')"
+  experiment_runtime="$(readlink -f -- "$experiment_runtime")"
+  case "$experiment_runtime" in
+    /opt/revesbot-vector-experiments/releases/*) ;;
+    *) echo "Runtime experimental rejeitado." >&2; exit 1 ;;
+  esac
+  test -x "$experiment_runtime/.venv-experiments/bin/python"
+  test -f "$experiment_runtime/infra/deploy/vector-experiments/publish.py"
+  exec "$experiment_runtime/.venv-experiments/bin/python" \
+    "$experiment_runtime/infra/deploy/vector-experiments/publish.py" \
+    --runtime "$experiment_runtime" \
+    --vhost /etc/nginx/sites-available/api-revesbot.conf
+fi
+
+commit_sha="$request"
 [[ "$commit_sha" =~ ^[0-9a-f]{40}$ ]] || {
   echo "Informe o SHA Git completo." >&2
   exit 2
@@ -18,9 +52,7 @@ commit_sha="${1:-}"
 base_dir="/var/www/revesbot"
 deploy_ref="main"
 repository_url="https://github.com/allanRoberto/revesbot-final.git"
-trusted_root="/var/lib/revesbot-api-deploy"
 trusted_repository="$trusted_root/repository.git"
-driver_lock="$trusted_root/driver.lock"
 
 install -d -m 0755 -o root -g root "$base_dir"
 install -d -m 0700 -o root -g root "$trusted_root"
