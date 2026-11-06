@@ -11,6 +11,7 @@ def test_minimal_api_exposes_only_expected_functional_routes() -> None:
     assert paths == {
         "/api/roulettes-list",
         "/contagem-casas",
+        "/analise-similaridade-contextual",
         "/jev",
         "/api/jev/historico",
         "/api/jev/analisar",
@@ -45,6 +46,14 @@ def test_minimal_api_exposes_only_expected_functional_routes() -> None:
     assert app.docs_url is None
     assert app.redoc_url is None
     assert app.openapi_url is None
+
+
+def test_contextual_similarity_page_is_available_in_minimal_api() -> None:
+    response = TestClient(app).get("/analise-similaridade-contextual")
+
+    assert response.status_code == 200
+    assert "Similaridade contextual" in response.text
+    assert 'src="/static/js/pages/contextual-similarity.js"' in response.text
 
 
 def test_history_html_uses_external_assets_and_docs_are_disabled() -> None:

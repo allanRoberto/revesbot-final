@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from api.routes.behavior_lab import router as behavior_lab_router
+from api.routes.contextual_similarity import router as contextual_similarity_router
 from api.routes.jev import router as jev_router
 from api.routes.pixgo_webhook import router as pixgo_webhook_router
 from api.routes.pattern_monitoring import router as pattern_monitoring_router
@@ -57,6 +58,7 @@ app.add_middleware(
 )
 
 app.include_router(roulette_history_router)
+app.include_router(contextual_similarity_router)
 app.include_router(wheel_pair_router)
 app.include_router(jev_router)
 app.include_router(results_websocket_router)
