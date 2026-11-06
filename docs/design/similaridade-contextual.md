@@ -11,7 +11,7 @@ anteriores e a sequência cronológica dos quatro mais recentes. A busca usa
 
 A similaridade contextual usa matching máximo um-para-um entre os dois arrays de
 cinco resultados: 10 pontos por número exato e 8 por vizinho imediato na roda
-europeia, pontuação máxima de 50 e corte configurável inicialmente em 60%. No
+europeia, pontuação máxima de 50 e corte contextual atual de 50%. No
 empate, a contagem exata decide antes da ordem original. Até três ocorrências
 selecionadas contribuem igualmente para o ranking final.
 
