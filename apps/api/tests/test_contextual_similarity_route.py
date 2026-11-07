@@ -13,5 +13,5 @@ def test_contextual_similarity_page_renders_without_loading_history():
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert "Similaridade contextual" in response.text
-    assert 'src="/static/js/pages/contextual-similarity.js?v=20261106-50"' in response.text
+    assert 'src="/static/js/pages/contextual-similarity.js?v=20261106-30-top6"' in response.text
     assert "{{" not in response.text

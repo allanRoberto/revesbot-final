@@ -61,8 +61,8 @@ try {
   await page.goto(`${origin}/analise-similaridade-contextual`);
   await page.locator("#analysis-status").getByText("3 ocorrência(s) selecionada(s)").waitFor();
   assert.deepEqual(searchRequests[0].sequence, [5, 28, 0, 4]);
-  assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity.js") && url.searchParams.get("v") === "20261106-50"), true);
-  assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity-model.js") && url.searchParams.get("v") === "20261106-50"), true);
+  assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity.js") && url.searchParams.get("v") === "20261106-30-top6"), true);
+  assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity-model.js") && url.searchParams.get("v") === "20261106-30-top6"), true);
   assert.equal(searchRequests[0].roulette_id, "pragmatic-brazilian-roulette");
   assert.equal(await page.locator("#current-context .cs-number").count(), 5);
   assert.equal(await page.locator("#current-sequence .cs-number").count(), 4);
@@ -70,7 +70,7 @@ try {
   assert.equal(await page.locator("#ranking-rows tr").count(), 37);
   assert.equal(await page.locator("#selected-details .cs-selected-card").count(), 3);
   assert.equal(await page.locator("#selected-details .cs-match-list li").count(), 30);
-  assert.equal(await page.locator("#ranking-denominator").textContent(), "Máximo individual: 150 pontos (15 resultados × 10)");
+  assert.equal(await page.locator("#ranking-denominator").textContent(), "Máximo individual: 300 pontos (30 resultados × 10)");
   assert.deepEqual(errors, []);
 
   await page.setViewportSize({ width: 390, height: 844 });

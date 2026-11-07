@@ -31,24 +31,26 @@ test("incomplete contexts are excluded without filling missing values", () => {
   assert.equal(result.rows.every((row) => row.score === null), true);
 });
 
-test("contextual selection applies the 50 percent cutoff and returns at most three", () => {
-  const occurrences = Array.from({ length: 5 }, (_, index) => ({
+test("contextual selection applies the 30 percent cutoff and returns at most six", () => {
+  const occurrences = Array.from({ length: 8 }, (_, index) => ({
     id: `match-${index}`, context: [5, 28, 0, 4], preceding: [1, 2, 3, 4, 5],
     preceding_complete: true, following: [5, 9, 7, 19, 0],
   }));
+  occurrences[6].preceding = [26, 13, 15, 17, 6];
+  occurrences[7].preceding_complete = false;
   const result = model.analyzeOccurrences([1, 2, 3, 4, 5], occurrences);
-  assert.equal(result.comparableCount, 5);
-  assert.equal(result.selected.length, 3);
-  assert.deepEqual(result.selected.map((row) => row.id), ["match-0", "match-1", "match-2"]);
+  assert.equal(result.comparableCount, 7);
+  assert.equal(result.selected.length, 6);
+  assert.deepEqual(result.selected.map((row) => row.id), ["match-0", "match-1", "match-2", "match-3", "match-4", "match-5"]);
 });
 
-test("the 50 percent cutoff accepts a 52 percent context and rejects 48 percent", () => {
+test("the 30 percent cutoff accepts a 32 percent context and rejects 16 percent", () => {
   const occurrences = [
-    { id: "above", context: [5, 28, 0, 4], preceding: [0, 33, 21, 12, 18], preceding_complete: true, following: [1, 2, 3, 4, 5] },
-    { id: "below", context: [5, 28, 0, 4], preceding: [26, 33, 21, 12, 18], preceding_complete: true, following: [1, 2, 3, 4, 5] },
+    { id: "above", context: [5, 28, 0, 4], preceding: [26, 33, 13, 17, 6], preceding_complete: true, following: [1, 2, 3, 4, 5] },
+    { id: "below", context: [5, 28, 0, 4], preceding: [26, 13, 15, 17, 6], preceding_complete: true, following: [1, 2, 3, 4, 5] },
   ];
   const result = model.analyzeOccurrences([0, 1, 2, 3, 4], occurrences);
-  assert.deepEqual(result.rows.map((row) => row.score.similarity), [52, 48]);
+  assert.deepEqual(result.rows.map((row) => row.score.similarity), [32, 16]);
   assert.deepEqual(result.selected.map((row) => row.id), ["above"]);
 });
 
