@@ -1,4 +1,4 @@
-import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js?v=20261106-30-top6";
+import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js?v=20261107-highlight-matches";
 
 const $ = (selector) => document.querySelector(selector);
 const status = $("#analysis-status");
@@ -6,17 +6,25 @@ const button = $("#run-analysis");
 const redNumbers = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 let activeController = null;
 
-function numberPill(value) {
+function numberPill(value, matchLabel = "") {
   const pill = document.createElement("span");
   pill.className = `cs-number ${value === 0 ? "cs-number--green" : redNumbers.has(value) ? "cs-number--red" : "cs-number--black"}`;
   pill.textContent = String(value);
+  if (matchLabel) {
+    pill.classList.add("cs-number--matched");
+    pill.title = `Coincide com ${matchLabel}`;
+    pill.setAttribute("aria-label", `${value}, coincide com ${matchLabel}`);
+  }
   return pill;
 }
 
-function numberList(values) {
+function numberList(values, matchingNumbers = null, matchLabel = "") {
   const list = document.createElement("span");
   list.className = "cs-number-list";
-  if (Array.isArray(values)) values.forEach((value) => list.append(numberPill(value)));
+  if (Array.isArray(values)) values.forEach((value) => {
+    const matched = matchingNumbers?.has(value) ? matchLabel : "";
+    list.append(numberPill(value, matched));
+  });
   else list.textContent = "—";
   return list;
 }
@@ -38,9 +46,11 @@ function cell(row, value, className = "") {
   return td;
 }
 
-function renderOccurrences(analysis) {
+function renderOccurrences(analysis, currentContext, searchSequence) {
   const body = $("#occurrence-rows");
   const selectedIds = new Set(analysis.selected.map((row) => row.id));
+  const currentContextNumbers = new Set(currentContext);
+  const searchSequenceNumbers = new Set(searchSequence);
   const sorted = [...analysis.rows].sort((left, right) => {
     if (!left.score) return right.score ? 1 : left.index - right.index;
     if (!right.score) return -1;
@@ -58,8 +68,10 @@ function renderOccurrences(analysis) {
     row.className = selected ? "cs-selected-row" : "";
     cell(row, index + 1);
     cell(row, occurrence.id || "ID ausente", "cs-id");
-    cell(row, numberList(occurrence.precedingValid ? occurrence.preceding : null));
-    cell(row, numberList(occurrence.contextValid ? occurrence.context : null));
+    cell(row, numberList(occurrence.precedingValid ? occurrence.preceding : null,
+      currentContextNumbers, "o contexto anterior atual"));
+    cell(row, numberList(occurrence.contextValid ? occurrence.context : null,
+      searchSequenceNumbers, "a sequência da busca"));
     cell(row, numberList(occurrence.followingValid ? occurrence.following : null));
     cell(row, occurrence.score?.exact ?? "—");
     cell(row, occurrence.score?.neighbor ?? "—");
@@ -224,7 +236,7 @@ async function runAnalysis() {
     $("#returned-count").textContent = String(payload.occurrences.length);
     $("#comparable-count").textContent = String(analysis.comparableCount);
     $("#approved-count").textContent = String(analysis.rows.filter((row) => row.approved).length);
-    renderOccurrences(analysis);
+    renderOccurrences(analysis, currentContext, sequence);
     renderRanking(ranked);
     renderSelected(analysis);
     setBusy(false, `${analysis.selected.length} ocorrência(s) selecionada(s); ${ranked.analyzedResults} resultado(s) posterior(es) analisado(s).`);

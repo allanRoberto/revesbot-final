@@ -33,6 +33,7 @@
 .cs-table-wrap tbody tr:last-child td { border-bottom: 0; }
 .cs-table-wrap tbody tr:hover { background: color-mix(in srgb, var(--accent), transparent 94%); }
 .cs-table-wrap .cs-number { min-width: 24px; height: 24px; border-radius: 6px; font-size: 10px; }
+.cs-table-wrap .cs-number--matched { outline: 1.5px solid #39ff14; outline-offset: 1px; box-shadow: 0 0 8px rgb(57 255 20 / 75%); }
 .cs-table-wrap .cs-id { max-width: 190px; overflow: hidden; text-overflow: ellipsis; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; }
 .cs-selected-row { background: color-mix(in srgb, var(--accent), transparent 91%); }
 .cs-status-cell { color: var(--muted); }
