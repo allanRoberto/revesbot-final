@@ -7,6 +7,7 @@ const occurrenceBody = $("#occurrence-rows");
 const redNumbers = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 const selectedOccurrenceNumbers = new Set();
 let activeController = null;
+let currentOccurrenceView = null;
 
 function numberPill(value, matchLabel = "") {
   const pill = document.createElement("span");
@@ -52,7 +53,7 @@ function updateSelectablePill(pill) {
 function toggleOccurrenceNumber(number) {
   if (selectedOccurrenceNumbers.has(number)) selectedOccurrenceNumbers.delete(number);
   else selectedOccurrenceNumbers.add(number);
-  occurrenceBody.querySelectorAll(".cs-number--selectable").forEach(updateSelectablePill);
+  if (currentOccurrenceView) renderOccurrences(...currentOccurrenceView);
 }
 
 function handleOccurrenceNumberInput(event) {
@@ -83,16 +84,74 @@ function cell(row, value, className = "") {
   return td;
 }
 
+function matchCounts(current, historical) {
+  if (!Array.isArray(current) || !Array.isArray(historical)) return { exact: 0, neighbor: 0 };
+  let best = { exact: 0, neighbor: 0 };
+  const used = new Set();
+  function visit(index, exact, neighbor) {
+    if (index === historical.length) {
+      if (exact > best.exact || (exact === best.exact && neighbor > best.neighbor)) best = { exact, neighbor };
+      return;
+    }
+    visit(index + 1, exact, neighbor);
+    for (let targetIndex = 0; targetIndex < current.length; targetIndex += 1) {
+      if (used.has(targetIndex)) continue;
+      const target = current[targetIndex];
+      const type = historical[index] === target ? "exact"
+        : neighborsOf(target).includes(historical[index]) ? "neighbor" : null;
+      if (!type) continue;
+      used.add(targetIndex);
+      visit(index + 1, exact + Number(type === "exact"), neighbor + Number(type === "neighbor"));
+      used.delete(targetIndex);
+    }
+  }
+  visit(0, 0, 0);
+  return best;
+}
+
+function compareDistribution(left, right) {
+  const leftSorted = [...left].sort((a, b) => b - a);
+  const rightSorted = [...right].sort((a, b) => b - a);
+  const leftGroups = left.filter((value) => value > 0).length;
+  const rightGroups = right.filter((value) => value > 0).length;
+  if (leftGroups !== rightGroups) return rightGroups - leftGroups;
+  for (let index = 0; index < Math.max(leftSorted.length, rightSorted.length); index += 1) {
+    const difference = (rightSorted[index] || 0) - (leftSorted[index] || 0);
+    if (difference) return difference;
+  }
+  return 0;
+}
+
+function occurrenceOrder(left, right, currentContext, searchSequence) {
+  const leftSequence = matchCounts(searchSequence, left.context);
+  const rightSequence = matchCounts(searchSequence, right.context);
+  const leftExact = [left.score?.exact || 0, leftSequence.exact];
+  const rightExact = [right.score?.exact || 0, rightSequence.exact];
+  let difference = compareDistribution(leftExact, rightExact);
+  if (difference) return difference;
+
+  const selectedCounts = (row) => [row.preceding, row.context, row.following]
+    .map((values) => Array.isArray(values) ? values.filter((number) => selectedOccurrenceNumbers.has(number)).length : 0);
+  difference = compareDistribution(selectedCounts(left), selectedCounts(right));
+  if (difference) return difference;
+
+  const leftNeighbors = [left.score?.neighbor || 0, leftSequence.neighbor];
+  const rightNeighbors = [right.score?.neighbor || 0, rightSequence.neighbor];
+  difference = compareDistribution(leftNeighbors, rightNeighbors);
+  if (difference) return difference;
+
+  if (!left.score) return right.score ? 1 : left.index - right.index;
+  if (!right.score) return -1;
+  return right.score.score - left.score.score || right.score.exact - left.score.exact || left.index - right.index;
+}
+
 function renderOccurrences(analysis, currentContext, searchSequence) {
   const body = $("#occurrence-rows");
+  currentOccurrenceView = [analysis, currentContext, searchSequence];
   const selectedIds = new Set(analysis.selected.map((row) => row.id));
   const currentContextNumbers = new Set(currentContext);
   const searchSequenceNumbers = new Set(searchSequence);
-  const sorted = [...analysis.rows].sort((left, right) => {
-    if (!left.score) return right.score ? 1 : left.index - right.index;
-    if (!right.score) return -1;
-    return right.score.score - left.score.score || right.score.exact - left.score.exact || left.index - right.index;
-  });
+  const sorted = [...analysis.rows].sort((left, right) => occurrenceOrder(left, right, currentContext, searchSequence));
   body.replaceChildren();
   if (!sorted.length) {
     const row = body.insertRow();
