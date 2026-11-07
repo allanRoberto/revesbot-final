@@ -53,7 +53,8 @@ def test_contextual_similarity_page_is_available_in_minimal_api() -> None:
 
     assert response.status_code == 200
     assert "Similaridade contextual" in response.text
-    assert 'src="/static/js/pages/contextual-similarity.js?v=20261106-30-top6"' in response.text
+    assert 'src="/static/js/pages/contextual-similarity.js?v=20261107-highlight-matches"' in response.text
+    assert 'href="/static/css/pages/contextual-similarity.css?v=20261107-highlight-matches"' in response.text
 
 
 def test_history_html_uses_external_assets_and_docs_are_disabled() -> None:

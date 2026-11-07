@@ -29,6 +29,9 @@ número de resultados posteriores válidos multiplicado por 10; o percentual nã
 - Painel de contexto atual, sequência vetorial e contadores de cobertura.
 - Tabela auditável de ocorrências, com correspondências detalhadas e realce das
   seis selecionadas.
+- Na tabela de ocorrências, contornos verde fluorescente identificam os números
+  iguais ao contexto atual na coluna **Anterior** e à sequência da busca na
+  coluna **Sequência**.
 - Ranking de 37 números e cartões de rastreabilidade das ocorrências selecionadas.
   Cada cartão também expõe a distribuição de pontos de cada posterior e as
   correspondências escolhidas no matching contextual.
@@ -46,7 +49,7 @@ em `apps/api/templates/contextual_similarity.html` e
 encaminha a rota à API.
 O endpoint vetorial continua protegido e publicado pelo location já existente
 `/busca-vetorial/api/search`. O fluxo só lê o histórico e o índice vetorial.
-Os URLs dos módulos JavaScript recebem uma versão explícita porque o CDN aplica
+Os URLs dos assets da página recebem uma versão explícita porque o CDN aplica
 cache de longa duração a `/static/`; atualizar a versão invalida código antigo.
 
 ## Verificação
