@@ -11,9 +11,11 @@ anteriores e a sequência cronológica dos quatro mais recentes. A busca usa
 
 A similaridade contextual usa matching máximo um-para-um entre os dois arrays de
 cinco resultados: 10 pontos por número exato e 8 por vizinho imediato na roda
-europeia, pontuação máxima de 50 e corte contextual atual de 50%. No
-empate, a contagem exata decide antes da ordem original. Até três ocorrências
-selecionadas contribuem igualmente para o ranking final.
+europeia, pontuação máxima de 50 e corte contextual atual de 30%. No
+empate, a contagem exata decide antes da ordem original. Até seis ocorrências
+selecionadas contribuem igualmente para o ranking final neste experimento.
+Cada ocorrência contém até cinco resultados posteriores, totalizando até 30
+resultados analisados; o denominador percentual acompanha os dados válidos.
 
 Cada valor válido de `following` distribui 10 pontos para si e 8 para cada
 vizinho físico. O ranking contém todos os 37 números, incluindo zeros. As
@@ -26,7 +28,7 @@ número de resultados posteriores válidos multiplicado por 10; o percentual nã
 - Cabeçalho com ação explícita para recarregar os nove resultados e refazer a busca.
 - Painel de contexto atual, sequência vetorial e contadores de cobertura.
 - Tabela auditável de ocorrências, com correspondências detalhadas e realce das
-  três selecionadas.
+  seis selecionadas.
 - Ranking de 37 números e cartões de rastreabilidade das ocorrências selecionadas.
   Cada cartão também expõe a distribuição de pontos de cada posterior e as
   correspondências escolhidas no matching contextual.

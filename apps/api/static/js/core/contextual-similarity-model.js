@@ -3,10 +3,10 @@ export const CONFIG = Object.freeze({
   contextLength: 5,
   sequenceLength: 4,
   followingLength: 5,
-  selectedOccurrences: 3,
+  selectedOccurrences: 6,
   exactPoints: 10,
   neighborPoints: 8,
-  minimumSimilarity: 50,
+  minimumSimilarity: 30,
 });
 
 export const WHEEL = Object.freeze([

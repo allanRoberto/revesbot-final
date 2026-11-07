@@ -1,4 +1,4 @@
-import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js?v=20261106-50";
+import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js?v=20261106-30-top6";
 
 const $ = (selector) => document.querySelector(selector);
 const status = $("#analysis-status");
@@ -159,7 +159,7 @@ function renderRanking(result) {
   $("#ranking-denominator").textContent = `Máximo individual: ${result.maximum} pontos (${result.analyzedResults} resultados × 10)`;
   result.ranking.forEach((entry, index) => {
     const row = body.insertRow();
-    if (entry.score > 0 && index < 5) row.className = "cs-top-number";
+    if (entry.score > 0 && index < 6) row.className = "cs-top-number";
     cell(row, index + 1);
     cell(row, numberPill(entry.number));
     cell(row, entry.score);
