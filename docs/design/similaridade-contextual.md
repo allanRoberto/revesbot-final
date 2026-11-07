@@ -32,6 +32,8 @@ número de resultados posteriores válidos multiplicado por 10; o percentual nã
 - Na tabela de ocorrências, contornos verde fluorescente identificam os números
   iguais ao contexto atual na coluna **Anterior** e à sequência da busca na
   coluna **Sequência**.
+- Clique em números da lista para marcá-los em amarelo e destacar todas as
+  ocorrências nas três colunas; outro clique desmarca o número.
 - Ranking de 37 números e cartões de rastreabilidade das ocorrências selecionadas.
   Cada cartão também expõe a distribuição de pontos de cada posterior e as
   correspondências escolhidas no matching contextual.

@@ -1,9 +1,11 @@
-import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js?v=20261107-highlight-matches";
+import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js?v=20261107-click-select";
 
 const $ = (selector) => document.querySelector(selector);
 const status = $("#analysis-status");
 const button = $("#run-analysis");
+const occurrenceBody = $("#occurrence-rows");
 const redNumbers = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const selectedOccurrenceNumbers = new Set();
 let activeController = null;
 
 function numberPill(value, matchLabel = "") {
@@ -18,15 +20,50 @@ function numberPill(value, matchLabel = "") {
   return pill;
 }
 
-function numberList(values, matchingNumbers = null, matchLabel = "") {
+function numberList(values, matchingNumbers = null, matchLabel = "", selectable = false) {
   const list = document.createElement("span");
   list.className = "cs-number-list";
   if (Array.isArray(values)) values.forEach((value) => {
     const matched = matchingNumbers?.has(value) ? matchLabel : "";
-    list.append(numberPill(value, matched));
+    const pill = numberPill(value, matched);
+    if (selectable) {
+      pill.classList.add("cs-number--selectable");
+      pill.dataset.occurrenceNumber = String(value);
+      if (matched) pill.dataset.matchLabel = matched;
+      pill.setAttribute("role", "button");
+      pill.setAttribute("tabindex", "0");
+      updateSelectablePill(pill);
+    }
+    list.append(pill);
   });
   else list.textContent = "—";
   return list;
+}
+
+function updateSelectablePill(pill) {
+  const number = Number(pill.dataset.occurrenceNumber);
+  const selected = selectedOccurrenceNumbers.has(number);
+  pill.classList.toggle("cs-number--selected", selected);
+  pill.setAttribute("aria-pressed", String(selected));
+  const matchDescription = pill.dataset.matchLabel ? `; coincide com ${pill.dataset.matchLabel}` : "";
+  pill.setAttribute("aria-label", `Número ${number}${matchDescription}; ${selected ? "selecionado, clique para desmarcar" : "não selecionado, clique para selecionar"}`);
+}
+
+function toggleOccurrenceNumber(number) {
+  if (selectedOccurrenceNumbers.has(number)) selectedOccurrenceNumbers.delete(number);
+  else selectedOccurrenceNumbers.add(number);
+  occurrenceBody.querySelectorAll(".cs-number--selectable").forEach(updateSelectablePill);
+}
+
+function handleOccurrenceNumberInput(event) {
+  const pill = event.target instanceof Element ? event.target.closest(".cs-number--selectable") : null;
+  if (!pill) return;
+  if (event.type === "keydown") {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+  }
+  const number = Number(pill.dataset.occurrenceNumber);
+  if (Number.isInteger(number) && number >= 0 && number <= 36) toggleOccurrenceNumber(number);
 }
 
 function setNumbers(target, values) {
@@ -69,10 +106,11 @@ function renderOccurrences(analysis, currentContext, searchSequence) {
     cell(row, index + 1);
     cell(row, occurrence.id || "ID ausente", "cs-id");
     cell(row, numberList(occurrence.precedingValid ? occurrence.preceding : null,
-      currentContextNumbers, "o contexto anterior atual"));
+      currentContextNumbers, "o contexto anterior atual", true));
     cell(row, numberList(occurrence.contextValid ? occurrence.context : null,
-      searchSequenceNumbers, "a sequência da busca"));
-    cell(row, numberList(occurrence.followingValid ? occurrence.following : null));
+      searchSequenceNumbers, "a sequência da busca", true));
+    cell(row, numberList(occurrence.followingValid ? occurrence.following : null,
+      null, "", true));
     cell(row, occurrence.score?.exact ?? "—");
     cell(row, occurrence.score?.neighbor ?? "—");
     cell(row, occurrence.score?.score ?? "—");
@@ -247,6 +285,8 @@ async function runAnalysis() {
   }
 }
 
+occurrenceBody.addEventListener("click", handleOccurrenceNumberInput);
+occurrenceBody.addEventListener("keydown", handleOccurrenceNumberInput);
 button.addEventListener("click", runAnalysis);
 const root = document.documentElement;
 try {

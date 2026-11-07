@@ -7,7 +7,7 @@
   <title>Similaridade contextual | Revesbot</title>
   <link rel="stylesheet" href="/static/css/tokens.css">
   <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/pages/contextual-similarity.css?v=20261107-highlight-matches">
+  <link rel="stylesheet" href="/static/css/pages/contextual-similarity.css?v=20261107-click-select">
 </head>
 <body class="contextual-similarity-page">
   <main class="cs-shell" id="contextual-similarity-app">
@@ -34,7 +34,7 @@
     </section>
 
     <section class="cs-panel" aria-labelledby="occurrences-heading">
-      <div class="cs-panel-heading"><div><p class="eyebrow">5 números anteriores · corte ≥ 30%</p><h2 id="occurrences-heading">Ocorrências e similaridade contextual</h2></div><span class="cs-legend">Borda verde: número coincidente · Exata: 10 · Vizinho: 8</span></div>
+      <div class="cs-panel-heading"><div><p class="eyebrow">5 números anteriores · corte ≥ 30%</p><h2 id="occurrences-heading">Ocorrências e similaridade contextual</h2></div><span class="cs-legend">Borda verde: número coincidente · Clique para selecionar e destacar ocorrências · Exata: 10 · Vizinho: 8</span></div>
       <div class="cs-table-wrap"><table><thead><tr><th>Pos.</th><th>ID da ocorrência</th><th>Anterior</th><th>Sequência</th><th>Posterior</th><th>Exatas</th><th>Vizinhas</th><th>Pontos</th><th>Similaridade</th><th>Status</th></tr></thead>
         <tbody id="occurrence-rows"><tr><td colspan="10" class="cs-empty">Aguardando análise.</td></tr></tbody></table></div>
     </section>
@@ -52,6 +52,6 @@
     </section>
     <footer class="cs-footer">Os números e pontuações descrevem relações históricas observadas. Não são previsões nem probabilidades.</footer>
   </main>
-  <script type="module" src="/static/js/pages/contextual-similarity.js?v=20261107-highlight-matches"></script>
+  <script type="module" src="/static/js/pages/contextual-similarity.js?v=20261107-click-select"></script>
 </body>
 </html>
