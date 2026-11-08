@@ -48,9 +48,17 @@
 .cs-selected-row { background: color-mix(in srgb, var(--accent), transparent 91%); }
 .cs-status-cell { color: var(--muted); }
 .cs-status-cell--selected { color: var(--accent); font-weight: 800; }
+.cs-signal-indicator { display: grid; min-width: 145px; gap: 4px; }
+.cs-signal-indicator small { color: var(--muted); font-size: 10px; }
+.cs-signal-meter { display: block; width: 100%; height: 5px; overflow: hidden; border-radius: 99px; background: var(--surface-strong); }
+.cs-signal-meter__fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f4c76b, #62e6be); transition: width .2s ease; }
 .cs-explanation { margin: -6px 0 14px; color: var(--muted); font-size: 12px; }
 .cs-top-number { background: color-mix(in srgb, var(--accent), transparent 94%); }
 .cs-top-number td:nth-child(2), .cs-top-number td:nth-child(3) { color: var(--accent); font-weight: 850; }
+.cs-signal-win { background: color-mix(in srgb, #62e6be, transparent 90%); }
+.cs-signal-win td:last-child { color: #62e6be; font-weight: 850; }
+.cs-signal-loss td:last-child { color: #ff9696; font-weight: 850; }
+.cs-signal-history .cs-number-list { max-width: 520px; }
 .cs-empty { padding: 20px !important; color: var(--muted); text-align: center !important; }
 .cs-selected-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 12px; }
 .cs-selected-card { min-width: 0; padding: 15px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-strong); }

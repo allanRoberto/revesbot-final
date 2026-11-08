@@ -7,7 +7,7 @@
   <title>Similaridade contextual | Revesbot</title>
   <link rel="stylesheet" href="/static/css/tokens.css">
   <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/pages/contextual-similarity.css?v=20261108-live-marks">
+  <link rel="stylesheet" href="/static/css/pages/contextual-similarity.css?v=20261108-signal-thermometer">
 </head>
 <body class="contextual-similarity-page">
   <main class="cs-shell" id="contextual-similarity-app">
@@ -39,6 +39,16 @@
         <tbody id="occurrence-rows"><tr><td colspan="9" class="cs-empty">Aguardando análise.</td></tr></tbody></table></div>
     </section>
 
+    <section class="cs-panel" aria-labelledby="signal-heading">
+      <div class="cs-panel-heading">
+        <div><p class="eyebrow">6 marcações · mínimo 1 em cada coluna</p><h2 id="signal-heading">Termômetro dos sinais</h2></div>
+        <span class="cs-legend" id="signal-progress">Execute uma análise para iniciar o termômetro.</span>
+      </div>
+      <p class="cs-explanation">A ativação precisa ocorrer em até 5 resultados após a análise. A aposta congela os números ainda não marcados e acompanha até 10 tentativas; um acerto encerra o sinal.</p>
+      <div class="cs-table-wrap"><table><thead><tr><th>Ativação</th><th>Ocorrência</th><th>Jogada</th><th>Aposta congelada</th><th>Tentativas</th><th>Último resultado</th><th>Situação</th></tr></thead>
+        <tbody id="signal-history-rows"><tr><td colspan="7" class="cs-empty">Nenhum sinal registrado ainda.</td></tr></tbody></table></div>
+    </section>
+
     <section class="cs-panel" aria-labelledby="ranking-heading">
       <div class="cs-panel-heading"><div><p class="eyebrow">Até 30 resultados posteriores · Top 6 ocorrências · mesa europeia</p><h2 id="ranking-heading">Ranking consolidado dos 37 números</h2></div><span class="cs-legend" id="ranking-denominator">Máximo por número: —</span></div>
       <p class="cs-explanation">Cada resultado posterior distribui 10 pontos para si e 8 para cada vizinho físico imediato. A porcentagem é relativa ao máximo individual possível; não representa probabilidade de saída.</p>
@@ -52,6 +62,6 @@
     </section>
     <footer class="cs-footer">Os números e pontuações descrevem relações históricas observadas. Não são previsões nem probabilidades.</footer>
   </main>
-  <script type="module" src="/static/js/pages/contextual-similarity.js?v=20261108-live-marks"></script>
+  <script type="module" src="/static/js/pages/contextual-similarity.js?v=20261108-posterior-order"></script>
 </body>
 </html>

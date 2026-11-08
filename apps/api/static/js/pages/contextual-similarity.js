@@ -1,4 +1,4 @@
-import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing } from "../core/contextual-similarity-model.js?v=20261107-click-select";
+import { analyzeOccurrences, CONFIG, neighborsOf, rankFollowing, signalActivation, signalMarkCounts, unmarkedBetNumbers } from "../core/contextual-similarity-model.js?v=20261108-signal-thermometer";
 
 const $ = (selector) => document.querySelector(selector);
 const status = $("#analysis-status");
@@ -13,6 +13,58 @@ let liveSocket = null;
 let liveReconnectTimer = null;
 let liveReconnectDelay = 1000;
 let liveConnectionGeneration = 0;
+const SIGNAL_HISTORY_KEY = "revesbot-contextual-signal-history-v1";
+const SIGNAL_ACTIVATION_WINDOW = 5;
+const SIGNAL_ATTEMPT_LIMIT = 10;
+const SIGNAL_HISTORY_LIMIT = 500;
+let analysisSpinCount = 0;
+let currentAnalysisId = null;
+let signalStates = new Map();
+let signalHistory = loadSignalHistory();
+
+function loadSignalHistory() {
+  try {
+    const value = JSON.parse(localStorage.getItem(SIGNAL_HISTORY_KEY) || "[]");
+    return Array.isArray(value) ? value.filter((item) => item && typeof item === "object").slice(0, SIGNAL_HISTORY_LIMIT) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveSignalHistory() {
+  signalHistory = signalHistory.slice(0, SIGNAL_HISTORY_LIMIT);
+  try { localStorage.setItem(SIGNAL_HISTORY_KEY, JSON.stringify(signalHistory)); } catch (_) { /* armazenamento local opcional */ }
+}
+
+function signalStateFor(row) {
+  if (!signalStates.has(row.index)) signalStates.set(row.index, { status: "aguardando", counts: [0, 0, 0] });
+  return signalStates.get(row.index);
+}
+
+function updateSignalHistory(recordId, update) {
+  const index = signalHistory.findIndex((item) => item.id === recordId);
+  if (index < 0) return;
+  signalHistory[index] = { ...signalHistory[index], ...update };
+  saveSignalHistory();
+}
+
+function appendSignalRecord(record) {
+  signalHistory.unshift(record);
+  saveSignalHistory();
+}
+
+function restoreActiveSignals() {
+  return signalHistory.filter((entry) => entry.status === "em_andamento");
+}
+
+function restoreActiveSignalStates(analysis) {
+  for (const record of restoreActiveSignals()) {
+    const row = analysis.rows.find((item) => item.index === record.occurrenceIndex && item.id === record.occurrenceId);
+    if (!row) continue;
+    const state = signalStateFor(row);
+    state.status = "em_andamento";
+  }
+}
 
 function numberPill(value, matchLabel = "") {
   const pill = document.createElement("span");
@@ -146,15 +198,18 @@ function liveHitDistribution(row) {
 function occurrenceOrder(left, right, searchSequence) {
   const leftSequence = matchCounts(searchSequence, left.context);
   const rightSequence = matchCounts(searchSequence, right.context);
-  const leftExact = [left.score?.exact || 0, leftSequence.exact];
-  const rightExact = [right.score?.exact || 0, rightSequence.exact];
+  const leftLiveHits = liveHitDistribution(left);
+  const rightLiveHits = liveHitDistribution(right);
+  // Acertos ao vivo em Posterior entram no mesmo nível distributivo das exatas.
+  const leftExact = [left.score?.exact || 0, leftSequence.exact, leftLiveHits[2]];
+  const rightExact = [right.score?.exact || 0, rightSequence.exact, rightLiveHits[2]];
   let difference = compareDistribution(leftExact, rightExact);
   if (difference) return difference;
 
   difference = duplicateCount(left.contextValid ? left.context : null) - duplicateCount(right.contextValid ? right.context : null);
   if (difference) return difference;
 
-  difference = compareDistribution(liveHitDistribution(left), liveHitDistribution(right));
+  difference = compareDistribution(leftLiveHits.slice(0, 2), rightLiveHits.slice(0, 2));
   if (difference) return difference;
 
   const selectedCounts = (row) => [row.preceding, row.context, row.following]
@@ -196,11 +251,11 @@ function renderOccurrences(analysis, currentContext, searchSequence) {
       searchSequenceNumbers, "a sequência da busca", true));
     cell(row, numberList(occurrence.followingValid ? occurrence.following : null,
       null, "", true));
-    const betNumbers = [...new Set([
-      ...(occurrence.precedingValid ? occurrence.preceding : []),
-      ...(occurrence.contextValid ? occurrence.context : []),
-      ...(occurrence.followingValid ? occurrence.following : []),
-    ])].filter((number) => !liveMarkedNumbers.has(number)).sort((a, b) => a - b);
+    const frozenSignal = signalHistory.find((entry) => entry.analysisId === currentAnalysisId &&
+      entry.occurrenceIndex === occurrence.index && entry.occurrenceId === occurrence.id &&
+      ["em_andamento", "acerto", "erro"].includes(entry.status)) || signalHistory.find((entry) =>
+      entry.status === "em_andamento" && entry.occurrenceIndex === occurrence.index && entry.occurrenceId === occurrence.id);
+    const betNumbers = frozenSignal?.betNumbers || unmarkedBetNumbers(occurrence, liveMarkedNumbers, currentContext, searchSequence);
     cell(row, betNumbers.length ? numberList(betNumbers, null, "", true) : "—", "cs-bet-cell");
     cell(row, occurrence.score?.exact ?? "—");
     cell(row, occurrence.score?.neighbor ?? "—");
@@ -208,8 +263,154 @@ function renderOccurrences(analysis, currentContext, searchSequence) {
     const state = selected ? "Selecionada" : occurrence.approved ? "Aprovada" :
       !occurrence.precedingValid ? `Anterior ${occurrence.preceding_complete ? "inválido" : occurrence.preceding_lookup_status}` :
         !occurrence.contextValid ? "Contexto inválido" : "Abaixo do corte";
-    cell(row, state, selected ? "cs-status-cell cs-status-cell--selected" : "cs-status-cell");
+    const signal = signalStateFor(occurrence);
+    signal.counts = signalMarkCounts(occurrence, liveMarkedNumbers, currentContext, searchSequence);
+    cell(row, signalIndicator(signal, state), selected ? "cs-status-cell cs-status-cell--selected" : "cs-status-cell");
   });
+}
+
+function signalStatusLabel(status) {
+  return ({
+    em_andamento: "Em andamento",
+    acerto: "Acertou",
+    erro: "Não acertou em 10 tentativas",
+    cancelado: "Cancelado sem ativação",
+    descartado: "Descartado por desempate",
+  })[status] || status || "—";
+}
+
+function signalIndicator(signal, fallback) {
+  const counts = signal.counts || [0, 0, 0];
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  const displayedTotal = signal.status === "em_andamento" ? Math.max(6, total) : total;
+  const container = document.createElement("span");
+  container.className = "cs-signal-indicator";
+  const meter = document.createElement("span");
+  meter.className = "cs-signal-meter";
+  meter.setAttribute("role", "progressbar");
+  meter.setAttribute("aria-valuemin", "0");
+  meter.setAttribute("aria-valuemax", "6");
+  meter.setAttribute("aria-valuenow", String(Math.min(displayedTotal, 6)));
+  meter.setAttribute("aria-label", `Marcas do sinal: ${displayedTotal} de 6; anterior ${counts[0]}, sequência ${counts[1]}, posterior ${counts[2]}`);
+  const fill = document.createElement("span");
+  fill.className = "cs-signal-meter__fill";
+  fill.style.width = `${Math.min(100, displayedTotal / 6 * 100)}%`;
+  meter.append(fill);
+  const label = document.createElement("small");
+  label.textContent = signal.status === "aguardando"
+    ? `${total}/6 · A${counts[0]} S${counts[1]} P${counts[2]} · ${fallback}`
+    : signal.status === "em_andamento" ? "Aposta ativa" : signal.label || fallback;
+  container.append(meter, label);
+  return container;
+}
+
+function renderSignalThermometer() {
+  const body = $("#signal-history-rows");
+  if (!body) return;
+  const progress = $("#signal-progress");
+  const activated = signalHistory.filter((entry) => entry.status === "em_andamento").length;
+  progress.textContent = currentOccurrenceView
+    ? `${analysisSpinCount >= SIGNAL_ACTIVATION_WINDOW ? "Janela de ativação encerrada" : `${SIGNAL_ACTIVATION_WINDOW - analysisSpinCount} jogada(s) para ativação`} · ${activated} aposta(s) em andamento · limite de ${SIGNAL_ATTEMPT_LIMIT} tentativas`
+    : "Execute uma análise para iniciar o termômetro.";
+  body.replaceChildren();
+  if (!signalHistory.length) {
+    const row = body.insertRow();
+    cell(row, "Nenhum sinal registrado ainda.", "cs-empty").colSpan = 7;
+    return;
+  }
+  signalHistory.slice(0, 100).forEach((entry) => {
+    const row = body.insertRow();
+    row.className = entry.status === "acerto" ? "cs-signal-win" : entry.status === "erro" ? "cs-signal-loss" : "";
+    cell(row, new Date(entry.createdAt).toLocaleString("pt-BR"));
+    cell(row, entry.occurrenceId || `Ocorrência ${entry.occurrenceIndex + 1}`);
+    cell(row, entry.activationSpin ? `${entry.activationSpin}ª jogada` : "—");
+    cell(row, entry.betNumbers?.length ? numberList(entry.betNumbers) : "—");
+    cell(row, `${entry.attempts || 0}/${SIGNAL_ATTEMPT_LIMIT}`);
+    cell(row, Number.isInteger(entry.result) ? numberPill(entry.result) : "—");
+    cell(row, signalStatusLabel(entry.status));
+  });
+}
+
+function advanceSignalThermometer(result) {
+  for (const record of restoreActiveSignals()) {
+    const attempts = (record.attempts || 0) + 1;
+    const won = record.betNumbers?.includes(result);
+    const status = won ? "acerto" : attempts >= SIGNAL_ATTEMPT_LIMIT ? "erro" : "em_andamento";
+    updateSignalHistory(record.id, {
+      attempts,
+      status,
+      resolvedAt: status === "em_andamento" ? null : new Date().toISOString(),
+      result,
+    });
+    const state = signalStates.get(record.occurrenceIndex);
+    const currentRow = currentOccurrenceView?.[0].rows.find((row) => row.index === record.occurrenceIndex);
+    if (state && currentRow?.id === record.occurrenceId) {
+      state.status = status;
+      state.label = signalStatusLabel(status);
+    }
+  }
+
+  if (!currentOccurrenceView) {
+    renderSignalThermometer();
+    return;
+  }
+  const [analysis, currentContext, searchSequence] = currentOccurrenceView;
+  const orderedRows = [...analysis.rows].sort((left, right) => occurrenceOrder(left, right, searchSequence));
+  const eligible = [];
+  for (const row of orderedRows) {
+    const state = signalStateFor(row);
+    const activation = signalActivation(row, liveMarkedNumbers, currentContext, searchSequence);
+    state.counts = activation.counts;
+    if (state.status === "aguardando" && activation.active && analysisSpinCount <= SIGNAL_ACTIVATION_WINDOW) {
+      eligible.push({ row, state });
+    }
+  }
+
+  if (eligible.length) {
+    const { row, state } = eligible[0];
+    const recordId = `${Date.now()}-${row.index}-${Math.random().toString(36).slice(2, 8)}`;
+    const record = {
+      id: recordId,
+      analysisId: currentAnalysisId,
+      createdAt: new Date().toISOString(),
+      occurrenceId: row.id,
+      occurrenceIndex: row.index,
+      activationSpin: analysisSpinCount,
+      attempts: 0,
+      betNumbers: unmarkedBetNumbers(row, liveMarkedNumbers, currentContext, searchSequence),
+      status: "em_andamento",
+    };
+    appendSignalRecord(record);
+    state.status = "em_andamento";
+    state.recordId = recordId;
+    for (const discarded of eligible.slice(1)) {
+      discarded.state.status = "descartado";
+      discarded.state.label = "Descartada por ativação simultânea";
+      appendSignalRecord({
+        id: `${Date.now()}-${discarded.row.index}-${Math.random().toString(36).slice(2, 8)}`,
+        analysisId: currentAnalysisId,
+        createdAt: new Date().toISOString(),
+        occurrenceId: discarded.row.id,
+        occurrenceIndex: discarded.row.index,
+        activationSpin: analysisSpinCount,
+        attempts: 0,
+        betNumbers: [],
+        status: "descartado",
+      });
+    }
+  }
+
+  if (analysisSpinCount >= SIGNAL_ACTIVATION_WINDOW) {
+    for (const row of analysis.rows) {
+      const state = signalStateFor(row);
+      if (state.status === "aguardando") {
+        state.status = "cancelado";
+        state.label = "Cancelada: não ativou em 5 jogadas";
+      }
+    }
+  }
+  renderOccurrences(analysis, currentContext, searchSequence);
+  renderSignalThermometer();
 }
 
 function renderMatchDetails(matches) {
@@ -381,10 +582,10 @@ function startLiveResults() {
       if (event?.slug !== CONFIG.rouletteId || !Number.isInteger(event.result) || event.result < 0 || event.result > 36) return;
       observedResults += 1;
       setLiveStatus(`Ao vivo: conectado · ${observedResults} resultado(s) recebido(s)`, "connected");
-      if (!liveMarkedNumbers.has(event.result)) {
-        liveMarkedNumbers.add(event.result);
-        if (currentOccurrenceView) renderOccurrences(...currentOccurrenceView);
-      }
+      liveMarkedNumbers.add(event.result);
+      analysisSpinCount += 1;
+      if (currentOccurrenceView) renderOccurrences(...currentOccurrenceView);
+      advanceSignalThermometer(event.result);
     };
     socket.onerror = () => {
       if (generation === liveConnectionGeneration && socket === liveSocket) socket.close();
@@ -403,6 +604,9 @@ async function runAnalysis() {
   activeController?.abort();
   stopLiveResults();
   liveMarkedNumbers.clear();
+  currentAnalysisId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  analysisSpinCount = 0;
+  signalStates = new Map();
   if (currentOccurrenceView) renderOccurrences(...currentOccurrenceView);
   activeController = new AbortController();
   const signal = activeController.signal;
@@ -447,12 +651,14 @@ async function runAnalysis() {
     if (!payload || !Array.isArray(payload.occurrences)) throw new Error("A API vetorial retornou uma resposta sem ocorrências válidas.");
     const analysis = analyzeOccurrences(currentContext, payload.occurrences);
     const ranked = rankFollowing(analysis.selected);
+    restoreActiveSignalStates(analysis);
     $("#returned-count").textContent = String(payload.occurrences.length);
     $("#comparable-count").textContent = String(analysis.comparableCount);
     $("#approved-count").textContent = String(analysis.rows.filter((row) => row.approved).length);
     renderOccurrences(analysis, currentContext, sequence);
     renderRanking(ranked);
     renderSelected(analysis);
+    renderSignalThermometer();
     startLiveResults();
     setBusy(false, `${analysis.selected.length} ocorrência(s) selecionada(s); ${ranked.analyzedResults} resultado(s) posterior(es) analisado(s).`);
   } catch (error) {
@@ -474,4 +680,5 @@ try {
   const savedTheme = localStorage.getItem("revesbot-theme");
   if (savedTheme) root.dataset.theme = savedTheme;
 } catch (_) { /* tema salvo é opcional */ }
+renderSignalThermometer();
 runAnalysis();

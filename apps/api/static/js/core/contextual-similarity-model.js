@@ -116,3 +116,37 @@ export function rankFollowing(selected) {
       right.neighbor - left.neighbor || left.number - right.number);
   return { ranking, analyzedResults: results.length, maximum };
 }
+
+export function signalMarkCounts(row, markedNumbers, currentContext = [], searchSequence = []) {
+  const contextMarks = new Set(currentContext);
+  const sequenceMarks = new Set(searchSequence);
+  const columns = [
+    row?.precedingValid ? row.preceding : null,
+    row?.contextValid ? row.context : null,
+    row?.followingValid ? row.following : null,
+  ];
+  return columns.map((values, index) => {
+    if (!Array.isArray(values)) return 0;
+    return values.filter((number) => markedNumbers.has(number) ||
+      (index === 0 && contextMarks.has(number)) || (index === 1 && sequenceMarks.has(number))).length;
+  });
+}
+
+export function signalActivation(row, markedNumbers, currentContext = [], searchSequence = []) {
+  const counts = signalMarkCounts(row, markedNumbers, currentContext, searchSequence);
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  return { active: total >= 6 && counts.every((count) => count >= 1), total, counts };
+}
+
+export function unmarkedBetNumbers(row, markedNumbers, currentContext = [], searchSequence = []) {
+  const contextMarks = new Set(currentContext);
+  const sequenceMarks = new Set(searchSequence);
+  const excluded = new Set(markedNumbers);
+  if (row?.precedingValid) row.preceding.filter((number) => contextMarks.has(number)).forEach((number) => excluded.add(number));
+  if (row?.contextValid) row.context.filter((number) => sequenceMarks.has(number)).forEach((number) => excluded.add(number));
+  return [...new Set([
+    ...(row?.precedingValid ? row.preceding : []),
+    ...(row?.contextValid ? row.context : []),
+    ...(row?.followingValid ? row.following : []),
+  ].filter((number) => !excluded.has(number)))].sort((a, b) => a - b);
+}
