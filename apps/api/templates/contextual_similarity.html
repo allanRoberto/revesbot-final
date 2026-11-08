@@ -7,7 +7,7 @@
   <title>Similaridade contextual | Revesbot</title>
   <link rel="stylesheet" href="/static/css/tokens.css">
   <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/pages/contextual-similarity.css?v=20261107-click-select">
+  <link rel="stylesheet" href="/static/css/pages/contextual-similarity.css?v=20261108-live-marks">
 </head>
 <body class="contextual-similarity-page">
   <main class="cs-shell" id="contextual-similarity-app">
@@ -20,7 +20,7 @@
     <p class="cs-status" id="analysis-status" role="status" aria-live="polite">Carregando os últimos resultados…</p>
 
     <section class="cs-panel" aria-labelledby="current-heading">
-      <div class="cs-panel-heading"><div><p class="eyebrow">Mesa fixa</p><h2 id="current-heading">Pragmatic Brazilian Roulette</h2></div><span class="cs-updated" id="updated-at"></span></div>
+      <div class="cs-panel-heading"><div><p class="eyebrow">Mesa fixa</p><h2 id="current-heading">Pragmatic Brazilian Roulette</h2></div><div class="cs-live-meta"><span class="cs-live-status" id="live-status" data-state="idle" role="status" aria-live="polite">Ao vivo: aguardando análise</span><span class="cs-updated" id="updated-at"></span></div></div>
       <div class="cs-current-grid">
         <div><h3>Contexto anterior atual <small>5 resultados</small></h3><div class="cs-number-row" id="current-context" aria-label="Contexto anterior atual"></div></div>
         <div><h3>Sequência da busca <small>4 resultados</small></h3><div class="cs-number-row" id="current-sequence" aria-label="Sequência da busca vetorial"></div></div>
@@ -34,9 +34,9 @@
     </section>
 
     <section class="cs-panel" aria-labelledby="occurrences-heading">
-      <div class="cs-panel-heading"><div><p class="eyebrow">5 números anteriores · corte ≥ 30%</p><h2 id="occurrences-heading">Ocorrências e similaridade contextual</h2></div><span class="cs-legend">Ordem: coincidências exatas distribuídas · números selecionados distribuídos · vizinhos distribuídos · Borda verde: número coincidente · Clique para selecionar · Exata: 10 · Vizinho: 8</span></div>
-      <div class="cs-table-wrap"><table><thead><tr><th>Pos.</th><th>ID da ocorrência</th><th>Anterior</th><th>Sequência</th><th>Posterior</th><th>Exatas</th><th>Vizinhas</th><th>Pontos</th><th>Similaridade</th><th>Status</th></tr></thead>
-        <tbody id="occurrence-rows"><tr><td colspan="10" class="cs-empty">Aguardando análise.</td></tr></tbody></table></div>
+      <div class="cs-panel-heading"><div><p class="eyebrow">5 números anteriores · corte ≥ 30%</p><h2 id="occurrences-heading">Ocorrências e similaridade contextual</h2></div><span class="cs-legend">Ordem: exatas distribuídas · menos repetições na sequência · resultados ao vivo distribuídos · selecionados · vizinhos · Verde: coincidência · Turquesa: saiu ao vivo · Amarelo: selecionado</span></div>
+      <div class="cs-table-wrap"><table><thead><tr><th>Pos.</th><th>Anterior</th><th>Sequência</th><th>Posterior</th><th>Aposta</th><th>Exatas</th><th>Vizinhas</th><th>Similaridade</th><th>Status</th></tr></thead>
+        <tbody id="occurrence-rows"><tr><td colspan="9" class="cs-empty">Aguardando análise.</td></tr></tbody></table></div>
     </section>
 
     <section class="cs-panel" aria-labelledby="ranking-heading">
@@ -52,6 +52,6 @@
     </section>
     <footer class="cs-footer">Os números e pontuações descrevem relações históricas observadas. Não são previsões nem probabilidades.</footer>
   </main>
-  <script type="module" src="/static/js/pages/contextual-similarity.js?v=20261107-distributed-order"></script>
+  <script type="module" src="/static/js/pages/contextual-similarity.js?v=20261108-live-marks"></script>
 </body>
 </html>

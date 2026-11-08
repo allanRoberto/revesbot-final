@@ -13,6 +13,10 @@
 .cs-panel-heading h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
 .cs-panel-heading .eyebrow { margin-bottom: 4px; }
 .cs-updated, .cs-legend { color: var(--muted); font-size: 12px; }
+.cs-live-meta { display: grid; justify-items: end; gap: 4px; text-align: right; }
+.cs-live-status { color: var(--muted); font-size: 12px; font-weight: 700; }
+.cs-live-status[data-state="connected"] { color: #62e6be; }
+.cs-live-status[data-state="connecting"], .cs-live-status[data-state="reconnecting"] { color: var(--cs-warn); }
 .cs-current-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .cs-current-grid h3 { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 10px; font-size: 14px; }
 .cs-current-grid h3 small { color: var(--muted); font-size: 11px; font-weight: 600; }
@@ -38,7 +42,9 @@
 .cs-table-wrap .cs-number--selectable:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .cs-table-wrap .cs-number--selected { background: #ffe600; border-color: #ffe600; color: #171500; box-shadow: 0 0 8px rgb(255 230 0 / 60%); }
 .cs-table-wrap .cs-number--matched.cs-number--selected { outline-color: #39ff14; box-shadow: 0 0 8px rgb(57 255 20 / 75%), 0 0 10px rgb(255 230 0 / 60%); }
-.cs-table-wrap .cs-id { max-width: 190px; overflow: hidden; text-overflow: ellipsis; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; }
+.cs-table-wrap .cs-number--live-hit { background: #43e3c1; border-color: #43e3c1; color: #04221c; box-shadow: 0 0 8px rgb(67 227 193 / 60%); }
+.cs-table-wrap .cs-number--live-hit.cs-number--selected { background: #ffe600; border-color: #43e3c1; color: #171500; outline: 2px solid #43e3c1; outline-offset: 1px; }
+.cs-bet-cell { min-width: 145px; }
 .cs-selected-row { background: color-mix(in srgb, var(--accent), transparent 91%); }
 .cs-status-cell { color: var(--muted); }
 .cs-status-cell--selected { color: var(--accent); font-weight: 800; }
@@ -61,6 +67,7 @@
 @media (max-width: 760px) {
   .cs-shell { width: min(100% - 24px, 1480px); padding-top: 22px; }
   .cs-header { align-items: flex-start; }
+  .cs-live-meta { justify-items: start; text-align: left; }
   .cs-header .button { min-height: 38px; padding: 0 11px; font-size: 12px; }
   .cs-panel { padding: 16px; }
   .cs-current-grid { grid-template-columns: 1fr; gap: 15px; }

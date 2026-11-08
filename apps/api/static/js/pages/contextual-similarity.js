@@ -6,8 +6,13 @@ const button = $("#run-analysis");
 const occurrenceBody = $("#occurrence-rows");
 const redNumbers = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 const selectedOccurrenceNumbers = new Set();
+const liveMarkedNumbers = new Set();
 let activeController = null;
 let currentOccurrenceView = null;
+let liveSocket = null;
+let liveReconnectTimer = null;
+let liveReconnectDelay = 1000;
+let liveConnectionGeneration = 0;
 
 function numberPill(value, matchLabel = "") {
   const pill = document.createElement("span");
@@ -33,6 +38,7 @@ function numberList(values, matchingNumbers = null, matchLabel = "", selectable 
       if (matched) pill.dataset.matchLabel = matched;
       pill.setAttribute("role", "button");
       pill.setAttribute("tabindex", "0");
+      if (liveMarkedNumbers.has(value)) pill.classList.add("cs-number--live-hit");
       updateSelectablePill(pill);
     }
     list.append(pill);
@@ -45,9 +51,11 @@ function updateSelectablePill(pill) {
   const number = Number(pill.dataset.occurrenceNumber);
   const selected = selectedOccurrenceNumbers.has(number);
   pill.classList.toggle("cs-number--selected", selected);
+  pill.classList.toggle("cs-number--live-hit", liveMarkedNumbers.has(number));
   pill.setAttribute("aria-pressed", String(selected));
   const matchDescription = pill.dataset.matchLabel ? `; coincide com ${pill.dataset.matchLabel}` : "";
-  pill.setAttribute("aria-label", `Número ${number}${matchDescription}; ${selected ? "selecionado, clique para desmarcar" : "não selecionado, clique para selecionar"}`);
+  const liveDescription = liveMarkedNumbers.has(number) ? "; resultado observado ao vivo" : "";
+  pill.setAttribute("aria-label", `Número ${number}${matchDescription}${liveDescription}; ${selected ? "selecionado, clique para desmarcar" : "não selecionado, clique para selecionar"}`);
 }
 
 function toggleOccurrenceNumber(number) {
@@ -122,12 +130,31 @@ function compareDistribution(left, right) {
   return 0;
 }
 
-function occurrenceOrder(left, right, currentContext, searchSequence) {
+function duplicateCount(values) {
+  return Array.isArray(values) ? values.length - new Set(values).size : 0;
+}
+
+function liveHitDistribution(row) {
+  return [
+    row.precedingValid ? row.preceding : null,
+    row.contextValid ? row.context : null,
+    row.followingValid ? row.following : null,
+  ].map((values) => Array.isArray(values)
+    ? values.filter((number) => liveMarkedNumbers.has(number)).length : 0);
+}
+
+function occurrenceOrder(left, right, searchSequence) {
   const leftSequence = matchCounts(searchSequence, left.context);
   const rightSequence = matchCounts(searchSequence, right.context);
   const leftExact = [left.score?.exact || 0, leftSequence.exact];
   const rightExact = [right.score?.exact || 0, rightSequence.exact];
   let difference = compareDistribution(leftExact, rightExact);
+  if (difference) return difference;
+
+  difference = duplicateCount(left.contextValid ? left.context : null) - duplicateCount(right.contextValid ? right.context : null);
+  if (difference) return difference;
+
+  difference = compareDistribution(liveHitDistribution(left), liveHitDistribution(right));
   if (difference) return difference;
 
   const selectedCounts = (row) => [row.preceding, row.context, row.following]
@@ -151,11 +178,11 @@ function renderOccurrences(analysis, currentContext, searchSequence) {
   const selectedIds = new Set(analysis.selected.map((row) => row.id));
   const currentContextNumbers = new Set(currentContext);
   const searchSequenceNumbers = new Set(searchSequence);
-  const sorted = [...analysis.rows].sort((left, right) => occurrenceOrder(left, right, currentContext, searchSequence));
+  const sorted = [...analysis.rows].sort((left, right) => occurrenceOrder(left, right, searchSequence));
   body.replaceChildren();
   if (!sorted.length) {
     const row = body.insertRow();
-    cell(row, "A API não retornou ocorrências.", "cs-empty").colSpan = 10;
+    cell(row, "A API não retornou ocorrências.", "cs-empty").colSpan = 9;
     return;
   }
   sorted.forEach((occurrence, index) => {
@@ -163,16 +190,20 @@ function renderOccurrences(analysis, currentContext, searchSequence) {
     const row = body.insertRow();
     row.className = selected ? "cs-selected-row" : "";
     cell(row, index + 1);
-    cell(row, occurrence.id || "ID ausente", "cs-id");
     cell(row, numberList(occurrence.precedingValid ? occurrence.preceding : null,
       currentContextNumbers, "o contexto anterior atual", true));
     cell(row, numberList(occurrence.contextValid ? occurrence.context : null,
       searchSequenceNumbers, "a sequência da busca", true));
     cell(row, numberList(occurrence.followingValid ? occurrence.following : null,
       null, "", true));
+    const betNumbers = [...new Set([
+      ...(occurrence.precedingValid ? occurrence.preceding : []),
+      ...(occurrence.contextValid ? occurrence.context : []),
+      ...(occurrence.followingValid ? occurrence.following : []),
+    ])].filter((number) => !liveMarkedNumbers.has(number)).sort((a, b) => a - b);
+    cell(row, betNumbers.length ? numberList(betNumbers, null, "", true) : "—", "cs-bet-cell");
     cell(row, occurrence.score?.exact ?? "—");
     cell(row, occurrence.score?.neighbor ?? "—");
-    cell(row, occurrence.score?.score ?? "—");
     cell(row, occurrence.score ? formatPercent(occurrence.score.similarity) : "—");
     const state = selected ? "Selecionada" : occurrence.approved ? "Aprovada" :
       !occurrence.precedingValid ? `Anterior ${occurrence.preceding_complete ? "inválido" : occurrence.preceding_lookup_status}` :
@@ -285,8 +316,94 @@ function setBusy(busy, message = "") {
   status.dataset.state = busy ? "loading" : "idle";
 }
 
+function setLiveStatus(message, state = "idle") {
+  const liveStatus = $("#live-status");
+  if (!liveStatus) return;
+  liveStatus.textContent = message;
+  liveStatus.dataset.state = state;
+}
+
+function stopLiveResults(message = "Ao vivo: aguardando análise") {
+  liveConnectionGeneration += 1;
+  clearTimeout(liveReconnectTimer);
+  liveReconnectTimer = null;
+  const socket = liveSocket;
+  liveSocket = null;
+  if (socket) {
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onerror = null;
+    socket.onclose = null;
+    if (socket.readyState < WebSocket.CLOSING) socket.close();
+  }
+  setLiveStatus(message, "idle");
+}
+
+function startLiveResults() {
+  stopLiveResults("Ao vivo: conectando…");
+  const generation = liveConnectionGeneration;
+  let observedResults = 0;
+
+  function scheduleReconnect() {
+    if (generation !== liveConnectionGeneration || liveReconnectTimer) return;
+    setLiveStatus("Ao vivo: reconectando…", "reconnecting");
+    const delay = liveReconnectDelay;
+    liveReconnectDelay = Math.min(liveReconnectDelay * 2, 30000);
+    liveReconnectTimer = setTimeout(() => {
+      liveReconnectTimer = null;
+      connect();
+    }, delay);
+  }
+
+  function connect() {
+    if (generation !== liveConnectionGeneration) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${protocol}//${window.location.host}/ws?slug=${encodeURIComponent(CONFIG.rouletteId)}`;
+    let socket;
+    try {
+      socket = new WebSocket(url);
+      liveSocket = socket;
+      setLiveStatus("Ao vivo: conectando…", "connecting");
+    } catch (_) {
+      scheduleReconnect();
+      return;
+    }
+
+    socket.onopen = () => {
+      if (generation !== liveConnectionGeneration || socket !== liveSocket) return;
+      liveReconnectDelay = 1000;
+      setLiveStatus(`Ao vivo: conectado · ${observedResults} resultado(s) recebido(s)`, "connected");
+    };
+    socket.onmessage = (message) => {
+      if (generation !== liveConnectionGeneration || socket !== liveSocket) return;
+      let event;
+      try { event = JSON.parse(message.data); } catch (_) { return; }
+      if (event?.slug !== CONFIG.rouletteId || !Number.isInteger(event.result) || event.result < 0 || event.result > 36) return;
+      observedResults += 1;
+      setLiveStatus(`Ao vivo: conectado · ${observedResults} resultado(s) recebido(s)`, "connected");
+      if (!liveMarkedNumbers.has(event.result)) {
+        liveMarkedNumbers.add(event.result);
+        if (currentOccurrenceView) renderOccurrences(...currentOccurrenceView);
+      }
+    };
+    socket.onerror = () => {
+      if (generation === liveConnectionGeneration && socket === liveSocket) socket.close();
+    };
+    socket.onclose = () => {
+      if (generation !== liveConnectionGeneration || socket !== liveSocket) return;
+      liveSocket = null;
+      scheduleReconnect();
+    };
+  }
+
+  connect();
+}
+
 async function runAnalysis() {
   activeController?.abort();
+  stopLiveResults();
+  liveMarkedNumbers.clear();
+  if (currentOccurrenceView) renderOccurrences(...currentOccurrenceView);
   activeController = new AbortController();
   const signal = activeController.signal;
   setBusy(true, "Carregando os últimos 9 resultados…");
@@ -336,6 +453,7 @@ async function runAnalysis() {
     renderOccurrences(analysis, currentContext, sequence);
     renderRanking(ranked);
     renderSelected(analysis);
+    startLiveResults();
     setBusy(false, `${analysis.selected.length} ocorrência(s) selecionada(s); ${ranked.analyzedResults} resultado(s) posterior(es) analisado(s).`);
   } catch (error) {
     if (error.name === "AbortError") return;
@@ -347,6 +465,10 @@ async function runAnalysis() {
 occurrenceBody.addEventListener("click", handleOccurrenceNumberInput);
 occurrenceBody.addEventListener("keydown", handleOccurrenceNumberInput);
 button.addEventListener("click", runAnalysis);
+window.addEventListener("pagehide", () => stopLiveResults("Ao vivo: página encerrada"));
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted && currentOccurrenceView) startLiveResults();
+});
 const root = document.documentElement;
 try {
   const savedTheme = localStorage.getItem("revesbot-theme");

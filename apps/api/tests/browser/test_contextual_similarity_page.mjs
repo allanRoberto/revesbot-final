@@ -61,10 +61,10 @@ try {
   await page.goto(`${origin}/analise-similaridade-contextual`);
   await page.locator("#analysis-status").getByText("3 ocorrência(s) selecionada(s)").waitFor();
   assert.deepEqual(searchRequests[0].sequence, [5, 28, 0, 4]);
-  assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity.js") && url.searchParams.get("v") === "20261107-click-select"), true);
+  assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity.js") && url.searchParams.get("v") === "20261108-live-marks"), true);
   assert.equal(staticScripts.some((url) => url.pathname.endsWith("/contextual-similarity-model.js") && url.searchParams.get("v") === "20261107-click-select"), true);
   const stylesheets = await page.locator('link[rel="stylesheet"]').evaluateAll((links) => links.map((link) => new URL(link.href)));
-  assert.equal(stylesheets.some((url) => url.pathname.endsWith("/contextual-similarity.css") && url.searchParams.get("v") === "20261107-click-select"), true);
+  assert.equal(stylesheets.some((url) => url.pathname.endsWith("/contextual-similarity.css") && url.searchParams.get("v") === "20261108-live-marks"), true);
   assert.equal(searchRequests[0].roulette_id, "pragmatic-brazilian-roulette");
   assert.equal(await page.locator("#current-context .cs-number").count(), 5);
   assert.equal(await page.locator("#current-sequence .cs-number").count(), 4);
