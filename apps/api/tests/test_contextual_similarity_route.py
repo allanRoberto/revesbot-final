@@ -13,6 +13,6 @@ def test_contextual_similarity_page_renders_without_loading_history():
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert "Similaridade contextual" in response.text
-    assert 'src="/static/js/pages/contextual-similarity.js?v=20261108-live-marks"' in response.text
-    assert 'href="/static/css/pages/contextual-similarity.css?v=20261108-live-marks"' in response.text
+    assert 'src="/static/js/pages/contextual-similarity.js?v=20261108-posterior-order"' in response.text
+    assert 'href="/static/css/pages/contextual-similarity.css?v=20261108-signal-thermometer"' in response.text
     assert "{{" not in response.text
