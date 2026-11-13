@@ -45,11 +45,12 @@
       <div class="stats-grid">
         <div class="stat"><span class="label">Últimos 50 sinais</span><span class="value" id="recent-hits">—</span><span class="sub" id="recent-rate"></span></div>
         <div class="stat"><span class="label">Desde o início</span><span class="value" id="total-hits">—</span><span class="sub" id="total-rate"></span></div>
+        <div class="stat"><span class="label">Em andamento</span><span class="value" id="open-count">—</span><span class="sub">sinais ainda sendo conferidos</span></div>
       </div>
-      <p class="hint">Cada número que sai é conferido com os 7 números que estavam no ranking naquele momento.</p>
+      <p class="hint">Cada sinal é o ranking montado depois de um número. Ele é conferido com os mesmos 7 números nos <span id="attempts-limit">7</span> resultados seguintes, e o primeiro acerto o encerra.</p>
       <div class="table-wrap">
         <table class="strength-table">
-          <thead><tr><th>Horário</th><th>Saiu</th><th>Ranking no ar</th><th>Resultado</th></tr></thead>
+          <thead><tr><th>Sinal</th><th>Situação</th><th>Ranking do sinal</th><th>Rodadas conferidas</th></tr></thead>
           <tbody id="history-rows"><tr><td colspan="4" class="empty">Nenhum sinal registrado ainda.</td></tr></tbody>
         </table>
       </div>

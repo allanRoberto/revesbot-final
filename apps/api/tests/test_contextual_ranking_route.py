@@ -42,26 +42,37 @@ class FakeRedis:
         now = datetime.now(timezone.utc)
         self.broken = False
         self.requests = []
-        signal = {
-            "id": "h2", "result": {"history_id": "h2", "number": 8, "timestamp": now.isoformat()},
-            "top_numbers": [8, 30, 24, 16, 6, 11, 12], "hit": True, "hit_position": 1,
-            "ranking_built_after": {"history_id": "h1", "number": 7, "timestamp": now.isoformat()},
-            "created_at": now.isoformat(),
-        }
+        spin = {"history_id": "h3", "number": 8, "timestamp": now.isoformat()}
+
+        def signal(identifier, status, checks, hit_attempt=None):
+            return {
+                "id": identifier, "status": status, "built_after": spin,
+                "top_numbers": [8, 30, 24, 16, 6, 11, 12], "attempts_limit": 7,
+                "checks": [{"number": number, "timestamp": now.isoformat(), "hit": hit}
+                           for number, hit in checks],
+                "hit": None if status == "open" else status == "hit", "hit_attempt": hit_attempt,
+                "hit_position": 1 if status == "hit" else None,
+                "created_at": now.isoformat(), "closed_at": None if status == "open" else now.isoformat(),
+            }
+
         self.values = {
             VIEW_KEY: json.dumps({
-                "version": 9, "updated_at": now.isoformat(),
+                "version": 9, "updated_at": now.isoformat(), "attempts_limit": 7,
                 "ranking": {"top": [{"position": 1, "number": 8, "points": 44, "exact": 2, "neighbor": 3}],
-                            "built_after": signal["result"], "analyzed_results": 100, "maximum": 1000},
-                "last_numbers": [{"history_id": "h2", "number": 8, "timestamp": now.isoformat(), "hit": True}],
-                "analysis": [{"trigger": signal["result"], "status": "ok", "occurrences": []}],
+                            "built_after": spin, "analyzed_results": 100, "maximum": 1000},
+                "last_numbers": [{**spin, "hit": True}],
+                "analysis": [{"trigger": spin, "status": "ok", "occurrences": []}],
+                "open_signals": [signal("v2-h3", "open", []), signal("v2-h2", "open", [(5, False)])],
             }),
             HEARTBEAT_KEY: json.dumps({
                 "at": (now - timedelta(seconds=heartbeat_age)).isoformat(), "status": status,
                 "detail": None, "mongo": {"configured": True, "pending": 0},
             }),
         }
-        self.lists = {HISTORY_KEY: [json.dumps(signal), json.dumps({**signal, "id": "h1", "hit": False})]}
+        self.lists = {HISTORY_KEY: [
+            json.dumps(signal("v2-h1", "hit", [(5, False), (8, True)], hit_attempt=2)),
+            json.dumps(signal("v2-h0", "miss", [(n, False) for n in (1, 2, 3, 4, 5, 7, 9)])),
+        ]}
         self.hashes = {SUMMARY_KEY: {"signals": "120", "hits": "31", "misses": "89"}}
 
     def pipeline(self, *, transaction):
@@ -88,24 +99,31 @@ def test_page_shell_uses_versioned_assets_without_touching_redis():
     assert redis_client.requests == []
 
 
-def test_data_combines_ranking_history_and_totals():
+def test_data_lists_open_signals_first_and_counts_only_closed_ones():
     response = client(FakeRedis()).get("/api/ranking-similaridade-contextual")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
     data = response.json()
     assert data["worker"]["status"] == "online"
     assert data["version"] == 9
+    assert data["attempts_limit"] == 7
     assert data["ranking"]["top"][0]["number"] == 8
-    assert [row["id"] for row in data["history"]] == ["h2", "h1"]
-    assert data["summary"] == {"recent": {"hits": 1, "total": 2}, "all_time": {"hits": 31, "total": 120}}
+    assert [(row["id"], row["status"]) for row in data["history"]] == [
+        ("v2-h3", "open"), ("v2-h2", "open"), ("v2-h1", "hit"), ("v2-h0", "miss"),
+    ]
+    assert data["summary"] == {
+        "open": 2, "recent": {"hits": 1, "total": 2}, "all_time": {"hits": 31, "total": 120},
+    }
 
 
 def test_history_limit_is_capped_at_fifty():
     redis_client = FakeRedis()
     test_client = client(redis_client)
     assert test_client.get("/api/ranking-similaridade-contextual?limit=51").status_code == 422
-    test_client.get("/api/ranking-similaridade-contextual?limit=10")
-    assert ("lrange", HISTORY_KEY, 0, 9) in redis_client.requests[-1]
+    data = test_client.get("/api/ranking-similaridade-contextual?limit=3").json()
+    assert ("lrange", HISTORY_KEY, 0, 2) in redis_client.requests[-1]
+    assert [row["id"] for row in data["history"]] == ["v2-h3", "v2-h2", "v2-h1"]
+    assert data["summary"]["recent"] == {"hits": 1, "total": 1}
 
 
 def test_worker_states_follow_the_heartbeat():

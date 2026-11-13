@@ -15,12 +15,14 @@ from typing import Any, Callable, Protocol
 
 from contextual_ranking import STRATEGY_VERSION
 from contextual_ranking.engine import (
-    ROULETTE_ID, SPIN_MEMORY, SearchFunction, build_view, iso, process, rebuild, spin,
+    ROULETTE_ID, SPIN_MEMORY, SearchFunction, advance_signals, build_view, iso, process, rebuild, spin,
 )
 from contextual_ranking.search_client import VectorSearchClient
 from contextual_ranking.storage import MONGO_COLLECTION, MongoSignalWriter, RedisStore
 
 MAX_CATCHUP = 5
+# After a long gap, open signals are still checked against the missed results.
+GAP_RESULTS_LIMIT = 100
 
 log = logging.getLogger("contextual-ranking")
 
@@ -95,14 +97,27 @@ class ContextualRankingWorker:
         self.last_mongo_write_at: datetime | None = None
         self.running = True
 
-    def _save(self, state: dict[str, Any], signal_document: dict[str, Any] | None = None) -> None:
-        self.store.save(state, build_view(state), signal_document)
+    def _save(self, state: dict[str, Any], closed: list[dict[str, Any]] | tuple = ()) -> None:
+        self.store.save(state, build_view(state), closed)
         self.state = state
 
-    def resync(self, reason: str) -> None:
+    @staticmethod
+    def _log_closed(closed: list[dict[str, Any]]) -> None:
+        for signal in closed:
+            if signal["hit"]:
+                log.info("Sinal %s ACERTOU na %dª rodada · top7=%s", signal["_id"], signal["hit_attempt"],
+                         signal["top_numbers"])
+            else:
+                log.info("Sinal %s errou nas %d rodadas · top7=%s", signal["_id"], len(signal["checks"]),
+                         signal["top_numbers"])
+
+    def resync(self, reason: str, previous: dict[str, Any] | None = None,
+               closed: list[dict[str, Any]] | tuple = ()) -> None:
         spins = self.history.latest(SPIN_MEMORY)
         log.info("Ressincronizando a janela (%s) com %d resultados", reason, len(spins))
-        self._save(rebuild(self.state, spins, self.search, self.clock()))
+        self._save(rebuild(previous if previous is not None else self.state, spins, self.search, self.clock()),
+                   closed)
+        self._log_closed(list(closed))
 
     def step(self) -> None:
         state = self.state
@@ -111,16 +126,16 @@ class ContextualRankingWorker:
             return
         spins = self.history.after(state["last_processed"], MAX_CATCHUP + 1)
         if len(spins) > MAX_CATCHUP:
-            self.resync(f"mais de {MAX_CATCHUP} resultados atrasados")
+            missed = self.history.after(state["last_processed"], GAP_RESULTS_LIMIT)
+            advanced, closed = advance_signals(state, missed, self.clock())
+            self.resync(f"mais de {MAX_CATCHUP} resultados atrasados", advanced, closed)
             return
         for item in spins:
-            next_state, signal_document = process(self.state, item, self.search, self.clock())
-            self._save(next_state, signal_document)
-            if signal_document is not None:
-                log.info("Resultado %d %s · top7=%s", item["number"],
-                         "ACERTOU" if signal_document["hit"] else "errou", signal_document["top_numbers"])
-            log.info("Ranking atualizado após %d · top7=%s", item["number"],
-                     [row["number"] for row in next_state["ranking"]["top"]])
+            next_state, closed = process(self.state, item, self.search, self.clock())
+            self._save(next_state, closed)
+            self._log_closed(closed)
+            log.info("Ranking atualizado após %d · top7=%s · sinais abertos=%d", item["number"],
+                     [row["number"] for row in next_state["ranking"]["top"]], len(next_state["open_signals"]))
 
     def flush(self) -> None:
         if self.writer is None:

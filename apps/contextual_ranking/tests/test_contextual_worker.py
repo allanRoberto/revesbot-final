@@ -25,123 +25,144 @@ def build(history, *, redis=None, writer=None, configured=True):
     return worker, redis
 
 
-def top_numbers(redis):
-    return [row["number"] for row in decode(redis.values[VIEW_KEY])["ranking"]["top"]]
+def view(redis):
+    return decode(redis.values[VIEW_KEY])
 
 
-def signals(redis):
+def closed_signals(redis):
     return [decode(raw) for raw in redis.lists.get(HISTORY_KEY, [])]
 
 
-def test_first_cycle_publishes_the_ranking_without_signals():
+def oldest_open_top(redis):
+    return view(redis)["open_signals"][-1]["top_numbers"]
+
+
+def test_first_cycle_publishes_the_ranking_and_opens_a_signal():
     worker, redis = build(MemoryHistory(make_spins(NUMBERS)), writer=FakeWriter())
     worker.run_once()
-    view = decode(redis.values[VIEW_KEY])
-    assert len(view["ranking"]["top"]) == 7
-    assert [item["number"] for item in view["last_numbers"]] == list(reversed(NUMBERS[-3:]))
-    assert signals(redis) == []
+    page = view(redis)
+    assert len(page["ranking"]["top"]) == 7
+    assert [item["number"] for item in page["last_numbers"]] == list(reversed(NUMBERS[-3:]))
+    [signal] = page["open_signals"]
+    assert (signal["status"], signal["checks"]) == ("open", [])
+    assert signal["top_numbers"] == [row["number"] for row in page["ranking"]["top"]]
+    assert closed_signals(redis) == []
     heartbeat = decode(redis.values[HEARTBEAT_KEY])
     assert heartbeat["status"] == "running"
     assert heartbeat["mongo"] == {"configured": True, "pending": 0, "last_error": None, "last_write_at": None}
 
 
-def test_every_new_result_becomes_one_signal_in_redis_and_mongodb():
+def test_signals_stay_open_until_a_hit_and_are_then_saved_in_redis_and_mongodb():
     history = MemoryHistory(make_spins(NUMBERS))
     writer = FakeWriter()
     worker, redis = build(history, writer=writer)
     worker.run_once()
+    first_top = oldest_open_top(redis)
 
-    on_air = top_numbers(redis)
-    history.spins.append(make_spins([on_air[0]], first=50)[0])
+    history.spins.append(make_spins([next(n for n in range(37) if n not in first_top)], first=50)[0])
     worker.run_once()
-    [first] = signals(redis)
-    assert (first["hit"], first["hit_position"], first["top_numbers"]) == (True, 1, on_air)
-    assert redis.hashes[SUMMARY_KEY] == {"signals": 1, "hits": 1}
+    page = view(redis)
+    assert closed_signals(redis) == []
+    oldest = page["open_signals"][-1]
+    assert oldest["top_numbers"] == first_top and len(oldest["checks"]) == 1
+
+    history.spins.append(make_spins([first_top[2]], first=51)[0])
+    worker.run_once()
+    finished = {item["id"]: item for item in closed_signals(redis)}
+    signal = finished[oldest["id"]]
+    assert (signal["status"], signal["hit_attempt"], signal["hit_position"]) == ("hit", 2, 3)
+    assert [check["hit"] for check in signal["checks"]] == [False, True]
+    assert int(redis.hashes[SUMMARY_KEY]["hits"]) >= 1
     assert redis.lists.get(OUTBOX_KEY) == []
-    document = writer.documents[first["id"]]
-    assert isinstance(document["result"]["timestamp"], datetime)
-    assert isinstance(document["created_at"], datetime)
-    assert len(document["ranking"]) == 37
-
-    on_air = top_numbers(redis)
-    history.spins.append(make_spins([next(n for n in range(37) if n not in on_air)], first=51)[0])
-    worker.run_once()
-    assert [item["hit"] for item in signals(redis)] == [False, True]
-    assert redis.hashes[SUMMARY_KEY] == {"signals": 2, "hits": 1, "misses": 1}
-    assert len(writer.documents) == 2
-    view = decode(redis.values[VIEW_KEY])
-    assert [item["hit"] for item in view["last_numbers"][:2]] == [False, True]
+    document = writer.documents[oldest["id"]]
+    assert document["strategy_version"] == 2
+    assert isinstance(document["built_after"]["timestamp"], datetime)
+    assert isinstance(document["checks"][0]["result"]["timestamp"], datetime)
+    assert isinstance(document["closed_at"], datetime)
+    assert oldest["id"] not in [item["id"] for item in view(redis)["open_signals"]]
 
 
-def test_signals_wait_in_the_queue_while_mongodb_is_down():
+def test_closed_signals_wait_in_the_queue_while_mongodb_is_down():
     history = MemoryHistory(make_spins(NUMBERS))
     writer = FakeWriter()
     writer.failing = True
     worker, redis = build(history, writer=writer)
     worker.run_once()
-    history.spins.extend(make_spins([1, 2], first=50))
+    history.spins.append(make_spins([oldest_open_top(redis)[0]], first=50)[0])
     worker.run_once()
-    assert len(redis.lists[OUTBOX_KEY]) == 2
+    pending = len(redis.lists[OUTBOX_KEY])
+    assert pending >= 1
     heartbeat = decode(redis.values[HEARTBEAT_KEY])
-    assert heartbeat["mongo"]["pending"] == 2
+    assert heartbeat["mongo"]["pending"] == pending
     assert "TimeoutError" in heartbeat["mongo"]["last_error"]
 
     writer.failing = False
     worker.run_once()
     assert redis.lists[OUTBOX_KEY] == []
-    assert sorted(writer.documents) == sorted(item["id"] for item in signals(redis))
+    assert sorted(writer.documents) == sorted(item["id"] for item in closed_signals(redis))
     assert decode(redis.values[HEARTBEAT_KEY])["mongo"]["last_error"] is None
 
 
-def test_without_mongodb_configuration_signals_stay_queued():
+def test_without_mongodb_configuration_closed_signals_stay_queued():
     history = MemoryHistory(make_spins(NUMBERS))
     worker, redis = build(history, writer=None)
     worker.run_once()
-    history.spins.append(make_spins([1], first=50)[0])
+    history.spins.append(make_spins([oldest_open_top(redis)[0]], first=50)[0])
     worker.run_once()
-    assert len(redis.lists[OUTBOX_KEY]) == 1
+    assert len(redis.lists[OUTBOX_KEY]) >= 1
     assert decode(redis.values[HEARTBEAT_KEY])["mongo"]["configured"] is False
 
 
-def test_long_gap_rebuilds_the_window_without_inventing_signals():
+def test_long_gap_settles_open_signals_then_rebuilds_without_new_signals_for_the_gap():
     history = MemoryHistory(make_spins(NUMBERS))
     worker, redis = build(history)
     worker.run_once()
+    [opened] = view(redis)["open_signals"]
     version = decode(redis.values[STATE_KEY])["version"]
-    history.spins.extend(make_spins(list(range(MAX_CATCHUP + 1)), first=60))
+    gap = [opened["top_numbers"][0]] + [n for n in range(37) if n not in opened["top_numbers"]][:MAX_CATCHUP]
+    history.spins.extend(make_spins(gap, first=60))
     worker.run_once()
+
+    [settled] = closed_signals(redis)
+    assert (settled["id"], settled["status"], settled["hit_attempt"]) == (opened["id"], "hit", 1)
     state = decode(redis.values[STATE_KEY])
-    assert signals(redis) == []
     assert state["last_processed"]["history_id"] == history.spins[-1]["history_id"]
     assert state["version"] == version + 1
+    [current] = view(redis)["open_signals"]
+    assert current["built_after"]["history_id"] == history.spins[-1]["history_id"]
 
 
 def test_restart_continues_from_redis_without_repeating_signals():
     history = MemoryHistory(make_spins(NUMBERS))
     worker, redis = build(history)
     worker.run_once()
-    history.spins.append(make_spins([4], first=50)[0])
+    history.spins.append(make_spins([oldest_open_top(redis)[0]], first=50)[0])
     worker.run_once()
+    before = closed_signals(redis)
 
     restarted, _ = build(history, redis=redis)
     restarted.run_once()
-    assert len(signals(redis)) == 1
-    history.spins.append(make_spins([21], first=51)[0])
+    assert closed_signals(redis) == before
+    history.spins.append(make_spins([oldest_open_top(redis)[0]], first=51)[0])
     restarted.run_once()
-    assert len(signals(redis)) == 2
+    assert len(closed_signals(redis)) > len(before)
 
 
 def test_failed_save_neither_skips_nor_repeats_results():
     history = MemoryHistory(make_spins(NUMBERS))
     worker, redis = build(history)
     worker.run_once()
-    history.spins.extend(make_spins([4, 21], first=70))
+    top = oldest_open_top(redis)
+    history.spins.extend(make_spins([top[0], top[1]], first=70))
     redis.fail_next_execute = True
     with pytest.raises(ConnectionError):
         worker.run_once()
-    assert signals(redis) == []
+    assert closed_signals(redis) == []
     worker.run_once()
-    assert [item["result"]["number"] for item in signals(redis)] == [21, 4]
+    state = decode(redis.values[STATE_KEY])
+    assert state["last_processed"]["history_id"] == history.spins[-1]["history_id"]
+    ids = [item["id"] for item in closed_signals(redis)]
+    assert len(ids) == len(set(ids)) >= 1
 
 
 def test_missing_search_token_is_reported_without_processing():

@@ -1,7 +1,8 @@
 """Read-only Redis projection for /ranking-similaridade-contextual.
 
 The worker in ``apps/contextual_ranking`` writes these keys; the API never
-touches MongoDB for this page.
+touches MongoDB for this page. Each signal is checked against up to 7 results:
+open signals come from the page projection, closed ones from the history list.
 """
 from __future__ import annotations
 
@@ -10,7 +11,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 ROULETTE_ID = "pragmatic-brazilian-roulette"
-PREFIX = "contextual_ranking:v1"
+PREFIX = "contextual_ranking:v2"
+ATTEMPTS_LIMIT = 7
 VIEW_KEY = f"{PREFIX}:view:{ROULETTE_ID}"
 HEARTBEAT_KEY = f"{PREFIX}:heartbeat:{ROULETTE_ID}"
 HISTORY_KEY = f"{PREFIX}:history:{ROULETTE_ID}"
@@ -72,7 +74,10 @@ async def get_contextual_ranking(redis_client, *, limit: int = 50, now: datetime
 
     view = _decode(view_raw) or {}
     heartbeat = _decode(heartbeat_raw) or {}
-    history = [row for row in (_decode(raw) for raw in history_raw or []) if isinstance(row, dict)]
+    closed = [row for row in (_decode(raw) for raw in history_raw or []) if isinstance(row, dict)]
+    open_signals = [row for row in view.get("open_signals") or [] if isinstance(row, dict)]
+    history = (open_signals + closed)[:limit]
+    finished = [row for row in history if row.get("status") in {"hit", "miss"}]
     summary = summary_raw or {}
     age = _age_seconds(heartbeat.get("at"), now)
     return {
@@ -90,9 +95,11 @@ async def get_contextual_ranking(redis_client, *, limit: int = 50, now: datetime
         "ranking": view.get("ranking") or EMPTY_RANKING,
         "last_numbers": view.get("last_numbers") or [],
         "analysis": view.get("analysis") or [],
+        "attempts_limit": view.get("attempts_limit") or ATTEMPTS_LIMIT,
         "history": history,
         "summary": {
-            "recent": {"hits": sum(1 for row in history if row.get("hit") is True), "total": len(history)},
+            "open": len(open_signals),
+            "recent": {"hits": sum(1 for row in finished if row.get("hit") is True), "total": len(finished)},
             "all_time": {"hits": _int(summary, "hits"), "total": _int(summary, "signals")},
         },
     }

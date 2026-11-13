@@ -9,8 +9,12 @@ ranking esteja pronto a qualquer hora e cada resultado seja conferido.
 
 Mesa fixa: `pragmatic-brazilian-roulette`. A cada resultado X:
 
-1. **Conferência:** X é comparado com o top 7 que estava no ar (1 sinal por
-   giro, 1 tentativa; acerto = número exato no top 7).
+1. **Conferência:** X é comparado com cada sinal aberto. Cada ranking abre um
+   sinal com seu top 7 congelado, conferido nos 7 resultados seguintes. O
+   primeiro acerto (número exato no top 7) encerra o sinal e registra a rodada;
+   7 rodadas sem acerto encerram como erro. Como nasce um sinal por giro, até 7
+   sinais correm ao mesmo tempo. O ✓/✗ da tela principal continua dizendo se X
+   estava entre os 7 números da tela.
 2. **Busca de X:** os 9 resultados até X viram contexto (5) e sequência (4).
    A consulta à busca vetorial interna (`POST /search`) usa exatamente os
    parâmetros da página original, mais `cutoff` igual ao horário de X, para que
@@ -22,13 +26,19 @@ Mesa fixa: `pragmatic-brazilian-roulette`. A cada resultado X:
    não existe no worker. Entram as 4 primeiras de cada busca.
 4. **Ranking:** os 5 posteriores das 20 ocorrências (até 100 números) dão
    10 pontos ao próprio número e 8 a cada vizinho físico. O top 7 vai para a
-   página.
+   página e vira o sinal novo.
 
 **Tratamento de falhas:**
 - Uma busca que falha fica fora do ranking e é refeita no giro seguinte (até 3
   tentativas no total).
-- Se o worker ficar mais de 5 resultados atrasado, a janela é reconstruída sem
-  gerar sinais para o intervalo, porque não havia ranking no ar.
+- Se o worker ficar mais de 5 resultados atrasado, os sinais abertos são
+  conferidos com os resultados do intervalo (até 100). Depois a janela é
+  reconstruída, sem abrir sinais para o intervalo, porque não havia ranking
+  no ar.
+
+**Versões da regra:** `strategy_version` 1 conferia cada ranking em 1
+resultado (chaves Redis `contextual_ranking:v1:*`). A versão 2 confere em 7 e
+usa `contextual_ranking:v2:*`, então seus totais começam do zero.
 
 **Paridade:** `rules.py` é uma tradução literal de
 `static/js/core/contextual-similarity-model.js` e das funções de ordenação de
@@ -42,22 +52,24 @@ real de produção.
 | Onde | O quê |
 | --- | --- |
 | MongoDB `history` | leitura dos resultados com a credencial somente leitura da API |
-| Redis `contextual_ranking:v1:state:*` | estado do motor (cursor, 13 resultados, 5 buscas) |
-| Redis `contextual_ranking:v1:view:*` | o que a página mostra |
-| Redis `contextual_ranking:v1:heartbeat:*` | saúde do worker e da fila do MongoDB |
-| Redis `contextual_ranking:v1:history:*` | últimos 500 sinais (a página mostra 50) |
-| Redis `contextual_ranking:v1:summary:*` | totais de sinais, acertos e erros |
-| Redis `contextual_ranking:v1:mongo-outbox:*` | fila de sinais a gravar no MongoDB (até 20 mil) |
-| MongoDB `contextual_ranking_signals_v1` | histórico permanente, um documento por resultado |
+| Redis `contextual_ranking:v2:state:*` | estado do motor (cursor, 13 resultados, 5 buscas, sinais abertos) |
+| Redis `contextual_ranking:v2:view:*` | o que a página mostra, incluindo os sinais em andamento |
+| Redis `contextual_ranking:v2:heartbeat:*` | saúde do worker e da fila do MongoDB |
+| Redis `contextual_ranking:v2:history:*` | últimos 500 sinais encerrados (a página mostra 50, com os abertos no topo) |
+| Redis `contextual_ranking:v2:summary:*` | totais de sinais encerrados, acertos e erros |
+| Redis `contextual_ranking:v2:mongo-outbox:*` | fila de sinais encerrados a gravar no MongoDB (até 20 mil) |
+| MongoDB `contextual_ranking_signals_v1` | histórico permanente, um documento por sinal encerrado |
 
-O documento permanente guarda:
-- o resultado;
-- o giro que gerou o ranking;
-- o top 7, se acertou e a posição;
+O documento permanente da versão 2 é gravado quando o sinal encerra e guarda:
+- o giro que gerou o ranking (`built_after`);
+- o top 7 congelado;
+- cada rodada conferida;
+- se acertou, em qual rodada e em qual posição;
 - o ranking dos 37 com pontos;
 - as ocorrências usadas de cada busca.
 
-A gravação usa `_id` igual ao id do resultado, o que a torna idempotente.
+A gravação usa `_id` `v2-<id do giro>`, o que a torna idempotente e não colide
+com os documentos da versão 1 (cujo `_id` é o id do resultado).
 
 ## Operação
 
