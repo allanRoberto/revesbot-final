@@ -1,10 +1,14 @@
 """Live ranking state machine. No I/O: searches are injected and time is explicit.
 
-For each result X: settle the ranking that was on air, search X (the four
+For each result X: check X against every open signal, search X (the four
 latest results ending in X, filtered by the five before them), keep the
 searches of the five latest results, take the first four occurrences of each in
 the page's table order (results seen after a search count as live) and rank
 the 37 numbers from the following results of those 20 occurrences.
+
+Every new ranking opens a signal with its top 7 frozen. A signal is checked
+against the next 7 results: the first hit closes it, 7 misses close it as lost.
+Signals overlap (one is born after every result).
 """
 from __future__ import annotations
 
@@ -20,6 +24,7 @@ ROULETTE_ID = "pragmatic-brazilian-roulette"
 WINDOW_SEARCHES = 5
 OCCURRENCES_PER_SEARCH = 4
 TOP_NUMBERS = 7
+ATTEMPTS_LIMIT = 7
 SEARCH_SPAN = 9
 SPIN_MEMORY = SEARCH_SPAN + WINDOW_SEARCHES - 1
 RECENT_RESULTS = 3
@@ -50,7 +55,7 @@ def empty_state() -> dict[str, Any]:
     return {
         "strategy_version": STRATEGY_VERSION, "roulette_id": ROULETTE_ID, "version": 0,
         "spins": [], "searches": [], "ranking": None, "analysis": [], "recent_results": [],
-        "last_processed": None, "updated_at": None, "resynced_at": None,
+        "open_signals": [], "last_processed": None, "updated_at": None, "resynced_at": None,
     }
 
 
@@ -141,36 +146,75 @@ def build_ranking(searches: Sequence[dict[str, Any]], spins: Sequence[dict[str, 
     return ranking, analysis
 
 
-def settle(state: dict[str, Any], result: dict[str, Any], now: datetime) -> dict[str, Any] | None:
-    """Check the result against the top 7 that was on air before it."""
-    ranking = state.get("ranking") or {}
+def open_signal(ranking: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+    """A new ranking becomes a signal; its top 7 stays frozen for 7 results."""
     numbers = [row["number"] for row in ranking.get("top") or []]
-    if not numbers:
+    trigger = ranking.get("built_after")
+    if not numbers or not trigger:
         return None
-    hit = result["number"] in numbers
     return {
-        "_id": result["history_id"],
+        "_id": f"v{STRATEGY_VERSION}-{trigger['history_id']}",
         "roulette_id": ROULETTE_ID,
         "strategy_version": STRATEGY_VERSION,
-        "result": result,
-        "ranking_built_after": ranking.get("built_after"),
+        "attempts_limit": ATTEMPTS_LIMIT,
+        "status": "open",
+        "built_after": trigger,
         "top_numbers": numbers,
-        "hit": hit,
-        "hit_position": numbers.index(result["number"]) + 1 if hit else None,
         "ranking": ranking.get("full", []),
         "sources": ranking.get("sources", []),
+        "checks": [],
+        "hit": None,
+        "hit_attempt": None,
+        "hit_position": None,
         "created_at": iso(now),
+        "closed_at": None,
     }
 
 
+def check_signals(signals: Sequence[dict[str, Any]], result: dict[str, Any],
+                  now: datetime) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Check one result against every open signal; returns (still open, closed)."""
+    still_open: list[dict[str, Any]] = []
+    closed: list[dict[str, Any]] = []
+    for signal in signals:
+        attempt = len(signal["checks"]) + 1
+        hit = result["number"] in signal["top_numbers"]
+        checked = {**signal, "checks": [*signal["checks"], {"result": result, "attempt": attempt, "hit": hit}]}
+        if hit:
+            closed.append({**checked, "status": "hit", "hit": True, "hit_attempt": attempt,
+                           "hit_position": signal["top_numbers"].index(result["number"]) + 1,
+                           "closed_at": iso(now)})
+        elif attempt >= signal.get("attempts_limit", ATTEMPTS_LIMIT):
+            closed.append({**checked, "status": "miss", "hit": False, "closed_at": iso(now)})
+        else:
+            still_open.append(checked)
+    return still_open, closed
+
+
+def advance_signals(state: dict[str, Any], results: Sequence[dict[str, Any]],
+                    now: datetime) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Check open signals against results the worker could not follow live (no searches)."""
+    still_open = list(state.get("open_signals") or [])
+    closed: list[dict[str, Any]] = []
+    for result in results:
+        if not still_open:
+            break
+        still_open, newly_closed = check_signals(still_open, result, now)
+        closed.extend(newly_closed)
+    return {**state, "open_signals": still_open}, closed
+
+
 def _finish(state: dict[str, Any], spins: list[dict[str, Any]], searches: list[dict[str, Any]],
-            recent: list[dict[str, Any]], now: datetime, **extra: Any) -> dict[str, Any]:
+            recent: list[dict[str, Any]], open_signals: Sequence[dict[str, Any]], now: datetime,
+            **extra: Any) -> dict[str, Any]:
     ranking, analysis = build_ranking(searches, spins)
+    signal = open_signal(ranking, now)
     return {
         **state, **extra,
         "strategy_version": STRATEGY_VERSION, "roulette_id": ROULETTE_ID,
         "spins": spins, "searches": searches, "ranking": ranking, "analysis": analysis,
         "recent_results": recent[-RECENT_RESULTS:],
+        "open_signals": [*open_signals, *([signal] if signal else [])],
         "last_processed": {"history_id": spins[-1]["history_id"], "timestamp": spins[-1]["timestamp"]}
         if spins else None,
         "version": int(state.get("version") or 0) + 1,
@@ -180,21 +224,26 @@ def _finish(state: dict[str, Any], spins: list[dict[str, Any]], searches: list[d
 
 def rebuild(previous: dict[str, Any] | None, spins: Sequence[dict[str, Any]], search: SearchFunction,
             now: datetime) -> dict[str, Any]:
-    """Start (or restart) from the latest results without settling any signal."""
-    state = {**empty_state(), "version": int((previous or {}).get("version") or 0)}
+    """Start (or restart) from the latest results; open signals of the same strategy carry over."""
+    previous = previous or {}
+    same_strategy = previous.get("strategy_version") == STRATEGY_VERSION
+    carried = (previous.get("open_signals") or []) if same_strategy else []
+    state = {**empty_state(), "version": int(previous.get("version") or 0)}
     spins = list(spins)[-SPIN_MEMORY:]
     start = max(0, len(spins) - WINDOW_SEARCHES)
     searches = [run_search(spins, position, search, now) for position in range(start, len(spins))]
     recent = [{**item, "hit": None} for item in spins[-RECENT_RESULTS:]]
-    return _finish(state, spins, searches, recent, now, resynced_at=iso(now))
+    return _finish(state, spins, searches, recent, carried, now, resynced_at=iso(now))
 
 
 def process(state: dict[str, Any], result: dict[str, Any], search: SearchFunction,
-            now: datetime) -> tuple[dict[str, Any], dict[str, Any] | None]:
+            now: datetime) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Check open signals, search the new result and open the next signal."""
     last = state.get("last_processed")
     if last and last["history_id"] == result["history_id"]:
-        return state, None
-    signal = settle(state, result, now)
+        return state, []
+    on_screen = [row["number"] for row in (state.get("ranking") or {}).get("top") or []]
+    still_open, closed = check_signals(state.get("open_signals") or [], result, now)
     spins = (list(state.get("spins") or []) + [result])[-SPIN_MEMORY:]
     searches = (list(state.get("searches") or []) + [run_search(spins, len(spins) - 1, search, now)])
     searches = searches[-WINDOW_SEARCHES:]
@@ -204,8 +253,11 @@ def process(state: dict[str, Any], result: dict[str, Any], search: SearchFunctio
         if item["status"] == "failed" and position is not None and item.get("attempts", 1) < MAX_SEARCH_ATTEMPTS:
             searches[index] = run_search(spins, position, search, now, RETRY_SEARCH_ATTEMPTS,
                                          previous_attempts=item.get("attempts", 1))
-    recent = list(state.get("recent_results") or []) + [{**result, "hit": signal["hit"] if signal else None}]
-    return _finish(state, spins, searches, recent, now), signal
+    # The screen mark keeps its meaning: was X among the 7 numbers on screen?
+    recent = list(state.get("recent_results") or []) + [
+        {**result, "hit": (result["number"] in on_screen) if on_screen else None},
+    ]
+    return _finish(state, spins, searches, recent, still_open, now), closed
 
 
 def build_view(state: dict[str, Any]) -> dict[str, Any]:
@@ -223,6 +275,8 @@ def build_view(state: dict[str, Any]) -> dict[str, Any]:
         },
         "last_numbers": list(reversed(state.get("recent_results") or [])),
         "analysis": list(reversed(state.get("analysis") or [])),
+        "open_signals": [compact_signal(signal) for signal in reversed(state.get("open_signals") or [])],
+        "attempts_limit": ATTEMPTS_LIMIT,
         "resynced_at": state.get("resynced_at"),
     }
 
@@ -230,7 +284,16 @@ def build_view(state: dict[str, Any]) -> dict[str, Any]:
 def compact_signal(signal: dict[str, Any]) -> dict[str, Any]:
     """Short form kept in Redis for the page history tab."""
     return {
-        "id": signal["_id"], "result": signal["result"], "top_numbers": signal["top_numbers"],
-        "hit": signal["hit"], "hit_position": signal["hit_position"],
-        "ranking_built_after": signal["ranking_built_after"], "created_at": signal["created_at"],
+        "id": signal["_id"],
+        "status": signal["status"],
+        "built_after": signal["built_after"],
+        "top_numbers": signal["top_numbers"],
+        "checks": [{"number": check["result"]["number"], "timestamp": check["result"]["timestamp"],
+                    "hit": check["hit"]} for check in signal["checks"]],
+        "attempts_limit": signal.get("attempts_limit", ATTEMPTS_LIMIT),
+        "hit": signal["hit"],
+        "hit_attempt": signal["hit_attempt"],
+        "hit_position": signal["hit_position"],
+        "created_at": signal["created_at"],
+        "closed_at": signal["closed_at"],
     }

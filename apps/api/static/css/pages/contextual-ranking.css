@@ -81,6 +81,13 @@ h1 { margin: 0 0 4px 0; font-size: 24px; color: var(--accent-strong); }
 .legend-live { color: var(--live); font-weight: 700; }
 .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 14px; }
 
+.rounds { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.signal-open td { background: #f8fbff; }
+.signal-origin { display: flex; flex-direction: column; gap: 4px; }
+.signal-time { white-space: nowrap; }
+.signal-after { display: inline-flex; align-items: center; gap: 6px; }
+#history-rows .chip-list { max-width: 260px; }
+
 .search-block { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
 .search-header { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
 .search-title { display: flex; align-items: center; gap: 8px; font-weight: 700; }

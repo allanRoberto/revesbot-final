@@ -1,20 +1,25 @@
 """Redis state for the page and permanent MongoDB history of every signal.
 
 Redis (persistent instance, same as the other live workers) keeps the engine
-state, the page projection, a heartbeat, the latest 500 signals and the totals.
-Every signal is also queued in a Redis outbox and copied to MongoDB by a
-dedicated least-privilege user; the queue survives MongoDB outages or a
-missing configuration and is drained automatically.
+state (including the open signals), the page projection, a heartbeat, the
+latest 500 closed signals and the totals. Every closed signal is also queued in
+a Redis outbox and copied to MongoDB by a dedicated least-privilege user; the
+queue survives MongoDB outages or a missing configuration and is drained
+automatically.
+
+Strategy 2 (7 attempts per signal) uses its own Redis keys, so its totals start
+from zero; its MongoDB documents share the collection with strategy 1 and are
+told apart by ``strategy_version`` (and the ``v2-`` id prefix).
 """
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Sequence
 
 from contextual_ranking.engine import ROULETTE_ID, compact_signal, parse_time
 
-PREFIX = "contextual_ranking:v1"
+PREFIX = "contextual_ranking:v2"
 STATE_KEY = f"{PREFIX}:state:{ROULETTE_ID}"
 VIEW_KEY = f"{PREFIX}:view:{ROULETTE_ID}"
 HEARTBEAT_KEY = f"{PREFIX}:heartbeat:{ROULETTE_ID}"
@@ -43,17 +48,19 @@ class RedisStore:
     def load_state(self) -> dict[str, Any] | None:
         return decode(self.redis.get(STATE_KEY))
 
-    def save(self, state: dict[str, Any], view: dict[str, Any], signal: dict[str, Any] | None = None) -> None:
-        """State, page projection and the settled signal change atomically."""
+    def save(self, state: dict[str, Any], view: dict[str, Any],
+             closed: Sequence[dict[str, Any]] = ()) -> None:
+        """State, page projection and the signals closed by this result change atomically."""
         pipeline = self.redis.pipeline(transaction=True)
         pipeline.set(STATE_KEY, encode(state))
         pipeline.set(VIEW_KEY, encode(view))
-        if signal is not None:
+        for signal in closed:
             pipeline.lpush(HISTORY_KEY, encode(compact_signal(signal)))
-            pipeline.ltrim(HISTORY_KEY, 0, HISTORY_LIMIT - 1)
             pipeline.hincrby(SUMMARY_KEY, "signals", 1)
             pipeline.hincrby(SUMMARY_KEY, "hits" if signal["hit"] else "misses", 1)
             pipeline.lpush(OUTBOX_KEY, encode(signal))
+        if closed:
+            pipeline.ltrim(HISTORY_KEY, 0, HISTORY_LIMIT - 1)
             pipeline.ltrim(OUTBOX_KEY, 0, OUTBOX_LIMIT - 1)
         pipeline.execute()
 
@@ -96,11 +103,12 @@ def to_mongo_document(signal: dict[str, Any]) -> dict[str, Any]:
     """Store dates as BSON dates so the history can be queried by time."""
     return {
         **signal,
-        "result": _spin_document(signal["result"]),
-        "ranking_built_after": _spin_document(signal.get("ranking_built_after")),
+        "built_after": _spin_document(signal.get("built_after")),
+        "checks": [{**check, "result": _spin_document(check["result"])} for check in signal.get("checks", [])],
         "sources": [{**source, "trigger": _spin_document(source.get("trigger"))}
                     for source in signal.get("sources", [])],
         "created_at": _as_datetime(signal.get("created_at")),
+        "closed_at": _as_datetime(signal.get("closed_at")),
     }
 
 
@@ -109,8 +117,11 @@ class MongoSignalWriter:
         self.collection = collection
 
     def ensure_indexes(self) -> None:
+        # Strategy 1 documents are queried by result time, strategy 2 by creation time.
         self.collection.create_index([("roulette_id", 1), ("result.timestamp", -1)],
                                      name="roulette_result_time")
+        self.collection.create_index([("roulette_id", 1), ("strategy_version", 1), ("created_at", -1)],
+                                     name="roulette_strategy_created_at")
 
     def write(self, signal: dict[str, Any]) -> None:
         document = to_mongo_document(signal)

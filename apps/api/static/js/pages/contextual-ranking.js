@@ -60,8 +60,8 @@
   }
 
   function percent(hits, total) {
-    if (!total) return "sem sinais ainda";
-    return `${(hits / total * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% de acerto`;
+    if (!total) return "nenhum sinal encerrado ainda";
+    return `${(hits / total * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% de acerto nos encerrados`;
   }
 
   function renderWorker(data) {
@@ -109,13 +109,22 @@
     });
   }
 
+  function signalBadge(signal, limit) {
+    if (signal.status === "hit") return node("span", "badge badge-won", `Acertou na ${signal.hit_attempt}ª`);
+    if (signal.status === "miss") return node("span", "badge badge-lost", "Errou");
+    return node("span", "badge badge-monitoring", `Em andamento · ${signal.checks.length}/${limit}`);
+  }
+
   function renderHistory(data) {
+    const limit = data.attempts_limit || 7;
     const recent = data.summary.recent;
     const total = data.summary.all_time;
+    $("attempts-limit").textContent = String(limit);
     $("recent-hits").textContent = recent.total ? `${recent.hits}/${recent.total}` : "—";
     $("recent-rate").textContent = percent(recent.hits, recent.total);
     $("total-hits").textContent = total.total ? `${total.hits.toLocaleString("pt-BR")}/${total.total.toLocaleString("pt-BR")}` : "—";
     $("total-rate").textContent = percent(total.hits, total.total);
+    $("open-count").textContent = String(data.summary.open ?? 0);
 
     const body = $("history-rows");
     body.replaceChildren();
@@ -129,14 +138,20 @@
     }
     data.history.forEach((signal) => {
       const row = body.insertRow();
-      row.insertCell().textContent = formatTime(signal.result.timestamp, true);
-      row.insertCell().append(chip(signal.result.number));
-      row.insertCell().append(chipList(signal.top_numbers,
-        (number) => (signal.hit && number === signal.result.number ? "hit" : "")));
-      const badge = signal.hit
-        ? node("span", "badge badge-won", `Acertou · ${signal.hit_position}º`)
-        : node("span", "badge badge-lost", "Errou");
-      row.insertCell().append(badge);
+      if (signal.status === "open") row.className = "signal-open";
+      const hitNumber = signal.checks.find((check) => check.hit)?.number;
+      const origin = node("div", "signal-origin");
+      const after = node("span", "signal-after");
+      after.append(node("small", "muted", "após"), chip(signal.built_after.number));
+      origin.append(node("span", "signal-time", formatTime(signal.built_after?.timestamp || signal.created_at, true)), after);
+      row.insertCell().append(origin);
+      row.insertCell().append(signalBadge(signal, limit));
+      row.insertCell().append(chipList(signal.top_numbers, (number) => (number === hitNumber ? "hit" : "")));
+      const rounds = node("span", "rounds");
+      const checked = node("span", "chip-list");
+      signal.checks.forEach((check) => checked.append(chip(check.number, check.hit ? "hit" : "")));
+      rounds.append(checked, node("small", "muted", `${signal.checks.length}/${limit}`));
+      row.insertCell().append(rounds);
     });
   }
 
