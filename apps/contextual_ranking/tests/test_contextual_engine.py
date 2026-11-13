@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from contextual_ranking import STRATEGY_VERSION
 from contextual_ranking.engine import (
     ATTEMPTS_LIMIT, OCCURRENCES_PER_SEARCH, SPIN_MEMORY, WINDOW_SEARCHES, advance_signals, build_view,
     check_signals, open_signal, parse_time, process, rebuild,
 )
-from contextual_ranking.rules import analyze_occurrences, rank_following, sort_occurrences
+from contextual_ranking.rules import analyze_occurrences, rank_columns, sort_occurrences
 from contextual_ranking.tests.fixtures import production_occurrences
 from contextual_ranking.tests.memory import START, FakeSearch, make_spins
 
@@ -60,9 +61,10 @@ def test_ranking_takes_four_occurrences_per_search_in_table_order_with_live_resu
         analysis = next(item for item in state["analysis"] if item["trigger"] == record["trigger"])
         assert [row["id"] for row in analysis["occurrences"]] == [row["id"] for row in top]
         assert analysis["live_numbers"] == list(dict.fromkeys(live))
-    expected = [row["number"] for row in rank_following(chosen)["ranking"] if row["score"] > 0][:7]
+    expected = [row["number"] for row in rank_columns(chosen)["ranking"] if row["score"] > 0][:7]
     assert [row["number"] for row in state["ranking"]["top"]] == expected
-    assert state["ranking"]["analyzed_results"] == 100
+    # 5 searches x 4 occurrences x (5 Anterior + 4 Sequência + 5 Posterior)
+    assert state["ranking"]["analyzed_results"] == 280
     assert [row["position"] for row in state["ranking"]["top"]] == list(range(1, 8))
 
 
@@ -71,7 +73,7 @@ def test_every_ranking_opens_a_signal_with_its_top_seven_frozen():
     search = FakeSearch(production_occurrences())
     state = rebuild(None, spins, search, START)
     [first] = state["open_signals"]
-    assert first["_id"] == f"v2-{spins[-1]['history_id']}"
+    assert first["_id"] == f"v{STRATEGY_VERSION}-{spins[-1]['history_id']}"
     assert first["top_numbers"] == [row["number"] for row in state["ranking"]["top"]]
     assert (first["status"], first["checks"], first["attempts_limit"]) == ("open", [], ATTEMPTS_LIMIT)
     assert len(first["ranking"]) == 37 and [len(s["occurrence_ids"]) for s in first["sources"]] == [4] * 5
@@ -142,7 +144,7 @@ def test_gap_results_still_settle_open_signals_without_searches():
 def test_rebuild_keeps_open_signals_of_the_same_strategy():
     search = FakeSearch()
     carried = a_signal([10, 11, 12, 13, 14, 15, 16])
-    state = rebuild({"strategy_version": 2, "open_signals": [carried], "version": 4},
+    state = rebuild({"strategy_version": STRATEGY_VERSION, "open_signals": [carried], "version": 4},
                     make_spins(NUMBERS), search, START)
     assert state["open_signals"][0] == carried and len(state["open_signals"]) == 2
     assert state["version"] == 5
@@ -166,7 +168,7 @@ def test_failed_search_is_left_out_and_retried_on_the_next_results():
     search.failing.add(tuple(item["number"] for item in spins[-4:]))
     state = rebuild(None, spins, search, START)
     assert (state["searches"][-1]["status"], state["searches"][-1]["attempts"]) == ("failed", 1)
-    assert state["ranking"]["analyzed_results"] == 80
+    assert state["ranking"]["analyzed_results"] == 224  # 4 searches x 4 x 14
 
     search.calls.clear()
     state, _ = process(state, make_spins([7], first=200)[0], search, START)
@@ -176,7 +178,7 @@ def test_failed_search_is_left_out_and_retried_on_the_next_results():
     search.failing.clear()
     state, _ = process(state, make_spins([8], first=201)[0], search, START)
     assert state["searches"][-3]["status"] == "ok"
-    assert state["ranking"]["analyzed_results"] == 100
+    assert state["ranking"]["analyzed_results"] == 280
 
 
 def test_searches_wait_until_nine_results_exist():

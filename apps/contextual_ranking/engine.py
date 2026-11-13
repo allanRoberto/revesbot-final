@@ -4,7 +4,8 @@ For each result X: check X against every open signal, search X (the four
 latest results ending in X, filtered by the five before them), keep the
 searches of the five latest results, take the first four occurrences of each in
 the page's table order (results seen after a search count as live) and rank
-the 37 numbers from the following results of those 20 occurrences.
+the 37 numbers from every number of the three columns (Anterior, Sequência
+and Posterior) of those 20 occurrences.
 
 Every new ranking opens a signal with its top 7 frozen. A signal is checked
 against the next 7 results: the first hit closes it, 7 misses close it as lost.
@@ -17,7 +18,7 @@ from typing import Any, Callable, Sequence
 
 from contextual_ranking import STRATEGY_VERSION
 from contextual_ranking.rules import (
-    CONTEXT_LENGTH, analyze_occurrences, rank_following, sort_occurrences,
+    CONTEXT_LENGTH, analyze_occurrences, rank_columns, sort_occurrences,
 )
 
 ROULETTE_ID = "pragmatic-brazilian-roulette"
@@ -132,7 +133,7 @@ def build_ranking(searches: Sequence[dict[str, Any]], spins: Sequence[dict[str, 
             ]
             sources.append({"trigger": search["trigger"], "occurrence_ids": [row["id"] for row in top]})
         analysis.append(entry)
-    ranked = rank_following(chosen)
+    ranked = rank_columns(chosen)
     positive = [row for row in ranked["ranking"] if row["score"] > 0][:TOP_NUMBERS]
     ranking = {
         "top": [{"position": index + 1, "number": row["number"], "points": row["score"],

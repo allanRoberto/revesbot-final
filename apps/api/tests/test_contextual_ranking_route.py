@@ -126,6 +126,14 @@ def test_history_limit_is_capped_at_fifty():
     assert data["summary"]["recent"] == {"hits": 1, "total": 1}
 
 
+def test_api_reads_the_keys_the_worker_writes():
+    from contextual_ranking import storage
+
+    assert (VIEW_KEY, HEARTBEAT_KEY, HISTORY_KEY, SUMMARY_KEY) == (
+        storage.VIEW_KEY, storage.HEARTBEAT_KEY, storage.HISTORY_KEY, storage.SUMMARY_KEY,
+    )
+
+
 def test_worker_states_follow_the_heartbeat():
     assert worker_status({}, None) == "offline"
     assert worker_status({"status": "config_pending"}, 1) == "configuracao_pendente"

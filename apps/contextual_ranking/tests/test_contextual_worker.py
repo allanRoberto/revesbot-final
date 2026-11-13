@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 
+from contextual_ranking import STRATEGY_VERSION
 from contextual_ranking.storage import (
     HEARTBEAT_KEY, HISTORY_KEY, OUTBOX_KEY, STATE_KEY, SUMMARY_KEY, VIEW_KEY, RedisStore, decode,
 )
@@ -75,7 +76,7 @@ def test_signals_stay_open_until_a_hit_and_are_then_saved_in_redis_and_mongodb()
     assert int(redis.hashes[SUMMARY_KEY]["hits"]) >= 1
     assert redis.lists.get(OUTBOX_KEY) == []
     document = writer.documents[oldest["id"]]
-    assert document["strategy_version"] == 2
+    assert document["strategy_version"] == STRATEGY_VERSION
     assert isinstance(document["built_after"]["timestamp"], datetime)
     assert isinstance(document["checks"][0]["result"]["timestamp"], datetime)
     assert isinstance(document["closed_at"], datetime)

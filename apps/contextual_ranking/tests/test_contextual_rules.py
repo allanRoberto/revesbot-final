@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextual_ranking.rules import (
-    analyze_occurrences, compare_distribution, match_counts, neighbors_of, rank_following,
+    analyze_occurrences, compare_distribution, match_counts, neighbors_of, rank_columns, rank_following,
     score_context, sort_occurrences,
 )
 from contextual_ranking.tests.fixtures import (
@@ -78,3 +78,28 @@ def test_ranking_ignores_invalid_posterior_arrays():
     ranked = rank_following([{"id": "a", "following": [5, 5, 0, 1]}])
     assert ranked["analyzed_results"] == 0
     assert all(row["percentage"] == 0 for row in ranked["ranking"])
+
+
+def test_worker_ranking_counts_every_number_of_the_three_columns():
+    [row] = analyze_occurrences([1, 2, 3, 4, 5], [{
+        "id": "a", "preceding": [5, 5, 9, 9, 9], "preceding_complete": True,
+        "context": [9, 0, 0, 0], "following": [5, 10, 10, 10, 10],
+    }])
+    ranked = rank_columns([row])
+    by_number = {item["number"]: item for item in ranked["ranking"]}
+    assert ranked["analyzed_results"] == 14
+    assert ranked["maximum"] == 140
+    # 5: twice in Anterior and once in Posterior; 9: three times in Anterior and once in Sequência.
+    assert (by_number[5]["exact"], by_number[9]["exact"], by_number[0]["exact"]) == (3, 4, 3)
+    assert by_number[10]["exact"] == 4 and by_number[10]["neighbor"] == 3
+    # Same scoring as the page: equal to rank_following when only Posterior is valid.
+    only_following = {**row, "preceding_valid": False, "context_valid": False}
+    assert rank_columns([only_following]) == rank_following([only_following])
+
+
+def test_worker_ranking_skips_invalid_columns():
+    [row] = analyze_occurrences([1, 2, 3, 4, 5], [{
+        "id": "a", "preceding": [5, 5, 9, 9, 9], "preceding_complete": False,
+        "context": [9, 0, 0, 0], "following": [5, 10, 10, 10],
+    }])
+    assert rank_columns([row])["analyzed_results"] == 4
