@@ -17,6 +17,11 @@ on:
       - "apps/api/routes/roulette_history.py"
       - "apps/api/routes/wheel_pair.py"
       - "apps/api/routes/contextual_similarity.py"
+      - "apps/api/routes/contextual_ranking.py"
+      - "apps/api/services/contextual_ranking_service.py"
+      - "apps/api/templates/contextual_ranking.html"
+      - "apps/api/tests/test_contextual_ranking_route.py"
+      - "apps/contextual_ranking/**"
       - "apps/api/templates/wheel_pair.html"
       - "apps/api/tests/test_wheel_pair_route.py"
       - "apps/api/tests/browser/test_wheel_pair_model.mjs"
@@ -101,9 +106,10 @@ jobs:
           node --input-type=module --check < apps/api/static/js/pages/contextual-similarity.js
           node --input-type=module --check < apps/api/static/js/core/contextual-similarity-model.js
           node --test apps/api/tests/browser/test_contextual_similarity_model.mjs
+          node --check apps/api/static/js/pages/contextual-ranking.js
           REVESBOT_API_CURRENT="${GITHUB_WORKSPACE}" node -e 'require("./infra/pm2/api-minimal.config.js")'
-          bash -n infra/deploy/api/driver.sh infra/deploy/api/deploy.sh infra/deploy/api/bootstrap.sh infra/deploy/api/healthcheck.sh infra/deploy/api/watchdog.sh
-          python -m compileall -q apps/behavior_lab apps/monitoring/scripts/triple_context_live_worker.py apps/api/minimal_main.py apps/api/routes/behavior_lab.py apps/api/routes/triple_context_live.py
+          bash -n infra/deploy/api/driver.sh infra/deploy/api/deploy.sh infra/deploy/api/bootstrap.sh infra/deploy/api/healthcheck.sh infra/deploy/api/watchdog.sh infra/deploy/api/provision-contextual-ranking.sh
+          python -m compileall -q apps/behavior_lab apps/monitoring/scripts/triple_context_live_worker.py apps/api/minimal_main.py apps/api/routes/behavior_lab.py apps/api/routes/triple_context_live.py apps/contextual_ranking apps/api/routes/contextual_ranking.py apps/api/services/contextual_ranking_service.py
       - name: Run API and Behavior Lab tests
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/apps
@@ -114,6 +120,8 @@ jobs:
           apps/api/tests/test_roulette_history_route.py
           apps/api/tests/test_wheel_pair_route.py
           apps/api/tests/test_contextual_similarity_route.py
+          apps/api/tests/test_contextual_ranking_route.py
+          apps/contextual_ranking/tests
           apps/api/tests/test_results_websocket.py
           apps/api/tests/test_minimal_api.py
           apps/api/tests/test_pattern_monitoring.py

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ranking ao vivo com as ocorrências das buscas dos cinco últimos números da Pragmatic Brazilian Roulette.">
+  <meta name="theme-color" content="#f6f7f9">
+  <title>Ranking contextual · Revesbot</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/pages/contextual-ranking.css?v={{ asset_version }}">
+  <script defer src="/static/js/pages/contextual-ranking.js?v={{ asset_version }}"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="page-header">
+      <div>
+        <h1>Ranking por similaridade contextual</h1>
+        <p class="subtitle">Pragmatic Brazilian Roulette · buscas dos 5 últimos números · 4 ocorrências de cada</p>
+      </div>
+      <div class="worker-state" role="status" aria-live="polite">
+        <span class="badge badge-monitoring" id="worker-badge">Conectando…</span>
+        <small id="updated-at"></small>
+      </div>
+    </header>
+
+    <section class="card hero" aria-label="Ranking atual e últimos resultados">
+      <div class="hero-block">
+        <h2 class="section-label">Ranking · 7 números</h2>
+        <ol class="ranking-numbers" id="ranking-numbers" aria-label="Sete números do ranking, em ordem">
+          <li class="placeholder">Aguardando o worker…</li>
+        </ol>
+      </div>
+      <div class="hero-block">
+        <h2 class="section-label">Últimos 3 resultados</h2>
+        <ol class="last-numbers" id="last-numbers" aria-label="Três últimos resultados, do mais recente ao mais antigo"></ol>
+      </div>
+    </section>
+
+    <div class="tabs" role="tablist" aria-label="Detalhes do ranking">
+      <button class="tab active" type="button" role="tab" id="tab-history" aria-selected="true" aria-controls="panel-history">Histórico</button>
+      <button class="tab" type="button" role="tab" id="tab-analysis" aria-selected="false" aria-controls="panel-analysis" tabindex="-1">Análise</button>
+    </div>
+
+    <section class="card" id="panel-history" role="tabpanel" aria-labelledby="tab-history">
+      <div class="stats-grid">
+        <div class="stat"><span class="label">Últimos 50 sinais</span><span class="value" id="recent-hits">—</span><span class="sub" id="recent-rate"></span></div>
+        <div class="stat"><span class="label">Desde o início</span><span class="value" id="total-hits">—</span><span class="sub" id="total-rate"></span></div>
+      </div>
+      <p class="hint">Cada número que sai é conferido com os 7 números que estavam no ranking naquele momento.</p>
+      <div class="table-wrap">
+        <table class="strength-table">
+          <thead><tr><th>Horário</th><th>Saiu</th><th>Ranking no ar</th><th>Resultado</th></tr></thead>
+          <tbody id="history-rows"><tr><td colspan="4" class="empty">Nenhum sinal registrado ainda.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="panel-analysis" role="tabpanel" aria-labelledby="tab-analysis" hidden>
+      <p class="hint">O ranking soma os 5 números que saíram depois de cada ocorrência abaixo: 10 pontos para o número e 8 para cada vizinho na roda. As ocorrências seguem a ordem da tabela da página de similaridade contextual. <span class="legend-match">Verde</span>: igual ao contexto ou à sequência da busca. <span class="legend-live">Turquesa</span>: saiu depois da busca.</p>
+      <div id="analysis-list"><p class="empty">Aguardando o worker…</p></div>
+    </section>
+
+    <footer class="footer">Os números descrevem relações históricas observadas e são conferidos rodada a rodada.</footer>
+  </div>
+</body>
+</html>
