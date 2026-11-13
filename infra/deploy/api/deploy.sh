@@ -22,10 +22,12 @@ trusted_ref="refs/heads/main"
 lock_file="/var/lib/revesbot-api-deploy/deploy.lock"
 behavior_process_name="revesbot-behavior-lab"
 triple_live_process_name="triple-context-live-worker"
+contextual_ranking_process_name="contextual-ranking-worker"
 api_process_name="revesbot-api"
 previous_target=""
 previous_had_behavior_worker=0
 previous_had_triple_live_worker=0
+previous_had_contextual_ranking_worker=0
 activation_epoch=0
 build_dir=""
 release_was_built=0
@@ -137,6 +139,10 @@ if [[ -n "$previous_target" ]] \
     && pm2_config_has_process "$previous_target/infra/pm2/api-minimal.config.js" "$triple_live_process_name"; then
   previous_had_triple_live_worker=1
 fi
+if [[ -n "$previous_target" ]] \
+    && pm2_config_has_process "$previous_target/infra/pm2/api-minimal.config.js" "$contextual_ranking_process_name"; then
+  previous_had_contextual_ranking_worker=1
+fi
 
 exec 9>"$lock_file"
 flock -n 9 || { echo "Outro deploy da API esta em andamento." >&2; exit 1; }
@@ -214,6 +220,7 @@ sudo -u "$runtime_user" node --check infra/pm2/api-minimal.config.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/behavior-lab.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/triple-context-live.js
 sudo -u "$runtime_user" node --check apps/api/static/js/pages/jev.js
+sudo -u "$runtime_user" node --check apps/api/static/js/pages/contextual-ranking.js
 sudo -u "$runtime_user" node --input-type=module --check < apps/api/static/js/pages/wheel-pair.js
 sudo -u "$runtime_user" node --input-type=module --check < apps/api/static/js/core/wheel-pair-model.js
 sudo -u "$runtime_user" node --test apps/api/tests/browser/test_wheel_pair_model.mjs
@@ -224,7 +231,8 @@ sudo -u "$runtime_user" bash -n \
   infra/deploy/api/deploy.sh \
   infra/deploy/api/bootstrap.sh \
   infra/deploy/api/healthcheck.sh \
-  infra/deploy/api/watchdog.sh
+  infra/deploy/api/watchdog.sh \
+  infra/deploy/api/provision-contextual-ranking.sh
 if (( release_was_built == 1 )); then
   sudo -u "$runtime_user" env \
     PYTHONPYCACHEPREFIX="$validation_root/.venv/.validation-pycache" \
@@ -235,7 +243,10 @@ if (( release_was_built == 1 )); then
     apps/api/minimal_main.py \
     apps/api/routes/behavior_lab.py \
     apps/api/routes/jev.py \
-    apps/api/routes/triple_context_live.py
+    apps/api/routes/triple_context_live.py \
+    apps/contextual_ranking \
+    apps/api/routes/contextual_ranking.py \
+    apps/api/services/contextual_ranking_service.py
 fi
 sudo -u "$runtime_user" env \
   PYTHONDONTWRITEBYTECODE=1 \
@@ -245,6 +256,8 @@ sudo -u "$runtime_user" env \
   apps/api/tests/test_behavior_lab_routes.py \
   apps/api/tests/test_roulette_history_route.py \
   apps/api/tests/test_wheel_pair_route.py \
+  apps/api/tests/test_contextual_ranking_route.py \
+  apps/contextual_ranking/tests \
   apps/api/tests/test_results_websocket.py \
   apps/api/tests/test_minimal_api.py \
   apps/api/tests/test_pattern_monitoring.py \
@@ -442,6 +455,7 @@ rollback_api() {
   local remaining_api_pid="0"
   local remaining_worker_pid="0"
   local remaining_triple_live_pid="0"
+  local remaining_contextual_ranking_pid="0"
   local rollback_link="$base_dir/.api-current-rollback-$BASHPID"
 
   if [[ -n "$previous_target" && -d "$previous_target" ]]; then
@@ -497,6 +511,18 @@ rollback_api() {
         || true
     )"
     if [[ "$remaining_triple_live_pid" =~ ^[1-9][0-9]*$ ]]; then
+      rollback_status=1
+    fi
+  fi
+
+  if (( previous_had_contextual_ranking_worker == 0 )); then
+    pm2_api delete "$contextual_ranking_process_name" >/dev/null 2>&1 || true
+    remaining_contextual_ranking_pid="$(
+      pm2_api pid "$contextual_ranking_process_name" 2>/dev/null \
+        | awk 'NF { print $1; exit }' \
+        || true
+    )"
+    if [[ "$remaining_contextual_ranking_pid" =~ ^[1-9][0-9]*$ ]]; then
       rollback_status=1
     fi
   fi

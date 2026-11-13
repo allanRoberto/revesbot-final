@@ -97,6 +97,41 @@ module.exports = {
       },
     },
     {
+      // Ranking da similaridade contextual: le o historico (somente leitura),
+      // consulta a busca vetorial interna e grava os sinais em uma colecao
+      // propria (CONTEXTUAL_RANKING_MONGO_URL, criada por
+      // infra/deploy/api/provision-contextual-ranking.sh).
+      name: "contextual-ranking-worker",
+      cwd: currentRoot,
+      script: "apps/contextual_ranking/__main__.py",
+      interpreter: python,
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      exp_backoff_restart_delay: 1000,
+      restart_delay: 2000,
+      min_uptime: "10s",
+      max_restarts: 10,
+      kill_timeout: 15000,
+      treekill: true,
+      max_memory_restart: "300M",
+      time: true,
+      env: {
+        PYTHONUNBUFFERED: "1",
+        PYTHONDONTWRITEBYTECODE: "1",
+        MONGO_URL: process.env.MONGO_URL,
+        MONGO_DATABASE: process.env.MONGO_DATABASE || "roleta_db",
+        REDIS_CONNECT: process.env.REDIS_CONNECT,
+        VECTOR_SEARCH_URL:
+          process.env.VECTOR_SEARCH_URL || "http://127.0.0.1:8037",
+        VECTOR_API_TOKEN: process.env.VECTOR_API_TOKEN || "",
+        CONTEXTUAL_RANKING_MONGO_URL:
+          process.env.CONTEXTUAL_RANKING_MONGO_URL || "",
+        CONTEXTUAL_RANKING_POLL_SECONDS:
+          process.env.CONTEXTUAL_RANKING_POLL_SECONDS || "1",
+      },
+    },
+    {
       name: "revesbot-behavior-lab",
       cwd: currentRoot,
       script: "apps/behavior_lab/__main__.py",
