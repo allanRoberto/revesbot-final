@@ -7,9 +7,9 @@ a Redis outbox and copied to MongoDB by a dedicated least-privilege user; the
 queue survives MongoDB outages or a missing configuration and is drained
 automatically.
 
-Strategy 2 (7 attempts per signal) uses its own Redis keys, so its totals start
-from zero; its MongoDB documents share the collection with strategy 1 and are
-told apart by ``strategy_version`` (and the ``v2-`` id prefix).
+Each strategy version uses its own Redis keys, so its totals start from zero;
+the MongoDB documents of every version share one collection and are told apart
+by ``strategy_version`` (and the ``v<version>-`` id prefix).
 """
 from __future__ import annotations
 
@@ -17,9 +17,10 @@ import json
 import logging
 from typing import Any, Sequence
 
+from contextual_ranking import STRATEGY_VERSION
 from contextual_ranking.engine import ROULETTE_ID, compact_signal, parse_time
 
-PREFIX = "contextual_ranking:v2"
+PREFIX = f"contextual_ranking:v{STRATEGY_VERSION}"
 STATE_KEY = f"{PREFIX}:state:{ROULETTE_ID}"
 VIEW_KEY = f"{PREFIX}:view:{ROULETTE_ID}"
 HEARTBEAT_KEY = f"{PREFIX}:heartbeat:{ROULETTE_ID}"

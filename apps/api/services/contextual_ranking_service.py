@@ -11,7 +11,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 ROULETTE_ID = "pragmatic-brazilian-roulette"
-PREFIX = "contextual_ranking:v2"
+# Must match apps/contextual_ranking/storage.py (checked by the route tests).
+PREFIX = "contextual_ranking:v3"
 ATTEMPTS_LIMIT = 7
 VIEW_KEY = f"{PREFIX}:view:{ROULETTE_ID}"
 HEARTBEAT_KEY = f"{PREFIX}:heartbeat:{ROULETTE_ID}"

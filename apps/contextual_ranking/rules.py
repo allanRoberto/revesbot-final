@@ -237,10 +237,35 @@ def sort_occurrences(rows: Sequence[dict[str, Any]], search_sequence: Sequence[i
 
 
 def rank_following(selected: Sequence[dict[str, Any]]) -> dict[str, Any]:
-    scores = [{"number": number, "score": 0, "exact": 0, "neighbor": 0,
-               "exact_sources": [], "neighbor_sources": []} for number in range(37)]
+    """``rankFollowing`` of the page: only the 5 following results of each occurrence."""
     results = [(number, row.get("id")) for row in selected
                if valid_numbers(row.get("following"), FOLLOWING_LENGTH) for number in row["following"]]
+    return _rank(results)
+
+
+# Columns used by the worker ranking (strategy 3): Anterior, Sequência, Posterior.
+RANKING_COLUMNS = (
+    ("preceding", "preceding_valid"),
+    ("context", "context_valid"),
+    ("following", "following_valid"),
+)
+
+
+def rank_columns(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Same scoring as the page, over the numbers of the three columns of each row.
+
+    Every number counts (repeats included), also the ones equal to the current
+    context or to the searched sequence; a column that is not valid is skipped.
+    """
+    results = [(number, row.get("id")) for row in rows for column, flag in RANKING_COLUMNS
+               if row.get(flag) for number in row[column]]
+    return _rank(results)
+
+
+def _rank(results: Sequence[tuple[int, Any]]) -> dict[str, Any]:
+    """10 points to each number and 8 to each wheel neighbor, ranked like the page."""
+    scores = [{"number": number, "score": 0, "exact": 0, "neighbor": 0,
+               "exact_sources": [], "neighbor_sources": []} for number in range(37)]
     for number, source in results:
         exact = scores[number]
         exact["score"] += EXACT_POINTS
