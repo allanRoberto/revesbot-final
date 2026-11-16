@@ -4,7 +4,7 @@ from contextual_pairs import PAIRS_VERSION, STRATEGY_TAG
 from contextual_pairs import engine as pairs
 from contextual_pairs.rules import pair_bet
 from contextual_pairs.tests.scripted import (
-    BET_37, NO_INTERSECTION, NO_PAIR, PAIR_37, PAIR_39, TOO_MANY,
+    BET_37, IGNORED_PAIR, NO_INTERSECTION, NO_PAIR, PAIR_37, PAIR_39, TOO_MANY,
 )
 from contextual_ranking.tests.memory import START, make_spins
 
@@ -33,7 +33,7 @@ def test_a_ranking_with_a_valid_pair_opens_one_signal(scripted):
     assert signal["_id"] == f"{STRATEGY_TAG}-{spins[-1]['history_id']}" == f"pairs-1-{spins[-1]['history_id']}"
     assert (signal["strategy"], signal["strategy_version"], signal["status"]) == ("pairs", "pairs-1", "open")
     assert (signal["pair"], signal["pair_key"], signal["bases"], signal["kept"]) == ([3, 7], "3-7", [3, 7], [13, 16, 27, 33])
-    assert signal["bet"] == BET_37 and signal["bet_arcs"] == [[6, 27, 13, 36], [24, 16, 33, 1]]
+    assert signal["bet"] == BET_37 and signal["bet_arcs"] == [[6, 27, 13, 36], [24, 16, 33, 1], [7], [3]]
     assert (signal["top_numbers"], signal["checks"], signal["attempts_limit"]) == (PAIR_37, [], 7)
     assert signal["built_after"] == spins[-1] and len(signal["ranking"]) == 7
     assert state["screen"]["state"] == "opened" and state["screen"]["bet"] == BET_37
@@ -52,6 +52,24 @@ def test_signals_are_checked_by_the_bet_not_by_the_ranking_numbers(scripted):
     assert (done["status"], done["hit"], done["hit_attempt"], done["hit_number"]) == ("hit", True, 2, 13)
     assert [c["attempt"] for c in done["checks"]] == [1, 2] and done["closed_at"] is not None
     assert state["pair_signals"] == []
+
+
+def test_the_two_numbers_of_the_pair_count_as_hits(scripted):
+    state, _ = start(scripted, [PAIR_37, NO_PAIR])
+    # 3 is not a neighbor of the intersection: it is in the bet only because it is a number of the pair.
+    state, closed = step(state, 3, 100)
+    [done] = closed
+    assert (done["status"], done["hit_attempt"], done["hit_number"]) == ("hit", 1, 3)
+
+
+def test_an_ignored_pair_opens_nothing_and_the_next_pair_opens_normally(scripted):
+    state, _ = start(scripted, [IGNORED_PAIR, IGNORED_PAIR, PAIR_37])
+    assert (state["screen"]["state"], state["screen"]["pair"], state["screen"]["bet"]) == ("ignored", [6, 9], [])
+    assert state["pair_signals"] == []
+    state, _ = step(state, OUTSIDE[0], 100)
+    assert state["screen"]["state"] == "ignored" and state["pair_signals"] == []
+    state, _ = step(state, OUTSIDE[1], 101)
+    assert state["screen"]["state"] == "opened" and [s["pair_key"] for s in state["pair_signals"]] == ["3-7"]
 
 
 def test_the_same_pair_is_blocked_while_its_signal_is_open_but_other_pairs_open(scripted):

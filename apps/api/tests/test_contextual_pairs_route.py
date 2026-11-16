@@ -76,7 +76,8 @@ class FakeRedis:
         ]}
         self.hashes = {SUMMARY_KEY: {
             "signals": "120", "hits": "95", "misses": "25", "rankings": "400", "ranking_opened": "120",
-            "ranking_active": "80", "ranking_no_pair": "90", "ranking_too_many": "100", "ranking_no_intersection": "10",
+            "ranking_active": "80", "ranking_ignored": "7", "ranking_no_pair": "90", "ranking_too_many": "100",
+            "ranking_no_intersection": "10",
         }}
 
     def pipeline(self, *, transaction):
@@ -119,7 +120,8 @@ def test_data_lists_open_signals_first_and_counts_only_closed_ones():
     assert data["history"][2]["hit_number"] == 13 and data["history"][0]["bet_arcs"][0] == [6, 27, 13, 36]
     assert data["summary"] == {
         "open": 2, "recent": {"hits": 1, "total": 2}, "all_time": {"hits": 95, "total": 120},
-        "rankings": {"total": 400, "opened": 120, "active": 80, "no_pair": 90, "too_many": 100, "no_intersection": 10},
+        "rankings": {"total": 400, "opened": 120, "active": 80, "ignored": 7, "no_pair": 90, "too_many": 100,
+                     "no_intersection": 10},
     }
 
 
