@@ -5,6 +5,8 @@
 .pair-state[data-state="active"] { color: var(--warn); }
 .pair-detail { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
 .pair-block { display: flex; flex-direction: column; gap: 6px; }
+/* O display: flex acima vence o [hidden] do navegador; sem isto os rótulos aparecem vazios quando não há par. */
+.pair-detail[hidden], .pair-block[hidden] { display: none; }
 .pair-numbers { display: inline-flex; align-items: center; gap: 6px; }
 .pair-dot { color: var(--muted); font-weight: 700; }
 
