@@ -92,17 +92,22 @@ Duas decisões do usuário, aplicadas dentro da versão 1 (o histórico continua
 1. Os dois números do par entram na aposta, sem os vizinhos deles.
 2. O par 6 e 9 é uma exceção da estratégia: não abre sinal e não é contado.
 
-Os dados já gravados foram corrigidos à mão, uma única vez, sem refazer o histórico:
+Os dados já gravados foram corrigidos à mão, sem refazer o histórico:
 
 - **Par 4 e 8** (`pairs-1-6afa81f19bbdd4d1f600b25a`, gatilho 04:09:21 UTC): o 8 saiu na 2ª rodada e
   não estava na aposta antiga. O sinal passou de erro para acerto na 2ª rodada, com a aposta nova
   (4, 6, 8, 9, 17, 18, 22, 25, 29, 34) e a conferência encerrada nessa rodada. Os valores antigos
   ficam no próprio documento, em `correction.previous`.
+- **Par 0 e 4** (`pairs-1-6afa87ed9bbdd4d1f600b465`, gatilho 04:34:53 UTC): o 4 saiu na 1ª rodada e
+  não estava na aposta antiga. Mesmo tratamento do 4 e 8: acerto na 1ª rodada, com a aposta nova
+  (0, 1, 4, 14, 20, 31). O sinal do par 0 e 1 (`pairs-1-6afa892b9bbdd4d1f600b4d2`) já tinha
+  fechado como acerto (36, na 4ª rodada) e não foi alterado.
 - **Par 6 e 9** (`pairs-1-6afa815b9bbdd4d1f600b229`): o documento continua no MongoDB com
   `excluded: true` e `excluded_reason` (o usuário de escrita não tem permissão de apagar). Ele saiu
   do histórico e dos contadores no Redis. Análises feitas direto no Mongo devem filtrar
   `excluded != true`.
 
 Os demais sinais não foram recalculados: os já encerrados mantêm a aposta e o resultado com que
-fecharam, e os abertos no momento do deploy seguem com a aposta com que abriram. Também não foi
-simulado o efeito de liberar o par 4 e 8 cinco rodadas mais cedo.
+fecharam (o erro do par 7 e 9, por exemplo, continua: nem o 7 nem o 9 saíram nas 7 rodadas), e os
+abertos no momento do deploy seguem com a aposta com que abriram. Também não foi simulado o efeito
+de liberar o par 4 e 8 (e o 0 e 4) algumas rodadas mais cedo.
