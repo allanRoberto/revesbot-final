@@ -19,22 +19,34 @@ ocorrências de cada uma das buscas dos 5 últimos giros e soma das 3 colunas, c
    dígitos, reduzida a um dígito, é a base.
 3. **Interseção:** fica o número de um grupo que é vizinho, na roda, de um número do outro grupo
    (um número que está nos dois grupos também fica).
-4. **Aposta:** os números que ficaram mais 1 vizinho de cada lado, mais os dois números do par,
-   sem os vizinhos deles (`INCLUDE_PAIR_NUMBERS`). Dos 45 pares possíveis, só 0 e 7, e 0 e 9, não
-   formam aposta (não há interseção); esses rankings também são ignorados.
-5. **Conferência:** a aposta fica congelada e é conferida nos 7 resultados seguintes. O primeiro
+4. **Proteção:** na roda, um número cujos dois vizinhos pertencem um a cada grupo fica entre os
+   grupos. Ele e os dois vizinhos formam um trio, e os 3 números entram na aposta
+   (`INCLUDE_PROTECTION`, função `protection_triples`). Um número que está nos dois grupos conta
+   para qualquer lado. Exemplo (4 e 5): o 17 fica entre o 25 (grupo do 5) e o 34 (grupo do 4), então
+   25, 17 e 34 entram; o 15, o 19 e o 4 formam o outro trio do par. Chamamos de "proteção" (campo
+   `protection`) só os números que a aposta ainda não tinha; o 16 do par 4 e 5, por exemplo, já
+   estava na aposta como vizinho do 24 e não conta como proteção. Os trios ficam em
+   `protection_triples` no documento do MongoDB, para explicar cada número.
+5. **Aposta:** os números que ficaram mais 1 vizinho de cada lado, mais os dois números do par,
+   sem os vizinhos deles (`INCLUDE_PAIR_NUMBERS`), mais os números de proteção. Dos 45 pares
+   possíveis, só 0 e 7, e 0 e 9, não formam aposta (não há interseção); esses rankings também são
+   ignorados, e sem aposta não há proteção.
+6. **Conferência:** a aposta fica congelada e é conferida nos 7 resultados seguintes. O primeiro
    número dentro dela encerra o sinal como acerto (registrando a rodada). Sete rodadas sem acerto
    encerram como erro. O acerto é pela aposta do par, não pelos 7 números do ranking.
-6. **Par ativo:** enquanto um sinal de um par está aberto, o mesmo par (3 e 7 é igual a 7 e 3)
+7. **Par ativo:** enquanto um sinal de um par está aberto, o mesmo par (3 e 7 é igual a 7 e 3)
    não abre outro sinal; só um par diferente abre. Quando o sinal encerra, o par é liberado, e o
    ranking calculado logo depois do resultado que o encerrou já pode abri-lo de novo.
 
 Exemplo (3 e 7): grupo do 3 = 3, 13, 23, 33, 30, 12, 21; grupo do 7 = 7, 17, 27, 16, 25, 34. Ficam
 13 (vizinho do 27), 33 (vizinho do 16), 27 (vizinho do 13) e 16 (vizinho do 33). Aposta: 6, 27, 13,
-36 e 24, 16, 33, 1, mais o 3 e o 7 sozinhos (10 números).
+36 e 24, 16, 33, 1, mais o 3 e o 7 sozinhos. A proteção vem dos trios 21-2-25 (o 2 fica entre o 21,
+do grupo do 3, e o 25, do grupo do 7) e 7-28-12: entram 2, 12, 21, 25 e 28, e a aposta fecha com 15
+números.
 
 A página mostra a aposta em trechos de casas vizinhas na roda: os números cheios são a interseção,
-os mais claros são os vizinhos e o contorno dourado marca os dois números do par.
+os mais claros são os vizinhos, o contorno dourado marca os dois números do par e o roxo marca os
+números de proteção. O histórico tem uma coluna "Proteção" com esses números.
 
 ## Estados do ranking na tela
 
@@ -66,8 +78,8 @@ quando não havia aposta na tela.
 Os sinais dos pares usam a mesma coleção dos sinais do ranking, com `strategy: "pairs"`,
 `strategy_version: "pairs-1"` e `_id` `pairs-1-<id do giro>`. Assim o usuário do Mongo que já existe
 (`revesbot_api_contextual_prod`) basta, e nada muda no servidor. O documento guarda o giro que gerou o
-ranking, o top 7, o par, os números mantidos, a aposta, cada rodada conferida, a rodada do acerto e o
-ranking completo com as ocorrências usadas.
+ranking, o top 7, o par, os números mantidos, os números de proteção e os trios de onde vieram, a
+aposta, cada rodada conferida, a rodada do acerto e o ranking completo com as ocorrências usadas.
 
 ## Operação
 
@@ -111,3 +123,27 @@ Os demais sinais não foram recalculados: os já encerrados mantêm a aposta e o
 fecharam (o erro do par 7 e 9, por exemplo, continua: nem o 7 nem o 9 saíram nas 7 rodadas), e os
 abertos no momento do deploy seguem com a aposta com que abriram. Também não foi simulado o efeito
 de liberar o par 4 e 8 (e o 0 e 4) algumas rodadas mais cedo.
+
+## Números de proteção (16/11/2026) e correção dos dados
+
+Terceira decisão do usuário no mesmo dia, também dentro da versão 1: os números de proteção (regra
+4 acima) entram na aposta. Antes de gravar, foi feito um levantamento só de leitura nos sinais já
+encerrados, que o usuário conferiu: com a proteção o placar passava de 155 acertos e 23 erros para
+167 e 11 (178 sinais), com a aposta média indo de 10,3 para 13,5 números.
+
+Depois do deploy, os sinais gravados antes dele são recalculados com a regra nova (script de
+correção rodado uma vez no servidor, de novo para os sinais que ainda estavam abertos no deploy):
+
+- cada documento ganha `protection` e `protection_triples`, e a `bet` e os `bet_arcs` passam a incluir
+  os números de proteção;
+- o resultado é refeito sobre as rodadas já conferidas: um erro em que um número de proteção saiu vira
+  acerto nessa rodada, e um acerto em que um número de proteção saiu antes passa a bater antes. Em
+  ambos os casos a conferência termina na rodada do acerto e `closed_at` passa a ser a hora desse
+  resultado;
+- os valores anteriores (`status`, `hit`, `hit_attempt`, `hit_number`, `bet`, `bet_arcs`, `checks`,
+  `closed_at`) ficam em `protection_correction.previous`, com a data e o motivo; um documento que já
+  foi recalculado (tem `protection`) não é tocado de novo;
+- no Redis, a entrada do histórico é trocada pela versão corrigida e os contadores de acertos e
+  erros acompanham;
+- a sequência dos sinais não foi refeita: um sinal que fecha antes liberaria o par antes, e isso não
+  foi simulado.

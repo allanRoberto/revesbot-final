@@ -4,7 +4,8 @@ The ranking (search of every result, the 4 first occurrences of the 5 latest sea
 columns, top 7) is produced by ``contextual_ranking.engine`` exactly as for the ranking page.
 This module turns each ranking into at most one bet:
 
-* exactly two of the 7 numbers are from 0 to 9 (the pair) and the rule finds a bet for them;
+* exactly two of the 7 numbers are from 0 to 9 (the pair) and the rule finds a bet for them (the
+  intersection of the two groups, the pair numbers and the protection numbers, see ``rules.py``);
 * no signal of the same pair is open. A different pair may open meanwhile.
 
 A signal keeps its bet frozen and is checked against the next 7 results: the first number inside
@@ -34,7 +35,8 @@ def pair_key(pair: Sequence[int]) -> str:
 
 
 def waiting_screen() -> dict[str, Any]:
-    return {"state": "waiting", "bases": [], "pair": None, "kept": [], "bet": [], "arcs": [], "built_after": None}
+    return {"state": "waiting", "bases": [], "pair": None, "kept": [], "protection": [], "bet": [], "arcs": [],
+            "built_after": None}
 
 
 def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str, Any],
@@ -56,6 +58,8 @@ def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str
         "pair_key": pair_key(info["pair"]),
         "bases": info["bases"],
         "kept": info["kept"],
+        "protection": info["protection"],
+        "protection_triples": info["protection_triples"],
         "bet": info["bet"],
         "bet_arcs": info["arcs"],
         "ranking": ranking.get("full", []),
@@ -75,7 +79,8 @@ def evaluate_ranking(ranking: dict[str, Any], open_signals: Sequence[dict[str, A
     top = [row["number"] for row in ranking.get("top") or []]
     info = pair_bet(top)
     screen = {"state": info["kind"], "bases": info["bases"], "pair": info["pair"], "kept": info["kept"],
-              "bet": info["bet"], "arcs": info["arcs"], "built_after": ranking.get("built_after")}
+              "protection": info["protection"], "bet": info["bet"], "arcs": info["arcs"],
+              "built_after": ranking.get("built_after")}
     if info["kind"] != "ok":
         return screen, None
     if pair_key(info["pair"]) in {signal["pair_key"] for signal in open_signals}:
@@ -167,6 +172,7 @@ def compact_signal(signal: dict[str, Any]) -> dict[str, Any]:
         "top_numbers": signal["top_numbers"],
         "pair": signal["pair"],
         "kept": signal["kept"],
+        "protection": signal.get("protection", []),  # signals opened before the protection rule have none
         "bet": signal["bet"],
         "bet_arcs": signal["bet_arcs"],
         "checks": [{"number": check["result"]["number"], "timestamp": check["result"]["timestamp"],

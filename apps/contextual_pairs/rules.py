@@ -9,8 +9,13 @@ From the top 7 numbers of the contextual ranking: when exactly two of them are f
 
 A number is kept when one of its wheel neighbors belongs to the group of the other base
 (a number that belongs to both groups is kept too). The bet is every kept number plus one
-wheel neighbor on each side and, since rule version 2, the two numbers of the pair themselves
-(without their neighbors).
+wheel neighbor on each side, the two numbers of the pair themselves (without their neighbors)
+and the protection numbers.
+
+Protection numbers: a number of the wheel whose two neighbors belong one to each group sits
+between the groups. It and its two neighbors (a wheel triple) protect the bet. Example, pair
+4 and 5: 17 is between 25 (group of 5) and 34 (group of 4), so 25, 17 and 34 are protection
+numbers; 15, 19 and 4 are another triple of the same pair.
 """
 from __future__ import annotations
 
@@ -20,8 +25,9 @@ from contextual_ranking.rules import WHEEL, neighbors_of
 
 BASE_LIMIT = 9  # bases are the ranking numbers from 0 to BASE_LIMIT
 # Strategy switches. Changing them changes the bets: bump PAIRS_VERSION, unless the history is kept
-# on purpose (see the note in __init__.py about the 2026-11-16 change).
+# on purpose (see the note in __init__.py about the 2026-11-16 changes).
 INCLUDE_PAIR_NUMBERS = True  # the two numbers of the pair are always in the bet, without their neighbors
+INCLUDE_PROTECTION = True  # the numbers between a number of one group and a number of the other are in the bet
 IGNORED_PAIRS: frozenset[tuple[int, int]] = frozenset({(6, 9)})  # exceptions: these pairs never open a signal
 MIRROR_PAIRS = ((1, 10), (2, 20), (3, 30), (6, 9), (12, 21), (13, 31), (14, 34), (16, 19), (23, 32), (26, 29))
 MIRROR: dict[int, int] = {}
@@ -59,6 +65,21 @@ def kept_numbers(first: int, second: int) -> list[int]:
     return kept
 
 
+def protection_triples(first: int, second: int) -> list[list[int]]:
+    """Wheel triples [left, middle, right] whose neighbors belong one to each group (in wheel order).
+
+    The middle number sits between a number of one group and a number of the other; a number that
+    belongs to both groups counts for either side.
+    """
+    group_a, group_b = set(group(first)), set(group(second))
+    triples: list[list[int]] = []
+    for middle in WHEEL:
+        left, right = neighbors_of(middle)
+        if (left in group_a and right in group_b) or (left in group_b and right in group_a):
+            triples.append([left, middle, right])
+    return triples
+
+
 def wheel_arcs(numbers: Iterable[int]) -> list[list[int]]:
     """Group numbers into runs of adjacent pockets of the wheel (circular), in wheel order."""
     present = {_WHEEL_POSITION[number] for number in set(numbers)}
@@ -89,9 +110,13 @@ def pair_bet(top_numbers: Sequence[int]) -> dict[str, Any]:
     from 0 to 9), ``too_many`` (three or more, ignored), ``ignored`` (a pair listed in
     ``IGNORED_PAIRS``) or ``no_intersection`` (a pair, but no number of one group is a neighbor
     of the other group).
+
+    ``protection`` lists only the protection numbers the rest of the bet did not already have;
+    ``protection_triples`` keeps the wheel triples they come from (the reason of each number).
     """
     bases = [number for number in top_numbers if 0 <= number <= BASE_LIMIT]
-    info: dict[str, Any] = {"kind": "no_pair", "bases": bases, "pair": None, "kept": [], "bet": [], "arcs": []}
+    info: dict[str, Any] = {"kind": "no_pair", "bases": bases, "pair": None, "kept": [], "bet": [], "arcs": [],
+                            "protection": [], "protection_triples": []}
     if len(bases) < 2:
         return info
     if len(bases) > 2:
@@ -111,6 +136,12 @@ def pair_bet(top_numbers: Sequence[int]) -> dict[str, Any]:
         members.update((number, *neighbors_of(number)))
     if INCLUDE_PAIR_NUMBERS:
         members.update(pair)
+    protection: list[int] = []
+    if INCLUDE_PROTECTION:
+        triples = protection_triples(pair[0], pair[1])
+        protection = sorted({number for triple in triples for number in triple} - members)
+        members.update(protection)
+        info["protection_triples"] = triples
     bet = sorted(members)
-    info.update(kind="ok", kept=sorted(kept), bet=bet, arcs=wheel_arcs(bet))
+    info.update(kind="ok", kept=sorted(kept), bet=bet, arcs=wheel_arcs(bet), protection=protection)
     return info

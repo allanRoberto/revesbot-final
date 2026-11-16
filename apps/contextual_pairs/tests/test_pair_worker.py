@@ -7,7 +7,7 @@ from contextual_pairs.rules import pair_bet
 from contextual_pairs.storage import (
     HEARTBEAT_KEY, HISTORY_KEY, OUTBOX_KEY, STATE_KEY, SUMMARY_KEY, VIEW_KEY, PairsRedisStore,
 )
-from contextual_pairs.tests.scripted import BET_37, NO_PAIR, PAIR_37, PAIR_39
+from contextual_pairs.tests.scripted import BET_37, NO_PAIR, PAIR_37, PAIR_39, PROTECTION_37
 from contextual_pairs.worker import PairsWorker
 from contextual_ranking.storage import decode, encode
 from contextual_ranking.tests.fixtures import random_case
@@ -78,6 +78,8 @@ def test_closed_signals_go_to_redis_and_to_mongodb_with_their_pair(scripted):
     assert document["_id"] == entry["id"] and document["_id"].startswith("pairs-1-")
     assert (document["strategy"], document["strategy_version"]) == ("pairs", "pairs-1")
     assert (document["pair"], document["bet"], document["kept"]) == ([3, 7], BET_37, [13, 16, 27, 33])
+    assert document["protection"] == PROTECTION_37 and document["protection_triples"] == [[21, 2, 25], [7, 28, 12]]
+    assert entry["protection"] == PROTECTION_37
     assert isinstance(document["built_after"]["timestamp"], datetime)
     assert isinstance(document["checks"][0]["result"]["timestamp"], datetime)
     assert isinstance(document["created_at"], datetime) and isinstance(document["closed_at"], datetime)

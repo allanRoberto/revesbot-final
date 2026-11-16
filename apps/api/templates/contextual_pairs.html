@@ -41,6 +41,10 @@
               <small class="muted">Aposta do par</small>
               <div id="pair-bet"></div>
             </div>
+            <div class="pair-block" id="pair-protection-block" hidden>
+              <small class="muted">Proteção</small>
+              <div id="pair-protection"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -61,12 +65,12 @@
         <div class="stat"><span class="label">Desde o início</span><span class="value" id="total-hits">—</span><span class="sub" id="total-rate"></span></div>
         <div class="stat"><span class="label">Em andamento</span><span class="value" id="open-count">—</span><span class="sub" id="open-pairs">pares ainda sendo conferidos</span></div>
       </div>
-      <p class="hint">Um sinal nasce quando o ranking tem exatamente 2 números de 0 a 9 (o par). A aposta junta os terminais, o espelho e a soma dos dígitos dos dois, guarda os números que ficam vizinhos entre os dois grupos, acrescenta 1 vizinho de cada lado e inclui também os dois números do par, sem vizinhos. É conferida nos <span id="attempts-limit">7</span> resultados seguintes, e o primeiro acerto a encerra. Enquanto um sinal de um par está em andamento, esse par não abre outro; só um par diferente. O par 6 e 9 é ignorado, por ser uma exceção da estratégia. Na aposta, os números cheios formam a interseção, os mais claros são os vizinhos e o contorno dourado marca os dois números do par.</p>
+      <p class="hint">Um sinal nasce quando o ranking tem exatamente 2 números de 0 a 9 (o par). A aposta junta os terminais, o espelho e a soma dos dígitos dos dois, guarda os números que ficam vizinhos entre os dois grupos, acrescenta 1 vizinho de cada lado, inclui também os dois números do par, sem vizinhos, e os números de proteção: quando um número da roda fica entre um número de um grupo e um número do outro (no par 4 e 5, o 17 fica entre o 25 e o 34), ele e os seus dois vizinhos entram na aposta. É conferida nos <span id="attempts-limit">7</span> resultados seguintes, e o primeiro acerto a encerra. Enquanto um sinal de um par está em andamento, esse par não abre outro; só um par diferente. O par 6 e 9 é ignorado, por ser uma exceção da estratégia. Na aposta, os números cheios formam a interseção, os mais claros são os vizinhos, o contorno dourado marca os dois números do par e o roxo os números de proteção.</p>
       <p class="hint" id="ranking-counters"></p>
       <div class="table-wrap">
         <table class="strength-table">
-          <thead><tr><th>Sinal</th><th>Situação</th><th>Par</th><th>Ranking do sinal</th><th>Aposta do par</th><th>Rodadas conferidas</th></tr></thead>
-          <tbody id="history-rows"><tr><td colspan="6" class="empty">Nenhum sinal registrado ainda.</td></tr></tbody>
+          <thead><tr><th>Sinal</th><th>Situação</th><th>Par</th><th>Ranking do sinal</th><th>Aposta do par</th><th>Proteção</th><th>Rodadas conferidas</th></tr></thead>
+          <tbody id="history-rows"><tr><td colspan="7" class="empty">Nenhum sinal registrado ainda.</td></tr></tbody>
         </table>
       </div>
     </section>
