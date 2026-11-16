@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from api.routes.behavior_lab import router as behavior_lab_router
+from api.routes.contextual_pairs import router as contextual_pairs_router
 from api.routes.contextual_ranking import router as contextual_ranking_router
 from api.routes.contextual_similarity import router as contextual_similarity_router
 from api.routes.jev import router as jev_router
@@ -61,6 +62,7 @@ app.add_middleware(
 app.include_router(roulette_history_router)
 app.include_router(contextual_similarity_router)
 app.include_router(contextual_ranking_router)
+app.include_router(contextual_pairs_router)
 app.include_router(wheel_pair_router)
 app.include_router(jev_router)
 app.include_router(results_websocket_router)
