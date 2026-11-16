@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from contextual_pairs import PAIRS_VERSION, STRATEGY_TAG
+from contextual_pairs import PAIRS_VERSION, STRATEGY_TAG, rules
 from contextual_pairs import engine as pairs
 from contextual_pairs.rules import pair_bet
 from contextual_pairs.tests.scripted import (
-    BET_37, IGNORED_PAIR, NO_INTERSECTION, NO_PAIR, PAIR_37, PAIR_39, TOO_MANY,
+    BET_37, IGNORED_PAIR, NO_INTERSECTION, NO_PAIR, PAIR_37, PAIR_39, PROTECTION_37, TOO_MANY,
 )
 from contextual_ranking.tests.memory import START, make_spins
 
@@ -33,10 +33,13 @@ def test_a_ranking_with_a_valid_pair_opens_one_signal(scripted):
     assert signal["_id"] == f"{STRATEGY_TAG}-{spins[-1]['history_id']}" == f"pairs-1-{spins[-1]['history_id']}"
     assert (signal["strategy"], signal["strategy_version"], signal["status"]) == ("pairs", "pairs-1", "open")
     assert (signal["pair"], signal["pair_key"], signal["bases"], signal["kept"]) == ([3, 7], "3-7", [3, 7], [13, 16, 27, 33])
-    assert signal["bet"] == BET_37 and signal["bet_arcs"] == [[6, 27, 13, 36], [24, 16, 33, 1], [7], [3]]
+    assert signal["bet"] == BET_37
+    assert signal["bet_arcs"] == [[21, 2, 25], [6, 27, 13, 36], [24, 16, 33, 1], [7, 28, 12], [3]]
+    assert (signal["protection"], signal["protection_triples"]) == (PROTECTION_37, [[21, 2, 25], [7, 28, 12]])
     assert (signal["top_numbers"], signal["checks"], signal["attempts_limit"]) == (PAIR_37, [], 7)
     assert signal["built_after"] == spins[-1] and len(signal["ranking"]) == 7
     assert state["screen"]["state"] == "opened" and state["screen"]["bet"] == BET_37
+    assert state["screen"]["protection"] == PROTECTION_37
     assert state["pairs_version"] == PAIRS_VERSION and state["open_signals"] == []
 
 
@@ -60,6 +63,26 @@ def test_the_two_numbers_of_the_pair_count_as_hits(scripted):
     state, closed = step(state, 3, 100)
     [done] = closed
     assert (done["status"], done["hit_attempt"], done["hit_number"]) == ("hit", 1, 3)
+
+
+def test_the_protection_numbers_count_as_hits(scripted, monkeypatch):
+    with monkeypatch.context() as patch:
+        patch.setattr(rules, "INCLUDE_PROTECTION", False)
+        # 28 is neither in the intersection, nor a neighbor of it, nor a number of the pair
+        assert 28 not in pair_bet(PAIR_37)["bet"]
+    assert 28 in PROTECTION_37
+    state, _ = start(scripted, [PAIR_37, NO_PAIR, NO_PAIR])
+    state, closed = step(state, 28, 100)
+    [done] = closed
+    assert (done["status"], done["hit_attempt"], done["hit_number"]) == ("hit", 1, 28)
+    assert done["protection"] == PROTECTION_37
+
+
+def test_a_signal_closed_before_the_protection_rule_has_no_protection_in_its_compact_form():
+    old = {"_id": "pairs-1-h0", "status": "miss", "built_after": {}, "top_numbers": [], "pair": [3, 7], "kept": [],
+           "bet": [3, 7], "bet_arcs": [[3], [7]], "checks": [], "hit": False, "hit_attempt": None,
+           "hit_number": None, "created_at": "2026-11-16T00:00:00+00:00", "closed_at": "2026-11-16T00:01:00+00:00"}
+    assert pairs.compact_signal(old)["protection"] == []
 
 
 def test_an_ignored_pair_opens_nothing_and_the_next_pair_opens_normally(scripted):
@@ -168,8 +191,10 @@ def test_the_view_lists_the_newest_signals_first(scripted):
     assert [signal["pair"] for signal in view["open_signals"]] == [[3, 9], [3, 7]]
     newest, oldest = view["open_signals"]
     assert newest["checks"] == [] and [c["number"] for c in oldest["checks"]] == [OUTSIDE[0]]
-    assert set(oldest) == {"id", "status", "built_after", "top_numbers", "pair", "kept", "bet", "bet_arcs", "checks",
-                           "attempts_limit", "hit", "hit_attempt", "hit_number", "created_at", "closed_at"}
+    assert set(oldest) == {"id", "status", "built_after", "top_numbers", "pair", "kept", "protection", "bet",
+                           "bet_arcs", "checks", "attempts_limit", "hit", "hit_attempt", "hit_number", "created_at",
+                           "closed_at"}
+    assert oldest["protection"] == PROTECTION_37
     assert view["attempts_limit"] == 7 and view["screen"]["state"] == "opened"
     assert view["last_numbers"][0]["number"] == OUTSIDE[0]
     assert pairs.build_view({})["screen"]["state"] == "waiting"

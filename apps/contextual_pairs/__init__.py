@@ -15,3 +15,5 @@ STRATEGY_TAG = f"{STRATEGY}-{PAIRS_VERSION}"
 # see docs/design/pares-similaridade-contextual.md):
 #   2026-11-16: the two numbers of the pair are also in the bet, without neighbors, and pair 6-9
 #               is ignored (an exception of the strategy).
+#   2026-11-16: protection numbers: the wheel triples whose neighbors belong one to each group
+#               are also in the bet (``protection`` in every signal, ``protection_triples`` in MongoDB).

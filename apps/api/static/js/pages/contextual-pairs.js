@@ -70,11 +70,19 @@
     return view;
   }
 
-  // The bet in runs of adjacent pockets of the wheel; full chips are the intersection, light ones the neighbors
-  // and the gold outline marks the two numbers of the pair (always in the bet, without their neighbors).
-  function arcsView(arcs, kept, hitNumber = null, pair = []) {
+  // The numbers the protection rule added to the bet (the ones between the two groups), or a dash.
+  function protectionView(numbers) {
+    if (!Array.isArray(numbers) || !numbers.length) return node("span", "muted", "—");
+    return chipList(numbers, () => "protection");
+  }
+
+  // The bet in runs of adjacent pockets of the wheel; full chips are the intersection, light ones the neighbors,
+  // the gold outline marks the two numbers of the pair (always in the bet, without their neighbors) and the
+  // purple outline marks the protection numbers.
+  function arcsView(arcs, kept, hitNumber = null, pair = [], protection = []) {
     const keptNumbers = new Set(kept || []);
     const pairNumbers = new Set(pair || []);
+    const protectionNumbers = new Set(protection || []);
     const wrapper = node("span", "arc-list");
     if (!Array.isArray(arcs) || !arcs.length) {
       wrapper.textContent = "—";
@@ -84,8 +92,9 @@
       const group = node("span", "arc");
       arc.forEach((number) => {
         const classes = [
-          keptNumbers.has(number) || pairNumbers.has(number) ? "" : "neighbor",
+          keptNumbers.has(number) || pairNumbers.has(number) || protectionNumbers.has(number) ? "" : "neighbor",
           pairNumbers.has(number) ? "base" : "",
+          protectionNumbers.has(number) ? "protection" : "",
           number === hitNumber ? "hit" : "",
         ].filter(Boolean);
         group.append(chip(number, classes.join(" ")));
@@ -151,7 +160,10 @@
     $("pair-numbers-block").hidden = !hasPair;
     $("pair-bet-block").hidden = !hasBet;
     $("pair-numbers").replaceChildren(...(hasPair ? [pairView(screen.pair)] : []));
-    $("pair-bet").replaceChildren(...(hasBet ? [arcsView(screen.arcs, screen.kept, null, screen.pair)] : []));
+    $("pair-bet").replaceChildren(...(hasBet ? [arcsView(screen.arcs, screen.kept, null, screen.pair, screen.protection)] : []));
+    const hasProtection = hasBet && Array.isArray(screen.protection) && screen.protection.length > 0;
+    $("pair-protection-block").hidden = !hasProtection;
+    $("pair-protection").replaceChildren(...(hasProtection ? [protectionView(screen.protection)] : []));
   }
 
   function renderLastNumbers(data) {
@@ -201,7 +213,7 @@
     if (!data.history.length) {
       const row = body.insertRow();
       const cell = row.insertCell();
-      cell.colSpan = 6;
+      cell.colSpan = 7;
       cell.className = "empty";
       cell.textContent = "Nenhum sinal registrado ainda.";
       return;
@@ -217,7 +229,8 @@
       row.insertCell().append(signalBadge(signal, limit));
       row.insertCell().append(pairView(signal.pair));
       row.insertCell().append(chipList(signal.top_numbers));
-      row.insertCell().append(arcsView(signal.bet_arcs, signal.kept, signal.hit_number, signal.pair));
+      row.insertCell().append(arcsView(signal.bet_arcs, signal.kept, signal.hit_number, signal.pair, signal.protection));
+      row.insertCell().append(protectionView(signal.protection));
       const rounds = node("span", "rounds");
       const checked = node("span", "chip-list");
       signal.checks.forEach((check) => checked.append(chip(check.number, check.hit ? "hit" : "")));

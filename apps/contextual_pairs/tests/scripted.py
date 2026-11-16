@@ -8,7 +8,9 @@ from contextual_ranking.engine import ROULETTE_ID, SPIN_MEMORY, iso
 
 # Rankings (top 7) used by the tests, and the bet each one produces.
 PAIR_37 = [3, 7, 20, 25, 28, 12, 31]  # pair 3-7
-BET_37 = [1, 3, 6, 7, 13, 16, 24, 27, 33, 36]  # intersection + neighbors + the two numbers of the pair
+PROTECTION_37 = [2, 12, 21, 25, 28]  # triples 21-2-25 and 7-28-12: between the group of 3 and the group of 7
+# intersection + neighbors + the two numbers of the pair + protection numbers
+BET_37 = [1, 2, 3, 6, 7, 12, 13, 16, 21, 24, 25, 27, 28, 33, 36]
 PAIR_39 = [9, 3, 22, 18, 29, 12, 35]  # pair 3-9
 IGNORED_PAIR = [6, 9, 20, 25, 28, 12, 31]  # pair 6-9 is an exception: it never opens a signal
 NO_PAIR = [3, 20, 25, 28, 12, 31, 35]  # a single number from 0 to 9

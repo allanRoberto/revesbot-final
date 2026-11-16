@@ -20,7 +20,8 @@ HISTORY_KEY = f"{PREFIX}:history:{ROULETTE_ID}"
 SUMMARY_KEY = f"{PREFIX}:summary:{ROULETTE_ID}"
 ATTEMPTS_LIMIT = 7
 EMPTY_RANKING = {"top": [], "built_after": None, "analyzed_results": 0, "maximum": 0}
-EMPTY_SCREEN = {"state": "waiting", "bases": [], "pair": None, "kept": [], "bet": [], "arcs": [], "built_after": None}
+EMPTY_SCREEN = {"state": "waiting", "bases": [], "pair": None, "kept": [], "protection": [], "bet": [], "arcs": [],
+                "built_after": None}
 RANKING_STATES = ("opened", "active", "ignored", "no_pair", "too_many", "no_intersection")
 
 

@@ -46,7 +46,8 @@ class FakeRedis:
         def signal(identifier, status, pair, checks, hit_attempt=None, hit_number=None):
             return {
                 "id": identifier, "status": status, "built_after": spin, "top_numbers": [3, 7, 20, 25, 28, 12, 31],
-                "pair": pair, "kept": [13, 16, 27, 33], "bet": [1, 6, 13, 16, 24, 27, 33, 36], "bet_arcs": arcs,
+                "pair": pair, "kept": [13, 16, 27, 33], "protection": [2, 12, 21, 25, 28],
+                "bet": [1, 2, 3, 6, 7, 12, 13, 16, 21, 24, 25, 27, 28, 33, 36], "bet_arcs": arcs,
                 "checks": [{"number": number, "timestamp": now.isoformat(), "hit": hit} for number, hit in checks],
                 "attempts_limit": 7, "hit": None if status == "open" else status == "hit",
                 "hit_attempt": hit_attempt, "hit_number": hit_number,
@@ -54,7 +55,8 @@ class FakeRedis:
             }
 
         screen = {"state": "active", "bases": [3, 7], "pair": [3, 7], "kept": [13, 16, 27, 33],
-                  "bet": [1, 6, 13, 16, 24, 27, 33, 36], "arcs": arcs, "built_after": spin}
+                  "protection": [2, 12, 21, 25, 28],
+                  "bet": [1, 2, 3, 6, 7, 12, 13, 16, 21, 24, 25, 27, 28, 33, 36], "arcs": arcs, "built_after": spin}
         self.values = {
             VIEW_KEY: json.dumps({
                 "version": 9, "updated_at": now.isoformat(), "attempts_limit": 7,
@@ -102,6 +104,7 @@ def test_page_shell_has_the_pair_and_bet_columns_without_touching_redis():
         assert f"/static/{asset}?v={version}" in response.text
     assert 'id="panel-history"' in response.text and 'id="panel-analysis"' in response.text
     assert "<th>Par</th>" in response.text and "<th>Aposta do par</th>" in response.text
+    assert "<th>Proteção</th>" in response.text and 'id="pair-protection"' in response.text
     assert redis_client.requests == []
 
 
@@ -118,6 +121,7 @@ def test_data_lists_open_signals_first_and_counts_only_closed_ones():
         ("pairs-1-h1", "hit", [2, 4]), ("pairs-1-h0", "miss", [0, 3]),
     ]
     assert data["history"][2]["hit_number"] == 13 and data["history"][0]["bet_arcs"][0] == [6, 27, 13, 36]
+    assert data["history"][0]["protection"] == data["screen"]["protection"] == [2, 12, 21, 25, 28]
     assert data["summary"] == {
         "open": 2, "recent": {"hits": 1, "total": 2}, "all_time": {"hits": 95, "total": 120},
         "rankings": {"total": 400, "opened": 120, "active": 80, "ignored": 7, "no_pair": 90, "too_many": 100,
@@ -159,6 +163,7 @@ def test_empty_redis_still_answers_with_a_waiting_screen():
     assert data["worker"]["status"] == "offline"
     assert data["ranking"]["top"] == [] and data["history"] == []
     assert data["screen"]["state"] == "waiting" and data["screen"]["bet"] == []
+    assert data["screen"]["protection"] == []
     assert data["summary"]["all_time"] == {"hits": 0, "total": 0}
     assert data["summary"]["rankings"]["total"] == 0
 
