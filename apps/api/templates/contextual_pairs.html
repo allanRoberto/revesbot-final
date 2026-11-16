@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Apostas por par de números de 0 a 9 do ranking por similaridade contextual da Pragmatic Brazilian Roulette.">
+  <meta name="theme-color" content="#f6f7f9">
+  <title>Pares do ranking · Revesbot</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/pages/contextual-ranking.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/css/pages/contextual-pairs.css?v={{ asset_version }}">
+  <script defer src="/static/js/pages/contextual-pairs.js?v={{ asset_version }}"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="page-header">
+      <div>
+        <h1>Pares do ranking por similaridade contextual</h1>
+        <p class="subtitle">Pragmatic Brazilian Roulette · aposta por terminais, espelho e soma · 7 tentativas</p>
+      </div>
+      <div class="worker-state" role="status" aria-live="polite">
+        <span class="badge badge-monitoring" id="worker-badge">Conectando…</span>
+        <small id="updated-at"></small>
+      </div>
+    </header>
+
+    <section class="card hero" aria-label="Ranking atual, par e últimos resultados">
+      <div class="hero-block">
+        <h2 class="section-label">Ranking · 7 números</h2>
+        <ol class="ranking-numbers" id="ranking-numbers" aria-label="Sete números do ranking, em ordem">
+          <li class="placeholder">Aguardando o worker…</li>
+        </ol>
+        <div class="pair-screen" aria-live="polite">
+          <p class="pair-state" id="pair-state" data-state="waiting">Aguardando o worker…</p>
+          <div class="pair-detail" id="pair-detail" hidden>
+            <div class="pair-block" id="pair-numbers-block" hidden>
+              <small class="muted">Par</small>
+              <span class="pair-numbers" id="pair-numbers"></span>
+            </div>
+            <div class="pair-block" id="pair-bet-block" hidden>
+              <small class="muted">Aposta do par</small>
+              <div id="pair-bet"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-block">
+        <h2 class="section-label">Últimos 3 resultados</h2>
+        <ol class="last-numbers" id="last-numbers" aria-label="Três últimos resultados, do mais recente ao mais antigo"></ol>
+      </div>
+    </section>
+
+    <div class="tabs" role="tablist" aria-label="Detalhes dos pares">
+      <button class="tab active" type="button" role="tab" id="tab-history" aria-selected="true" aria-controls="panel-history">Histórico</button>
+      <button class="tab" type="button" role="tab" id="tab-analysis" aria-selected="false" aria-controls="panel-analysis" tabindex="-1">Análise</button>
+    </div>
+
+    <section class="card" id="panel-history" role="tabpanel" aria-labelledby="tab-history">
+      <div class="stats-grid">
+        <div class="stat"><span class="label">Últimos 50 sinais</span><span class="value" id="recent-hits">—</span><span class="sub" id="recent-rate"></span></div>
+        <div class="stat"><span class="label">Desde o início</span><span class="value" id="total-hits">—</span><span class="sub" id="total-rate"></span></div>
+        <div class="stat"><span class="label">Em andamento</span><span class="value" id="open-count">—</span><span class="sub" id="open-pairs">pares ainda sendo conferidos</span></div>
+      </div>
+      <p class="hint">Um sinal nasce quando o ranking tem exatamente 2 números de 0 a 9 (o par). A aposta junta os terminais, o espelho e a soma dos dígitos dos dois, guarda os números que ficam vizinhos entre os dois grupos e acrescenta 1 vizinho de cada lado. É conferida nos <span id="attempts-limit">7</span> resultados seguintes, e o primeiro acerto a encerra. Enquanto um sinal de um par está em andamento, esse par não abre outro; só um par diferente. Na aposta, os números cheios formam a interseção e os mais claros são os vizinhos.</p>
+      <p class="hint" id="ranking-counters"></p>
+      <div class="table-wrap">
+        <table class="strength-table">
+          <thead><tr><th>Sinal</th><th>Situação</th><th>Par</th><th>Ranking do sinal</th><th>Aposta do par</th><th>Rodadas conferidas</th></tr></thead>
+          <tbody id="history-rows"><tr><td colspan="6" class="empty">Nenhum sinal registrado ainda.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="panel-analysis" role="tabpanel" aria-labelledby="tab-analysis" hidden>
+      <p class="hint">O ranking que gera o par é o mesmo da página de ranking: soma todos os números das 3 colunas (Anterior, Sequência e Posterior) de cada ocorrência abaixo, com 10 pontos para o número e 8 para cada vizinho na roda. As ocorrências seguem a ordem da tabela da página de similaridade contextual. <span class="legend-match">Verde</span>: igual ao contexto ou à sequência da busca. <span class="legend-live">Turquesa</span>: saiu depois da busca.</p>
+      <div id="analysis-list"><p class="empty">Aguardando o worker…</p></div>
+    </section>
+
+    <footer class="footer">Os números descrevem relações históricas observadas e são conferidos rodada a rodada.</footer>
+  </div>
+</body>
+</html>

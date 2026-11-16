@@ -14,6 +14,8 @@ def test_minimal_api_exposes_only_expected_functional_routes() -> None:
         "/analise-similaridade-contextual",
         "/ranking-similaridade-contextual",
         "/api/ranking-similaridade-contextual",
+        "/ranking-similaridade-pares",
+        "/api/ranking-similaridade-pares",
         "/jev",
         "/api/jev/historico",
         "/api/jev/analisar",

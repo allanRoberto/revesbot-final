@@ -1,0 +1,18 @@
+/* Extras da página de pares; o restante do layout vem de contextual-ranking.css. */
+.pair-screen { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.pair-state { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.pair-state[data-state="opened"] { color: var(--accent-strong); }
+.pair-state[data-state="active"] { color: var(--warn); }
+.pair-detail { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.pair-block { display: flex; flex-direction: column; gap: 6px; }
+.pair-numbers { display: inline-flex; align-items: center; gap: 6px; }
+.pair-dot { color: var(--muted); font-weight: 700; }
+
+.arc-list { display: inline-flex; flex-wrap: wrap; gap: 8px 12px; }
+.arc { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: 8px; background: var(--surface-soft); }
+.num-chip.neighbor { opacity: 0.6; }
+#history-rows .arc-list { max-width: 320px; }
+
+@media (max-width: 720px) {
+  #history-rows .arc-list { max-width: 240px; }
+}
