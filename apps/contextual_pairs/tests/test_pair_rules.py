@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from itertools import combinations
 
-from contextual_ranking.rules import WHEEL, neighbors_of
+from contextual_pairs import rules
 from contextual_pairs.rules import digital_root, group, kept_numbers, pair_bet, wheel_arcs
+from contextual_ranking.rules import WHEEL, neighbors_of
 
 
 def test_groups_hold_terminals_mirror_and_digit_sum():
@@ -24,8 +25,34 @@ def test_user_example_three_and_seven():
     info = pair_bet([3, 7, 36, 35, 34, 33, 32])
     assert (info["kind"], info["pair"]) == ("ok", [3, 7])
     assert info["kept"] == [13, 16, 27, 33]
-    assert info["bet"] == sorted([6, 27, 13, 36, 1, 33, 16, 24])
-    assert info["arcs"] == [[6, 27, 13, 36], [24, 16, 33, 1]]
+    # intersection with one neighbor on each side, plus the two numbers of the pair
+    assert info["bet"] == sorted([6, 27, 13, 36, 1, 33, 16, 24, 3, 7])
+    assert info["arcs"] == [[6, 27, 13, 36], [24, 16, 33, 1], [7], [3]]
+
+
+def test_the_two_numbers_of_the_pair_are_in_the_bet_without_their_neighbors():
+    info = pair_bet([4, 8, 20, 25, 28, 12, 31])
+    assert info["kept"] == [17, 18, 22, 34]
+    # before this rule neither 4 nor 8 was inside the bet
+    assert info["bet"] == sorted([25, 17, 34, 6, 9, 22, 18, 29, 4, 8])
+    for base in (4, 8):
+        assert base in info["bet"]
+        assert all(neighbor not in info["bet"] for neighbor in neighbors_of(base))
+
+
+def test_the_switch_brings_back_the_bet_without_the_pair_numbers(monkeypatch):
+    monkeypatch.setattr(rules, "INCLUDE_PAIR_NUMBERS", False)
+    assert pair_bet([3, 7, 20, 25, 28, 12, 31])["bet"] == [1, 6, 13, 16, 24, 27, 33, 36]
+    assert 8 not in pair_bet([4, 8, 20, 25, 28, 12, 31])["bet"]
+
+
+def test_an_ignored_pair_never_has_a_bet(monkeypatch):
+    info = pair_bet([6, 9, 20, 25, 28, 12, 31])
+    assert (info["kind"], info["pair"], info["kept"], info["bet"], info["arcs"]) == ("ignored", [6, 9], [], [], [])
+    assert pair_bet([9, 31, 6, 20, 25, 28, 12])["kind"] == "ignored"
+    assert pair_bet([6, 20, 25, 28, 12, 31, 35])["kind"] == "no_pair"
+    monkeypatch.setattr(rules, "IGNORED_PAIRS", frozenset())
+    assert pair_bet([6, 9, 20, 25, 28, 12, 31])["kind"] == "ok"
 
 
 def test_pair_does_not_depend_on_the_order_of_the_ranking():
@@ -51,15 +78,20 @@ def test_rankings_without_a_valid_pair_have_no_bet():
     assert (none["kind"], none["pair"], none["bet"]) == ("no_intersection", [0, 7], [])
 
 
-def test_bet_is_every_kept_number_with_one_neighbor_on_each_side():
+def test_bet_is_every_kept_number_with_one_neighbor_on_each_side_and_the_pair_itself():
     for first, second in combinations(range(10), 2):
         info = pair_bet([first, second, 20, 25, 28, 12, 31])
+        if (first, second) == (6, 9):
+            assert info["kind"] == "ignored"
+            continue
         expected = set()
         for number in kept_numbers(first, second):
             expected.update((number, *neighbors_of(number)))
-        assert set(info["bet"]) == expected
-        assert info["bet"] == sorted(expected)
-        assert info["kind"] == ("ok" if expected else "no_intersection")
+        if not expected:
+            assert info["kind"] == "no_intersection" and info["bet"] == []
+            continue
+        expected.update((first, second))
+        assert info["kind"] == "ok" and set(info["bet"]) == expected and info["bet"] == sorted(expected)
         assert sorted(number for arc in info["arcs"] for number in arc) == info["bet"]
 
 

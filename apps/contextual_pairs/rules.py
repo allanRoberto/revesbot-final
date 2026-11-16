@@ -9,7 +9,8 @@ From the top 7 numbers of the contextual ranking: when exactly two of them are f
 
 A number is kept when one of its wheel neighbors belongs to the group of the other base
 (a number that belongs to both groups is kept too). The bet is every kept number plus one
-wheel neighbor on each side.
+wheel neighbor on each side and, since rule version 2, the two numbers of the pair themselves
+(without their neighbors).
 """
 from __future__ import annotations
 
@@ -18,6 +19,10 @@ from typing import Any, Iterable, Sequence
 from contextual_ranking.rules import WHEEL, neighbors_of
 
 BASE_LIMIT = 9  # bases are the ranking numbers from 0 to BASE_LIMIT
+# Strategy switches. Changing them changes the bets: bump PAIRS_VERSION, unless the history is kept
+# on purpose (see the note in __init__.py about the 2026-11-16 change).
+INCLUDE_PAIR_NUMBERS = True  # the two numbers of the pair are always in the bet, without their neighbors
+IGNORED_PAIRS: frozenset[tuple[int, int]] = frozenset({(6, 9)})  # exceptions: these pairs never open a signal
 MIRROR_PAIRS = ((1, 10), (2, 20), (3, 30), (6, 9), (12, 21), (13, 31), (14, 34), (16, 19), (23, 32), (26, 29))
 MIRROR: dict[int, int] = {}
 for _left, _right in MIRROR_PAIRS:
@@ -81,8 +86,9 @@ def pair_bet(top_numbers: Sequence[int]) -> dict[str, Any]:
     """The bet for a ranking.
 
     ``kind`` tells what happened: ``ok`` (a bet exists), ``no_pair`` (fewer than two numbers
-    from 0 to 9), ``too_many`` (three or more, ignored) or ``no_intersection`` (a pair, but
-    no number of one group is a neighbor of the other group).
+    from 0 to 9), ``too_many`` (three or more, ignored), ``ignored`` (a pair listed in
+    ``IGNORED_PAIRS``) or ``no_intersection`` (a pair, but no number of one group is a neighbor
+    of the other group).
     """
     bases = [number for number in top_numbers if 0 <= number <= BASE_LIMIT]
     info: dict[str, Any] = {"kind": "no_pair", "bases": bases, "pair": None, "kept": [], "bet": [], "arcs": []}
@@ -93,6 +99,9 @@ def pair_bet(top_numbers: Sequence[int]) -> dict[str, Any]:
         return info
     pair = sorted(bases)
     info["pair"] = pair
+    if (pair[0], pair[1]) in IGNORED_PAIRS:
+        info["kind"] = "ignored"
+        return info
     kept = kept_numbers(pair[0], pair[1])
     if not kept:
         info["kind"] = "no_intersection"
@@ -100,6 +109,8 @@ def pair_bet(top_numbers: Sequence[int]) -> dict[str, Any]:
     members: set[int] = set()
     for number in kept:
         members.update((number, *neighbors_of(number)))
+    if INCLUDE_PAIR_NUMBERS:
+        members.update(pair)
     bet = sorted(members)
     info.update(kind="ok", kept=sorted(kept), bet=bet, arcs=wheel_arcs(bet))
     return info

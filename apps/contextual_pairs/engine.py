@@ -24,8 +24,9 @@ from contextual_pairs.rules import pair_bet
 
 ATTEMPTS_LIMIT = 7
 # What the ranking on screen did: opened a signal, was blocked by an open signal of the same pair,
-# or was ignored (fewer than 2 / more than 2 numbers from 0 to 9, or a pair without intersection).
-SCREEN_STATES = ("opened", "active", "no_pair", "too_many", "no_intersection")
+# or was ignored (fewer than 2 / more than 2 numbers from 0 to 9, a pair listed as an exception,
+# or a pair without intersection).
+SCREEN_STATES = ("opened", "active", "ignored", "no_pair", "too_many", "no_intersection")
 
 
 def pair_key(pair: Sequence[int]) -> str:

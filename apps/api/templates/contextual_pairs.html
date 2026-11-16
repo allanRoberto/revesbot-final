@@ -61,7 +61,7 @@
         <div class="stat"><span class="label">Desde o início</span><span class="value" id="total-hits">—</span><span class="sub" id="total-rate"></span></div>
         <div class="stat"><span class="label">Em andamento</span><span class="value" id="open-count">—</span><span class="sub" id="open-pairs">pares ainda sendo conferidos</span></div>
       </div>
-      <p class="hint">Um sinal nasce quando o ranking tem exatamente 2 números de 0 a 9 (o par). A aposta junta os terminais, o espelho e a soma dos dígitos dos dois, guarda os números que ficam vizinhos entre os dois grupos e acrescenta 1 vizinho de cada lado. É conferida nos <span id="attempts-limit">7</span> resultados seguintes, e o primeiro acerto a encerra. Enquanto um sinal de um par está em andamento, esse par não abre outro; só um par diferente. Na aposta, os números cheios formam a interseção e os mais claros são os vizinhos.</p>
+      <p class="hint">Um sinal nasce quando o ranking tem exatamente 2 números de 0 a 9 (o par). A aposta junta os terminais, o espelho e a soma dos dígitos dos dois, guarda os números que ficam vizinhos entre os dois grupos, acrescenta 1 vizinho de cada lado e inclui também os dois números do par, sem vizinhos. É conferida nos <span id="attempts-limit">7</span> resultados seguintes, e o primeiro acerto a encerra. Enquanto um sinal de um par está em andamento, esse par não abre outro; só um par diferente. O par 6 e 9 é ignorado, por ser uma exceção da estratégia. Na aposta, os números cheios formam a interseção, os mais claros são os vizinhos e o contorno dourado marca os dois números do par.</p>
       <p class="hint" id="ranking-counters"></p>
       <div class="table-wrap">
         <table class="strength-table">

@@ -70,9 +70,11 @@
     return view;
   }
 
-  // The bet in runs of adjacent pockets of the wheel; full chips are the intersection, light ones the neighbors.
-  function arcsView(arcs, kept, hitNumber = null) {
+  // The bet in runs of adjacent pockets of the wheel; full chips are the intersection, light ones the neighbors
+  // and the gold outline marks the two numbers of the pair (always in the bet, without their neighbors).
+  function arcsView(arcs, kept, hitNumber = null, pair = []) {
     const keptNumbers = new Set(kept || []);
+    const pairNumbers = new Set(pair || []);
     const wrapper = node("span", "arc-list");
     if (!Array.isArray(arcs) || !arcs.length) {
       wrapper.textContent = "—";
@@ -81,7 +83,11 @@
     arcs.forEach((arc) => {
       const group = node("span", "arc");
       arc.forEach((number) => {
-        const classes = [keptNumbers.has(number) ? "" : "neighbor", number === hitNumber ? "hit" : ""].filter(Boolean);
+        const classes = [
+          keptNumbers.has(number) || pairNumbers.has(number) ? "" : "neighbor",
+          pairNumbers.has(number) ? "base" : "",
+          number === hitNumber ? "hit" : "",
+        ].filter(Boolean);
         group.append(chip(number, classes.join(" ")));
       });
       wrapper.append(group);
@@ -134,6 +140,7 @@
     let message = SCREEN_TEXT[state] || SCREEN_TEXT.waiting;
     if (state === "no_pair") message = `Sem par: o ranking tem ${bases.length} número(s) de 0 a 9.`;
     if (state === "too_many") message = `Ignorado: o ranking tem ${bases.length} números de 0 a 9 (${bases.join(", ")}).`;
+    if (state === "ignored") message = `Par ${(screen.pair || []).join(" e ")} ignorado: é uma exceção da estratégia.`;
     const text = $("pair-state");
     text.textContent = message;
     text.dataset.state = state;
@@ -144,7 +151,7 @@
     $("pair-numbers-block").hidden = !hasPair;
     $("pair-bet-block").hidden = !hasBet;
     $("pair-numbers").replaceChildren(...(hasPair ? [pairView(screen.pair)] : []));
-    $("pair-bet").replaceChildren(...(hasBet ? [arcsView(screen.arcs, screen.kept)] : []));
+    $("pair-bet").replaceChildren(...(hasBet ? [arcsView(screen.arcs, screen.kept, null, screen.pair)] : []));
   }
 
   function renderLastNumbers(data) {
@@ -186,7 +193,7 @@
     const openPairs = data.history.filter((signal) => signal.status === "open").map((signal) => signal.pair.join(" · "));
     $("open-pairs").textContent = openPairs.length ? `pares: ${openPairs.join(", ")}` : "nenhum par em andamento";
     $("ranking-counters").textContent = rankings.total
-      ? `${rankings.total.toLocaleString("pt-BR")} rankings analisados desde o início: ${rankings.opened} abriram sinal · ${rankings.active} com o par já em andamento · ${rankings.no_pair} sem par · ${rankings.too_many} com 3 ou mais números de 0 a 9 · ${rankings.no_intersection} com par sem interseção.`
+      ? `${rankings.total.toLocaleString("pt-BR")} rankings analisados desde o início: ${rankings.opened} abriram sinal · ${rankings.active} com o par já em andamento · ${rankings.ignored || 0} com par ignorado · ${rankings.no_pair} sem par · ${rankings.too_many} com 3 ou mais números de 0 a 9 · ${rankings.no_intersection} com par sem interseção.`
       : "";
 
     const body = $("history-rows");
@@ -210,7 +217,7 @@
       row.insertCell().append(signalBadge(signal, limit));
       row.insertCell().append(pairView(signal.pair));
       row.insertCell().append(chipList(signal.top_numbers));
-      row.insertCell().append(arcsView(signal.bet_arcs, signal.kept, signal.hit_number));
+      row.insertCell().append(arcsView(signal.bet_arcs, signal.kept, signal.hit_number, signal.pair));
       const rounds = node("span", "rounds");
       const checked = node("span", "chip-list");
       signal.checks.forEach((check) => checked.append(chip(check.number, check.hit ? "hit" : "")));
