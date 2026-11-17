@@ -32,6 +32,7 @@
         </ol>
         <div class="pair-screen" aria-live="polite">
           <p class="pair-state" id="pair-state" data-state="waiting">Aguardando o worker…</p>
+          <div class="pair-tags" id="pair-tags" aria-label="Etiquetas do sinal aberto" hidden></div>
           <div class="pair-detail" id="pair-detail" hidden>
             <div class="pair-block" id="pair-numbers-block" hidden>
               <small class="muted">Par</small>
@@ -65,6 +66,11 @@
         <div class="stat"><span class="label">Desde o início</span><span class="value" id="total-hits">—</span><span class="sub" id="total-rate"></span></div>
         <div class="stat"><span class="label">Em andamento</span><span class="value" id="open-count">—</span><span class="sub" id="open-pairs">pares ainda sendo conferidos</span></div>
       </div>
+      <div class="stats-grid tag-stats" id="tag-stats">
+        <div class="stat tag-stat tag-stat-quality"><span class="label">★ Alta qualidade · 8 a 11 fichas, exato longe</span><span class="value" id="quality-hits">—</span><span class="sub" id="quality-rate"></span></div>
+        <div class="stat tag-stat tag-stat-watch"><span class="label">Monitorando · 12 a 15 fichas, exato perto</span><span class="value" id="watch-hits">—</span><span class="sub" id="watch-rate"></span></div>
+      </div>
+      <p class="hint">Etiquetas de acompanhamento, marcadas quando o sinal abre. <strong>Alta qualidade</strong>: a aposta tem de 8 a 11 fichas e nenhum número dela saiu nos 2 últimos resultados antes do sinal (exato longe); na base de 1.070 sinais de 16 e 17/11, em que a regra foi achada, foram 84 sinais com 82 acertos (97,6%). <strong>Monitorando</strong>: a aposta tem de 12 a 15 fichas e um número dela saiu nos 2 últimos resultados (exato perto); na mesma base foram 285 sinais com 278 acertos (97,5%). Os quadros acima contam só os sinais abertos depois que as etiquetas entraram no ar<span id="tags-since"></span>, para medir se essas taxas continuam em sinais que não fizeram parte da base.</p>
       <p class="hint">Um sinal nasce quando o ranking tem exatamente 2 números de 0 a 9 (o par). A aposta junta os terminais, o espelho e a soma dos dígitos dos dois, guarda os números que ficam vizinhos entre os dois grupos, acrescenta 1 vizinho de cada lado, inclui também os dois números do par, sem vizinhos, e os números de proteção: quando um número da roda fica entre um número de um grupo e um número do outro (no par 4 e 5, o 17 fica entre o 25 e o 34), ele e os seus dois vizinhos entram na aposta. É conferida nos <span id="attempts-limit">7</span> resultados seguintes, e o primeiro acerto a encerra. Enquanto um sinal de um par está em andamento, esse par não abre outro; só um par diferente. O par 6 e 9 é ignorado, por ser uma exceção da estratégia. Na aposta, os números cheios formam a interseção, os mais claros são os vizinhos, o contorno dourado marca os dois números do par e o roxo os números de proteção.</p>
       <p class="hint" id="ranking-counters"></p>
       <div class="table-wrap">

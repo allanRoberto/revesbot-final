@@ -22,6 +22,12 @@
     failed: "A busca deste número falhou; será refeita no próximo resultado.",
     insufficient_history: "Ainda não havia 9 resultados até este número.",
   };
+  // Etiquetas de qualidade (apps/contextual_pairs/quality.py). "base" = acertos/sinais da leitura dos 1.070 sinais de
+  // 16 e 17/11/2026 em que as regras foram achadas; os quadros contam só os sinais abertos depois das etiquetas.
+  const TAGS = {
+    high_quality: { label: "★ Alta qualidade", badge: "badge-quality", prefix: "quality", base: [82, 84] },
+    watch_12_15_exact_near: { label: "Monitorando 12–15", badge: "badge-watch", prefix: "watch", base: [278, 285] },
+  };
   const SCREEN_TEXT = {
     opened: "Sinal aberto com este par.",
     active: "Este par já tem um sinal em andamento; só um par diferente abre outro.",
@@ -110,9 +116,55 @@
     return Number.isNaN(date.getTime()) ? "—" : (withDay ? dayClock : clock).format(date);
   }
 
+  function percentText(hits, total) {
+    return `${(hits / total * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+  }
+
   function percent(hits, total) {
     if (!total) return "nenhum sinal encerrado ainda";
-    return `${(hits / total * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% de acerto nos encerrados`;
+    return `${percentText(hits, total)} de acerto nos encerrados`;
+  }
+
+  // Why a signal carries its tag: the size of the bet and how long ago a number of it came out before the signal.
+  function tagTitle(signal) {
+    const context = signal && signal.entry_context;
+    if (!context) return "";
+    const distance = context.last_exact_distance;
+    const when = distance === null || distance === undefined
+      ? "nenhum número da aposta nos 10 últimos resultados"
+      : distance === 1 ? "o resultado que abriu o sinal estava na aposta"
+        : `o último número da aposta saiu ${distance} resultados atrás (o que abriu o sinal conta como 1)`;
+    return `Aposta de ${context.chips} fichas · ${when}`;
+  }
+
+  function tagBadges(tags, signal = null) {
+    const list = node("span", "tag-list");
+    (Array.isArray(tags) ? tags : []).forEach((tag) => {
+      const info = TAGS[tag];
+      if (!info) return;
+      const badge = node("span", `badge ${info.badge}`, info.label);
+      const title = tagTitle(signal);
+      if (title) badge.title = title;
+      list.append(badge);
+    });
+    return list;
+  }
+
+  function knownTags(tags) {
+    return Array.isArray(tags) ? tags.filter((tag) => TAGS[tag]) : [];
+  }
+
+  // Closed signals that carried each tag since the tags went live, next to the rate they had where they were found.
+  function renderTagStats(counters) {
+    const tags = counters || {};
+    $("tags-since").textContent = tags.since ? ` (desde ${formatTime(tags.since, true)})` : "";
+    Object.entries(TAGS).forEach(([tag, info]) => {
+      const counter = tags[tag] || { hits: 0, total: 0 };
+      const base = `base ${percentText(info.base[0], info.base[1])} (${info.base[0]}/${info.base[1]})`;
+      $(`${info.prefix}-hits`).textContent = counter.total ? `${counter.hits}/${counter.total}` : "—";
+      $(`${info.prefix}-rate`).textContent = counter.total
+        ? `${percentText(counter.hits, counter.total)} de acerto · ${base}` : `nenhum encerrado ainda · ${base}`;
+    });
   }
 
   function renderWorker(data) {
@@ -164,6 +216,10 @@
     const hasProtection = hasBet && Array.isArray(screen.protection) && screen.protection.length > 0;
     $("pair-protection-block").hidden = !hasProtection;
     $("pair-protection").replaceChildren(...(hasProtection ? [protectionView(screen.protection)] : []));
+
+    const tags = knownTags(screen.tags);
+    $("pair-tags").hidden = !tags.length;
+    $("pair-tags").replaceChildren(...(tags.length ? [tagBadges(tags)] : []));
   }
 
   function renderLastNumbers(data) {
@@ -202,6 +258,7 @@
     $("total-hits").textContent = total.total ? `${total.hits.toLocaleString("pt-BR")}/${total.total.toLocaleString("pt-BR")}` : "—";
     $("total-rate").textContent = percent(total.hits, total.total);
     $("open-count").textContent = String(data.summary.open ?? 0);
+    renderTagStats(data.summary.tags);
     const openPairs = data.history.filter((signal) => signal.status === "open").map((signal) => signal.pair.join(" · "));
     $("open-pairs").textContent = openPairs.length ? `pares: ${openPairs.join(", ")}` : "nenhum par em andamento";
     $("ranking-counters").textContent = rankings.total
@@ -226,7 +283,11 @@
       after.append(node("small", "muted", "após"), chip(signal.built_after.number));
       origin.append(node("span", "signal-time", formatTime(signal.built_after?.timestamp || signal.created_at, true)), after);
       row.insertCell().append(origin);
-      row.insertCell().append(signalBadge(signal, limit));
+      const status = node("div", "signal-status");
+      status.append(signalBadge(signal, limit));
+      const signalTags = knownTags(signal.tags);
+      if (signalTags.length) status.append(tagBadges(signalTags, signal));
+      row.insertCell().append(status);
       row.insertCell().append(pairView(signal.pair));
       row.insertCell().append(chipList(signal.top_numbers));
       row.insertCell().append(arcsView(signal.bet_arcs, signal.kept, signal.hit_number, signal.pair, signal.protection));

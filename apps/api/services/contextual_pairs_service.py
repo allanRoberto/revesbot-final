@@ -21,8 +21,11 @@ SUMMARY_KEY = f"{PREFIX}:summary:{ROULETTE_ID}"
 ATTEMPTS_LIMIT = 7
 EMPTY_RANKING = {"top": [], "built_after": None, "analyzed_results": 0, "maximum": 0}
 EMPTY_SCREEN = {"state": "waiting", "bases": [], "pair": None, "kept": [], "protection": [], "bet": [], "arcs": [],
-                "built_after": None}
+                "built_after": None, "tags": []}
 RANKING_STATES = ("opened", "active", "ignored", "no_pair", "too_many", "no_intersection")
+# Quality tags of the signals, counted in the summary hash (must match apps/contextual_pairs/quality.py, checked by
+# the route tests): ``tag_<tag>_signals`` and ``tag_<tag>_hits`` count the closed signals that carried the tag.
+TAGS = ("high_quality", "watch_12_15_exact_near")
 
 
 def _decode(raw: Any) -> Any:
@@ -52,6 +55,13 @@ def _int(mapping: dict, name: str) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _text(mapping: dict, name: str) -> str | None:
+    value = mapping.get(name) or mapping.get(name.encode())
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+    return value if isinstance(value, str) and value else None
 
 
 async def get_contextual_pairs(redis_client, *, limit: int = 50, now: datetime | None = None) -> dict[str, Any]:
@@ -95,5 +105,9 @@ async def get_contextual_pairs(redis_client, *, limit: int = 50, now: datetime |
             "all_time": {"hits": _int(summary, "hits"), "total": _int(summary, "signals")},
             "rankings": {"total": _int(summary, "rankings"),
                          **{name: _int(summary, f"ranking_{name}") for name in RANKING_STATES}},
+            # Closed signals that carried each quality tag since the tags went live (``since``).
+            "tags": {"since": _text(summary, "tags_since"),
+                     **{tag: {"hits": _int(summary, f"tag_{tag}_hits"), "total": _int(summary, f"tag_{tag}_signals")}
+                        for tag in TAGS}},
         },
     }

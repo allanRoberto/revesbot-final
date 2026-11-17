@@ -11,7 +11,8 @@ PAIR_37 = [3, 7, 20, 25, 28, 12, 31]  # pair 3-7
 PROTECTION_37 = [2, 12, 21, 25, 28]  # triples 21-2-25 and 7-28-12: between the group of 3 and the group of 7
 # intersection + neighbors + the two numbers of the pair + protection numbers
 BET_37 = [1, 2, 3, 6, 7, 12, 13, 16, 21, 24, 25, 27, 28, 33, 36]
-PAIR_39 = [9, 3, 22, 18, 29, 12, 35]  # pair 3-9
+PAIR_39 = [9, 3, 22, 18, 29, 12, 35]  # pair 3-9 (a bet of 11 numbers)
+PAIR_12 = [1, 2, 20, 25, 28, 12, 31]  # pair 1-2 (the biggest bet, 22 numbers)
 IGNORED_PAIR = [6, 9, 20, 25, 28, 12, 31]  # pair 6-9 is an exception: it never opens a signal
 NO_PAIR = [3, 20, 25, 28, 12, 31, 35]  # a single number from 0 to 9
 TOO_MANY = [1, 2, 3, 20, 25, 28, 12]  # three numbers from 0 to 9

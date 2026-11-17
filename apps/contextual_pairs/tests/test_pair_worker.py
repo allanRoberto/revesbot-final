@@ -7,7 +7,7 @@ from contextual_pairs.rules import pair_bet
 from contextual_pairs.storage import (
     HEARTBEAT_KEY, HISTORY_KEY, OUTBOX_KEY, STATE_KEY, SUMMARY_KEY, VIEW_KEY, PairsRedisStore,
 )
-from contextual_pairs.tests.scripted import BET_37, NO_PAIR, PAIR_37, PAIR_39, PROTECTION_37
+from contextual_pairs.tests.scripted import BET_37, NO_PAIR, PAIR_12, PAIR_37, PAIR_39, PROTECTION_37
 from contextual_pairs.worker import PairsWorker
 from contextual_ranking.engine import iso
 from contextual_ranking.storage import decode, encode, to_mongo_document
@@ -18,8 +18,11 @@ from contextual_ranking.tests.memory import (
 from contextual_ranking.worker import MAX_CATCHUP
 
 BET_39 = pair_bet(PAIR_39)["bet"]
+BET_12 = pair_bet(PAIR_12)["bet"]
 OUTSIDE = [number for number in range(37) if number not in BET_37 and number not in BET_39]
 INSIDE = 13  # in the 3-7 bet
+INSIDE_39 = next(number for number in BET_39 if number not in BET_37)
+FAR_NUMBERS = [OUTSIDE[index % len(OUTSIDE)] for index in range(13)]  # no number of the 3-7 or 3-9 bets among them
 NUMBERS = [3, 26, 0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6]
 # With this sequence and random_case(Random(4)) the real ranking has exactly two numbers from 0 to 9.
 REAL_NUMBERS = [3, 26, 0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36]
@@ -55,7 +58,7 @@ def test_first_cycle_publishes_the_view_and_opens_a_signal(scripted):
     assert (page["screen"]["state"], page["screen"]["pair"], page["screen"]["bet"]) == ("opened", [3, 7], BET_37)
     [signal] = page["open_signals"]
     assert (signal["status"], signal["pair"], signal["bet"], signal["checks"]) == ("open", [3, 7], BET_37, [])
-    assert redis.hashes[SUMMARY_KEY] == {"rankings": 1, "ranking_opened": 1}
+    assert redis.hashes[SUMMARY_KEY] == {"rankings": 1, "ranking_opened": 1, "tags_since": iso(START)}
     heartbeat = decode(redis.values[HEARTBEAT_KEY])
     assert heartbeat["status"] == "running"
     assert heartbeat["mongo"] == {"configured": True, "pending": 0, "last_error": None, "last_write_at": None}
@@ -71,8 +74,10 @@ def test_closed_signals_go_to_redis_and_to_mongodb_with_their_pair(scripted):
 
     [entry] = closed_entries(redis)
     assert (entry["status"], entry["hit_attempt"], entry["hit_number"], entry["pair"]) == ("hit", 1, 13, [3, 7])
+    # The trigger (6) is in this bet of 15 numbers: a medium bet with the exact near, so the watch tag counts it.
     assert redis.hashes[SUMMARY_KEY] == {
-        "rankings": 2, "ranking_opened": 1, "ranking_no_pair": 1, "signals": 1, "hits": 1,
+        "rankings": 2, "ranking_opened": 1, "ranking_no_pair": 1, "signals": 1, "hits": 1, "tags_since": iso(START),
+        "tag_watch_12_15_exact_near_signals": 1, "tag_watch_12_15_exact_near_hits": 1,
     }
     assert redis.lists[OUTBOX_KEY] == []
     [document] = writer.documents.values()
@@ -81,6 +86,9 @@ def test_closed_signals_go_to_redis_and_to_mongodb_with_their_pair(scripted):
     assert (document["pair"], document["bet"], document["kept"]) == ([3, 7], BET_37, [13, 16, 27, 33])
     assert document["protection"] == PROTECTION_37 and document["protection_triples"] == [[21, 2, 25], [7, 28, 12]]
     assert entry["protection"] == PROTECTION_37
+    # The quality tags and what they were decided from: in the page history and in MongoDB.
+    assert entry["tags"] == document["tags"] == ["watch_12_15_exact_near"]
+    assert entry["entry_context"] == document["entry_context"] == {"rule": 1, "chips": 15, "last_exact_distance": 1}
     assert isinstance(document["built_after"]["timestamp"], datetime)
     assert isinstance(document["checks"][0]["result"]["timestamp"], datetime)
     assert isinstance(document["created_at"], datetime) and isinstance(document["closed_at"], datetime)
@@ -91,6 +99,70 @@ def test_closed_signals_go_to_redis_and_to_mongodb_with_their_pair(scripted):
     assert isinstance(searched["trigger"]["timestamp"], datetime)
     assert searched["trigger"]["history_id"] == document["built_after"]["history_id"]
     assert [row["id"] for row in searched["occurrences"]] == [f"occ-{document['built_after']['history_id']}"]
+
+
+def test_tagged_signals_count_their_hits_and_misses_in_the_summary(scripted):
+    # 3-9 is a bet of 11 numbers. Signal A opens after results far from the bet; B opens after 3 more results with the
+    # last number of the bet 3 results back: both are high quality. A hits (round 1), B misses (7 rounds).
+    scripted([PAIR_39, NO_PAIR, NO_PAIR, PAIR_39, NO_PAIR])
+    history, writer = MemoryHistory(make_spins(FAR_NUMBERS)), FakeWriter()
+    worker, redis = build(history, writer=writer)
+    worker.run_once()
+    assert view(redis)["screen"]["tags"] == ["high_quality"]
+    [open_a] = view(redis)["open_signals"]
+    assert (open_a["tags"], open_a["entry_context"]) == (
+        ["high_quality"], {"rule": 1, "chips": 11, "last_exact_distance": None})
+    assert "tag_high_quality_signals" not in redis.hashes[SUMMARY_KEY]  # only closed signals are counted
+
+    history.spins.extend(make_spins([INSIDE_39, OUTSIDE[0], OUTSIDE[1]], first=50))
+    worker.run_once()
+    assert redis.hashes[SUMMARY_KEY]["tag_high_quality_signals"] == 1
+    [open_b] = view(redis)["open_signals"]
+    assert open_b["tags"] == ["high_quality"] and open_b["entry_context"]["last_exact_distance"] == 3
+
+    for first, count in ((60, 4), (70, 3)):  # 7 results outside the bet, fed within the catch-up limit
+        history.spins.extend(make_spins([OUTSIDE[(first + index) % len(OUTSIDE)] for index in range(count)], first=first))
+        worker.run_once()
+    summary = redis.hashes[SUMMARY_KEY]
+    assert (summary["tag_high_quality_signals"], summary["tag_high_quality_hits"],
+            summary["tag_high_quality_misses"]) == (2, 1, 1)
+    assert summary["signals"] == 2 and summary["tags_since"] == iso(START)
+    assert not any(name.startswith("tag_watch") for name in summary)
+    by_status = {entry["status"]: entry for entry in closed_entries(redis)}
+    assert by_status["hit"]["tags"] == by_status["miss"]["tags"] == ["high_quality"]
+    assert {document["status"]: document["tags"] for document in writer.documents.values()} == {
+        "hit": ["high_quality"], "miss": ["high_quality"]}
+
+
+def test_untagged_signals_leave_the_tag_counters_alone(scripted):
+    scripted([PAIR_12, NO_PAIR])  # the biggest bet (22 numbers) is never tagged
+    history, writer = MemoryHistory(make_spins(FAR_NUMBERS)), FakeWriter()
+    worker, redis = build(history, writer=writer)
+    worker.run_once()
+    assert view(redis)["screen"]["state"] == "opened" and view(redis)["screen"]["tags"] == []
+    history.spins.append(make_spins([BET_12[0]], first=50)[0])
+    worker.run_once()
+    [entry] = closed_entries(redis)
+    assert entry["status"] == "hit" and entry["tags"] == [] and entry["entry_context"]["chips"] == 22
+    assert redis.hashes[SUMMARY_KEY] == {"rankings": 2, "ranking_opened": 1, "ranking_no_pair": 1, "signals": 1,
+                                         "hits": 1, "tags_since": iso(START)}
+    [document] = writer.documents.values()
+    assert document["tags"] == [] and document["entry_context"]["chips"] == 22
+
+
+def test_tags_since_is_written_once_and_kept(scripted):
+    scripted([NO_PAIR])
+    history = MemoryHistory(make_spins(FAR_NUMBERS))
+    first_clock = START
+    worker, redis = build(history)
+    worker.run_once()
+    assert redis.hashes[SUMMARY_KEY]["tags_since"] == iso(first_clock)
+    later = PairsWorker(history, PairsRedisStore(redis), lambda *args: {}, search_configured=True,
+                        clock=lambda: first_clock.replace(hour=20))
+    history.spins.append(make_spins([OUTSIDE[0]], first=50)[0])
+    later.run_once()
+    assert decode(redis.values[VIEW_KEY])["updated_at"] == iso(first_clock.replace(hour=20))
+    assert redis.hashes[SUMMARY_KEY]["tags_since"] == iso(first_clock)  # the first save set it; later ones keep it
 
 
 def test_the_mongodb_document_converts_the_dates_of_the_analysis_and_leaves_other_signals_alone():
@@ -232,7 +304,28 @@ def test_real_ranking_engine_keeps_the_pair_rules_on_every_result():
             [source["trigger"]["history_id"] for source in document["sources"]]
         assert [[row["id"] for row in entry["occurrences"]] for entry in analysis] == \
             [source["occurrence_ids"] for source in document["sources"]]
+    # The tags and the entry context, recomputed from the results the worker was fed (the 10 latest up to the trigger).
+    positions = {item["history_id"]: index for index, item in enumerate(history.spins)}
+    tagged = {"high_quality": [0, 0], "watch_12_15_exact_near": [0, 0]}
+    for document in writer.documents.values():
+        end = positions[document["built_after"]["history_id"]] + 1
+        latest = [item["number"] for item in history.spins[end - 10:end]]
+        distance = next((back for back, number in enumerate(reversed(latest), start=1)
+                         if number in document["bet"]), None)
+        near = distance is not None and distance <= 2
+        chips = len(document["bet"])
+        expected = [tag for tag, condition in (("high_quality", 8 <= chips <= 11 and not near),
+                                               ("watch_12_15_exact_near", 12 <= chips <= 15 and near)) if condition]
+        assert document["entry_context"] == {"rule": 1, "chips": chips, "last_exact_distance": distance}
+        assert document["tags"] == expected
+        for tag in expected:
+            tagged[tag][0] += 1
+            tagged[tag][1] += bool(document["hit"])
     summary = redis.hashes[SUMMARY_KEY]
+    assert all(signals for signals, _ in tagged.values()), "the random run should meet both tags"
+    for tag, (signals, hits) in tagged.items():
+        assert (summary.get(f"tag_{tag}_signals", 0), summary.get(f"tag_{tag}_hits", 0)) == (signals, hits)
+    assert summary["tags_since"] == iso(START)
     assert summary["rankings"] == 81 and summary["signals"] == len(closed)
     assert summary["ranking_opened"] + summary.get("ranking_active", 0) + summary.get("ranking_no_pair", 0) \
         + summary.get("ranking_too_many", 0) + summary.get("ranking_no_intersection", 0) == 81
