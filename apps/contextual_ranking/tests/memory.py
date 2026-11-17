@@ -63,6 +63,9 @@ class MemoryRedis:
         bucket = self.hashes.setdefault(key, {})
         bucket[field] = bucket.get(field, 0) + amount
 
+    def hsetnx(self, key, field, value):
+        self.hashes.setdefault(key, {}).setdefault(field, value)
+
     def hgetall(self, key): return {name: str(value) for name, value in self.hashes.get(key, {}).items()}
 
 

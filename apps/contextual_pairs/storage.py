@@ -46,6 +46,11 @@ class PairsRedisStore:
             pipeline.lpush(HISTORY_KEY, encode(compact_signal(signal)))
             pipeline.hincrby(SUMMARY_KEY, "signals", 1)
             pipeline.hincrby(SUMMARY_KEY, "hits" if signal["hit"] else "misses", 1)
+            for tag in signal.get("tags") or []:
+                # Hit rate of the tagged signals, counted from ``tags_since``: signals opened before the tags
+                # existed carry none, so the count never mixes the data the rules were found on.
+                pipeline.hincrby(SUMMARY_KEY, f"tag_{tag}_signals", 1)
+                pipeline.hincrby(SUMMARY_KEY, f"tag_{tag}_{'hits' if signal['hit'] else 'misses'}", 1)
             pipeline.lpush(OUTBOX_KEY, encode(signal))
         if closed:
             pipeline.ltrim(HISTORY_KEY, 0, HISTORY_LIMIT - 1)
@@ -53,6 +58,8 @@ class PairsRedisStore:
         if tally:
             pipeline.hincrby(SUMMARY_KEY, "rankings", 1)
             pipeline.hincrby(SUMMARY_KEY, f"ranking_{tally}", 1)
+        if state.get("updated_at"):
+            pipeline.hsetnx(SUMMARY_KEY, "tags_since", state["updated_at"])  # only the first save sets it
         pipeline.execute()
 
     def heartbeat(self, payload: dict[str, Any]) -> None:

@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from api.routes.contextual_pairs import asset_version, get_pairs_redis, router
-from api.services.contextual_pairs_service import HEARTBEAT_KEY, HISTORY_KEY, SUMMARY_KEY, VIEW_KEY
+from api.services.contextual_pairs_service import HEARTBEAT_KEY, HISTORY_KEY, SUMMARY_KEY, TAGS, VIEW_KEY
 
 
 class FakePipeline:
@@ -43,11 +43,12 @@ class FakeRedis:
         spin = {"history_id": "h3", "number": 8, "timestamp": now.isoformat()}
         arcs = [[6, 27, 13, 36], [24, 16, 33, 1]]
 
-        def signal(identifier, status, pair, checks, hit_attempt=None, hit_number=None):
+        def signal(identifier, status, pair, checks, hit_attempt=None, hit_number=None, tags=()):
             return {
                 "id": identifier, "status": status, "built_after": spin, "top_numbers": [3, 7, 20, 25, 28, 12, 31],
                 "pair": pair, "kept": [13, 16, 27, 33], "protection": [2, 12, 21, 25, 28],
                 "bet": [1, 2, 3, 6, 7, 12, 13, 16, 21, 24, 25, 27, 28, 33, 36], "bet_arcs": arcs,
+                "tags": list(tags), "entry_context": {"rule": 1, "chips": 15, "last_exact_distance": 1 if tags else None},
                 "checks": [{"number": number, "timestamp": now.isoformat(), "hit": hit} for number, hit in checks],
                 "attempts_limit": 7, "hit": None if status == "open" else status == "hit",
                 "hit_attempt": hit_attempt, "hit_number": hit_number,
@@ -56,7 +57,8 @@ class FakeRedis:
 
         screen = {"state": "active", "bases": [3, 7], "pair": [3, 7], "kept": [13, 16, 27, 33],
                   "protection": [2, 12, 21, 25, 28],
-                  "bet": [1, 2, 3, 6, 7, 12, 13, 16, 21, 24, 25, 27, 28, 33, 36], "arcs": arcs, "built_after": spin}
+                  "bet": [1, 2, 3, 6, 7, 12, 13, 16, 21, 24, 25, 27, 28, 33, 36], "arcs": arcs, "built_after": spin,
+                  "tags": ["watch_12_15_exact_near"]}
         self.values = {
             VIEW_KEY: json.dumps({
                 "version": 9, "updated_at": now.isoformat(), "attempts_limit": 7,
@@ -65,7 +67,8 @@ class FakeRedis:
                 "screen": screen,
                 "last_numbers": [{**spin, "hit": True}],
                 "analysis": [{"trigger": spin, "status": "ok", "occurrences": []}],
-                "open_signals": [signal("pairs-1-h3", "open", [3, 7], []), signal("pairs-1-h2", "open", [1, 5], [(20, False)])],
+                "open_signals": [signal("pairs-1-h3", "open", [3, 7], [], tags=["watch_12_15_exact_near"]),
+                                 signal("pairs-1-h2", "open", [1, 5], [(20, False)])],
             }),
             HEARTBEAT_KEY: json.dumps({
                 "at": (now - timedelta(seconds=heartbeat_age)).isoformat(), "status": status,
@@ -73,13 +76,16 @@ class FakeRedis:
             }),
         }
         self.lists = {HISTORY_KEY: [
-            json.dumps(signal("pairs-1-h1", "hit", [2, 4], [(20, False), (13, True)], 2, 13)),
+            json.dumps(signal("pairs-1-h1", "hit", [2, 4], [(20, False), (13, True)], 2, 13, tags=["high_quality"])),
             json.dumps(signal("pairs-1-h0", "miss", [0, 3], [(n, False) for n in (20, 21, 22, 23, 25, 26, 28)])),
         ]}
         self.hashes = {SUMMARY_KEY: {
             "signals": "120", "hits": "95", "misses": "25", "rankings": "400", "ranking_opened": "120",
             "ranking_active": "80", "ranking_ignored": "7", "ranking_no_pair": "90", "ranking_too_many": "100",
-            "ranking_no_intersection": "10",
+            "ranking_no_intersection": "10", "tags_since": "2026-11-17T15:00:00+00:00",
+            "tag_high_quality_signals": "12", "tag_high_quality_hits": "11", "tag_high_quality_misses": "1",
+            "tag_watch_12_15_exact_near_signals": "31", "tag_watch_12_15_exact_near_hits": "30",
+            "tag_watch_12_15_exact_near_misses": "1",
         }}
 
     def pipeline(self, *, transaction):
@@ -105,6 +111,13 @@ def test_page_shell_has_the_pair_and_bet_columns_without_touching_redis():
     assert 'id="panel-history"' in response.text and 'id="panel-analysis"' in response.text
     assert "<th>Par</th>" in response.text and "<th>Aposta do par</th>" in response.text
     assert "<th>Proteção</th>" in response.text and 'id="pair-protection"' in response.text
+    # The quality tags: on the open signal and the counters the page fills from the summary.
+    for element in ("pair-tags", "tag-stats", "quality-hits", "quality-rate", "watch-hits", "watch-rate", "tags-since"):
+        assert f'id="{element}"' in response.text
+    # The text that explains the strategy stays folded away instead of piling up above the signal list.
+    assert '<details class="notes">' in response.text and "<summary>Como funciona</summary>" in response.text
+    assert response.text.index('<details class="notes">') < response.text.index('id="ranking-counters"') \
+        < response.text.index("</details>") < response.text.index('id="history-rows"')
     assert redis_client.requests == []
 
 
@@ -126,7 +139,17 @@ def test_data_lists_open_signals_first_and_counts_only_closed_ones():
         "open": 2, "recent": {"hits": 1, "total": 2}, "all_time": {"hits": 95, "total": 120},
         "rankings": {"total": 400, "opened": 120, "active": 80, "ignored": 7, "no_pair": 90, "too_many": 100,
                      "no_intersection": 10},
+        "tags": {"since": "2026-11-17T15:00:00+00:00", "high_quality": {"hits": 11, "total": 12},
+                 "watch_12_15_exact_near": {"hits": 30, "total": 31}},
     }
+
+
+def test_data_carries_the_quality_tags_of_each_signal_and_of_the_screen():
+    data = client(FakeRedis()).get("/api/ranking-similaridade-pares").json()
+    assert data["screen"]["tags"] == ["watch_12_15_exact_near"]
+    assert [row["tags"] for row in data["history"]] == [["watch_12_15_exact_near"], [], ["high_quality"], []]
+    assert data["history"][0]["entry_context"] == {"rule": 1, "chips": 15, "last_exact_distance": 1}
+    assert data["history"][1]["entry_context"] == {"rule": 1, "chips": 15, "last_exact_distance": None}
 
 
 def test_history_limit_is_capped_at_fifty():
@@ -140,11 +163,12 @@ def test_history_limit_is_capped_at_fifty():
 
 
 def test_api_reads_the_keys_the_worker_writes():
-    from contextual_pairs import storage
+    from contextual_pairs import quality, storage
 
     assert (VIEW_KEY, HEARTBEAT_KEY, HISTORY_KEY, SUMMARY_KEY) == (
         storage.VIEW_KEY, storage.HEARTBEAT_KEY, storage.HISTORY_KEY, storage.SUMMARY_KEY,
     )
+    assert TAGS == quality.TAGS  # the counters the worker writes are the ones the API reads
 
 
 def test_worker_status_follows_the_heartbeat():
@@ -166,6 +190,8 @@ def test_empty_redis_still_answers_with_a_waiting_screen():
     assert data["screen"]["protection"] == []
     assert data["summary"]["all_time"] == {"hits": 0, "total": 0}
     assert data["summary"]["rankings"]["total"] == 0
+    assert data["summary"]["tags"] == {"since": None, "high_quality": {"hits": 0, "total": 0},
+                                       "watch_12_15_exact_near": {"hits": 0, "total": 0}}
 
 
 def test_redis_failure_returns_service_unavailable():

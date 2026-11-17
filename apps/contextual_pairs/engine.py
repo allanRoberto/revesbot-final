@@ -11,6 +11,10 @@ This module turns each ranking into at most one bet:
 A signal keeps its bet frozen and is checked against the next 7 results: the first number inside
 the bet closes it (recording the round), 7 misses close it as lost. Closing releases the pair, so
 the ranking built right after the closing result may open the same pair again.
+
+Every signal is also tagged when it opens (``quality.py``): the size of its bet and how long ago a
+number of the bet came out before it. The tags only mark signals to be monitored; they change nothing
+about the bet or when the signal opens or closes.
 """
 from __future__ import annotations
 
@@ -21,6 +25,7 @@ from contextual_ranking import engine as ranking_engine
 from contextual_ranking.engine import ROULETTE_ID, SearchFunction, iso
 
 from contextual_pairs import PAIRS_VERSION, STRATEGY, STRATEGY_TAG
+from contextual_pairs.quality import entry_context, quality_tags
 from contextual_pairs.rules import pair_bet
 
 ATTEMPTS_LIMIT = 7
@@ -36,19 +41,31 @@ def pair_key(pair: Sequence[int]) -> str:
 
 def waiting_screen() -> dict[str, Any]:
     return {"state": "waiting", "bases": [], "pair": None, "kept": [], "protection": [], "bet": [], "arcs": [],
-            "built_after": None}
+            "built_after": None, "tags": []}
+
+
+def _numbers_up_to(trigger: dict[str, Any], spins: Sequence[dict[str, Any]] | None) -> list[int]:
+    """The latest results, oldest first, when they really end at the trigger; otherwise nothing is known."""
+    if not spins or spins[-1].get("history_id") != trigger.get("history_id"):
+        return []
+    return [item["number"] for item in spins]
 
 
 def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str, Any], now: datetime,
-                     analysis: Sequence[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+                     analysis: Sequence[dict[str, Any]] | None = None,
+                     spins: Sequence[dict[str, Any]] | None = None) -> dict[str, Any] | None:
     """A ranking with a valid pair becomes a signal; its bet stays frozen for 7 results.
 
     ``analysis`` is the page's analysis of that ranking: the 5 searches (with their base numbers) and the
     occurrences chosen in each one, with their numbers and similarity. The ranking moves on at every result, so
-    the signal keeps its own copy; ``sources`` only holds the ids of those occurrences."""
+    the signal keeps its own copy; ``sources`` only holds the ids of those occurrences.
+
+    ``spins`` are the latest results the ranking was built on (the last one is the trigger): with the bet they
+    give the ``entry_context`` and the quality ``tags`` (see ``quality.py``), fixed when the signal opens."""
     trigger = ranking.get("built_after")
     if not trigger or info["kind"] != "ok":
         return None
+    context = entry_context(info["bet"], _numbers_up_to(trigger, spins))
     return {
         "_id": f"{STRATEGY_TAG}-{trigger['history_id']}",
         "roulette_id": ROULETTE_ID,
@@ -69,6 +86,8 @@ def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str
         "ranking": ranking.get("full", []),
         "sources": ranking.get("sources", []),
         "analysis": list(analysis or []),
+        "entry_context": context,
+        "tags": quality_tags(context),
         "checks": [],
         "hit": None,
         "hit_attempt": None,
@@ -79,21 +98,23 @@ def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str
 
 
 def evaluate_ranking(ranking: dict[str, Any], open_signals: Sequence[dict[str, Any]], now: datetime,
-                     analysis: Sequence[dict[str, Any]] | None = None
+                     analysis: Sequence[dict[str, Any]] | None = None,
+                     spins: Sequence[dict[str, Any]] | None = None
                      ) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    """The screen state of a ranking and, when its pair is free, the signal it opens (with the analysis)."""
+    """The screen state of a ranking and, when its pair is free, the signal it opens (with the analysis and tags)."""
     top = [row["number"] for row in ranking.get("top") or []]
     info = pair_bet(top)
     screen = {"state": info["kind"], "bases": info["bases"], "pair": info["pair"], "kept": info["kept"],
               "protection": info["protection"], "bet": info["bet"], "arcs": info["arcs"],
-              "built_after": ranking.get("built_after")}
+              "built_after": ranking.get("built_after"), "tags": []}
     if info["kind"] != "ok":
         return screen, None
     if pair_key(info["pair"]) in {signal["pair_key"] for signal in open_signals}:
         screen["state"] = "active"
         return screen, None
-    signal = open_pair_signal(ranking, top, info, now, analysis)
+    signal = open_pair_signal(ranking, top, info, now, analysis, spins)
     screen["state"] = "opened" if signal else "waiting"
+    screen["tags"] = list(signal["tags"]) if signal else []  # the tags of the signal this ranking just opened
     return screen, signal
 
 
@@ -133,7 +154,7 @@ def _with_pairs(engine_state: dict[str, Any], open_signals: Sequence[dict[str, A
                 result: dict[str, Any] | None = None, on_screen_bet: Sequence[int] = ()) -> dict[str, Any]:
     """Attach the pair signals and the screen to the state the ranking engine returned."""
     screen, signal = evaluate_ranking(engine_state.get("ranking") or {}, open_signals, now,
-                                      engine_state.get("analysis"))
+                                      engine_state.get("analysis"), engine_state.get("spins"))
     recent = list(engine_state.get("recent_results") or [])
     if result is not None and recent:
         # The mark answers: was the result inside the pair bet that was on screen?
@@ -182,6 +203,8 @@ def compact_signal(signal: dict[str, Any]) -> dict[str, Any]:
         "protection": signal.get("protection", []),  # signals opened before the protection rule have none
         "bet": signal["bet"],
         "bet_arcs": signal["bet_arcs"],
+        "tags": signal.get("tags") or [],  # signals opened before the quality tags have none
+        "entry_context": signal.get("entry_context"),
         "checks": [{"number": check["result"]["number"], "timestamp": check["result"]["timestamp"],
                     "hit": check["hit"]} for check in signal["checks"]],
         "attempts_limit": signal.get("attempts_limit", ATTEMPTS_LIMIT),

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from contextual_pairs import PAIRS_VERSION, STRATEGY_TAG, rules
 from contextual_pairs import engine as pairs
+from contextual_pairs.quality import HIGH_QUALITY, QUALITY_RULE, WATCH_NEAR
 from contextual_pairs.rules import pair_bet
 from contextual_pairs.tests.scripted import (
-    BET_37, IGNORED_PAIR, NO_INTERSECTION, NO_PAIR, PAIR_37, PAIR_39, PROTECTION_37, TOO_MANY,
+    BET_37, IGNORED_PAIR, NO_INTERSECTION, NO_PAIR, PAIR_12, PAIR_37, PAIR_39, PROTECTION_37, TOO_MANY,
 )
 from contextual_ranking.storage import to_mongo_document
 from contextual_ranking.tests.memory import START, make_spins
@@ -12,11 +13,26 @@ from contextual_ranking.tests.memory import START, make_spins
 BET_39 = pair_bet(PAIR_39)["bet"]
 OUTSIDE = [number for number in range(37) if number not in BET_37 and number not in BET_39]
 INSIDE_37 = 13
+INSIDE_39 = next(number for number in BET_39 if number not in BET_37)
 
 
 def start(scripted, tops, count=13):
     scripted(tops)
     spins = make_spins([OUTSIDE[index % len(OUTSIDE)] for index in range(count)])
+    return pairs.rebuild(None, spins, None, START), spins
+
+
+def spins_with(exact, count=13):
+    """``count`` results outside both bets, except those in ``exact``: {how many results back (the trigger is 1): number}."""
+    numbers = [OUTSIDE[index % len(OUTSIDE)] for index in range(count)]
+    for back, number in exact.items():
+        numbers[count - back] = number
+    return numbers
+
+
+def start_with(scripted, tops, numbers):
+    scripted(tops)
+    spins = make_spins(numbers)
     return pairs.rebuild(None, spins, None, START), spins
 
 
@@ -42,6 +58,95 @@ def test_a_ranking_with_a_valid_pair_opens_one_signal(scripted):
     assert state["screen"]["state"] == "opened" and state["screen"]["bet"] == BET_37
     assert state["screen"]["protection"] == PROTECTION_37
     assert state["pairs_version"] == PAIRS_VERSION and state["open_signals"] == []
+    # 15 numbers and no number of the bet among the latest results: far, so neither tag.
+    assert signal["entry_context"] == {"rule": QUALITY_RULE, "chips": 15, "last_exact_distance": None}
+    assert signal["tags"] == [] and state["screen"]["tags"] == []
+
+
+def test_a_small_bet_with_no_recent_number_of_the_bet_is_tagged_high_quality(scripted):
+    assert len(BET_39) == 11
+    for exact, distance in (({}, None), ({3: INSIDE_39}, 3), ({10: INSIDE_39}, 10)):
+        state, _ = start_with(scripted, [PAIR_39], spins_with(exact))
+        [signal] = state["pair_signals"]
+        assert signal["entry_context"] == {"rule": QUALITY_RULE, "chips": 11, "last_exact_distance": distance}
+        assert signal["tags"] == [HIGH_QUALITY] and state["screen"]["tags"] == [HIGH_QUALITY]
+        assert pairs.compact_signal(signal)["tags"] == [HIGH_QUALITY]
+        assert pairs.build_view(state)["open_signals"][0]["tags"] == [HIGH_QUALITY]
+
+
+def test_a_small_bet_with_a_number_of_the_bet_in_the_last_two_results_is_not_tagged(scripted):
+    for back in (1, 2):
+        state, _ = start_with(scripted, [PAIR_39], spins_with({back: INSIDE_39}))
+        [signal] = state["pair_signals"]
+        assert signal["entry_context"]["last_exact_distance"] == back
+        assert signal["tags"] == [] and state["screen"]["tags"] == []
+
+
+def test_a_medium_bet_with_a_number_of_the_bet_in_the_last_two_results_is_watched(scripted):
+    assert len(BET_37) == 15
+    for back in (1, 2):
+        state, _ = start_with(scripted, [PAIR_37], spins_with({back: INSIDE_37}))
+        [signal] = state["pair_signals"]
+        assert signal["entry_context"] == {"rule": QUALITY_RULE, "chips": 15, "last_exact_distance": back}
+        assert signal["tags"] == [WATCH_NEAR] and state["screen"]["tags"] == [WATCH_NEAR]
+    for exact, distance in (({3: INSIDE_37}, 3), ({}, None)):
+        state, _ = start_with(scripted, [PAIR_37], spins_with(exact))
+        [signal] = state["pair_signals"]
+        assert (signal["entry_context"]["last_exact_distance"], signal["tags"]) == (distance, [])
+
+
+def test_a_large_bet_is_never_tagged(scripted):
+    for exact in ({}, {1: INSIDE_37}, {2: INSIDE_37}):
+        state, _ = start_with(scripted, [PAIR_12], spins_with(exact))
+        [signal] = state["pair_signals"]
+        assert signal["entry_context"]["chips"] == 22 and signal["tags"] == []
+
+
+def test_the_tags_are_fixed_when_the_signal_opens(scripted):
+    state, _ = start_with(scripted, [PAIR_39, NO_PAIR], spins_with({}))
+    [signal] = state["pair_signals"]
+    born_with = (signal["tags"], signal["entry_context"])
+    assert born_with[0] == [HIGH_QUALITY]
+    # The ranking moves on and the screen follows it; the open signal keeps what it was born with.
+    state, _ = step(state, OUTSIDE[0], 100)
+    assert state["screen"]["state"] == "no_pair" and state["screen"]["tags"] == []
+    [still_open] = state["pair_signals"]
+    assert (still_open["tags"], still_open["entry_context"]) == born_with
+    # Closing keeps them, in the full signal and in the page's short form.
+    state, closed = step(state, INSIDE_39, 101)
+    [done] = closed
+    assert done["status"] == "hit" and (done["tags"], done["entry_context"]) == born_with
+    assert pairs.compact_signal(done)["tags"] == [HIGH_QUALITY]
+    assert to_mongo_document(done)["tags"] == [HIGH_QUALITY]
+    assert to_mongo_document(done)["entry_context"] == born_with[1]
+
+
+def test_a_signal_opened_with_fewer_than_ten_results_is_not_tagged(scripted):
+    state, _ = start_with(scripted, [PAIR_39], spins_with({}, count=9))
+    [signal] = state["pair_signals"]
+    assert signal["entry_context"] is None and signal["tags"] == [] and state["screen"]["tags"] == []
+
+
+def test_the_tags_ignore_results_that_do_not_end_at_the_trigger():
+    spins = make_spins(spins_with({}))
+    info = pair_bet(PAIR_39)
+    ranking = {"top": [{"number": number} for number in PAIR_39], "built_after": spins[-1], "full": [], "sources": []}
+    assert pairs.open_pair_signal(ranking, PAIR_39, info, START, None, spins)["tags"] == [HIGH_QUALITY]
+    stale = pairs.open_pair_signal(ranking, PAIR_39, info, START, None, spins[:-1])  # the trigger is missing
+    assert stale["entry_context"] is None and stale["tags"] == []
+    unknown = pairs.open_pair_signal(ranking, PAIR_39, info, START)  # no results given at all
+    assert unknown["entry_context"] is None and unknown["tags"] == []
+
+
+def test_a_signal_opened_before_the_tags_existed_closes_without_them(scripted):
+    state, _ = start(scripted, [PAIR_37, NO_PAIR])
+    [signal] = state["pair_signals"]
+    legacy = {key: value for key, value in signal.items() if key not in ("tags", "entry_context")}
+    state, closed = step({**state, "pair_signals": [legacy]}, INSIDE_37, 100)
+    [done] = closed
+    compact = pairs.compact_signal(done)
+    assert done["status"] == "hit" and "tags" not in done
+    assert compact["tags"] == [] and compact["entry_context"] is None
 
 
 def test_a_signal_keeps_the_analysis_of_the_ranking_that_opened_it(scripted):
@@ -218,8 +323,8 @@ def test_the_view_lists_the_newest_signals_first(scripted):
     newest, oldest = view["open_signals"]
     assert newest["checks"] == [] and [c["number"] for c in oldest["checks"]] == [OUTSIDE[0]]
     assert set(oldest) == {"id", "status", "built_after", "top_numbers", "pair", "kept", "protection", "bet",
-                           "bet_arcs", "checks", "attempts_limit", "hit", "hit_attempt", "hit_number", "created_at",
-                           "closed_at"}
+                           "bet_arcs", "tags", "entry_context", "checks", "attempts_limit", "hit", "hit_attempt",
+                           "hit_number", "created_at", "closed_at"}
     assert oldest["protection"] == PROTECTION_37
     assert view["attempts_limit"] == 7 and view["screen"]["state"] == "opened"
     assert view["last_numbers"][0]["number"] == OUTSIDE[0]

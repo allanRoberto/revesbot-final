@@ -71,7 +71,7 @@ quando não havia aposta na tela.
 | Redis `contextual_pairs:v1:view:*` | o que a página mostra |
 | Redis `contextual_pairs:v1:heartbeat:*` | saúde do worker e da fila do MongoDB |
 | Redis `contextual_pairs:v1:history:*` | últimos 500 sinais encerrados (a página mostra 50, com os abertos no topo) |
-| Redis `contextual_pairs:v1:summary:*` | totais de sinais encerrados e contadores dos rankings por estado |
+| Redis `contextual_pairs:v1:summary:*` | totais de sinais encerrados, contadores dos rankings por estado e contadores das etiquetas de qualidade (`tag_<etiqueta>_signals/hits/misses`, `tags_since`) |
 | Redis `contextual_pairs:v1:mongo-outbox:*` | fila de sinais encerrados a gravar no MongoDB (até 20 mil) |
 | MongoDB `contextual_ranking_signals_v1` | histórico permanente, um documento por sinal encerrado |
 
@@ -79,8 +79,9 @@ Os sinais dos pares usam a mesma coleção dos sinais do ranking, com `strategy:
 `strategy_version: "pairs-1"` e `_id` `pairs-1-<id do giro>`. Assim o usuário do Mongo que já existe
 (`revesbot_api_contextual_prod`) basta, e nada muda no servidor. O documento guarda o giro que gerou o
 ranking, o top 7, o par, os números mantidos, os números de proteção e os trios de onde vieram, a
-aposta, cada rodada conferida, a rodada do acerto, o ranking completo e a análise de similaridade das
-ocorrências usadas (campo `analysis`, abaixo).
+aposta, cada rodada conferida, a rodada do acerto, o ranking completo, a análise de similaridade das
+ocorrências usadas (campo `analysis`, abaixo) e as etiquetas de qualidade (`tags` e `entry_context`, mais
+abaixo).
 
 ### Análise de similaridade em cada sinal (17/11/2026)
 
@@ -103,6 +104,42 @@ isso o sinal guarda a própria cópia; `sources` continua só com os ids das oco
   abertos antes do deploy que fecharem depois ficam sem o campo.
 - **Cuidado:** `MongoSignalWriter.write` usa `replace_one`. Reenviar um sinal antigo pela fila apagaria o campo
   retroativo; ajustes em documentos que já estão no banco devem usar `$set`.
+
+### Etiquetas de qualidade (17/11/2026)
+
+Cada sinal novo é etiquetado quando abre (`apps/contextual_pairs/quality.py`). A regra olha duas coisas: o
+tamanho da aposta (cada par tem uma aposta fixa, de 8 a 22 fichas) e há quanto tempo um número da aposta saiu
+antes do sinal. **Exato perto** = um número da aposta está entre os 2 últimos resultados (o que abriu o sinal
+conta como o 1º); **exato longe** = nenhum dos 2 está na aposta (os números do par e os de proteção contam como
+números da aposta).
+
+| Etiqueta | Condição | Base em que foi achada (1.070 sinais fechados, 16 e 17/11/2026) |
+| --- | --- | --- |
+| `high_quality` ("★ Alta qualidade") | aposta de 8 a 11 fichas e exato longe | 84 sinais, 82 acertos (97,6%); as mesmas apostas com o exato perto: 262 sinais, 83,6% |
+| `watch_12_15_exact_near` ("Monitorando 12–15") | aposta de 12 a 15 fichas e exato perto | 285 sinais, 278 acertos (97,5%); com o exato longe: 105 sinais, 95,2% |
+
+- **Só marca:** as etiquetas não mudam a aposta, nem quando o sinal abre ou fecha. Apostas de 16 a 22 fichas
+  (100% nos dois lados na base) e as outras combinações ficam sem etiqueta.
+- **Ritmo na base:** 1.070 sinais em 33,1 horas (32,3 por hora). Alta qualidade: 84 sinais = 2,5 por hora (cerca
+  de 61 por dia, um a cada 24 minutos). Monitorando: 285 sinais = 8,6 por hora (cerca de 207 por dia).
+- **Onde fica:** `tags` (lista; vazia quando nenhuma condição vale) e `entry_context` (`rule`: versão da regra,
+  `chips`: fichas da aposta, `last_exact_distance`: quantos resultados atrás saiu o último número da aposta nos
+  10 últimos, ou `null`) em cada sinal novo: no MongoDB, no histórico do Redis e na página. São gravados quando
+  o sinal abre e nunca recalculados. Sinais abertos antes da implantação não têm os campos.
+- **Medição fora da base:** o Redis (`summary`) conta só os sinais **encerrados** que tinham a etiqueta:
+  `tag_<etiqueta>_signals`, `tag_<etiqueta>_hits`, `tag_<etiqueta>_misses`; `tags_since` guarda quando a
+  contagem começou. A aba Histórico mostra acertos/total ao lado da taxa da base. No MongoDB:
+  `find({strategy: "pairs", tags: "high_quality", status: {$in: ["hit", "miss"]}})`; `entry_context` está em
+  todo sinal novo, etiquetado ou não, então qualquer outro corte (por exemplo a distância 3) também pode ser
+  medido só nos sinais novos.
+- **Cuidado ao ler:** as condições foram achadas olhando a mesma base de várias formas (posições, distâncias e
+  faixas de fichas); a taxa de uma fatia escolhida assim tende a vir otimista. O grupo de alta qualidade tem
+  poucos sinais (82 de 84; intervalo de 95% de uns 91,7% a 99,3%) e o monitorado, 278 de 285 (de uns 95,0% a
+  98,8%). Para decidir, comparar com as apostas de 8 a 11 fichas sem etiqueta no mesmo período (83,6% na base)
+  e esperar uma centena de sinais novos.
+- **Versão da regra:** `QUALITY_RULE` (em `quality.py`) vai em `entry_context.rule`. Mudar uma condição = subir
+  `QUALITY_RULE` e recomeçar a contagem (apagar `tag_*` e `tags_since` do `summary`, ou usar outro nome de
+  etiqueta). Não precisa subir `PAIRS_VERSION`.
 
 ## Operação
 
