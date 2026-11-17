@@ -39,9 +39,13 @@ def waiting_screen() -> dict[str, Any]:
             "built_after": None}
 
 
-def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str, Any],
-                     now: datetime) -> dict[str, Any] | None:
-    """A ranking with a valid pair becomes a signal; its bet stays frozen for 7 results."""
+def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str, Any], now: datetime,
+                     analysis: Sequence[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+    """A ranking with a valid pair becomes a signal; its bet stays frozen for 7 results.
+
+    ``analysis`` is the page's analysis of that ranking: the 5 searches (with their base numbers) and the
+    occurrences chosen in each one, with their numbers and similarity. The ranking moves on at every result, so
+    the signal keeps its own copy; ``sources`` only holds the ids of those occurrences."""
     trigger = ranking.get("built_after")
     if not trigger or info["kind"] != "ok":
         return None
@@ -64,6 +68,7 @@ def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str
         "bet_arcs": info["arcs"],
         "ranking": ranking.get("full", []),
         "sources": ranking.get("sources", []),
+        "analysis": list(analysis or []),
         "checks": [],
         "hit": None,
         "hit_attempt": None,
@@ -73,9 +78,10 @@ def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str
     }
 
 
-def evaluate_ranking(ranking: dict[str, Any], open_signals: Sequence[dict[str, Any]],
-                     now: datetime) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    """The screen state of a ranking and, when its pair is free, the signal it opens."""
+def evaluate_ranking(ranking: dict[str, Any], open_signals: Sequence[dict[str, Any]], now: datetime,
+                     analysis: Sequence[dict[str, Any]] | None = None
+                     ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """The screen state of a ranking and, when its pair is free, the signal it opens (with the analysis)."""
     top = [row["number"] for row in ranking.get("top") or []]
     info = pair_bet(top)
     screen = {"state": info["kind"], "bases": info["bases"], "pair": info["pair"], "kept": info["kept"],
@@ -86,7 +92,7 @@ def evaluate_ranking(ranking: dict[str, Any], open_signals: Sequence[dict[str, A
     if pair_key(info["pair"]) in {signal["pair_key"] for signal in open_signals}:
         screen["state"] = "active"
         return screen, None
-    signal = open_pair_signal(ranking, top, info, now)
+    signal = open_pair_signal(ranking, top, info, now, analysis)
     screen["state"] = "opened" if signal else "waiting"
     return screen, signal
 
@@ -126,7 +132,8 @@ def advance_pair_signals(state: dict[str, Any], results: Sequence[dict[str, Any]
 def _with_pairs(engine_state: dict[str, Any], open_signals: Sequence[dict[str, Any]], now: datetime,
                 result: dict[str, Any] | None = None, on_screen_bet: Sequence[int] = ()) -> dict[str, Any]:
     """Attach the pair signals and the screen to the state the ranking engine returned."""
-    screen, signal = evaluate_ranking(engine_state.get("ranking") or {}, open_signals, now)
+    screen, signal = evaluate_ranking(engine_state.get("ranking") or {}, open_signals, now,
+                                      engine_state.get("analysis"))
     recent = list(engine_state.get("recent_results") or [])
     if result is not None and recent:
         # The mark answers: was the result inside the pair bet that was on screen?

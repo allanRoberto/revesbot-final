@@ -6,6 +6,7 @@ from contextual_pairs.rules import pair_bet
 from contextual_pairs.tests.scripted import (
     BET_37, IGNORED_PAIR, NO_INTERSECTION, NO_PAIR, PAIR_37, PAIR_39, PROTECTION_37, TOO_MANY,
 )
+from contextual_ranking.storage import to_mongo_document
 from contextual_ranking.tests.memory import START, make_spins
 
 BET_39 = pair_bet(PAIR_39)["bet"]
@@ -41,6 +42,30 @@ def test_a_ranking_with_a_valid_pair_opens_one_signal(scripted):
     assert state["screen"]["state"] == "opened" and state["screen"]["bet"] == BET_37
     assert state["screen"]["protection"] == PROTECTION_37
     assert state["pairs_version"] == PAIRS_VERSION and state["open_signals"] == []
+
+
+def test_a_signal_keeps_the_analysis_of_the_ranking_that_opened_it(scripted):
+    state, spins = start(scripted, [PAIR_37, NO_PAIR, NO_PAIR])
+    [signal] = state["pair_signals"]
+    born_with = state["analysis"]
+    assert signal["analysis"] == born_with and signal["analysis"][0]["trigger"] == spins[-1] == signal["built_after"]
+    # The ranking moves on at every result; the signal keeps the analysis it was born with.
+    state, _ = step(state, OUTSIDE[0], 100)
+    assert state["analysis"] != born_with and state["analysis"][0]["trigger"]["history_id"] == "h0100"
+    [still_open] = state["pair_signals"]
+    assert still_open["analysis"] == born_with
+    # The page history and the page projection stay short: they never carry the analysis.
+    assert "analysis" not in pairs.compact_signal(still_open)
+    assert all("analysis" not in item for item in pairs.build_view(state)["open_signals"])
+
+
+def test_a_signal_opened_before_the_analysis_was_stored_still_closes_without_it(scripted):
+    state, _ = start(scripted, [PAIR_37, NO_PAIR])
+    [signal] = state["pair_signals"]
+    legacy = {key: value for key, value in signal.items() if key != "analysis"}
+    state, closed = step({**state, "pair_signals": [legacy]}, INSIDE_37, 100)
+    [done] = closed
+    assert done["status"] == "hit" and "analysis" not in done and "analysis" not in to_mongo_document(done)
 
 
 def test_signals_are_checked_by_the_bet_not_by_the_ranking_numbers(scripted):
@@ -127,6 +152,7 @@ def test_a_pair_is_released_when_its_signal_closes_on_a_hit(scripted):
     [reopened] = state["pair_signals"]
     assert state["screen"]["state"] == "opened"
     assert reopened["_id"] != first and reopened["built_after"] == trigger and reopened["checks"] == []
+    assert reopened["analysis"][0]["trigger"] == trigger  # the analysis of the new ranking, not the old one
 
 
 def test_a_signal_closes_as_a_miss_after_seven_rounds_and_releases_the_pair(scripted):

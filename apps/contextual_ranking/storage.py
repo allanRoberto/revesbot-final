@@ -102,7 +102,7 @@ def _spin_document(value: dict[str, Any] | None) -> dict[str, Any] | None:
 
 def to_mongo_document(signal: dict[str, Any]) -> dict[str, Any]:
     """Store dates as BSON dates so the history can be queried by time."""
-    return {
+    document = {
         **signal,
         "built_after": _spin_document(signal.get("built_after")),
         "checks": [{**check, "result": _spin_document(check["result"])} for check in signal.get("checks", [])],
@@ -111,6 +111,10 @@ def to_mongo_document(signal: dict[str, Any]) -> dict[str, Any]:
         "created_at": _as_datetime(signal.get("created_at")),
         "closed_at": _as_datetime(signal.get("closed_at")),
     }
+    if signal.get("analysis"):  # pair signals keep the page's analysis of their ranking
+        document["analysis"] = [{**entry, "trigger": _spin_document(entry.get("trigger"))}
+                                for entry in signal["analysis"]]
+    return document
 
 
 class MongoSignalWriter:

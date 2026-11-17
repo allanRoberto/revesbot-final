@@ -37,11 +37,26 @@ class ScriptedRanking:
             "sources": [], "built_after": trigger,
         }
 
+    @staticmethod
+    def _analysis(trigger: dict[str, Any]) -> list[dict[str, Any]]:
+        """One analysis entry per ranking, tagged with its trigger so the tests can tell rankings apart."""
+        return [{
+            "trigger": trigger, "status": "ok", "error": None, "current_context": [1, 2, 3, 4, 5],
+            "sequence": [6, 7, 8, 9], "live_numbers": [], "total_matches": 1,
+            "occurrences": [{
+                "position": 1, "id": f"occ-{trigger['history_id']}", "preceding": [10, 11, 12, 13, 14],
+                "preceding_status": "complete", "context": [6, 7, 8, 9], "following": [15, 16, 17, 18, 19],
+                "exact": 0, "neighbor": 0, "points": 0, "similarity": 0.0, "approved": False,
+                "vector_similarity": 0.9, "live_in_following": 0,
+            }],
+        }]
+
     def _state(self, base: dict[str, Any], spins: list[dict[str, Any]], recent: list[dict[str, Any]],
                now) -> dict[str, Any]:
         return {
             **base, "strategy_version": STRATEGY_VERSION, "roulette_id": ROULETTE_ID,
-            "spins": spins, "searches": [], "analysis": [], "recent_results": recent[-3:], "open_signals": [],
+            "spins": spins, "searches": [], "analysis": self._analysis(spins[-1]), "recent_results": recent[-3:],
+            "open_signals": [],
             "ranking": self._ranking(self._take(), spins[-1]),
             "last_processed": {"history_id": spins[-1]["history_id"], "timestamp": spins[-1]["timestamp"]},
             "version": int(base.get("version") or 0) + 1, "updated_at": iso(now),

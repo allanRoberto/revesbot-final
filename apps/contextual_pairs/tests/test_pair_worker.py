@@ -9,7 +9,8 @@ from contextual_pairs.storage import (
 )
 from contextual_pairs.tests.scripted import BET_37, NO_PAIR, PAIR_37, PAIR_39, PROTECTION_37
 from contextual_pairs.worker import PairsWorker
-from contextual_ranking.storage import decode, encode
+from contextual_ranking.engine import iso
+from contextual_ranking.storage import decode, encode, to_mongo_document
 from contextual_ranking.tests.fixtures import random_case
 from contextual_ranking.tests.memory import (
     START, FakeSearch, FakeWriter, MemoryHistory, MemoryRedis, make_spins,
@@ -84,6 +85,25 @@ def test_closed_signals_go_to_redis_and_to_mongodb_with_their_pair(scripted):
     assert isinstance(document["checks"][0]["result"]["timestamp"], datetime)
     assert isinstance(document["created_at"], datetime) and isinstance(document["closed_at"], datetime)
     assert len(document["ranking"]) == 7
+    # The analysis of the ranking is stored with the signal (dates as dates), never in the page history.
+    assert "analysis" not in entry
+    [searched] = document["analysis"]
+    assert isinstance(searched["trigger"]["timestamp"], datetime)
+    assert searched["trigger"]["history_id"] == document["built_after"]["history_id"]
+    assert [row["id"] for row in searched["occurrences"]] == [f"occ-{document['built_after']['history_id']}"]
+
+
+def test_the_mongodb_document_converts_the_dates_of_the_analysis_and_leaves_other_signals_alone():
+    trigger = make_spins([5], first=7)[0]
+    signal = {"_id": "pairs-1-h0007", "built_after": trigger, "checks": [], "sources": [],
+              "created_at": iso(START), "closed_at": None,
+              "analysis": [{"trigger": trigger, "status": "ok", "occurrences": []}]}
+    document = to_mongo_document(signal)
+    assert isinstance(document["analysis"][0]["trigger"]["timestamp"], datetime)
+    assert document["analysis"][0]["trigger"]["history_id"] == "h0007"
+    assert isinstance(signal["analysis"][0]["trigger"]["timestamp"], str)  # the input is not changed
+    without = {key: value for key, value in signal.items() if key != "analysis"}
+    assert "analysis" not in to_mongo_document(without)  # ranking-page signals never had one
 
 
 def test_closed_signals_wait_in_the_queue_while_mongodb_is_down(scripted):
@@ -102,6 +122,7 @@ def test_closed_signals_wait_in_the_queue_while_mongodb_is_down(scripted):
     worker.run_once()
     assert redis.lists[OUTBOX_KEY] == [] and sorted(writer.documents) == [closed_entries(redis)[0]["id"]]
     assert decode(redis.values[HEARTBEAT_KEY])["mongo"]["last_error"] is None
+    assert writer.documents[closed_entries(redis)[0]["id"]]["analysis"]  # the queue carried it along
 
 
 def test_without_mongodb_configuration_closed_signals_stay_queued(scripted):
@@ -202,6 +223,15 @@ def test_real_ranking_engine_keeps_the_pair_rules_on_every_result():
         assert (entry["status"] == "hit") == hits[-1] and not any(hits[:-1])
         assert entry["status"] == "hit" or len(hits) == 7
     assert sorted(writer.documents) == sorted(entry["id"] for entry in closed)
+    for document in writer.documents.values():
+        # The stored analysis is the one behind the stored sources: same searches, same chosen occurrences.
+        analysis = document["analysis"]
+        assert len(analysis) == 5 and all(isinstance(entry["trigger"]["timestamp"], datetime) for entry in analysis)
+        assert all(entry["status"] == "ok" for entry in analysis)
+        assert [entry["trigger"]["history_id"] for entry in analysis] == \
+            [source["trigger"]["history_id"] for source in document["sources"]]
+        assert [[row["id"] for row in entry["occurrences"]] for entry in analysis] == \
+            [source["occurrence_ids"] for source in document["sources"]]
     summary = redis.hashes[SUMMARY_KEY]
     assert summary["rankings"] == 81 and summary["signals"] == len(closed)
     assert summary["ranking_opened"] + summary.get("ranking_active", 0) + summary.get("ranking_no_pair", 0) \
