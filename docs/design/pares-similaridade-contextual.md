@@ -79,7 +79,30 @@ Os sinais dos pares usam a mesma coleção dos sinais do ranking, com `strategy:
 `strategy_version: "pairs-1"` e `_id` `pairs-1-<id do giro>`. Assim o usuário do Mongo que já existe
 (`revesbot_api_contextual_prod`) basta, e nada muda no servidor. O documento guarda o giro que gerou o
 ranking, o top 7, o par, os números mantidos, os números de proteção e os trios de onde vieram, a
-aposta, cada rodada conferida, a rodada do acerto e o ranking completo com as ocorrências usadas.
+aposta, cada rodada conferida, a rodada do acerto, o ranking completo e a análise de similaridade das
+ocorrências usadas (campo `analysis`, abaixo).
+
+### Análise de similaridade em cada sinal (17/11/2026)
+
+Cada sinal novo guarda em `analysis` a análise do ranking que o abriu, no mesmo formato da aba Análise da
+página: as 5 buscas, cada uma com os números base (`current_context`, 5 de contexto, e `sequence`, 4 de
+sequência), os giros que saíram depois dela (`live_numbers`), o total de ocorrências achadas
+(`total_matches`) e as ocorrências escolhidas, com Anterior (`preceding`), Sequência (`context`) e Posterior
+(`following`), `exact`, `neighbor`, `points`, `similarity` da página (0 a 100), `approved`,
+`vector_similarity` do serviço de busca (0 a 1) e `live_in_following`. O ranking muda a cada resultado, por
+isso o sinal guarda a própria cópia; `sources` continua só com os ids das ocorrências, na mesma ordem.
+
+- **Onde fica:** só no MongoDB (cerca de 11 KB por documento, eram uns 4 KB). O histórico resumido do Redis e
+  a projeção da página não carregam o campo; no estado do motor ele acompanha cada sinal aberto (uns 7 KB).
+- **Versão:** a regra da aposta não mudou, então `PAIRS_VERSION` continua 1 e os totais não recomeçam.
+- **Sinais anteriores:** os 1.016 sinais que já estavam no banco em 17/11/2026 receberam `analysis` por uma
+  gravação retroativa: as buscas foram refeitas com o horário de corte de cada gatilho e as ocorrências
+  escolhidas foram recuperadas pelo id. Esses documentos também têm `analysis_rebuilt` (quando foi remontada,
+  quantas ocorrências estavam gravadas e quantas voltaram, e se o replay completo do motor reproduziu o sinal
+  idêntico). Em 14 sinais uma ocorrência não voltou da busca e ficou só com o id (`recovered: false`). Sinais
+  abertos antes do deploy que fecharem depois ficam sem o campo.
+- **Cuidado:** `MongoSignalWriter.write` usa `replace_one`. Reenviar um sinal antigo pela fila apagaria o campo
+  retroativo; ajustes em documentos que já estão no banco devem usar `$set`.
 
 ## Operação
 
