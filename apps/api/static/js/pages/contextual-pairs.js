@@ -157,7 +157,7 @@
   // Closed signals that carried each tag since the tags went live, next to the rate they had where they were found.
   function renderTagStats(counters) {
     const tags = counters || {};
-    $("tags-since").textContent = tags.since ? ` (desde ${formatTime(tags.since, true)})` : "";
+    $("tags-since").textContent = tags.since ? ` · contagem desde ${formatTime(tags.since, true)}` : "";
     Object.entries(TAGS).forEach(([tag, info]) => {
       const counter = tags[tag] || { hits: 0, total: 0 };
       const base = `base ${percentText(info.base[0], info.base[1])} (${info.base[0]}/${info.base[1]})`;
@@ -277,7 +277,8 @@
     }
     data.history.forEach((signal) => {
       const row = body.insertRow();
-      if (signal.status === "open") row.className = "signal-open";
+      if (signal.status === "open") row.classList.add("signal-open");
+      if (knownTags(signal.tags).includes("high_quality")) row.classList.add("signal-quality");
       const origin = node("div", "signal-origin");
       const after = node("span", "signal-after");
       after.append(node("small", "muted", "após"), chip(signal.built_after.number));

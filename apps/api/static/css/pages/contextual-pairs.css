@@ -17,9 +17,16 @@
 .signal-status { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .badge-quality { background: #fdf6e3; color: #7a5a00; border: 1px solid var(--gold); }
 .badge-watch { background: #f5f3ff; color: #5b21b6; border: 1px solid #c4b5fd; }
-.tag-stats { margin-top: 12px; }
+.tag-label { margin: 18px 0 8px; }
 .tag-stat-quality { border-left: 3px solid var(--gold); }
 .tag-stat-watch { border-left: 3px solid #a78bfa; }
+/* A linha de um sinal de alta qualidade ganha uma faixa dourada na primeira célula, para achá-la na lista. */
+#history-rows tr.signal-quality td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
+
+/* O texto que explica a estratégia fica recolhido: um clique em "Como funciona" abre. */
+.notes { margin: 14px 0 4px; }
+.notes summary { cursor: pointer; width: fit-content; color: var(--muted); font-size: 12px; font-weight: 600; }
+.notes summary:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
 
 .arc-list { display: inline-flex; flex-wrap: wrap; gap: 8px 12px; }
 .arc { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: 8px; background: var(--surface-soft); }

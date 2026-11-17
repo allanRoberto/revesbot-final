@@ -114,6 +114,10 @@ def test_page_shell_has_the_pair_and_bet_columns_without_touching_redis():
     # The quality tags: on the open signal and the counters the page fills from the summary.
     for element in ("pair-tags", "tag-stats", "quality-hits", "quality-rate", "watch-hits", "watch-rate", "tags-since"):
         assert f'id="{element}"' in response.text
+    # The text that explains the strategy stays folded away instead of piling up above the signal list.
+    assert '<details class="notes">' in response.text and "<summary>Como funciona</summary>" in response.text
+    assert response.text.index('<details class="notes">') < response.text.index('id="ranking-counters"') \
+        < response.text.index("</details>") < response.text.index('id="history-rows"')
     assert redis_client.requests == []
 
 
