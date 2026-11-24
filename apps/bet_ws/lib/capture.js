@@ -68,6 +68,74 @@ function safeUrl(raw) {
   }
 }
 
+// Texto curto para log e mensagem de erro, sem query string nem sequências
+// longas que possam ser token.
+function safeText(raw, max = 160) {
+  return String(raw ?? '')
+    .replace(/\?[^\s"'`)]+/g, '?…')
+    .replace(/[A-Za-z0-9_-]{32,}/g, '…')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+// Título e começo do texto visível, com limite de tempo: a página do provedor
+// pode estar com a thread principal presa.
+async function describePage(page) {
+  const read = page
+    .evaluate(() => ({
+      title: document.title || '',
+      text: document.body ? document.body.innerText || '' : '',
+    }))
+    .catch(() => null);
+  const got = await Promise.race([
+    read,
+    new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
+  ]);
+  let frames = [];
+  try {
+    frames = page.frames().map((f) => {
+      const u = f.url();
+      return /^https?:/i.test(u) ? safeUrl(u) : `${u.split(':')[0]}:`;
+    });
+  } catch (_) {
+    /* sem frames */
+  }
+  return { title: safeText(got?.title, 80), text: safeText(got?.text, 160), frames };
+}
+
+// Identificação de um Chrome comum no Windows, com a versão real deste
+// navegador (string, navigator.platform e client hints coerentes entre si).
+async function desktopChromeIdentity(browser) {
+  const full = ((await browser.version()).match(/\d+(?:\.\d+)+/) || ['151.0.0.0'])[0];
+  const major = full.split('.')[0];
+  return {
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+      `(KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`,
+    platform: 'Win32',
+    userAgentMetadata: {
+      brands: [
+        { brand: 'Chromium', version: major },
+        { brand: 'Google Chrome', version: major },
+        { brand: 'Not_A Brand', version: '24' },
+      ],
+      fullVersionList: [
+        { brand: 'Chromium', version: full },
+        { brand: 'Google Chrome', version: full },
+        { brand: 'Not_A Brand', version: '24.0.0.0' },
+      ],
+      platform: 'Windows',
+      platformVersion: '10.0.0',
+      architecture: 'x86',
+      bitness: '64',
+      model: '',
+      mobile: false,
+      wow64: false,
+    },
+  };
+}
+
 async function captureGameWsUrl(gameLink, { waitMs = 45000 } = {}) {
   const browser = await puppeteer.launch({
     // A Pragmatic não inicializa o socket do jogo no Chromium headless deste
@@ -129,9 +197,32 @@ async function captureGameWsUrl(gameLink, { waitMs = 45000 } = {}) {
 
     const page = await browser.newPage();
     await watchTarget(page.target());
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    );
+    // A identificação antiga era truncada (sem "Chrome/"), e o carregador de
+    // jogo da Pragmatic pode não reconhecer o navegador assim.
+    await page.setUserAgent(await desktopChromeIdentity(browser));
+
+    // Diagnóstico para quando o socket não aparece: navegações da página
+    // principal e erros do jogo, sempre sem query string (o link do jogo
+    // carrega o token do jogador).
+    const navTrail = [];
+    page.on('response', (response) => {
+      try {
+        if (response.request().isNavigationRequest() && response.frame() === page.mainFrame()) {
+          navTrail.push(`${response.status()} ${safeUrl(response.url())}`);
+          if (navTrail.length > 8) navTrail.shift();
+        }
+      } catch (_) {
+        /* o diagnóstico nunca derruba a captura */
+      }
+    });
+    const pageErrors = [];
+    const noteError = (text) => {
+      if (pageErrors.length < 5) pageErrors.push(safeText(text));
+    };
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') noteError(msg.text());
+    });
+    page.on('pageerror', (err) => noteError(err?.message ?? err));
 
     // Sob o Xvfb o Chromium pode considerar a aba oculta e a Pragmatic adia a
     // inicialização do jogo. Espelha o comportamento já validado no ingest de
@@ -197,9 +288,17 @@ async function captureGameWsUrl(gameLink, { waitMs = 45000 } = {}) {
     if (all.length === 0) {
       if (navigationError) throw navigationError;
       const status = navigationStatus == null ? 'sem resposta' : navigationStatus;
+      const shown = await describePage(page);
+      console.log(`[capture] sem WebSocket. Navegação: ${navTrail.join(' → ') || '(nenhuma)'}`);
+      console.log(`[capture] título: "${shown.title}" | texto: "${shown.text}"`);
+      console.log(`[capture] frames: ${shown.frames.join(' | ') || '(nenhum)'}`);
+      if (pageErrors.length) console.log(`[capture] erros da página: ${pageErrors.join(' | ')}`);
+      let said = '';
+      if (shown.text) said = ` A página diz: "${shown.text}"`;
+      else if (shown.title) said = ` Título da página: "${shown.title}"`;
       throw new Error(
         `Nenhuma URL de WebSocket encontrada na página do jogo ` +
-        `(HTTP ${status}, página ${safeUrl(page.url())}).`,
+        `(HTTP ${status}, página ${safeUrl(page.url())}).${said}`,
       );
     }
 
