@@ -27,6 +27,9 @@
   const TAGS = {
     high_quality: { label: "★ Alta qualidade", badge: "badge-quality", prefix: "quality", base: [82, 84] },
     watch_12_15_exact_near: { label: "Monitorando 12–15", badge: "badge-watch", prefix: "watch", base: [278, 285] },
+    // Teste ao vivo fixado em 24/11/2026: soma dos 7 números do ranking reduzida a 5, 6 ou 7 e aposta de 9–11, 14 ou
+    // 19–22 fichas; joga até a 2ª (5 e 6) ou só a 1ª (7). Base: 1.081 sinais de 16 a 24/11, +14,2% com R$ 1 por número.
+    supremo: { label: "◆ Supremo", badge: "badge-supremo", prefix: "supremo", base: [642, 1081] },
   };
   const SCREEN_TEXT = {
     opened: "Sinal aberto com este par.",
@@ -137,17 +140,44 @@
     return `Aposta de ${context.chips} fichas · ${when}`;
   }
 
+  // Até onde um sinal Supremo é jogado: até a 2ª (soma 5 ou 6) ou só a 1ª (soma 7).
+  function supremoPlay(context) {
+    return context && context.play_until === 2 ? "jogar até a 2ª" : "jogar só a 1ª";
+  }
+
+  function supremoTitle(signal) {
+    const context = signal && signal.supremo;
+    if (!context) return "";
+    return `Soma do ranking ${context.rank_sum} → ${context.rank_root} · aposta de ${context.chips} fichas · ${supremoPlay(context)}`;
+  }
+
+  // Resultado do Supremo: só vale o acerto até a rodada que a regra joga; um acerto depois disso é erro para ele.
+  function supremoLabel(signal) {
+    const context = signal && signal.supremo;
+    if (!context) return TAGS.supremo.label;
+    const play = supremoPlay(context);
+    if (signal.status === "open") return `${TAGS.supremo.label} · ${play}`;
+    const won = signal.status === "hit" && signal.hit_attempt <= context.play_until;
+    return `${TAGS.supremo.label} · ${won ? "✓" : "✗"} ${play}`;
+  }
+
   function tagBadges(tags, signal = null) {
     const list = node("span", "tag-list");
     (Array.isArray(tags) ? tags : []).forEach((tag) => {
       const info = TAGS[tag];
       if (!info) return;
-      const badge = node("span", `badge ${info.badge}`, info.label);
-      const title = tagTitle(signal);
+      const supremo = tag === "supremo";
+      const badge = node("span", `badge ${info.badge}`, supremo ? supremoLabel(signal) : info.label);
+      const title = supremo ? supremoTitle(signal) : tagTitle(signal);
       if (title) badge.title = title;
       list.append(badge);
     });
     return list;
+  }
+
+  function money(value) {
+    const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+    return `${sign}R$ ${Math.abs(value).toLocaleString("pt-BR")}`;
   }
 
   function knownTags(tags) {
@@ -165,6 +195,17 @@
       $(`${info.prefix}-rate`).textContent = counter.total
         ? `${percentText(counter.hits, counter.total)} de acerto · ${base}` : `nenhum encerrado ainda · ${base}`;
     });
+  }
+
+  // Supremo: acerto dentro das rodadas jogadas e resultado com R$ 1 por número, desde que a etiqueta entrou no ar.
+  function renderSupremo(supremo) {
+    const data = supremo || {};
+    $("supremo-since").textContent = data.since ? ` · contagem desde ${formatTime(data.since, true)}` : "";
+    const staked = data.staked || 0;
+    const net = data.net || 0;
+    $("supremo-money").textContent = staked
+      ? `${money(net)} (${(net / staked * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, signDisplay: "exceptZero" })}%) com R$ 1 por número · base +14,2%`
+      : "resultado em R$ aparece quando o primeiro sinal encerrar · base +14,2%";
   }
 
   function renderWorker(data) {
@@ -259,6 +300,7 @@
     $("total-rate").textContent = percent(total.hits, total.total);
     $("open-count").textContent = String(data.summary.open ?? 0);
     renderTagStats(data.summary.tags);
+    renderSupremo(data.summary.supremo);
     const openPairs = data.history.filter((signal) => signal.status === "open").map((signal) => signal.pair.join(" · "));
     $("open-pairs").textContent = openPairs.length ? `pares: ${openPairs.join(", ")}` : "nenhum par em andamento";
     $("ranking-counters").textContent = rankings.total
@@ -279,6 +321,7 @@
       const row = body.insertRow();
       if (signal.status === "open") row.classList.add("signal-open");
       if (knownTags(signal.tags).includes("high_quality")) row.classList.add("signal-quality");
+      if (knownTags(signal.tags).includes("supremo")) row.classList.add("signal-supremo");
       const origin = node("div", "signal-origin");
       const after = node("span", "signal-after");
       after.append(node("small", "muted", "após"), chip(signal.built_after.number));

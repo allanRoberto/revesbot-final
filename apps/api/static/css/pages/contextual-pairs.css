@@ -20,8 +20,14 @@
 .tag-label { margin: 18px 0 8px; }
 .tag-stat-quality { border-left: 3px solid var(--gold); }
 .tag-stat-watch { border-left: 3px solid #a78bfa; }
+.badge-supremo { background: #ecfdf5; color: #065f46; border: 1px solid #34d399; font-weight: 700; }
+.tag-stat-supremo { border-left: 3px solid #10b981; }
+#supremo-money { font-size: 18px; }
 /* A linha de um sinal de alta qualidade ganha uma faixa dourada na primeira célula, para achá-la na lista. */
 #history-rows tr.signal-quality td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
+/* Supremo ganha uma faixa verde; quando também é de alta qualidade, as duas faixas aparecem lado a lado. */
+#history-rows tr.signal-supremo td:first-child { box-shadow: inset 3px 0 0 #10b981; }
+#history-rows tr.signal-quality.signal-supremo td:first-child { box-shadow: inset 3px 0 0 var(--gold), inset 6px 0 0 #10b981; }
 
 /* O texto que explica a estratégia fica recolhido: um clique em "Como funciona" abre. */
 .notes { margin: 14px 0 4px; }

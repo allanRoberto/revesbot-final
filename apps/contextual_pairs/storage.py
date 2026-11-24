@@ -15,6 +15,7 @@ from contextual_ranking.storage import MongoSignalWriter, decode, encode
 
 from contextual_pairs import PAIRS_VERSION
 from contextual_pairs.engine import compact_signal
+from contextual_pairs.quality import SUPREMO, supremo_result
 
 PREFIX = f"contextual_pairs:v{PAIRS_VERSION}"
 STATE_KEY = f"{PREFIX}:state:{ROULETTE_ID}"
@@ -49,8 +50,17 @@ class PairsRedisStore:
             for tag in signal.get("tags") or []:
                 # Hit rate of the tagged signals, counted from ``tags_since``: signals opened before the tags
                 # existed carry none, so the count never mixes the data the rules were found on.
+                if tag == SUPREMO:
+                    continue  # counted below: a Supremo signal only wins inside its own results
                 pipeline.hincrby(SUMMARY_KEY, f"tag_{tag}_signals", 1)
                 pipeline.hincrby(SUMMARY_KEY, f"tag_{tag}_{'hits' if signal['hit'] else 'misses'}", 1)
+            supremo = supremo_result(signal)
+            if supremo is not None:
+                won, staked, net = supremo
+                pipeline.hincrby(SUMMARY_KEY, f"tag_{SUPREMO}_signals", 1)
+                pipeline.hincrby(SUMMARY_KEY, f"tag_{SUPREMO}_{'hits' if won else 'misses'}", 1)
+                pipeline.hincrby(SUMMARY_KEY, f"tag_{SUPREMO}_staked", staked)  # R$ 1 per number
+                pipeline.hincrby(SUMMARY_KEY, f"tag_{SUPREMO}_net", net)
             pipeline.lpush(OUTBOX_KEY, encode(signal))
         if closed:
             pipeline.ltrim(HISTORY_KEY, 0, HISTORY_LIMIT - 1)
@@ -60,6 +70,7 @@ class PairsRedisStore:
             pipeline.hincrby(SUMMARY_KEY, f"ranking_{tally}", 1)
         if state.get("updated_at"):
             pipeline.hsetnx(SUMMARY_KEY, "tags_since", state["updated_at"])  # only the first save sets it
+            pipeline.hsetnx(SUMMARY_KEY, f"{SUPREMO}_since", state["updated_at"])  # first save with the Supremo tag
         pipeline.execute()
 
     def heartbeat(self, payload: dict[str, Any]) -> None:

@@ -141,6 +141,29 @@ números da aposta).
   `QUALITY_RULE` e recomeçar a contagem (apagar `tag_*` e `tags_since` do `summary`, ou usar outro nome de
   etiqueta). Não precisa subir `PAIRS_VERSION`.
 
+### Supremo (teste ao vivo fixado em 24/11/2026)
+
+Regra pedida pelo usuário e fixada antes de olhar qualquer sinal novo; **não muda durante o teste** (`SUPREMO_RULE =
+1`; uma regra nova precisa de outro nome de etiqueta).
+
+- **Condição:** some os 7 números do ranking do sinal e reduza a soma a um algarismo (149 → 14 → 5). O sinal é
+  `supremo` ("◆ Supremo") quando o algarismo é 5, 6 ou 7 **e** a aposta tem 9, 10, 11, 14, 19, 20, 21 ou 22 fichas.
+  Pode vir junto com `high_quality` ou `watch_12_15_exact_near` (a lista `tags` guarda todas).
+- **Como joga:** R$ 1 por número; algarismo 5 ou 6 joga a 1ª e, se errar, a 2ª rodada; algarismo 7 joga só a 1ª.
+  Um acerto depois disso é erro do Supremo, mesmo que o sinal feche como acerto.
+- **Base em que foi achada:** os 6.481 sinais fechados de 16 a 24/11/2026. 1.081 Supremos, 642 acertos (59,4%),
+  +R$ 2.865 com R$ 20.247 apostados (+14,2%), banca mínima R$ 127, pior queda R$ 258, uns 124 por dia. A regra
+  (algarismo, tamanhos de aposta e até onde jogar) foi escolhida olhando essa mesma base, então o número tende a
+  vir otimista.
+- **Onde fica:** `supremo` em cada sinal novo (`rule`, `chips`, `rank_sum`, `rank_root`, `play_until`; gravado em
+  todo sinal novo, Supremo ou não, `play_until` nulo quando o algarismo não é 5, 6 ou 7). `entry_context` não muda.
+- **Medição:** o `summary` do Redis conta só Supremos encerrados: `tag_supremo_signals`, `tag_supremo_hits` (acerto
+  dentro das rodadas jogadas), `tag_supremo_misses`, `tag_supremo_staked` e `tag_supremo_net` (R$ com ficha de
+  R$ 1); `supremo_since` guarda quando a contagem começou. A página mostra o acerto e o resultado em R$.
+- **Decisão:** uma vez só, com os 800 primeiros Supremos novos (`acompanhamento_supremo.py`, na raiz do checkout
+  local, só leitura). Acima de +7,1% (metade da base): confirmou; acima de 0% até +7,1%: lucro menor; 0% ou
+  menos: não se repetiu. Antes dos 800 é só acompanhamento.
+
 ## Operação
 
 - **Processo PM2:** `contextual-pairs-worker`, em `infra/pm2/api-minimal.config.js`. Usa as mesmas

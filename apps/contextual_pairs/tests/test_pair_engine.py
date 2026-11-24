@@ -323,7 +323,7 @@ def test_the_view_lists_the_newest_signals_first(scripted):
     newest, oldest = view["open_signals"]
     assert newest["checks"] == [] and [c["number"] for c in oldest["checks"]] == [OUTSIDE[0]]
     assert set(oldest) == {"id", "status", "built_after", "top_numbers", "pair", "kept", "protection", "bet",
-                           "bet_arcs", "tags", "entry_context", "checks", "attempts_limit", "hit", "hit_attempt",
+                           "bet_arcs", "tags", "entry_context", "supremo", "checks", "attempts_limit", "hit", "hit_attempt",
                            "hit_number", "created_at", "closed_at"}
     assert oldest["protection"] == PROTECTION_37
     assert view["attempts_limit"] == 7 and view["screen"]["state"] == "opened"
