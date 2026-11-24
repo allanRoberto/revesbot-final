@@ -69,11 +69,13 @@ module.exports = {
         SESSION_IDLE_TTL_MS: process.env.SESSION_IDLE_TTL_MS || '1800000',
         AUTOMATION_INTERNAL_TOKEN: process.env.AUTOMATION_INTERNAL_TOKEN,
         AUTOMATION_APP_URL: process.env.AUTOMATION_APP_URL || 'http://127.0.0.1:3002',
-        // O Chromium do sistema não inicializa corretamente o player Pragmatic
-        // neste servidor ARM64. O binário do Snap é o mesmo já validado pelos
-        // processos de ingestão de vídeo. Override dedicado via BET_WS_CHROME_BIN.
-        PUPPETEER_EXECUTABLE_PATH: process.env.BET_WS_CHROME_BIN ||
-          '/snap/chromium/current/usr/lib/chromium-browser/chrome',
+        // Chromium do sistema (pacote arm64, o mesmo do house_agent), com WebGL
+        // por software (flags em apps/bet_ws/lib/capture.js). O binário interno
+        // do snap parou de abrir em 15/11/2026: o snap passou para a base core26,
+        // que exige glibc 2.42+, e o servidor tem 2.39. O lançador
+        // /snap/bin/chromium não roda para o usuário revesbot.
+        // Override dedicado via BET_WS_CHROME_BIN.
+        PUPPETEER_EXECUTABLE_PATH: process.env.BET_WS_CHROME_BIN || '/usr/bin/chromium',
         PUPPETEER_HEADLESS: '0',
       },
     },

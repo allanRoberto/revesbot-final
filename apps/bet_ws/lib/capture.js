@@ -81,6 +81,10 @@ async function captureGameWsUrl(gameLink, { waitMs = 45000 } = {}) {
       '--disable-dev-shm-usage',
       '--autoplay-policy=no-user-gesture-required',
       '--use-gl=desktop',
+      // Sem GPU, o Chromium do sistema fica sem WebGL sob o Xvfb; com o
+      // SwiftShader (renderização por software) o WebGL volta.
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
       '--window-size=1280,720',
       '--disable-site-isolation-trials',
       '--disable-features=IsolateOrigins,site-per-process,CalculateNativeWinOcclusion',

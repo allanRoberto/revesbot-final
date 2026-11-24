@@ -10,6 +10,10 @@ import { isActive } from '@/lib/subscription';
 import { createBetSession, getBetSessionState } from '@/lib/betws';
 import { automationOwnerKey } from '@/lib/automation';
 
+// Falha da mesa ou da casa → 503. Não usar 502: o Cloudflare troca a resposta
+// 502 pela página de erro dele, e a mensagem real não chega à tela.
+const UPSTREAM_FAILED = 503;
+
 // Resolve o link jogável (playGame.do) conforme o modo da casa.
 async function resolveGameLink(
   gameId: string,
@@ -28,7 +32,7 @@ async function resolveGameLink(
       const { gameURL } = await getHouseGameLink(house, user.email, password, slug);
       return { ok: true, link: gameURL };
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : 'Falha ao abrir a mesa.', status: 502 };
+      return { ok: false, error: err instanceof Error ? err.message : 'Falha ao abrir a mesa.', status: UPSTREAM_FAILED };
     }
   }
   // Casas http (SorteAgora direto na API, LotoGreen pelo auth_api).
@@ -83,7 +87,7 @@ export async function POST(
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Falha ao conectar na mesa.' },
-      { status: 502 },
+      { status: UPSTREAM_FAILED },
     );
   }
 }
@@ -110,7 +114,7 @@ export async function GET(
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Falha ao consultar a mesa.' },
-      { status: 502 },
+      { status: UPSTREAM_FAILED },
     );
   }
 }

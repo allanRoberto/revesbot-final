@@ -77,9 +77,10 @@ function errorMessage(data: RoyalResponse['data'], fallback: string): string {
   return ERROR_MESSAGES[id] ?? fallback;
 }
 
-// Erro da casa repassado ao navegador: 5xx vira 502 (falha do outro lado).
+// Erro da casa repassado ao navegador: 5xx vira 503 (falha do outro lado).
+// Não usar 502: o Cloudflare troca a resposta 502 pela página de erro dele.
 function upstreamStatus(status: number): number {
-  return status >= 500 ? 502 : status || 502;
+  return status >= 500 ? 503 : status || 503;
 }
 
 export async function royalLogin(
@@ -94,7 +95,7 @@ export async function royalLogin(
       body: { login: email, password },
     });
   } catch {
-    return { ok: false, status: 502, error: `Não foi possível contatar a ${house.name}.` };
+    return { ok: false, status: 503, error: `Não foi possível contatar a ${house.name}.` };
   }
 
   if (!res.ok) {
@@ -112,7 +113,7 @@ export async function royalLogin(
   if (!token) {
     return {
       ok: false,
-      status: 502,
+      status: 503,
       error: `A ${house.name} não devolveu o acesso. Tente novamente.`,
     };
   }
@@ -160,7 +161,7 @@ export async function royalStartGame(
       body: { provider, game },
     });
   } catch {
-    return { ok: false, status: 502, error: `Não foi possível contatar a ${house.name}.` };
+    return { ok: false, status: 503, error: `Não foi possível contatar a ${house.name}.` };
   }
 
   const url = typeof res.data?.url === 'string' ? res.data.url : '';
