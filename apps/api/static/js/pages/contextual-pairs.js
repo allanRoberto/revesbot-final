@@ -203,9 +203,10 @@
     $("supremo-since").textContent = data.since ? ` · contagem desde ${formatTime(data.since, true)}` : "";
     const staked = data.staked || 0;
     const net = data.net || 0;
-    $("supremo-money").textContent = staked
-      ? `${money(net)} (${(net / staked * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, signDisplay: "exceptZero" })}%) com R$ 1 por número · base +14,2%`
-      : "resultado em R$ aparece quando o primeiro sinal encerrar · base +14,2%";
+    $("supremo-money").textContent = staked ? money(net) : "—";
+    $("supremo-money-sub").textContent = staked
+      ? `${(net / staked * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, signDisplay: "exceptZero" })}% de ${money(staked).replace("+", "")} apostados · base +14,2%`
+      : "nenhum encerrado ainda · base +14,2% (+R$ 2.865 em 1.081 sinais)";
   }
 
   function renderWorker(data) {
