@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { DEFAULT_HOUSE } from './houses';
+import { LEGACY_HOUSE, isHouseActive } from './houses';
 
 // Sessão PRÓPRIA do nosso app, desacoplada do token da LotoGreen.
 // O cookie guarda só o e-mail do usuário; o token da casa fica no Mongo.
@@ -42,11 +42,12 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret());
-    // house ausente = sessão antiga (pré-multicasa) → assume a casa padrão.
-    return {
-      email: payload.email as string,
-      house: (payload.house as string) || DEFAULT_HOUSE,
-    };
+    // house ausente = sessão antiga (pré-multicasa), que era da LotoGreen.
+    const house = (payload.house as string) || LEGACY_HOUSE;
+    // Casa desativada: a sessão deixa de valer e o usuário entra de novo
+    // numa casa ativa.
+    if (!isHouseActive(house)) return null;
+    return { email: payload.email as string, house };
   } catch {
     return null;
   }

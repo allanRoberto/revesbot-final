@@ -31,7 +31,7 @@ async function resolveGameLink(
       return { ok: false, error: err instanceof Error ? err.message : 'Falha ao abrir a mesa.', status: 502 };
     }
   }
-  // Casa http (LotoGreen): proxy servidor-a-servidor.
+  // Casas http (SorteAgora direto na API, LotoGreen pelo auth_api).
   const started = await startGame(gameId, user.lotogreenToken, house);
   if (!started.ok || !started.link) {
     return { ok: false, error: started.error ?? 'Não foi possível abrir a mesa.', status: started.status || 500 };

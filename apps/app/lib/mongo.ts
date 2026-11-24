@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection } from 'mongodb';
-import { DEFAULT_HOUSE } from './houses';
+import { LEGACY_HOUSE } from './houses';
 
 const uri = process.env.MONGO_URL;
 const dbName = process.env.MONGO_DB || 'roleta_db';
@@ -54,14 +54,14 @@ export async function getUsers(): Promise<Collection<AppUser>> {
 
 /**
  * Busca o vínculo do usuário para (email + casa).
- * Docs antigos (pré-multicasa) não têm `house` → tratados como a casa padrão.
+ * Docs antigos (pré-multicasa) não têm `house` → eram da LotoGreen (LEGACY_HOUSE).
  */
 export async function findAppUser(
   email: string,
   house: string,
 ): Promise<AppUser | null> {
   const users = await getUsers();
-  if (house === DEFAULT_HOUSE) {
+  if (house === LEGACY_HOUSE) {
     // Prioriza o doc da casa exata (token atual); só cai no doc legado (sem
     // campo house) se não existir um doc específico — senão um doc antigo sem
     // house pode "sombrear" o login fresco e devolver um token expirado.

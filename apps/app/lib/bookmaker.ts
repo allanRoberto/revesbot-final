@@ -1,7 +1,11 @@
-// Camada de comunicação com o Express (auth_api) que valida o login na LotoGreen.
+// Camada de comunicação com as casas de apostas: login, saldo e link do jogo.
+// Casas 'royal' (SorteAgora) falam direto com a API da casa (lib/royal.ts); as
+// demais passam pelo Express (auth_api), que conhece a plataforma da LotoGreen.
 // Tudo aqui roda server-side; o token da casa nunca é exposto ao browser.
 
-import { DEFAULT_HOUSE } from './houses';
+import { findHouse } from './houses';
+import { findRoulette, gameSlug } from './games';
+import { royalLogin, royalStartGame, royalUser } from './royal';
 
 const EXPRESS_URL = process.env.EXPRESS_URL || 'http://localhost:3090';
 
@@ -14,15 +18,18 @@ export interface BookmakerLoginResult {
 }
 
 /**
- * Repassa email/senha para o Express, que valida na LotoGreen.
- * Lemos o token do CORPO da resposta (não do cookie httpOnly do Express,
- * que não chega até aqui numa chamada server-to-server).
+ * Valida email/senha na casa escolhida. No caminho do Express, lemos o token
+ * do CORPO da resposta (não do cookie httpOnly do Express, que não chega até
+ * aqui numa chamada server-to-server).
  */
 export async function loginBookmaker(
   email: string,
   password: string,
-  house: string = DEFAULT_HOUSE,
+  house: string,
 ): Promise<BookmakerLoginResult> {
+  const info = findHouse(house);
+  if (info?.integration === 'royal') return royalLogin(info, email, password);
+
   let res: Response;
   try {
     res = await fetch(`${EXPRESS_URL}/auth/login`, {
@@ -60,15 +67,18 @@ export async function loginBookmaker(
 export interface BookmakerUser {
   name?: string;
   email?: string;
-  /** Saldo em centavos, conforme retornado pela LotoGreen. */
+  /** Saldo em centavos (dinheiro real; bônus fica de fora). */
   balance?: number;
 }
 
-/** Busca os dados do usuário (inclui saldo) via Express /auth/user. */
+/** Busca os dados do usuário (inclui saldo) na casa da sessão. */
 export async function getBookmakerUser(
   bookmakerToken: string,
-  house: string = DEFAULT_HOUSE,
+  house: string,
 ): Promise<BookmakerUser | null> {
+  const info = findHouse(house);
+  if (info?.integration === 'royal') return royalUser(info, bookmakerToken);
+
   try {
     const res = await fetch(`${EXPRESS_URL}/auth/user`, {
       method: 'GET',
@@ -91,15 +101,25 @@ export interface StartGameResult {
 }
 
 /**
- * Inicia um jogo na LotoGreen via Express e devolve o link jogável.
- * O Express lê o token do cookie `bookmaker_token`; como a chamada é
- * server-to-server, injetamos o token (vindo do Mongo) nesse cookie.
+ * Inicia um jogo na casa e devolve o link jogável.
+ * No caminho do Express, ele lê o token do cookie `bookmaker_token`; como a
+ * chamada é server-to-server, injetamos o token (vindo do Mongo) nesse cookie.
  */
 export async function startGame(
   gameId: string,
   bookmakerToken: string,
-  house: string = DEFAULT_HOUSE,
+  house: string,
 ): Promise<StartGameResult> {
+  const info = findHouse(house);
+  if (info?.integration === 'royal') {
+    const game = findRoulette(gameId);
+    const slug = game ? gameSlug(game, info.id) : undefined;
+    if (!slug) {
+      return { ok: false, status: 404, error: `Este jogo não está disponível na ${info.name}.` };
+    }
+    return royalStartGame(info, bookmakerToken, slug);
+  }
+
   let res: Response;
   try {
     res = await fetch(`${EXPRESS_URL}/start-game/${gameId}`, {

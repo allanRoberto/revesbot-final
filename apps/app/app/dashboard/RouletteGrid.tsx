@@ -6,7 +6,7 @@ import {
   type RouletteGame,
   type CasinoGame,
   isGameAvailable,
-  availableHouseNames,
+  unavailableNote,
 } from '@/lib/games';
 
 function RouletteWheel() {
@@ -101,9 +101,7 @@ export default function RouletteGrid({
               </div>
               <div className="game-info">
                 <span className="game-name">{g.name}</span>
-                <span className="game-unavailable">
-                  Disponível apenas em: {availableHouseNames(g).join(', ')}
-                </span>
+                <span className="game-unavailable">{unavailableNote(g)}</span>
               </div>
             </div>
           );

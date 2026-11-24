@@ -43,7 +43,7 @@ export default function BalanceBadge({
   }, []);
 
   return (
-    <div className={`balance${pulse ? ' balance-pulse' : ''}`} title="Saldo na LotoGreen">
+    <div className={`balance${pulse ? ' balance-pulse' : ''}`} title="Saldo na casa de apostas">
       <span className="balance-label">Saldo</span>
       <span className="balance-value">
         {typeof balance === 'number' ? formatBRL(balance) : '—'}

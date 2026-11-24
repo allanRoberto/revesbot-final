@@ -22,7 +22,15 @@ export async function POST(req: Request) {
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
   const autoReconnect = Boolean(body.autoReconnect);
-  const house = findHouse(body.house)?.id ?? DEFAULT_HOUSE;
+  const chosen = findHouse(body.house ?? DEFAULT_HOUSE);
+
+  if (!chosen?.active) {
+    return NextResponse.json(
+      { error: 'Esta casa de apostas não está disponível no momento.' },
+      { status: 400 },
+    );
+  }
+  const house = chosen.id;
 
   if (!email || !password) {
     return NextResponse.json(
@@ -31,7 +39,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // 1) Valida na casa de apostas escolhida (via Express → plataforma).
+  // 1) Valida na casa de apostas escolhida (direto na API da casa ou via
+  // Express, conforme a plataforma — ver lib/bookmaker.ts).
   const result = await loginBookmaker(email, password, house);
   if (!result.ok || !result.token) {
     return NextResponse.json(

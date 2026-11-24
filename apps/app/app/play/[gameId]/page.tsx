@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation';
 import { getSession } from '@/lib/session';
 import { findAppUser } from '@/lib/mongo';
 import { getBookmakerUser } from '@/lib/bookmaker';
-import { findRoulette, isGameAvailable, availableHouseNames } from '@/lib/games';
+import { findRoulette, isGameAvailable, unavailableNote } from '@/lib/games';
 import SuggestionStrip from '@/components/SuggestionStrip';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import PlayStage from '@/components/PlayStage';
@@ -39,7 +39,7 @@ export default async function PlayPage({
         </header>
         <div className="play-error">
           <h2>Mesa indisponível nesta casa</h2>
-          <p>Disponível apenas em: {availableHouseNames(game).join(', ')}.</p>
+          <p>{unavailableNote(game)}.</p>
           <Link className="logout-sm" href="/dashboard">
             Voltar para as roletas
           </Link>

@@ -1,14 +1,16 @@
 // Lista curada das roletas disponíveis no app.
-// gameId = id usado pela LotoGreen na rota /start-game/:gameId.
+// gameId = id da mesa no app (/play/:gameId). É o id numérico da LotoGreen,
+// que as casas 'auth-api' usam direto na rota /start-game/:gameId.
 
-import { HOUSES, houseMode } from './houses';
+import { HOUSES, findHouse } from './houses';
 
 export interface RouletteGame {
   gameId: string;
   name: string;
   rouletteId: string;
-  // Slug do jogo por casa do modo navegador (ex.: esportiva). Casas 'http'
-  // (LotoGreen) usam o gameId numérico e não precisam de slug.
+  // Como cada casa identifica a mesa quando não é pelo gameId numérico:
+  // - 'house-agent' (Esportiva, Bateu): slug do start-game-v2;
+  // - 'royal' (SorteAgora): '<provedor>/<jogo>' do /game/get-game.
   slugs?: Record<string, string>;
 }
 
@@ -18,6 +20,7 @@ export const ROULETTES: RouletteGame[] = [
     name: 'Brazilian Roulette',
     rouletteId: 'pragmatic-brazilian-roulette',
     slugs: {
+      sorteagora: 'pragmatic-live/brazilian-roulette',
       esportiva: 'pragmaticplay/roleta-brasileira',
       bateu: 'pragmaticplay/roleta-brasileira',
     },
@@ -30,21 +33,27 @@ export function findRoulette(gameId: string): RouletteGame | undefined {
   return ROULETTES.find((g) => g.gameId === gameId);
 }
 
-/** Slug do jogo para uma casa do modo navegador (ou undefined se não mapeado). */
+/** Identificador da mesa numa casa que não usa o gameId numérico (ou undefined). */
 export function gameSlug(game: RouletteGame, house: string): string | undefined {
   return game.slugs?.[house];
 }
 
-// Uma mesa está disponível numa casa se: casa 'http' (LotoGreen tem todas) OU
-// casa 'browser' com slug mapeado para aquela mesa.
+// Uma mesa está disponível numa casa se: casa 'auth-api' (a LotoGreen abre
+// qualquer mesa pelo gameId) OU casa com slug mapeado para aquela mesa.
 export function isGameAvailable(game: RouletteGame, house: string): boolean {
-  if (houseMode(house) === 'http') return true;
+  if (findHouse(house)?.integration === 'auth-api') return true;
   return !!gameSlug(game, house);
 }
 
-/** Nomes das casas que oferecem esta mesa (para o badge de indisponível). */
+/** Casas ATIVAS que oferecem esta mesa (para o badge de indisponível). */
 export function availableHouseNames(game: RouletteGame): string[] {
-  return HOUSES.filter((h) => isGameAvailable(game, h.id)).map((h) => h.name);
+  return HOUSES.filter((h) => h.active && isGameAvailable(game, h.id)).map((h) => h.name);
+}
+
+/** Texto para mesa indisponível na casa do usuário. */
+export function unavailableNote(game: RouletteGame): string {
+  const names = availableHouseNames(game);
+  return names.length > 0 ? `Disponível apenas em: ${names.join(', ')}` : 'Indisponível no momento';
 }
 
 // ===== Jogos de cassino (não-roleta) — abrem em NOVA ABA na conta do usuário,

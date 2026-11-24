@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { HOUSES, DEFAULT_HOUSE, houseName } from '@/lib/houses';
+import { activeHouses, DEFAULT_HOUSE, houseName } from '@/lib/houses';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -51,7 +51,7 @@ export default function LoginPage() {
           <div className="field">
             <label>Casa de apostas</label>
             <div className="house-picker" role="radiogroup" aria-label="Casa de apostas">
-              {HOUSES.map((h) => (
+              {activeHouses().map((h) => (
                 <button
                   key={h.id}
                   type="button"
