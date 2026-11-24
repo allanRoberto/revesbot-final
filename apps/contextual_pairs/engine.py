@@ -13,8 +13,8 @@ the bet closes it (recording the round), 7 misses close it as lost. Closing rele
 the ranking built right after the closing result may open the same pair again.
 
 Every signal is also tagged when it opens (``quality.py``): the size of its bet and how long ago a
-number of the bet came out before it. The tags only mark signals to be monitored; they change nothing
-about the bet or when the signal opens or closes.
+number of the bet came out before it, and the sum of the 7 numbers of the ranking (Supremo). The tags only
+mark signals to be monitored; they change nothing about the bet or when the signal opens or closes.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from contextual_ranking import engine as ranking_engine
 from contextual_ranking.engine import ROULETTE_ID, SearchFunction, iso
 
 from contextual_pairs import PAIRS_VERSION, STRATEGY, STRATEGY_TAG
-from contextual_pairs.quality import entry_context, quality_tags
+from contextual_pairs.quality import entry_context, quality_tags, supremo_context, supremo_tags
 from contextual_pairs.rules import pair_bet
 
 ATTEMPTS_LIMIT = 7
@@ -66,6 +66,7 @@ def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str
     if not trigger or info["kind"] != "ok":
         return None
     context = entry_context(info["bet"], _numbers_up_to(trigger, spins))
+    supremo = supremo_context(info["bet"], top)
     return {
         "_id": f"{STRATEGY_TAG}-{trigger['history_id']}",
         "roulette_id": ROULETTE_ID,
@@ -87,7 +88,8 @@ def open_pair_signal(ranking: dict[str, Any], top: Sequence[int], info: dict[str
         "sources": ranking.get("sources", []),
         "analysis": list(analysis or []),
         "entry_context": context,
-        "tags": quality_tags(context),
+        "supremo": supremo,  # sum of the ranking and its digit (the Supremo tag, see quality.py)
+        "tags": quality_tags(context) + supremo_tags(supremo),
         "checks": [],
         "hit": None,
         "hit_attempt": None,
@@ -205,6 +207,7 @@ def compact_signal(signal: dict[str, Any]) -> dict[str, Any]:
         "bet_arcs": signal["bet_arcs"],
         "tags": signal.get("tags") or [],  # signals opened before the quality tags have none
         "entry_context": signal.get("entry_context"),
+        "supremo": signal.get("supremo"),  # signals opened before the Supremo tag have none
         "checks": [{"number": check["result"]["number"], "timestamp": check["result"]["timestamp"],
                     "hit": check["hit"]} for check in signal["checks"]],
         "attempts_limit": signal.get("attempts_limit", ATTEMPTS_LIMIT),

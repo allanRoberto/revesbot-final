@@ -25,7 +25,10 @@ EMPTY_SCREEN = {"state": "waiting", "bases": [], "pair": None, "kept": [], "prot
 RANKING_STATES = ("opened", "active", "ignored", "no_pair", "too_many", "no_intersection")
 # Quality tags of the signals, counted in the summary hash (must match apps/contextual_pairs/quality.py, checked by
 # the route tests): ``tag_<tag>_signals`` and ``tag_<tag>_hits`` count the closed signals that carried the tag.
-TAGS = ("high_quality", "watch_12_15_exact_near")
+TAGS = ("high_quality", "watch_12_15_exact_near", "supremo")
+# The Supremo tag (live test fixed on 24/11/2026) also adds up its R$ result: R$ 1 per number, played only up to the
+# result the rule allows (``tag_supremo_staked`` and ``tag_supremo_net``, counted from ``supremo_since``).
+SUPREMO = "supremo"
 
 
 def _decode(raw: Any) -> Any:
@@ -109,5 +112,7 @@ async def get_contextual_pairs(redis_client, *, limit: int = 50, now: datetime |
             "tags": {"since": _text(summary, "tags_since"),
                      **{tag: {"hits": _int(summary, f"tag_{tag}_hits"), "total": _int(summary, f"tag_{tag}_signals")}
                         for tag in TAGS}},
+            "supremo": {"since": _text(summary, f"{SUPREMO}_since"), "staked": _int(summary, f"tag_{SUPREMO}_staked"),
+                        "net": _int(summary, f"tag_{SUPREMO}_net")},
         },
     }

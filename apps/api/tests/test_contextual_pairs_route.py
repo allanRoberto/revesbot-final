@@ -85,7 +85,9 @@ class FakeRedis:
             "ranking_no_intersection": "10", "tags_since": "2026-11-17T15:00:00+00:00",
             "tag_high_quality_signals": "12", "tag_high_quality_hits": "11", "tag_high_quality_misses": "1",
             "tag_watch_12_15_exact_near_signals": "31", "tag_watch_12_15_exact_near_hits": "30",
-            "tag_watch_12_15_exact_near_misses": "1",
+            "tag_watch_12_15_exact_near_misses": "1", "supremo_since": "2026-11-24T21:00:00+00:00",
+            "tag_supremo_signals": "9", "tag_supremo_hits": "6", "tag_supremo_misses": "3", "tag_supremo_staked": "230",
+            "tag_supremo_net": "-14",
         }}
 
     def pipeline(self, *, transaction):
@@ -140,7 +142,8 @@ def test_data_lists_open_signals_first_and_counts_only_closed_ones():
         "rankings": {"total": 400, "opened": 120, "active": 80, "ignored": 7, "no_pair": 90, "too_many": 100,
                      "no_intersection": 10},
         "tags": {"since": "2026-11-17T15:00:00+00:00", "high_quality": {"hits": 11, "total": 12},
-                 "watch_12_15_exact_near": {"hits": 30, "total": 31}},
+                 "watch_12_15_exact_near": {"hits": 30, "total": 31}, "supremo": {"hits": 6, "total": 9}},
+        "supremo": {"since": "2026-11-24T21:00:00+00:00", "staked": 230, "net": -14},
     }
 
 
@@ -191,7 +194,9 @@ def test_empty_redis_still_answers_with_a_waiting_screen():
     assert data["summary"]["all_time"] == {"hits": 0, "total": 0}
     assert data["summary"]["rankings"]["total"] == 0
     assert data["summary"]["tags"] == {"since": None, "high_quality": {"hits": 0, "total": 0},
-                                       "watch_12_15_exact_near": {"hits": 0, "total": 0}}
+                                       "watch_12_15_exact_near": {"hits": 0, "total": 0},
+                                       "supremo": {"hits": 0, "total": 0}}
+    assert data["summary"]["supremo"] == {"since": None, "staked": 0, "net": 0}
 
 
 def test_redis_failure_returns_service_unavailable():

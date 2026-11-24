@@ -58,7 +58,8 @@ def test_first_cycle_publishes_the_view_and_opens_a_signal(scripted):
     assert (page["screen"]["state"], page["screen"]["pair"], page["screen"]["bet"]) == ("opened", [3, 7], BET_37)
     [signal] = page["open_signals"]
     assert (signal["status"], signal["pair"], signal["bet"], signal["checks"]) == ("open", [3, 7], BET_37, [])
-    assert redis.hashes[SUMMARY_KEY] == {"rankings": 1, "ranking_opened": 1, "tags_since": iso(START)}
+    assert redis.hashes[SUMMARY_KEY] == {"rankings": 1, "ranking_opened": 1, "tags_since": iso(START),
+                                         "supremo_since": iso(START)}
     heartbeat = decode(redis.values[HEARTBEAT_KEY])
     assert heartbeat["status"] == "running"
     assert heartbeat["mongo"] == {"configured": True, "pending": 0, "last_error": None, "last_write_at": None}
@@ -77,7 +78,7 @@ def test_closed_signals_go_to_redis_and_to_mongodb_with_their_pair(scripted):
     # The trigger (6) is in this bet of 15 numbers: a medium bet with the exact near, so the watch tag counts it.
     assert redis.hashes[SUMMARY_KEY] == {
         "rankings": 2, "ranking_opened": 1, "ranking_no_pair": 1, "signals": 1, "hits": 1, "tags_since": iso(START),
-        "tag_watch_12_15_exact_near_signals": 1, "tag_watch_12_15_exact_near_hits": 1,
+        "supremo_since": iso(START), "tag_watch_12_15_exact_near_signals": 1, "tag_watch_12_15_exact_near_hits": 1,
     }
     assert redis.lists[OUTBOX_KEY] == []
     [document] = writer.documents.values()
@@ -145,7 +146,7 @@ def test_untagged_signals_leave_the_tag_counters_alone(scripted):
     [entry] = closed_entries(redis)
     assert entry["status"] == "hit" and entry["tags"] == [] and entry["entry_context"]["chips"] == 22
     assert redis.hashes[SUMMARY_KEY] == {"rankings": 2, "ranking_opened": 1, "ranking_no_pair": 1, "signals": 1,
-                                         "hits": 1, "tags_since": iso(START)}
+                                         "hits": 1, "tags_since": iso(START), "supremo_since": iso(START)}
     [document] = writer.documents.values()
     assert document["tags"] == [] and document["entry_context"]["chips"] == 22
 
@@ -307,6 +308,7 @@ def test_real_ranking_engine_keeps_the_pair_rules_on_every_result():
     # The tags and the entry context, recomputed from the results the worker was fed (the 10 latest up to the trigger).
     positions = {item["history_id"]: index for index, item in enumerate(history.spins)}
     tagged = {"high_quality": [0, 0], "watch_12_15_exact_near": [0, 0]}
+    supremo = {"signals": 0, "hits": 0, "staked": 0, "net": 0}
     for document in writer.documents.values():
         end = positions[document["built_after"]["history_id"]] + 1
         latest = [item["number"] for item in history.spins[end - 10:end]]
@@ -317,7 +319,24 @@ def test_real_ranking_engine_keeps_the_pair_rules_on_every_result():
         expected = [tag for tag, condition in (("high_quality", 8 <= chips <= 11 and not near),
                                                ("watch_12_15_exact_near", 12 <= chips <= 15 and near)) if condition]
         assert document["entry_context"] == {"rule": 1, "chips": chips, "last_exact_distance": distance}
-        assert document["tags"] == expected
+        # Supremo, recomputed from the ranking: the digit of the sum of its 7 numbers and the size of the bet.
+        total = sum(document["top_numbers"])
+        root = total
+        while root >= 10:
+            root = sum(int(digit) for digit in str(root))
+        play_until = {5: 2, 6: 2, 7: 1}.get(root)
+        assert document["supremo"] == {"rule": 1, "chips": chips, "rank_sum": total, "rank_root": root,
+                                       "play_until": play_until}
+        is_supremo = play_until is not None and chips in (9, 10, 11, 14, 19, 20, 21, 22)
+        assert document["tags"] == expected + (["supremo"] if is_supremo else [])
+        if is_supremo:
+            attempt = document["hit_attempt"] if document["hit"] else None
+            won = attempt is not None and attempt <= play_until
+            played = attempt if won else play_until
+            supremo["signals"] += 1
+            supremo["hits"] += won
+            supremo["staked"] += chips * played
+            supremo["net"] += (36 if won else 0) - chips * played
         for tag in expected:
             tagged[tag][0] += 1
             tagged[tag][1] += bool(document["hit"])
@@ -325,7 +344,10 @@ def test_real_ranking_engine_keeps_the_pair_rules_on_every_result():
     assert all(signals for signals, _ in tagged.values()), "the random run should meet both tags"
     for tag, (signals, hits) in tagged.items():
         assert (summary.get(f"tag_{tag}_signals", 0), summary.get(f"tag_{tag}_hits", 0)) == (signals, hits)
-    assert summary["tags_since"] == iso(START)
+    assert supremo["signals"], "the random run should meet the Supremo tag"
+    assert {name: summary.get(f"tag_supremo_{name}", 0) for name in supremo} == supremo
+    assert summary.get("tag_supremo_misses", 0) == supremo["signals"] - supremo["hits"]
+    assert summary["tags_since"] == summary["supremo_since"] == iso(START)
     assert summary["rankings"] == 81 and summary["signals"] == len(closed)
     assert summary["ranking_opened"] + summary.get("ranking_active", 0) + summary.get("ranking_no_pair", 0) \
         + summary.get("ranking_too_many", 0) + summary.get("ranking_no_intersection", 0) == 81
